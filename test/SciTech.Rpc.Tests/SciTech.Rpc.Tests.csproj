@@ -1,0 +1,72 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Condition="'$(EnableMultiTargeting)'=='true'">
+    <TargetFrameworks>net461;netcoreapp2.0;netcoreapp2.1</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(EnableMultiTargeting)'!='true'">
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CodeAnalysisRuleSet>SciTech.Rpc.Tests.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="SimpleService.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Certs\TestCertificates.Client.cs" Link="TestCertificates.Client.cs" />
+    <Compile Include="..\..\Certs\TestCertificates.Server.cs" Link="TestCertificates.Server.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\Certs\ca.crt" Link="ca.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Certs\ca.key" Link="ca.key">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Certs\client.crt" Link="client.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Certs\client.key" Link="client.key">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Certs\server.crt" Link="server.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Certs\server.key" Link="server.key">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Certs\server.pfx" Link="server.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.7.0" />
+    <PackageReference Include="Grpc.Core.Testing" Version="1.20.1" />
+    <PackageReference Include="Grpc.Tools" Version="1.20.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Moq" Version="4.10.1" />
+    <PackageReference Include="nunit" Version="3.12.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.13.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.1.0" />
+    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.22" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc.Pipelines\SciTech.Rpc.Pipelines.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProtoBuf Include="SimpleService.proto" />
+  </ItemGroup>
+
+</Project>

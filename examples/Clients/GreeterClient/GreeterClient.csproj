@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DocumentationFile></DocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Certs\TestCertificates.Client.cs" Link="TestCertificates.Client.cs" />
+    <Compile Include="..\..\Common\IGreeterService.cs" Link="IGreeterService.cs" />
+  </ItemGroup>
+
+  <!--Client common files-->
+  <ItemGroup>
+    <Compile Include="..\Common\**\*.cs" LinkBase="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\Certs\ca.crt" Link="ca.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Certs\client.crt" Link="client.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Certs\client.key" Link="client.key">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
+    <ProjectReference Include="..\..\..\src\SciTech.Rpc.Pipelines\SciTech.Rpc.Pipelines.csproj" />
+  </ItemGroup>
+
+</Project>

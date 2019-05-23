@@ -1,0 +1,4 @@
+[submodule "lib/grpc-dotnet"]
+	path = lib/grpc-dotnet
+	url = https://github.com/SciTechSoftware/grpc-dotnet.git
+	branch = scitech-rpc

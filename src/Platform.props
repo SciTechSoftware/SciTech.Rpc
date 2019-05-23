@@ -1,0 +1,56 @@
+﻿<Project >
+
+  <PropertyGroup>
+    <!-- this is how we will configure the builds relatively cleanly -->
+
+    <!--<FeatureXXX>true</FeatureXXX>-->
+    <PlatformMemoryStreamBuffer>true</PlatformMemoryStreamBuffer>
+    <PlatformSpans>true</PlatformSpans>
+    <HasPlatformSpans>false</HasPlatformSpans>
+    <HasAsyncEnum>false</HasAsyncEnum>
+    <HasReflectionEmit>false</HasReflectionEmit>
+    <HasTaskExtensions>false</HasTaskExtensions>
+    <PlatformSpanOverloads>false</PlatformSpanOverloads>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.0'">
+    <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <HasPlatformSpans>true</HasPlatformSpans>
+    <HasAsyncEnum>true</HasAsyncEnum>
+    <HasTaskExtensions>true</HasTaskExtensions>
+    <HasReflectionEmit>true</HasReflectionEmit>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
+    <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <HasPlatformSpans>true</HasPlatformSpans>
+    <PlatformSpanOverloads>true</PlatformSpanOverloads>
+    <HasAsyncEnum>true</HasAsyncEnum>
+    <HasTaskExtensions>true</HasTaskExtensions>
+    <HasReflectionEmit>true</HasReflectionEmit>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
+    <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <HasPlatformSpans>true</HasPlatformSpans>
+    <PlatformSpanOverloads>true</PlatformSpanOverloads>
+    <HasAsyncEnum>true</HasAsyncEnum>
+    <HasTaskExtensions>true</HasTaskExtensions>
+    <HasReflectionEmit>true</HasReflectionEmit>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(PlatformSpans)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_SPANS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PlatformSpans)' == 'true' and '$(PlatformSpanOverloads)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_SPAN_OVERLOADS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasAsyncEnum)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_ASYNC_ENUM</DefineConstants>
+  </PropertyGroup>
+
+</Project>

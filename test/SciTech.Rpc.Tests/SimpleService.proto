@@ -1,0 +1,25 @@
+﻿syntax = "proto3";
+
+
+package SciTech.Rpc.Tests;
+
+message StreamRequest
+{
+    int32 StartValue=1;
+    int32 ClientId=2;
+}
+
+message StreamResponse
+{
+    int32 Value=1;
+}
+
+message SciTech_Rpc_SimpleServiceRequest {
+    int32 StartValue=1;
+    int32 ClientId=2;
+}
+
+service SimpleCoreService
+{
+    rpc ServerStreamTest(StreamRequest) returns(stream StreamResponse);
+}

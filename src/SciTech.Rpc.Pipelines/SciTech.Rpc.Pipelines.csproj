@@ -1,0 +1,72 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Condition="'$(EnableMultiTargeting)'=='true'">
+    <TargetFrameworks>netstandard2.0;net461;netcoreapp2.1</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(EnableMultiTargeting)'!='true'">
+    <TargetFramework>netcoreapp2.1</TargetFramework>
+  </PropertyGroup>
+
+  <Import Project="..\Package.props" />
+  <Import Project="..\Platform.props" />
+
+  <PropertyGroup>
+    <Copyright>Copyright 2019. SciTech Software AB</Copyright>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+    <NullableContextOptions>enable</NullableContextOptions>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>1573;1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.22" />
+    <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
+
+    <PackageReference Include="System.Memory" Version="4.5.3" />
+    <PackageReference Include="System.Buffers" Version="4.5.0" />
+    <PackageReference Include="System.IO.Pipelines" Version="4.5.3" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.2" />
+    <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
+
+  </ItemGroup>
+
+
+  <ItemGroup Condition="'$(HasPlatformSpans)' != 'true' and '$(PlatformSpans)' == 'true'">
+    <!--<PackageReference Include="System.Memory" Version="4.5.1" />
+    <PackageReference Include="System.Buffers" Version="4.5.0" />-->
+  </ItemGroup>
+
+  <!--<ItemGroup Condition=" '$(HasReflectionEmit)' != 'true'">
+  </ItemGroup>-->
+
+
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="@(Protobuf)" />
+  </ItemGroup>
+
+  <!--Client/Server common files-->
+  <ItemGroup>
+    <Compile Include="..\..\Common\**\*.cs" LinkBase="Common" />
+  </ItemGroup>
+
+  <!--Server common files-->
+  <ItemGroup>
+    <Compile Include="..\Common\**\*.cs" LinkBase="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Certs\TestCertificates.Server.cs" Link="TestCertificates.Server.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\Certs\server.pfx" Link="server.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\SciTech.Rpc.NetGrpc\SciTech.Rpc.NetGrpc.csproj" />
+  </ItemGroup>
+
+</Project>

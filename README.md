@@ -13,6 +13,19 @@ Currently there are three comnunication layer implementations for the RPC commun
 
   The pipelines implementation provides RPC communication over a range of different protocols: TCP (with SSL), named pipes, and even direct in-process communication.
 
+## Runtime installation
+
+SciTech.Rpc is available as the following NuGet packages:
+
+* [SciTech.Rpc](https://www.nuget.org/packages/SciTech.Rpc/): This is the core SciTech.Rpc package, used by the other packages. Should normally not be added separately.
+* [SciTech.Rpc.Grpc](https://www.nuget.org/packages/SciTech.Rpc.Grpc/): Includes the gRPC implementation for the  [native/.NET implementation of gRPC](https://github.com/grpc/grpc) implementation of gRPC.
+* [SciTech.Rpc.Pipelines](https://www.nuget.org/packages/SciTech.Rpc.Pipelines/): Includes the Pipelines implementation of SciTech.Rpc.
+* ~~SciTech.Rpc.NetGrpc: Includes the gRPC implementation for the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet) implementation of gRPC.~~
+  
+  **NOTE!** _The SciTech.Rpc.NetGrpc package has not yet been published, since it currently uses a fork of the grpc-net project._
+
+A copy of the examples provided in this repository is available at [SciTech.Rpc.Examples](https://github.com/SciTechSoftware/SciTech.Rpc.Examples). The examples repository uses the NuGet packages instead of project references.
+
 ## Defining RPC interfaces
 
 An interface is marked as an RPC interface by applying the `[RpcService]` attribute, e.g.:
@@ -197,6 +210,7 @@ The SynchronizationContext can be specified when retrieving the service proxy us
 ```csharp
 var clientService = connection.GetServiceInstance(objectRef, this.synchronizationContext);
 ```
+The [MailerClient example](examples/Clients/MailerClient/Program.cs) shows how an event handler can be added to a service interface.
 
 ## Exception and Error Handling
 
@@ -242,11 +256,11 @@ By default gRPC serialization is based on the [Protobuf (Protocol buffer)](https
 
 ## Building SciTech.Rpc
 
-To build the SciTech.Rpc solution, you need to use Visual Studio 2019 v16.1 and have .NET Core 3.0 Preview 5 installed. 
+To build the SciTech.Rpc solution, you need to use Visual Studio 2019 v16.1 and have [.NET Core 3.0 Preview 5](https://dotnet.microsoft.com/download/dotnet-core/3.0) installed. 
 
 **NOTE!** _After upgrading to Visual Studio 2019 v16.1, the Roslyn process started to crash when editing files and we had to remove multi-targeting from the projects. This will hopefully be solved soon, maybe in .NET Core 3.0 Preview 6._
 
-To build the solution for all available targets (currently .NET Framework 4.6.1+, .NET Standard 2.0, and .NET Core 2.0), the property `EnableMultiTargeting` should be set to "true". The ASP.NET Core gRPC implementation is only available for .NET Core 3.0.
+To build the solution for all available targets (currently .NET Framework 4.6.1+, .NET Standard 2.0+, and .NET Core 2.1+), the property `EnableMultiTargeting` should be set to "true". The ASP.NET Core gRPC implementation is only available for .NET Core 3.0.
 
 To build the solution using the command line, use the following command:
 
@@ -255,6 +269,14 @@ To build the solution using the command line, use the following command:
 To run the unit tests, use the following command:
 
 `dotnet test -p:EnableMultiTargeting=true --configuration Release`
+
+## Performance
+
+SciTech.Rpc is designed with performance as a primary goal. The gRPC implementation should not add any noticable overhead to the underlying gRPC framework, except for an initial delay when generating dynamic code. It will also be possible to avoid the dynamic code generation in future releases by using the `RpcCodeGen` tool, which will pre-generate the necessary assemblies. This is particularly useful in AOT compilation scenarios.
+
+The Pipelines implementation is designed to be as fast as possible, with as little data transfer and memory allocations as possible. _(There are still areas to improve related to this is the current release.)_
+
+Benchmark tests and [memory usage tests](https://memprofiler.com/api-examples) will be added, so that performance and memory usage can be better evaluated.
 
 ## Feedback and contributions
 

@@ -13,6 +13,11 @@
 
   <PropertyGroup>
     <Copyright>Copyright 2019. SciTech Software AB</Copyright>
+    <Description>
+      SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+      From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.&#13;
+      This package contains the communication layer for the Pipelines implementation of SciTech.Rpc.
+    </Description>
   </PropertyGroup>
 
   <PropertyGroup>

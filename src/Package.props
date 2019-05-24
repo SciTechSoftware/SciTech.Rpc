@@ -5,7 +5,7 @@
     <Copyright>Copyright 2019. SciTech Software AB and TA Instruments, Inc.</Copyright>
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
-    <Version>0.5.2-alpha1</Version>
+    <Version>0.5.2-alpha2</Version>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageTags>rpc grpc http/2 communication</PackageTags>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.</Description>

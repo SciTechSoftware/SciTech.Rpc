@@ -261,7 +261,9 @@ namespace SciTech.Rpc.Pipelines.Internal
             }
             else
             {   // copy 2 bytes into a local span
-                Span<byte> local = stackalloc byte[2];
+                // Temporarily changed to new due to https://github.com/dotnet/roslyn/issues/35764
+                Span<byte> local = new byte[2];
+                // Span<byte> local = stackalloc byte[2];
 
                 input.Slice(0, 2).CopyTo(local);
                 value = BinaryPrimitives.ReadInt16LittleEndian(local);
@@ -280,7 +282,9 @@ namespace SciTech.Rpc.Pipelines.Internal
             }
             else
             {   // copy 4 bytes into a local span
-                Span<byte> local = stackalloc byte[4];
+                // Temporarily changed to new due to https://github.com/dotnet/roslyn/issues/35764
+                Span<byte> local = new byte[4];
+                // Span<byte> local = stackalloc byte[4];
 
                 input.Slice(0, 4).CopyTo(local);
                 value = BinaryPrimitives.ReadInt32LittleEndian(local);
@@ -299,7 +303,9 @@ namespace SciTech.Rpc.Pipelines.Internal
             }
             else
             {
-                Span<byte> local = stackalloc byte[8];
+                // Temporarily changed to new due to https://github.com/dotnet/roslyn/issues/35764
+                Span<byte> local = new byte[4];
+                // Span<byte> local = stackalloc byte[8];
 
                 input.Slice(0, 8).CopyTo(local);
                 value = BinaryPrimitives.ReadInt32LittleEndian(local);
@@ -333,7 +339,9 @@ namespace SciTech.Rpc.Pipelines.Internal
 #if PLAT_SPAN_OVERLOADS
             else if (length <= 256)
             {
-                Span<byte> local = stackalloc byte[(int)length];
+                // Temporarily changed to new due to https://github.com/dotnet/roslyn/issues/35764
+                Span<byte> local = new byte[(int)length];
+                //Span<byte> local = stackalloc byte[(int)length];
                 input.Slice(0, length).CopyTo(local);
                 value = Encoding.UTF8.GetString(local);
             }
@@ -389,7 +397,10 @@ namespace SciTech.Rpc.Pipelines.Internal
             {
                 // copy up to 5 bytes into a local span
                 int nBytes = (int)Math.Min(5, input.Length);
-                Span<byte> copiedData = stackalloc byte[nBytes];
+
+                // Temporarily changed to new due to https://github.com/dotnet/roslyn/issues/35764
+                Span<byte> copiedData = new byte[nBytes];
+                //Span<byte> copiedData = stackalloc byte[nBytes];
                 input.Slice(0, nBytes).CopyTo(copiedData);
 
                 length = ReadUInt32Varint(copiedData, out value);

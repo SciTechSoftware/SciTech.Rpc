@@ -116,6 +116,8 @@ namespace SciTech.Rpc
     {
         public static RuntimeTypeModel AddRpcTypes(this RuntimeTypeModel typeModel)
         {
+            if (typeModel is null) throw new ArgumentNullException(nameof(typeModel));
+
             var mt = typeModel.Add(typeof(RpcServerConnectionInfo), true);
             //mt.AddSubType(10, typeof(TcpRpcServerConnectionInfo));
             mt.UseConstructor = false;

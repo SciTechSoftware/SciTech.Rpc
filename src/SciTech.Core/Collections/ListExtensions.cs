@@ -71,7 +71,9 @@ namespace SciTech.Collections
 
         public static int IndexOf<T>( this IReadOnlyList<T> list, T item)
         {
-            if( list is List<T> concreteList )
+            if (list is null) throw new ArgumentNullException(nameof(list));
+
+            if ( list is List<T> concreteList )
             {
                 return concreteList.IndexOf(item);
             }
@@ -97,6 +99,8 @@ namespace SciTech.Collections
 
         public static int IndexOf<T>(this IList<T> list, T item)
         {
+            if (list is null) throw new ArgumentNullException(nameof(list));
+
             if (list is List<T> concreteList)
             {
                 return concreteList.IndexOf(item);
@@ -137,6 +141,8 @@ namespace SciTech.Collections
 
         public static int FindIndex<T>(this IReadOnlyList<T> list, Predicate<T> predicate )
         {
+            if (list is null) throw new ArgumentNullException(nameof(list));
+
             if (list is List<T> concreteList)
             {
                 return concreteList.FindIndex(predicate);
@@ -162,6 +168,8 @@ namespace SciTech.Collections
 
         public static int FindIndex<T>(this IList<T> list, Predicate<T> predicate)
         {
+            if (list is null) throw new ArgumentNullException(nameof(list));
+
             if (list is List<T> concreteList)
             {
                 return concreteList.FindIndex(predicate);

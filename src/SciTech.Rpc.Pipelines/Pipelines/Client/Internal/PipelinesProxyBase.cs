@@ -43,6 +43,7 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
         public new PipelinesServerConnection Connection => (PipelinesServerConnection)base.Connection;
     }
 
+#pragma warning disable CA1062 // Validate arguments of public methods
     public class PipelinesProxyBase : RpcProxyBase<PipelinesMethodDef>
     {
         private RpcPipelineClient? client;
@@ -115,7 +116,7 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
 
         protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(PipelinesMethodDef methodDef, TRequest request)
         {
-            return CallUnaryMethodImplAsync<TRequest, TResponse>(methodDef, request, CancellationToken.None).AwaitedResult();
+            return CallUnaryMethodImplAsync<TRequest, TResponse>(methodDef, request, CancellationToken.None).AwaiterResult();
 
         }
 
@@ -161,22 +162,26 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
 
         protected override void HandleCallException(Exception e)
         {
-            if (e is SocketException socketException)
+            if (!(e is RpcFailureException))
             {
-                switch (socketException.SocketErrorCode)
+                if (e is SocketException socketException)
                 {
-                    case SocketError.ConnectionAborted:
-                    case SocketError.ConnectionRefused:
-                    case SocketError.ConnectionReset:
-                    case SocketError.HostDown:
-                    case SocketError.HostNotFound:
-                    case SocketError.HostUnreachable:
-                        throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable);
-                    default:
-                        throw new RpcCommunicationException(RpcCommunicationStatus.Unknown);
+                    switch (socketException.SocketErrorCode)
+                    {
+                        case SocketError.ConnectionAborted:
+                        case SocketError.ConnectionRefused:
+                        case SocketError.ConnectionReset:
+                        case SocketError.HostDown:
+                        case SocketError.HostNotFound:
+                        case SocketError.HostUnreachable:
+                            throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable);
+                        default:
+                            throw new RpcCommunicationException(RpcCommunicationStatus.Unknown);
+                    }
                 }
+
+                throw new RpcFailureException("Unexepected exception when calling RPC method", e);
             }
-            throw new RpcFailureException();
         }
 
         protected override bool IsCommunicationException(Exception exception)
@@ -267,4 +272,5 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
             }
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 }

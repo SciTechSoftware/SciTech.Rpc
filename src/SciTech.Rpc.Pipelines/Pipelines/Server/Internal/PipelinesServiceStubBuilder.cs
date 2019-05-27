@@ -9,9 +9,9 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -53,12 +53,12 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
         : RpcServiceStubBuilder<TService, IPipelinesMethodBinder>, IPipelinesServiceStubBuilder
         where TService : class
     {
-        public PipelinesServiceStubBuilder(IRpcSerializer serializer) :
-            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), serializer)
+        public PipelinesServiceStubBuilder(RpcServiceOptions<TService>? options) :
+            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options)
         {
         }
 
-        public PipelinesServiceStubBuilder(RpcServiceInfo serviceInfo, IRpcSerializer serializer) : base(serviceInfo, serializer)
+        public PipelinesServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options) : base(serviceInfo, options)
         {
 
         }
@@ -79,7 +79,7 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
         {
             var beginEventProducerName = $"{eventInfo.FullServiceName}.Begin{eventInfo.Name}";
 
-            var methodStub = new PipelinesMethodStub<RpcObjectRequest, TEventArgs>(beginEventProducerName, beginEventProducer, this.serializer, null);
+            var methodStub = new PipelinesMethodStub<RpcObjectRequest, TEventArgs>(beginEventProducerName, beginEventProducer, serviceStub.Serializer, null);
 
             binder.AddMethod(methodStub);
         }
@@ -92,9 +92,9 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
             RpcOperationInfo operationInfo,
             IPipelinesMethodBinder binder)
         {
-            var serializer = this.serializer;
+            var serializer = serviceStub.Serializer;
 
-            ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, PipelinesCallContext context) 
+            ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, PipelinesCallContext context)
                 => serviceStub.CallAsyncMethod(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
 
             var methodStub = new PipelinesMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
@@ -110,8 +110,8 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
             RpcOperationInfo operationInfo,
             IPipelinesMethodBinder binder)
         {
-            var serializer = this.serializer;
-            ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, PipelinesCallContext context) 
+            var serializer = serviceStub.Serializer;
+            ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, PipelinesCallContext context)
                 => serviceStub.CallBlockingMethod(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
 
             var methodStub = new PipelinesMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
@@ -125,7 +125,7 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
             RpcOperationInfo operationInfo,
             IPipelinesMethodBinder binder)
         {
-            var serializer = this.serializer;
+            var serializer = serviceStub.Serializer;
             ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, PipelinesCallContext context)
                 => serviceStub.CallVoidAsyncMethod(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
 
@@ -140,18 +140,13 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
             RpcOperationInfo operationInfo,
             IPipelinesMethodBinder binder)
         {
-            var serializer = this.serializer;
+            var serializer = serviceStub.Serializer;
 
             ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, PipelinesCallContext context)
                 => serviceStub.CallVoidBlockingMethod(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
 
             var methodStub = new PipelinesMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
             binder.AddMethod(methodStub);
-        }
-
-        protected override RpcStub<TService> CreateServiceStub(IRpcServerImpl server)
-        {
-            return new RpcStub<TService>(server);
         }
 
         private class Binder : IPipelinesMethodBinder

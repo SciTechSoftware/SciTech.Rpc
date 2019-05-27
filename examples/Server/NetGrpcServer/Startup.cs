@@ -17,7 +17,11 @@ namespace NetGrpcServer
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddNetGrpc();
+            services.AddNetGrpc()
+                .AddServiceOptions<IMailBoxManagerService>(options=>
+                {
+                    options.AllowAutoPublish = true;
+                });
 
             services.AddSingleton<MailQueueRepository>();
 
@@ -71,7 +75,7 @@ namespace NetGrpcServer
                 // Map all registered RPC service interfaces to make 
                 // them callable as gRPC HTTP/2 operations.
                 // TODO: NetGrpc configuration should be improved.
-                endpoints.MapNetGrpcServices(allowAutoPublish: true);
+                endpoints.MapNetGrpcServices();
             });
         }
     }

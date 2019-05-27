@@ -97,46 +97,62 @@ namespace SciTech.Rpc.Tests
         [RpcFault(typeof(AnotherDeclaredFault))]
         Task GenerateAsyncAnotherDeclaredFaultAsync(bool direct);
 
-        [RpcFault("FirstNoDetailsFault")]
-        [RpcFault("NoDetailsFault")]
-        [RpcFault("AnotherNoDetailsFault")]
         void GenerateNoDetailsFault();
 
 
-        [RpcFault("NoDetailsFault")]
         [RpcFault(typeof(DeclaredFault))]
         Task GenerateUndeclaredExceptionAsync(bool direct);
 
-        [RpcFault("FirstNoDetailsFault")]
-        [RpcFault("NoDetailsFault")]
-        [RpcFault("AnotherNoDetailsFault")]
         [RpcFault(typeof(DeclaredFault))]
         Task GenerateUndeclaredFaultExceptionAsync(bool direct);
 
-        [RpcFault("NoDetailsFault")]
-        [RpcFault("AnotherNoDetailsFault")]
         [RpcFault(typeof(DeclaredFault))]
         void GenerateCustomDeclaredExceptionAsync();
     }
 
-    [RpcService(Name = "FaultService", ServiceDefinitionType = RpcServiceDefinitionType.Client)]
+    [RpcService(Name = "FaultService", ServerDefinitionType = typeof(IFaultService))]
     public interface IFaultServiceClient : IFaultService
     {
-
-        [RpcFault(typeof(DeclaredFault))]
         Task<int> GenerateDeclaredFaultAsync(int ignored);
 
         [RpcFault(typeof(AnotherDeclaredFault))]
         Task GenerateAnotherDeclaredFaultAsync(int faultArg);
 
-
-        [RpcFault(typeof(DeclaredFault))]
         int GenerateAsyncDeclaredFault(bool direct);
 
 
         [RpcFault(typeof(DeclaredFault))]
         [RpcFault(typeof(AnotherDeclaredFault))]
         void GenerateAsyncAnotherDeclaredFault(bool direct);
+    }
+
+
+    [RpcService]
+    public interface IIncorrectFaultOpService
+    {
+        [RpcFault(typeof(DeclaredFault))]
+        void IncorrectFaultDeclaration();
+    }
+
+    [RpcService(ServerDefinitionType = typeof(IIncorrectFaultOpService))]
+    public interface IIncorrectFaultOpServiceClient
+    {
+        [RpcFault(typeof(AnotherDeclaredFault))]
+        void IncorrectFaultDeclaration();
+    }
+
+    [RpcService]
+    [RpcFault(typeof(DeclaredFault))]
+    public interface IIncorrectServiceFaultService
+    {
+        void IncorrectFaultDeclaration();
+    }
+
+    [RpcService(ServerDefinitionType = typeof(IIncorrectServiceFaultService))]
+    [RpcFault(typeof(AnotherDeclaredFault))]
+    public interface IIncorrectServiceFaultServiceClient
+    {
+        void IncorrectFaultDeclaration();
     }
 
     [RpcService]
@@ -154,8 +170,7 @@ namespace SciTech.Rpc.Tests
         void GenerateServiceFault(bool useAnotherFault, bool useServiceFault);
     }
 
-    [RpcService(Name = "ServiceFaultService", ServiceDefinitionType = RpcServiceDefinitionType.Client)]
-    [RpcFault(typeof(ServiceDeclaredFault))]
+    [RpcService(Name = "ServiceFaultService", ServerDefinitionType = typeof(IServiceFaultService))]
     [RpcFault(typeof(AnotherServiceDeclaredFault))]
     public interface IServiceFaultServiceClient : IServiceFaultService
     {
@@ -252,6 +267,7 @@ namespace SciTech.Rpc.Tests
             throw new RpcFaultException("NoDetailsFault", "Fault with no details");
         }
 
+
         public async Task GenerateUndeclaredExceptionAsync(bool direct)
         {
             if (direct)
@@ -268,13 +284,14 @@ namespace SciTech.Rpc.Tests
         {
             if (direct)
             {
-                throw new RpcFaultException("UndeclaredBeforeAwait", "Undeclared fault xception before await");
+                throw new RpcFaultException<AnotherDeclaredFault>(new AnotherDeclaredFault("Another fault, with arg,", 1));
             }
 
             await Task.Delay(1).ContextFree();
 
-            throw new RpcFaultException("UndeclaredAfterAwait", "Undeclared fault exception after await");
+            throw new RpcFaultException<AnotherDeclaredFault>(new AnotherDeclaredFault("Another fault, with arg,", 2));
         }
+
     }
 
     [DataContract]

@@ -33,28 +33,31 @@ namespace SciTech.Rpc.Grpc.Client
             if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl)
                 && (parsedUrl.Scheme == GrpcConnectionProvider.GrpcScheme))
             {
-                int nInterceptors = callInterceptors?.Count ?? 0;
-                if (nInterceptors > 0)
+                if (callInterceptors != null )
                 {
-                    GrpcCore.CallCredentials callCredentials;
-                    if (nInterceptors > 1)
+                    int nInterceptors = callInterceptors.Count;
+                    if (nInterceptors > 0)
                     {
-                        GrpcCore.CallCredentials[] allCallCredentials = new GrpcCore.CallCredentials[nInterceptors];
-                        for (int index = 0; index < nInterceptors; index++)
+                        GrpcCore.CallCredentials callCredentials;
+                        if (nInterceptors > 1)
                         {
-                            var callInterceptor = callInterceptors![index];
-                            allCallCredentials[index] = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
+                            GrpcCore.CallCredentials[] allCallCredentials = new GrpcCore.CallCredentials[nInterceptors];
+                            for (int index = 0; index < nInterceptors; index++)
+                            {
+                                var callInterceptor = callInterceptors[index];
+                                allCallCredentials[index] = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
+                            }
+
+                            callCredentials = GrpcCore.CallCredentials.Compose(allCallCredentials);
+                        }
+                        else
+                        {
+                            var callInterceptor = callInterceptors[0];
+                            callCredentials = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
                         }
 
-                        callCredentials = GrpcCore.CallCredentials.Compose(allCallCredentials);
+                        credentials = GrpcCore.ChannelCredentials.Create(credentials, callCredentials);
                     }
-                    else
-                    {
-                        var callInterceptor = callInterceptors![0];
-                        callCredentials = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
-                    }
-
-                    credentials = GrpcCore.ChannelCredentials.Create(credentials, callCredentials);
                 }
 
                 this.Channel = new GrpcCore.Channel(parsedUrl.Host, parsedUrl.Port, credentials, channelOptions);

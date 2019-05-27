@@ -9,8 +9,8 @@
 //
 #endregion
 
-using SciTech.Rpc.Server.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Immutable;
@@ -21,23 +21,18 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerBase : IRpcServerImpl
     {
-        private ImmutableArray<RpcServerCallInterceptor>.Builder? callInterceptorsBuilder = ImmutableArray.CreateBuilder<RpcServerCallInterceptor>();
+        protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServiceOptions? options) :
+            this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)), 
+                servicePublisher, 
+                servicePublisher.DefinitionsProvider, 
+                options)
+        {
+        }
         //private HashSet<string> registeredServices;
 
-        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider)
+        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, RpcServiceOptions? options) :
+            this(new RpcServicePublisher(definitionsProvider, serverId), options)
         {
-            var servicePublisher = new RpcServicePublisher(definitionsProvider, serverId );
-            this.ServicePublisher = servicePublisher;
-            this.ServiceImplProvider = servicePublisher;
-            this.ServiceDefinitionsProvider = definitionsProvider;
-        }
-
-        protected RpcServerBase(RpcServicePublisher servicePublisher)
-        {
-            this.ServicePublisher = servicePublisher;
-            this.ServiceImplProvider = servicePublisher;
-            this.ServiceDefinitionsProvider = servicePublisher.DefinitionsProvider;
-
         }
 
         /// <summary>
@@ -46,11 +41,36 @@ namespace SciTech.Rpc.Server
         /// <param name="servicePublisher"></param>
         /// <param name="serviceImplProvider"></param>
         /// <param name="definitionsProvider"></param>
-        protected RpcServerBase(IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider, IRpcServiceDefinitionsProvider definitionsProvider)
+        protected RpcServerBase(IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider, IRpcServiceDefinitionsProvider definitionsProvider, RpcServiceOptions? options)
         {
-            this.ServicePublisher = servicePublisher;
-            this.ServiceImplProvider = serviceImplProvider;
-            this.ServiceDefinitionsProvider = definitionsProvider;
+            this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
+            this.ServiceImplProvider = serviceImplProvider ?? throw new ArgumentNullException(nameof(serviceImplProvider));
+            this.ServiceDefinitionsProvider = definitionsProvider ?? throw new ArgumentNullException(nameof(definitionsProvider));
+
+
+            this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
+            this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;
+            this.Serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Serializer ?? this.CreateDefaultSerializer();
+
+            if (options != null)
+            {
+                this.AllowAutoPublish = options.AllowAutoPublish ?? false;
+
+                if (options.Interceptors != null)
+                {
+                    this.CallInterceptors = this.CallInterceptors.AddRange(options.Interceptors);
+                }
+
+                if (options.ExceptionConverters != null)
+                {
+                    this.ExceptionConverters = this.ExceptionConverters.AddRange(options.ExceptionConverters);
+                }
+            }
+
+            if (this.ExceptionConverters.Length > 0)
+            {
+                this.CustomFaultHandler = new RpcServerFaultHandler(this.ExceptionConverters);
+            }
         }
 
         protected enum ServerState
@@ -63,43 +83,46 @@ namespace SciTech.Rpc.Server
             Failed
         }
 
-        public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; private set; }
+        public bool AllowAutoPublish { get; set; }
+
+        public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
+
+        public RpcServerFaultHandler? CustomFaultHandler { get; private set; }
+
+        public ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; private set; }
 
         public bool IsDisposed { get; private set; }
+
+        public IRpcSerializer Serializer { get; private set; }
+
+        public IRpcServiceDefinitionsProvider ServiceDefinitionsProvider { get; private set; }
 
         public IRpcServiceActivator ServiceImplProvider { get; }
 
         public IRpcServicePublisher ServicePublisher { get; }
-        
-        public IRpcServiceDefinitionsProvider ServiceDefinitionsProvider { get; private set; }
-
-        protected ServerState state { get; private set; }
-
-        public bool AllowAutoPublish { get; set; }
 
         protected virtual IServiceProvider? ServiceProvider => null;
 
-        IServiceProvider? IRpcServerImpl.ServiceProvider => this.ServiceProvider;
+        protected ServerState state { get; private set; }
 
         protected object syncRoot { get; } = new object();
 
-        public void AddCallInterceptor(RpcServerCallInterceptor callInterceptor)
-        {
-            if (callInterceptor == null)
-            {
-                throw new ArgumentNullException(nameof(callInterceptor));
-            }
-
-            lock (this.syncRoot)
-            {
-                if (this.state != ServerState.Initializing)
-                {
-                    throw new InvalidOperationException("Call interceptor cannot be added after server has been started.");
-                }
-
-                this.callInterceptorsBuilder!.Add(callInterceptor);
-            }
-        }
+        IServiceProvider? IRpcServerImpl.ServiceProvider => this.ServiceProvider;
+        //public void AddCallInterceptor(RpcServerCallInterceptor callInterceptor)
+        //{
+        //    if (callInterceptor == null)
+        //    {
+        //        throw new ArgumentNullException(nameof(callInterceptor));
+        //    }
+        //    lock (this.syncRoot)
+        //    {
+        //        if (this.state != ServerState.Initializing)
+        //        {
+        //            throw new InvalidOperationException("Call interceptor cannot be added after server has been started.");
+        //        }
+        //        this.callInterceptorsBuilder!.Add(callInterceptor);
+        //    }
+        //}
 
         public void Dispose()
         {
@@ -178,6 +201,9 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        /// <summary>
+        /// Starts this RPC server. Will generated service stubs and start listening on the configured endpoints.
+        /// </summary>
         public void Start()
         {
             this.CheckCanStart();
@@ -190,8 +216,6 @@ namespace SciTech.Rpc.Server
                 }
 
                 this.state = ServerState.Starting;
-                this.CallInterceptors = this.callInterceptorsBuilder!.ToImmutable();
-                this.callInterceptorsBuilder = null;
             }
 
             try
@@ -236,9 +260,6 @@ namespace SciTech.Rpc.Server
         protected abstract void AddEndPoint(IRpcServerEndPoint endPoint);
 
         protected abstract void BuildServiceStub(Type serviceType);
-        //protected virtual void ValidateConnectionInfo(RpcServerConnectionInfo value)
-        //{
-        //}
 
         /// <summary>
         /// 
@@ -263,6 +284,8 @@ namespace SciTech.Rpc.Server
                 throw new InvalidOperationException("");
             }
         }
+
+        protected abstract IRpcSerializer CreateDefaultSerializer();
 
         protected virtual void Dispose(bool disposing)
         {
@@ -308,6 +331,10 @@ namespace SciTech.Rpc.Server
             //        throw new InvalidOperationException("ConnectionInfo not initialized.");
             //    }
             //}
+        }
+
+        private void InitOptions(RpcServiceOptions? options)
+        {
         }
         //TService IServiceImplProvider.GetServiceImpl<TService>(RpcObjectId id)
         //{

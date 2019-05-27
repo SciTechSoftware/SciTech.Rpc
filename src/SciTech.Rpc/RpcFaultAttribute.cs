@@ -17,15 +17,15 @@ namespace SciTech.Rpc
     [AttributeUsage(AttributeTargets.Interface | AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = true)]
     public class RpcFaultAttribute : Attribute
     {
+        public RpcFaultAttribute(string faultCode)
+        {
+            this.FaultCode = faultCode;
+        }
+
         public RpcFaultAttribute(Type faultType)
         {
             this.FaultType = faultType;
             this.FaultCode = RpcBuilderUtil.RetrieveFaultCode(faultType);
-        }
-
-        public RpcFaultAttribute(string faultCode)
-        {
-            this.FaultCode = faultCode;
         }
 
         public string FaultCode { get; set; }

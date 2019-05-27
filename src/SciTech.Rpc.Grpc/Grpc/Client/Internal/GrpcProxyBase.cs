@@ -9,8 +9,10 @@
 //
 #endregion
 
+using SciTech.Collections;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Threading;
 using System;
@@ -55,6 +57,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
         }
     }
 
+#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class GrpcProxyBase : RpcProxyBase<GrpcProxyMethod>
     {
         private readonly GrpcCore.CallInvoker grpcInvoker;
@@ -82,8 +85,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     grpcMethodType = GrpcCore.MethodType.ServerStreaming;
                     break;
                 case RpcMethodType.Unary:
-                case RpcMethodType.PropertyGet:
-                case RpcMethodType.PropertySet:
+                //case RpcMethodType.PropertyGet:
+                //case RpcMethodType.PropertySet:
                 case RpcMethodType.EventRemove:
                     grpcMethodType = GrpcCore.MethodType.Unary;
                     break;
@@ -112,8 +115,11 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             var callOptions = new GrpcCore.CallOptions(cancellationToken: ct);
 
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(method);
+
+#pragma warning disable CA2000 // Dispose objects before losing scope
             return new ValueTask<IAsyncStreamingServerCall<TResponse>>(
                 new GrpcAsyncServerStreamingCall<TResponse>(this.grpcInvoker.AsyncServerStreamingCall(typedMethod, null, callOptions, request)));
+#pragma warning restore CA2000 // Dispose objects before losing scope
         }
 
         protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request)
@@ -180,17 +186,45 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall)
             {
                 this.grpcCall = grpcCall;
+                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream);
+
 
             }
 
-            public IAsyncEnumerator<TResponse> ResponseStream => this.grpcCall.ResponseStream;
+            public IAsyncStream<TResponse> ResponseStream { get; }
 
             public void Dispose()
             {
                 this.grpcCall.Dispose();
             }
+
+            private class AsyncStreamWrapper : IAsyncStream<TResponse>
+            {
+                private GrpcCore.IAsyncStreamReader<TResponse> reader;
+
+                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader)
+                {
+                    this.reader = reader;
+                }
+
+                public TResponse Current => this.reader.Current;
+
+                public ValueTask<bool> MoveNextAsync()
+                {
+                    var task = this.reader.MoveNext();
+                    if (task.Status == TaskStatus.RanToCompletion)
+                    {
+                        return new ValueTask<bool>(task.Result);
+                    }
+
+                    async ValueTask<bool> AwaitNext() => await task.ContextFree();
+
+                    return AwaitNext();
+                }
+            }
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 
     public class GrpcProxyMethod : RpcProxyMethod
     {
@@ -218,19 +252,11 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             where TResponse : class
         {
             IRpcSerializer actualSerializer = this.SerializerOverride ?? serializer;
-#nullable disable
-            return new GrpcCore.Method<TRequest, TResponse>(
-                type: this.MethodType,
+            return GrpcMethodDefinition.Create<TRequest, TResponse>(
+                methodType: this.MethodType,
                 serviceName: this.ServiceName,
-                name: this.MethodName,
-                requestMarshaller: GrpcCore.Marshallers.Create(
-                    serializer: actualSerializer.ToBytes,
-                    deserializer: actualSerializer.FromBytes<TRequest>
-                    ),
-                responseMarshaller: GrpcCore.Marshallers.Create(
-                    serializer: actualSerializer.ToBytes,
-                    deserializer: actualSerializer.FromBytes<TResponse>)
-                );
+                methodName: this.MethodName,
+                actualSerializer);
 #nullable restore
         }
     }

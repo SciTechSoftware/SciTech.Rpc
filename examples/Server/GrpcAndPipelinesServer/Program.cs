@@ -38,14 +38,15 @@ namespace GrpcAndPipelinesServer
             RegisterServiceDefinitions(definitionsBuilder);
             PublishServices(rpcPublisher);
 
-            var serializer = new ProtobufSerializer();
+            var options = new RpcServiceOptions
+            {
+                Serializer = new ProtobufSerializer(),
+            };
             
-            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider, serializer);
-            grpcServer.AllowAutoPublish = true;
+            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider, options);
             grpcServer.AddEndPoint(CreateGrpcEndPoint(50051));
 
-            var pipelinesServer = new RpcPipelinesServer(rpcPublisher, serviceProvider, serializer);
-            pipelinesServer.AllowAutoPublish = true;
+            var pipelinesServer = new RpcPipelinesServer(rpcPublisher, serviceProvider, options);
             pipelinesServer.AddEndPoint(new TcpPipelinesEndPoint("127.0.0.1", 50052, false));
 
             Console.WriteLine("Starting gRPC server and pipelines server.");
@@ -70,6 +71,13 @@ namespace GrpcAndPipelinesServer
             // Needed for the MailboxManager service
             services.AddSingleton<MailQueueRepository>();
 
+            // This is one way of configuring service options. 
+            services.Configure<RpcServiceOptions<IMailBoxManagerService>>(options => options.AllowAutoPublish = true);
+
+            // Another way is to provide RpcServiceOptions when calling services.RegisterRpcService.
+            //
+            // E.g. services.RegisterRpcService<IMailBoxManagerService>(new RpcServiceOptions { AllowAutoPublish = true });
+
             //
             // Add RPC singleton implementations
             //
@@ -83,7 +91,9 @@ namespace GrpcAndPipelinesServer
             // The same instance of MailboxManager will be used 
             // for all remote calls.
             services.AddSingleton<MailBoxManager>();
+
         }
+
 
         private static GrpcServerEndPoint CreateGrpcEndPoint(int port)
         {

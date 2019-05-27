@@ -38,7 +38,7 @@
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
     <HasPlatformSpans>true</HasPlatformSpans>
     <PlatformSpanOverloads>true</PlatformSpanOverloads>
-    <HasAsyncEnum>true</HasAsyncEnum>
+    <!--<HasAsyncEnum>true</HasAsyncEnum>-->
     <HasTaskExtensions>true</HasTaskExtensions>
     <HasReflectionEmit>true</HasReflectionEmit>
   </PropertyGroup>

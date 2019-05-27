@@ -13,20 +13,14 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc.Server;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
+    /// <summary>
+    /// Extension methods for publishing and registering RPC services.
+    /// </summary>
     public static class NetGrpcApplicationBuilderExtensions
     {
-        public static IApplicationBuilder RegisterRpcService<TService>(this IApplicationBuilder builder)
-        {
-            var definitionsBuilder = builder.ApplicationServices.GetRequiredService<IRpcServiceDefinitionBuilder>();
-            definitionsBuilder.RegisterService(typeof(TService));
-            return builder;
-        }
-
         /// <summary>
         /// Publishes a singleton service that will be contructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
         /// This method expects that an implementation class has been registered for the RPC service interface type <typeparamref name="TService"/>
@@ -36,12 +30,13 @@ namespace SciTech.Rpc.NetGrpc.Server
         /// <returns></returns>
         public static IApplicationBuilder PublishRpcSingleton<TService>(this IApplicationBuilder builder) where TService : class
         {
+            if (builder is null) throw new ArgumentNullException(nameof(builder));
+
             var publisher = builder.ApplicationServices.GetRequiredService<IRpcServicePublisher>();
             publisher.PublishSingleton<TService>();
 
             return builder;
         }
-
 
         /// <summary>
         /// Publishes a singleton service that will be contructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
@@ -54,6 +49,8 @@ namespace SciTech.Rpc.NetGrpc.Server
             where TService : class
             where TServiceImpl : class, TService
         {
+            if (builder is null) throw new ArgumentNullException(nameof(builder));
+
             var publisher = builder.ApplicationServices.GetRequiredService<IRpcServicePublisher>();
             publisher.PublishSingleton<TServiceImpl, TService>();
 
@@ -71,6 +68,8 @@ namespace SciTech.Rpc.NetGrpc.Server
         public static IApplicationBuilder PublishRpcSingleton<TService>(this IApplicationBuilder builder, Func<IServiceProvider, TService> factory)
             where TService : class
         {
+            if (builder is null) throw new ArgumentNullException(nameof(builder));
+
             var publisher = builder.ApplicationServices.GetRequiredService<IRpcServicePublisher>();
             publisher.PublishSingleton<TService>(factory);
 
@@ -79,6 +78,8 @@ namespace SciTech.Rpc.NetGrpc.Server
 
         public static IApplicationBuilder PublishRpcSingleton<TService>(this IApplicationBuilder builder, TService singletonService, bool takeOwnership = false) where TService : class
         {
+            if (builder is null) throw new ArgumentNullException(nameof(builder));
+
             var publisher = builder.ApplicationServices.GetRequiredService<IRpcServicePublisher>();
             publisher.PublishSingleton<TService>(singletonService, takeOwnership);
 
@@ -86,5 +87,13 @@ namespace SciTech.Rpc.NetGrpc.Server
 
         }
 
+        public static IApplicationBuilder RegisterRpcService<TService>(this IApplicationBuilder builder)
+        {
+            if (builder is null) throw new ArgumentNullException(nameof(builder));
+
+            var definitionsBuilder = builder.ApplicationServices.GetRequiredService<IRpcServiceDefinitionBuilder>();
+            definitionsBuilder.RegisterService(typeof(TService));
+            return builder;
+        }
     }
 }

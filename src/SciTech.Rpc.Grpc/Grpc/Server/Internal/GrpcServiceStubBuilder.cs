@@ -22,7 +22,6 @@ namespace SciTech.Rpc.Grpc.Server.Internal
     internal interface IGrpcServiceStubBuilder
     {
         GrpcCore.ServerServiceDefinition Build(IRpcServerImpl server);
-        //void GenerateOperationHandlers(IServiceImplProvider serviceImplProvider, IGrpcMethodBinder methodBinder);
     }
 
     public class GrpcMethodStub : RpcMethodStub
@@ -41,12 +40,12 @@ namespace SciTech.Rpc.Grpc.Server.Internal
     /// </summary>
     internal class GrpcServiceStubBuilder<TService> : RpcServiceStubBuilder<TService, IGrpcMethodBinder>, IGrpcServiceStubBuilder where TService : class
     {
-        public GrpcServiceStubBuilder(IRpcSerializer serializer) :
-            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), serializer)
+        public GrpcServiceStubBuilder(RpcServiceOptions<TService>? options) :
+            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options)
         {
         }
 
-        public GrpcServiceStubBuilder(RpcServiceInfo serviceInfo, IRpcSerializer serializer) : base(serviceInfo, serializer)
+        public GrpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options) : base(serviceInfo, options)
         {
         }
 
@@ -81,11 +80,11 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             var beginEventProducerName = $"Begin{eventInfo.Name}";
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<RpcObjectRequest, TEventArgs>(
+                GrpcMethodDefinition.Create<RpcObjectRequest, TEventArgs>(
                     GrpcCore.MethodType.ServerStreaming,
                     eventInfo.FullServiceName,
                     beginEventProducerName,
-                    this.serializer),
+                    serviceStub.Serializer),
                 handler);
         }
 
@@ -97,7 +96,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
-            var serializer = this.serializer;
+            var serializer = serviceStub.Serializer;
             var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
             {
@@ -108,8 +107,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, this.serializer),
+                GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name, serializer),
                 handler);
         }
 
@@ -121,7 +120,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
-            var serializer = this.serializer;
+            var serializer = serviceStub.Serializer;
             var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
             {
@@ -134,8 +133,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, this.serializer),
+                GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name, serializer),
                 handler);
         }
 
@@ -146,7 +145,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
-            var serializer = this.serializer;
+            var serializer = serviceStub.Serializer;
             var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
             {
@@ -159,8 +158,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, this.serializer),
+                GrpcMethodDefinition.Create<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name, serializer),
                 handler);
         }
 
@@ -171,7 +170,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
-            var serializer = this.serializer;
+            var serializer = serviceStub.Serializer;
             var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
             {
@@ -184,14 +183,9 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, this.serializer),
+                GrpcMethodDefinition.Create<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name, serializer),
                 handler);
-        }
-
-        protected override RpcStub<TService> CreateServiceStub(IRpcServerImpl server)
-        {
-            return new RpcStub<TService>(server);
         }
 
         private static IServiceScope? CreateServiceScope(RpcStub stub)

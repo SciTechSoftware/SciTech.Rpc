@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup Condition="'$(EnableMultiTargeting)'=='true'">
-    <TargetFrameworks>netstandard2.0;net461;netcoreapp2.1</TargetFrameworks>
+      <TargetFrameworks>netstandard2.0;net461;netcoreapp2.1</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(EnableMultiTargeting)'!='true'">
@@ -13,7 +13,8 @@
 
   <PropertyGroup>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
-    From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.&#13;
+    From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
     This package contains the core SciTech.Rpc implementation and should normally not be added separately. 
     Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.Pipelines.
   </Description>
@@ -26,6 +27,7 @@
 
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
     <NullableContextOptions>enable</NullableContextOptions>
   </PropertyGroup>
 
@@ -46,7 +48,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.2">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

@@ -415,7 +415,7 @@ namespace SciTech.Rpc.Internal
     [DataContract]
     public sealed class RpcResponse
     {
-        [DataMember(Order = 1)]
+        [DataMember(Order = 2)]
         public RpcError Error;
 
         public RpcResponse() { }
@@ -429,14 +429,14 @@ namespace SciTech.Rpc.Internal
     [DataContract]
     public sealed class RpcResponse<T>
     {
-        [DataMember(Order = 1)]
+        [DataMember(Order = 2)]
         public RpcError Error;
 
         /// <summary>
         /// Result should be marked as nullable (?) since
         /// it may return null reference types. 
         /// </summary>
-        [DataMember(Order = 2)]
+        [DataMember(Order = 1)]
         public T Result;
 
         public RpcResponse() { }
@@ -451,6 +451,8 @@ namespace SciTech.Rpc.Internal
             this.Error = error;
         }
     }
+   
+
 
     [DataContract]
     public class RpcError

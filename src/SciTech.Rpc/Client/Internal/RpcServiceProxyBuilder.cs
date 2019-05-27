@@ -12,7 +12,6 @@
 using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -261,9 +260,39 @@ namespace SciTech.Rpc.Client.Internal
             return null;// NullConverterExpression;
         }
 
-        private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, IReadOnlyList<Expression> faultConverterExpressions)
+        private static IEnumerable<RpcFaultAttribute> RetrieveFaultAttributes(RpcOperationInfo operationInfo, RpcMemberInfo? serverSideMemberInfo)
         {
-            var faultAttributes = operationInfo.Method.GetCustomAttributes(typeof(RpcFaultAttribute));
+            // TODO: This is alsmost the same code as RetrieveServiceFaultAttributes, try to combine.
+            List<RpcFaultAttribute> faultAttributes;
+
+            if (serverSideMemberInfo?.DeclaringMember is MemberInfo serverSideMember)
+            {
+                // If the server side definition is available, then the fault attributes of that definition
+                // should be used.
+                faultAttributes = serverSideMember.GetCustomAttributes<RpcFaultAttribute>().ToList();
+
+                // Validate that any fault attributes applied to the client side definition exists on the server side
+                // definition
+                foreach (var clientFaultAttribute in operationInfo.DeclaringMember.GetCustomAttributes<RpcFaultAttribute>())
+                {
+                    if (faultAttributes.Find(sa => sa.FaultCode == clientFaultAttribute.FaultCode && Equals(sa.FaultType, clientFaultAttribute.FaultType)) == null)
+                    {
+                        throw new RpcDefinitionException($"Client side service definition includes fault declaration '{clientFaultAttribute.FaultCode}' which is not applied on server side definition.");
+                    }
+                }
+
+            }
+            else
+            {
+                faultAttributes = operationInfo.DeclaringMember.GetCustomAttributes<RpcFaultAttribute>().ToList();
+            }
+
+            return faultAttributes;
+        }
+
+        private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, IReadOnlyList<Expression> faultConverterExpressions, RpcMemberInfo? serverSideMemberInfo)
+        {
+            IEnumerable<Attribute> faultAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
             List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
 
             Expression faultHandlerExpression;
@@ -274,7 +303,7 @@ namespace SciTech.Rpc.Client.Internal
 
                 faultGeneratorExpressions.AddRange(faultConverterExpressions);
 
-                // TODO: This expression should be stored in a field an reused for each 
+                // TODO: This expression should be stored in a field and reused for each 
                 // member that has the same fault specification. If service faults are
                 // used, it's pretty likely that several members will have the same fault specifications.
                 faultHandlerExpression = Expression.New(faultHandlerCtor,
@@ -298,6 +327,35 @@ namespace SciTech.Rpc.Client.Internal
             }
 
             return faultExceptionExpressions;
+        }
+
+        private static IEnumerable<Attribute> RetrieveServiceFaultAttributes(RpcServiceInfo serviceInfo)
+        {
+            List<RpcFaultAttribute> faultAttributes;
+
+            if (serviceInfo.ServerType != null)
+            {
+                // If the server side definition is available, then the fault attributes of that definition
+                // should be used.
+                faultAttributes = serviceInfo.ServerType.GetCustomAttributes<RpcFaultAttribute>().ToList();
+
+                // Validate that any fault attributes applied to the client side definition exists on the server side
+                // definition
+                foreach (var clientFaultAttribute in serviceInfo.Type.GetCustomAttributes<RpcFaultAttribute>())
+                {
+                    if (faultAttributes.Find(sa => sa.FaultCode == clientFaultAttribute.FaultCode && Equals(sa.FaultType, clientFaultAttribute.FaultType)) == null)
+                    {
+                        throw new RpcDefinitionException($"Client side service definition includes fault declaration '{clientFaultAttribute.FaultCode}' which is not applied on server side definition.");
+                    }
+                }
+
+            }
+            else
+            {
+                faultAttributes = serviceInfo.Type.GetCustomAttributes<RpcFaultAttribute>().ToList();
+            }
+
+            return faultAttributes;
         }
 
         private int AddCreateMethodDefExpression(
@@ -349,54 +407,73 @@ namespace SciTech.Rpc.Client.Internal
         {
             var handledMembers = new HashSet<MemberInfo>();
 
-            var faultAttributes = serviceInfo.Type.GetCustomAttributes(typeof(RpcFaultAttribute));
+            IEnumerable<Attribute> faultAttributes = RetrieveServiceFaultAttributes(serviceInfo);
             var serviceFaultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
 
-            var events = serviceInfo.Type.GetEvents(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-            foreach (var eventInfo in events)
+            List<RpcMemberInfo>? serverSideMembers = null;
+            if (serviceInfo.ServerType != null)
             {
-                var rpcEventInfo = RpcBuilderUtil.GetEventInfoFromEvent(serviceInfo, eventInfo);
-                this.CreateEventImpl(rpcEventInfo);
-
-                handledMembers.Add(rpcEventInfo.Event.AddMethod);
-                handledMembers.Add(rpcEventInfo.Event.RemoveMethod);
-            }
-
-            var properties = serviceInfo.Type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-            foreach (var propertyInfo in properties)
-            {
-                var rpcPropertyInfo = RpcBuilderUtil.GetPropertyInfoFromProperty(serviceInfo, propertyInfo);
-                this.CreatePropertyImpl(rpcPropertyInfo, serviceFaultGeneratorExpressions);
-
-                handledMembers.Add(rpcPropertyInfo.Property.GetMethod);
-                handledMembers.Add(rpcPropertyInfo.Property.SetMethod);
-            }
-
-            var methods = serviceInfo.Type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
-            foreach (var method in methods)
-            {
-                if (handledMembers.Add(method))
+                var serverServiceInfo = RpcBuilderUtil.TryGetServiceInfoFromType(serviceInfo.ServerType);
+                if (serverServiceInfo == null)
                 {
-                    var opInfo = RpcBuilderUtil.GetOperationInfoFromMethod(serviceInfo, method);
-                    switch (opInfo.MethodType)
+                    throw new RpcDefinitionException($"Server side type '{serviceInfo.ServerType}' is not an RpcService.");
+                }
+
+                serverSideMembers = RpcBuilderUtil.EnumOperationHandlers(serverServiceInfo, true).ToList();
+            }
+
+            foreach (var memberInfo in RpcBuilderUtil.EnumOperationHandlers(serviceInfo, true))
+            {
+                RpcMemberInfo? serverSideMemberInfo = null;
+                if (serverSideMembers != null)
+                {
+                    serverSideMemberInfo = serverSideMembers.Find(sm => memberInfo.FullName == sm.FullName);
+
+                    if (serverSideMemberInfo == null)
+                    {
+                        throw new RpcDefinitionException($"A server side operation matching '{memberInfo.FullName}' does not exist on '{serviceInfo.ServerType}'.");
+                    }
+                    else
+                    {
+                        // TODO: Validate that request and response types are compatible.
+                    }
+                }
+
+                if (memberInfo is RpcEventInfo rpcEventInfo)
+                {
+                    this.CreateEventImpl(rpcEventInfo);
+                }
+                //else if (memberInfo is RpcPropertyInfo rpcPropertyInfo)
+                //{
+                //    this.CreatePropertyImpl(rpcPropertyInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo );
+                //}
+                else if (memberInfo is RpcOperationInfo rpcMethodInfo)
+                {
+                    switch (rpcMethodInfo.MethodType)
                     {
                         case RpcMethodType.Unary:
-                            if (opInfo.IsAsync)
+                            if (rpcMethodInfo.IsAsync)
                             {
-                                this.CreateAsyncMethodImpl(opInfo, serviceFaultGeneratorExpressions);
+                                this.CreateAsyncMethodImpl(rpcMethodInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
                             }
                             else
                             {
-                                this.CreateBlockingMethodImpl(opInfo, serviceFaultGeneratorExpressions);
+                                this.CreateBlockingMethodImpl(rpcMethodInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
                             }
                             break;
+                        //case RpcMethodType.EventAdd:
+                        //    CreateEventAddHandler(rpcMethodInfo);
+                        //    break;
                         default:
                             throw new NotImplementedException();
 
                     }
                 }
+                else
+                {
+                    throw new NotImplementedException();
+                }
             }
-
         }
 
         /// <summary>
@@ -424,7 +501,7 @@ namespace SciTech.Rpc.Client.Internal
         /// ]]></code>
         /// </remarks>
         /// <returns></returns>
-        private void CreateAsyncMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions)
+        private void CreateAsyncMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMethodInfo)
         {
             if (this.typeBuilder == null)
             {
@@ -453,7 +530,7 @@ namespace SciTech.Rpc.Client.Internal
             var proxyMethodsField = typeof(TRpcProxyBase).GetField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
             il.Emit(OpCodes.Ldarg_0);// Load this
 
-            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions);
+            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMethodInfo);
 
             il.Emit(OpCodes.Ldarg_0);// Load this (for proxyMethods field )
             il.Emit(OpCodes.Ldfld, proxyMethodsField); //Load method def field
@@ -533,7 +610,7 @@ namespace SciTech.Rpc.Client.Internal
         /// ]]></code>
         /// </remarks>
         /// <returns></returns>
-        private void CreateBlockingMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions)
+        private void CreateBlockingMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
         {
             if (this.typeBuilder == null)
             {
@@ -550,7 +627,7 @@ namespace SciTech.Rpc.Client.Internal
 
             var objectIdField = typeof(TRpcProxyBase).GetField(RpcProxyBase<TMethodDef>.ObjectIdFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
             var proxyMethodsField = typeof(TRpcProxyBase).GetField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions);
+            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
 
             il.Emit(OpCodes.Ldarg_0);// Load this
             il.Emit(OpCodes.Ldarg_0);// Load this (for proxyMethods field )
@@ -697,7 +774,7 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ret);
         }
 
-        private int CreateMethodDefinitionField(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions)
+        private int CreateMethodDefinitionField(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
         {
             if (this.typeBuilder == null)
             {
@@ -717,7 +794,7 @@ namespace SciTech.Rpc.Client.Internal
                 return methodDefField.Index;
             }
 
-            Expression faultHandlerExpression = RetrieveFaultHandlerExpression(operationInfo, serviceFaultGeneratorExpressions);
+            Expression faultHandlerExpression = RetrieveFaultHandlerExpression(operationInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
 
             int methodDefIndex = this.AddCreateMethodDefExpression(
                 operationInfo,
@@ -728,69 +805,66 @@ namespace SciTech.Rpc.Client.Internal
             this.methodDefinitionIndices.Add(operationName, new MethodDefIndex(methodDefIndex, operationInfo.RequestType, operationInfo.ResponseType));
             return methodDefIndex;
         }
-
-        private void CreatePropertyGetMethod(RpcPropertyInfo rpcPropertyInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions)
-        {
-            var propertyInfo = rpcPropertyInfo.Property;
-            if (propertyInfo.GetMethod != null)
-            {
-                this.CreateBlockingMethodImpl(new RpcOperationInfo
-                (
-                    service: rpcPropertyInfo.Service,
-                    name: $"Get{propertyInfo.Name}",
-                    method: propertyInfo.GetMethod,
-                    requestType: typeof(RpcObjectRequest),
-                    requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
-                    methodType: RpcMethodType.Unary,
-                    isAsync: false,
-                    parametersCount: 0,
-                    responseType: typeof(RpcResponse<>).MakeGenericType(rpcPropertyInfo.ResponseReturnType),
-                    responseReturnType: rpcPropertyInfo.ResponseReturnType,
-                    returnType: propertyInfo.PropertyType,
-                    returnKind: rpcPropertyInfo.PropertyTypeKind
-                ),
-                serviceFaultGeneratorExpressions
-                );
-            }
-        }
-
-        private void CreatePropertyImpl(RpcPropertyInfo propertyInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions)
-        {
-            //FieldInfo eventDataField = this.CreateEventDataField(eventInfo);
-
-            this.CreatePropertyGetMethod(propertyInfo, serviceFaultGeneratorExpressions);
-            this.CreatePropertySetMethod(propertyInfo, serviceFaultGeneratorExpressions);
-            //this.CreateEventRemoveHandler(eventInfo, eventDataField);
-        }
-
-        private void CreatePropertySetMethod(RpcPropertyInfo rpcPropertyInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions)
-        {
-            var propertyInfo = rpcPropertyInfo.Property;
-            if (propertyInfo.SetMethod != null)
-            {
-                if (rpcPropertyInfo.PropertyTypeKind != ServiceOperationReturnKind.Standard)
-                {
-                    throw new RpcDefinitionException($"Type {rpcPropertyInfo.Property.PropertyType} is not valid for RPC property setter '{rpcPropertyInfo.Name}'.");
-                }
-
-                this.CreateBlockingMethodImpl(new RpcOperationInfo
-                (
-                    service: rpcPropertyInfo.Service,
-                    name: $"Set{propertyInfo.Name}",
-                    method: propertyInfo.SetMethod,
-                    requestType: typeof(RpcObjectRequest<>).MakeGenericType(propertyInfo.PropertyType),
-                    requestTypeCtorArgTypes: ImmutableArray.Create<Type>(typeof(RpcObjectId), propertyInfo.PropertyType),
-                    methodType: RpcMethodType.Unary,
-                    isAsync: false,
-                    parametersCount: 1,
-                    responseType: typeof(RpcResponse),
-                    returnType: typeof(void),
-                    responseReturnType: typeof(void),
-                    returnKind: ServiceOperationReturnKind.Standard
-                ),
-                serviceFaultGeneratorExpressions);
-            }
-        }
+        //private void CreatePropertyGetMethod(RpcPropertyInfo rpcPropertyInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
+        //{
+        //    var propertyInfo = rpcPropertyInfo.Property;
+        //    if (propertyInfo.GetMethod != null)
+        //    {
+        //        this.CreateBlockingMethodImpl(new RpcOperationInfo
+        //        (
+        //            service: rpcPropertyInfo.Service,
+        //            name: $"Get{propertyInfo.Name}",
+        //            method: propertyInfo.GetMethod,
+        //            requestType: typeof(RpcObjectRequest),
+        //            requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
+        //            methodType: RpcMethodType.Unary,
+        //            isAsync: false,
+        //            parametersCount: 0,
+        //            responseType: typeof(RpcResponse<>).MakeGenericType(rpcPropertyInfo.ResponseReturnType),
+        //            responseReturnType: rpcPropertyInfo.ResponseReturnType,
+        //            returnType: propertyInfo.PropertyType,
+        //            returnKind: rpcPropertyInfo.PropertyTypeKind
+        //        ),
+        //        serviceFaultGeneratorExpressions,
+        //        serverSideMemberInfo
+        //        );
+        //    }
+        //}
+        //private void CreatePropertyImpl(RpcPropertyInfo propertyInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSidePropertyInfo)
+        //{
+        //    //FieldInfo eventDataField = this.CreateEventDataField(eventInfo);
+        //    this.CreatePropertyGetMethod(propertyInfo, serviceFaultGeneratorExpressions, serverSidePropertyInfo);
+        //    this.CreatePropertySetMethod(propertyInfo, serviceFaultGeneratorExpressions, serverSidePropertyInfo);
+        //    //this.CreateEventRemoveHandler(eventInfo, eventDataField);
+        //}
+        //private void CreatePropertySetMethod(RpcPropertyInfo rpcPropertyInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
+        //{
+        //    var propertyInfo = rpcPropertyInfo.Property;
+        //    if (propertyInfo.SetMethod != null)
+        //    {
+        //        if (rpcPropertyInfo.PropertyTypeKind != ServiceOperationReturnKind.Standard)
+        //        {
+        //            throw new RpcDefinitionException($"Type {rpcPropertyInfo.Property.PropertyType} is not valid for RPC property setter '{rpcPropertyInfo.Name}'.");
+        //        }
+        //        this.CreateBlockingMethodImpl(new RpcOperationInfo
+        //        (
+        //            service: rpcPropertyInfo.Service,
+        //            name: $"Set{propertyInfo.Name}",
+        //            method: propertyInfo.SetMethod,
+        //            requestType: typeof(RpcObjectRequest<>).MakeGenericType(propertyInfo.PropertyType),
+        //            requestTypeCtorArgTypes: ImmutableArray.Create<Type>(typeof(RpcObjectId), propertyInfo.PropertyType),
+        //            methodType: RpcMethodType.Unary,
+        //            isAsync: false,
+        //            parametersCount: 1,
+        //            responseType: typeof(RpcResponse),
+        //            returnType: typeof(void),
+        //            responseReturnType: typeof(void),
+        //            returnKind: ServiceOperationReturnKind.Standard
+        //        ),
+        //        serviceFaultGeneratorExpressions,
+        //        serverSideMemberInfo);
+        //    }
+        //}
 
         private (TypeBuilder, ILGenerator) CreateTypeBuilder(RpcServiceInfo serviceInfo, Type[] proxyCtorArgs)
         {

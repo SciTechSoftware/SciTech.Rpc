@@ -17,6 +17,8 @@ using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Immutable;
+using SciTech.Threading;
 
 namespace SciTech.Rpc.Pipelines.Server
 {
@@ -118,7 +120,7 @@ namespace SciTech.Rpc.Pipelines.Server
 
                         if (t.IsCanceled)
                         {
-                            await this.WriteCancelResponseAsync(messageId, operationName);
+                            await this.WriteCancelResponseAsync(messageId, operationName).ContextFree();
                         }
                         else if (t.IsFaulted)
                         {
@@ -126,7 +128,7 @@ namespace SciTech.Rpc.Pipelines.Server
                             // write the response. Most likely we will not succeed now either (and the 
                             // pipe will be closed). Maybe the handler should close the pipe instead 
                             // and not propagate the error?
-                            await this.WriteErrorResponseAsync(messageId, operationName, t.Exception);
+                            await this.WriteErrorResponseAsync(messageId, operationName, t.Exception).ContextFree();
                         }
                     }
                     catch (Exception e)
@@ -164,15 +166,24 @@ namespace SciTech.Rpc.Pipelines.Server
                 return default;
             }
 
-            private Task WriteCancelResponseAsync(int messageId, string operationName)
+            private async Task WriteCancelResponseAsync(int messageId, string operationName)
             {
+                // TODO: Should any headers be returned.
+                ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
+                var cancelFrame = new RpcPipelinesFrame(RpcFrameType.CancelResponse, messageId, operationName, headers);
 
-                throw new NotImplementedException();
+                var responseStream = await this.BeginWriteAsync(cancelFrame).ContextFree();
+                await this.EndWriteAsync();
             }
 
-            private Task WriteErrorResponseAsync(int messageId, string operationName, string message)
+            private async Task WriteErrorResponseAsync(int messageId, string operationName, string message)
             {
-                throw new NotImplementedException();
+                // TODO: Add exception message in header?
+                ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  
+                var errorFrame = new RpcPipelinesFrame(RpcFrameType.ErrorResponse, messageId, operationName, headers);
+
+                var responseStream = await this.BeginWriteAsync(errorFrame).ContextFree();
+                await this.EndWriteAsync();
             }
 
             private Task WriteErrorResponseAsync(int messageId, string operationName, Exception e)

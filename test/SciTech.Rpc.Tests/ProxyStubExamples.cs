@@ -254,154 +254,154 @@ namespace SciTech.Rpc
             };
     }
 
-    public sealed class BlockingServiceProxy : GrpcProxyBase, IBlockingServiceClient, IFaultService, IServiceWithEvents, IServiceProviderServiceClient
-    {
-        private static readonly GrpcProxyMethod __Method_SciTech_Rpc_BlockingService_Add;
+    //public sealed class BlockingServiceProxy : GrpcProxyBase, IBlockingServiceClient, IFaultService, IServiceWithEvents, IServiceProviderServiceClient
+    //{
+    //    private static readonly GrpcProxyMethod __Method_SciTech_Rpc_BlockingService_Add;
 
-        private static readonly GrpcProxyMethod __Method_SciTech_Rpc_ServiceWithEvents_BeginDetailedValueChanged;
+    //    private static readonly GrpcProxyMethod __Method_SciTech_Rpc_ServiceWithEvents_BeginDetailedValueChanged;
 
 
 
-        static BlockingServiceProxy()
-        {
-            __Method_SciTech_Rpc_BlockingService_Add =
-                CreateMethodDef<RpcObjectRequest<int, int>, RpcResponse<int>>(
-                    RpcMethodType.Unary,
-                    "SciTech.Rpc.BlockingService",
-                    "Add",
-                    null,
-                    null);
+    //    static BlockingServiceProxy()
+    //    {
+    //        __Method_SciTech_Rpc_BlockingService_Add =
+    //            CreateMethodDef<RpcObjectRequest<int, int>, RpcResponse<int>>(
+    //                RpcMethodType.Unary,
+    //                "SciTech.Rpc.BlockingService",
+    //                "Add",
+    //                null,
+    //                null);
 
-            __Method_SciTech_Rpc_ServiceWithEvents_BeginDetailedValueChanged =
-                CreateMethodDef<RpcObjectRequest, ValueChangedEventArgs>(
-                    RpcMethodType.EventAdd,
-                    "SciTech.Rpc.ServiceWithEvents",
-                    "BeginDetailedValueChanged",
-                    null,
-                    null);
+    //        __Method_SciTech_Rpc_ServiceWithEvents_BeginDetailedValueChanged =
+    //            CreateMethodDef<RpcObjectRequest, ValueChangedEventArgs>(
+    //                RpcMethodType.EventAdd,
+    //                "SciTech.Rpc.ServiceWithEvents",
+    //                "BeginDetailedValueChanged",
+    //                null,
+    //                null);
 
-        }
+    //    }
 
-        public BlockingServiceProxy(GrpcProxyArgs proxyArgs, GrpcProxyMethod[] proxyMethods) 
-            : base(proxyArgs, proxyMethods)
-        {
-        }
+    //    public BlockingServiceProxy(GrpcProxyArgs proxyArgs, GrpcProxyMethod[] proxyMethods) 
+    //        : base(proxyArgs, proxyMethods)
+    //    {
+    //    }
 
-        event EventHandler<ValueChangedEventArgs> IServiceWithEvents.DetailedValueChanged
-        {
-            add
-            {
-                this.AddEventHandlerAsync<EventHandler<ValueChangedEventArgs>, ValueChangedEventArgs>(value, 5);
-            }
-            remove
-            {
-                this.RemoveEventHandlerAsync<EventHandler<ValueChangedEventArgs>, ValueChangedEventArgs>(value, 5);
-            }
-        }
+    //    event EventHandler<ValueChangedEventArgs> IServiceWithEvents.DetailedValueChanged
+    //    {
+    //        add
+    //        {
+    //            this.AddEventHandlerAsync<EventHandler<ValueChangedEventArgs>, ValueChangedEventArgs>(value, 5);
+    //        }
+    //        remove
+    //        {
+    //            this.RemoveEventHandlerAsync<EventHandler<ValueChangedEventArgs>, ValueChangedEventArgs>(value, 5);
+    //        }
+    //    }
 
-        event EventHandler IServiceWithEvents.ValueChanged
-        {
-            add
-            {
-                this.AddEventHandlerAsync<EventHandler, EventArgs>(value, 6);
-            }
+    //    event EventHandler IServiceWithEvents.ValueChanged
+    //    {
+    //        add
+    //        {
+    //            this.AddEventHandlerAsync<EventHandler, EventArgs>(value, 6);
+    //        }
 
-            remove
-            {
-                this.RemoveEventHandlerAsync<EventHandler, EventArgs>(value, 6);
-            }
-        }
+    //        remove
+    //        {
+    //            this.RemoveEventHandlerAsync<EventHandler, EventArgs>(value, 6);
+    //        }
+    //    }
 
-        double IBlockingService.Value
-        {
-            get => this.CallUnaryMethod<RpcObjectRequest, double, double>(this.proxyMethods[1], new RpcObjectRequest(this.objectId), null);
-            set => this.CallUnaryVoidMethod(this.proxyMethods[2], new RpcObjectRequest<double>(this.objectId, value));
-        }
+    //    double IBlockingService.Value
+    //    {
+    //        get => this.CallUnaryMethod<RpcObjectRequest, double, double>(this.proxyMethods[1], new RpcObjectRequest(this.objectId), null);
+    //        set => this.CallUnaryVoidMethod(this.proxyMethods[2], new RpcObjectRequest<double>(this.objectId, value));
+    //    }
 
-        int IBlockingService.Add(int a, int b)
-        {
-            return this.CallUnaryMethod<RpcObjectRequest<int, int>, int, int>(__Method_SciTech_Rpc_BlockingService_Add, new RpcObjectRequest<int, int>(this.objectId, a, b), null);
-        }
+    //    int IBlockingService.Add(int a, int b)
+    //    {
+    //        return this.CallUnaryMethod<RpcObjectRequest<int, int>, int, int>(__Method_SciTech_Rpc_BlockingService_Add, new RpcObjectRequest<int, int>(this.objectId, a, b), null);
+    //    }
 
-        Task<int> IBlockingServiceClient.AddAsync(int a, int b)
-        {
-            return this.CallUnaryMethodAsync<RpcObjectRequest<int, int>, int, int>(__Method_SciTech_Rpc_BlockingService_Add, new RpcObjectRequest<int, int>(this.objectId, a, b), null, CancellationToken.None  );
-        }
+    //    Task<int> IBlockingServiceClient.AddAsync(int a, int b)
+    //    {
+    //        return this.CallUnaryMethodAsync<RpcObjectRequest<int, int>, int, int>(__Method_SciTech_Rpc_BlockingService_Add, new RpcObjectRequest<int, int>(this.objectId, a, b), null, CancellationToken.None  );
+    //    }
 
-        Task<double> IBlockingServiceClient.GetValueAsync()
-        {
-            return this.CallUnaryMethodAsync<RpcObjectRequest, double, double>(this.proxyMethods[1], new RpcObjectRequest(this.objectId), null, CancellationToken.None);
-        }
+    //    Task<double> IBlockingServiceClient.GetValueAsync()
+    //    {
+    //        return this.CallUnaryMethodAsync<RpcObjectRequest, double, double>(this.proxyMethods[1], new RpcObjectRequest(this.objectId), null, CancellationToken.None);
+    //    }
 
-        Task IBlockingServiceClient.SetValueAsync(double value)
-        {
-            return this.CallUnaryVoidMethodAsync(this.proxyMethods[2], new RpcObjectRequest<double>(this.objectId, value), CancellationToken.None);
-        }
+    //    Task IBlockingServiceClient.SetValueAsync(double value)
+    //    {
+    //        return this.CallUnaryVoidMethodAsync(this.proxyMethods[2], new RpcObjectRequest<double>(this.objectId, value), CancellationToken.None);
+    //    }
 
-        // DUMMY!
-        Task LegacySetValueAsync(int value)
-        {
-            var methodDef = this.proxyMethods[2];
-            return null;// this.CallUnaryVoidMethodAsync(methodDef, new RpcObjectRequest<double>(this.objectId, (double)methodDef.RequestConverter[0](value)));
-        }
+    //    // DUMMY!
+    //    Task LegacySetValueAsync(int value)
+    //    {
+    //        var methodDef = this.proxyMethods[2];
+    //        return null;// this.CallUnaryVoidMethodAsync(methodDef, new RpcObjectRequest<double>(this.objectId, (double)methodDef.RequestConverter[0](value)));
+    //    }
 
-        int IFaultService.Add(int a, int b)
-        {
-            return a + b;
-        }
+    //    int IFaultService.Add(int a, int b)
+    //    {
+    //        return a + b;
+    //    }
 
-        int IFaultService.GenerateDeclaredFault(int ignored)
-        {
-            return this.CallUnaryMethod<RpcObjectRequest<int>, int, int>(this.proxyMethods[3], new RpcObjectRequest<int>(this.objectId, ignored), null);
-        }
+    //    int IFaultService.GenerateDeclaredFault(int ignored)
+    //    {
+    //        return this.CallUnaryMethod<RpcObjectRequest<int>, int, int>(this.proxyMethods[3], new RpcObjectRequest<int>(this.objectId, ignored), null);
+    //    }
 
-        Task<int> IFaultService.GenerateAsyncDeclaredFaultAsync(bool direct)
-        {
-            return this.CallUnaryMethodAsync<RpcObjectRequest<bool>, int, int>(this.proxyMethods[4], new RpcObjectRequest<bool>(this.objectId, direct), null, CancellationToken.None);
-        }
+    //    Task<int> IFaultService.GenerateAsyncDeclaredFaultAsync(bool direct)
+    //    {
+    //        return this.CallUnaryMethodAsync<RpcObjectRequest<bool>, int, int>(this.proxyMethods[4], new RpcObjectRequest<bool>(this.objectId, direct), null, CancellationToken.None);
+    //    }
 
-        Task<RpcObjectRef<ISimpleService>> IServiceProviderServiceClient.GetSimpleServiceAsync()
-        {
-            return this.CallUnaryMethodAsync<RpcObjectRequest, RpcObjectRef, RpcObjectRef<ISimpleService>>(
-                this.proxyMethods[-1],
-                new RpcObjectRequest(this.objectId),
-                ServiceRefConverter<ISimpleService>.Default, 
-                CancellationToken.None);
-        }
+    //    Task<RpcObjectRef<ISimpleService>> IServiceProviderServiceClient.GetSimpleServiceAsync()
+    //    {
+    //        return this.CallUnaryMethodAsync<RpcObjectRequest, RpcObjectRef, RpcObjectRef<ISimpleService>>(
+    //            this.proxyMethods[-1],
+    //            new RpcObjectRequest(this.objectId),
+    //            ServiceRefConverter<ISimpleService>.Default, 
+    //            CancellationToken.None);
+    //    }
 
-        RpcObjectRef<ISimpleService> IServiceProviderService.GetSimpleService()
-        {
-            throw new NotImplementedException();
-        }
+    //    RpcObjectRef<ISimpleService> IServiceProviderService.GetSimpleService()
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        public void GenerateAnotherDeclaredFault(int faultArg)
-        {
-            throw new NotImplementedException();
-        }
+    //    public void GenerateAnotherDeclaredFault(int faultArg)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        public Task GenerateAsyncAnotherDeclaredFaultAsync(bool direct)
-        {
-            throw new NotImplementedException();
-        }
+    //    public Task GenerateAsyncAnotherDeclaredFaultAsync(bool direct)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        public void GenerateNoDetailsFault()
-        {
-            throw new NotImplementedException();
-        }
+    //    public void GenerateNoDetailsFault()
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        public Task GenerateUndeclaredExceptionAsync(bool direct)
-        {
-            throw new NotImplementedException();
-        }
+    //    public Task GenerateUndeclaredExceptionAsync(bool direct)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        public Task GenerateUndeclaredFaultExceptionAsync(bool direct)
-        {
-            throw new NotImplementedException();
-        }
+    //    public Task GenerateUndeclaredFaultExceptionAsync(bool direct)
+    //    {
+    //        throw new NotImplementedException();
+    //    }
 
-        public void GenerateCustomDeclaredExceptionAsync()
-        {
-            throw new NotImplementedException();
-        }
-    }
+    //    public void GenerateCustomDeclaredExceptionAsync()
+    //    {
+    //        throw new NotImplementedException();
+    //    }
+    //}
 }

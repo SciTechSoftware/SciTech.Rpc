@@ -18,11 +18,15 @@ namespace SciTech.Rpc.Client
     {
         public static TService GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectId objectId, bool useSyncContext = true) where TService : class
         {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
             return connection.GetServiceInstance<TService>(objectId, default, useSyncContext ? SynchronizationContext.Current : null);
         }
 
         public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef<TService> serviceRef, bool useSyncContext = true) where TService : class
         {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
             if (serviceRef == null)
             {
                 return null;
@@ -38,12 +42,14 @@ namespace SciTech.Rpc.Client
 
         public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef<TService> serviceRef, SynchronizationContext syncContext) where TService : class
         {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
             if (serviceRef == null)
             {
                 return null;
             }
 
-            if (connection != null && serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
+            if (serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
             {
                 return connection.GetServiceInstance<TService>(serviceRef.ObjectId, serviceRef.ImplementedServices, syncContext);
             }
@@ -53,12 +59,14 @@ namespace SciTech.Rpc.Client
 
         public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
         {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
             if (serviceRef == null)
             {
                 return null;
             }
 
-            if (connection != null && serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
+            if (serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
             {
                 return connection.GetServiceInstance<TService>(serviceRef.ObjectId, serviceRef.ImplementedServices, useSyncContext ? SynchronizationContext.Current : null);
             }
@@ -68,12 +76,14 @@ namespace SciTech.Rpc.Client
 
         public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class
         {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
             if (serviceRef == null)
             {
                 return null;
             }
 
-            if (connection != null && serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
+            if (serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
             {
                 return connection.GetServiceInstance<TService>(serviceRef.ObjectId, serviceRef.ImplementedServices, syncContext);
             }
@@ -83,12 +93,16 @@ namespace SciTech.Rpc.Client
 
         public static TService GetServiceSingleton<TService>(this IRpcServerConnection connection, bool useSyncContext = true) where TService : class
         {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
             return connection.GetServiceSingleton<TService>(useSyncContext ? SynchronizationContext.Current : null);
         }
 
         public static TService GetServiceSingleton<TService>(this IRpcServerConnection connection, RpcSingletonRef<TService> singletonRef, bool useSyncContext = true) where TService : class
         {
-            if (connection != null && singletonRef?.ServerConnection?.Matches(connection.ConnectionInfo) == true)
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
+            if (singletonRef?.ServerConnection?.Matches(connection.ConnectionInfo) == true)
             {
                 return connection.GetServiceSingleton<TService>(useSyncContext ? SynchronizationContext.Current : null);
             }

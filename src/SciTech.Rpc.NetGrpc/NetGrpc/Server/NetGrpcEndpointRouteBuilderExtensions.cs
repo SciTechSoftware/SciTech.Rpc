@@ -9,76 +9,89 @@
 //
 #endregion
 
-using Grpc.AspNetCore.Server.Internal;
-using Grpc.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc.NetGrpc.Server.Internal;
-using SciTech.Rpc.Server;
 using System;
-using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Reflection;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
+    internal class CompositeEndpointConventionBuilder : IEndpointConventionBuilder
+    {
+        private readonly ImmutableArray<IEndpointConventionBuilder> endpointConventionBuilders;
+
+        public CompositeEndpointConventionBuilder(ImmutableArray<IEndpointConventionBuilder> endpointConventionBuilders)
+        {
+            this.endpointConventionBuilders = endpointConventionBuilders;
+        }
+
+        public void Add(Action<EndpointBuilder> convention)
+        {
+            foreach (var endpointConventionBuilder in this.endpointConventionBuilders)
+            {
+                endpointConventionBuilder.Add(convention);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Provides extension methods for <see cref="IEndpointRouteBuilder"/> to add SciTech.RPC gRPC service endpoints.
+    /// </summary>
     public static class NetGrpcEndpointRouteBuilderExtensions
     {
-        public static IEndpointConventionBuilder MapNetGrpcServices(
-            this IEndpointRouteBuilder builder,
-            bool allowAutoPublish = false,
-            IRpcSerializer? serializer = null)
+        private static readonly MethodInfo MapGrpcServiceMethod =
+            typeof(GrpcEndpointRouteBuilderExtensions).GetMethod(
+                nameof(GrpcEndpointRouteBuilderExtensions.MapGrpcService),
+                BindingFlags.Static | BindingFlags.Public);
+
+        /// <summary>
+        /// Maps incoming requests to registered SciTech.Rpc gRPC services.
+        /// </summary>
+        /// <param name="builder">The <see cref="IEndpointRouteBuilder"/> to add the route to.</param>
+        /// <returns>An <see cref="IEndpointConventionBuilder"/> for endpoints associated with the service.</returns>        
+        public static IEndpointConventionBuilder MapNetGrpcServices(this IEndpointRouteBuilder builder)
         {
             if (builder == null)
             {
                 throw new ArgumentNullException(nameof(builder));
             }
 
-            var serviceDefinitionsProvider = builder.ServiceProvider.GetRequiredService<IRpcServiceDefinitionsProvider>();
-            var publisher = builder.ServiceProvider.GetRequiredService<RpcServicePublisher>();
+            var rpcServer = builder.ServiceProvider.GetService<NetGrpcServer>();
+            if (rpcServer == null)
+            {
+                throw new InvalidOperationException("Unable to find the required NetGrpc services. Please add all the required NetGrpc services by calling " +
+                    "'IServiceCollection.AddNetGrpc' inside the call to 'ConfigureServices(...)' in the application startup code.");
 
-            return builder.MapGrpcService<NetGrpcServiceActivator>(options =>
-                {
-                    options.BindAction = (serviceBinder, serviceImplProvider) =>
-                    {
-                        var rpcServer = new NetGrpcServer(publisher, serviceDefinitionsProvider, serviceBinder, serializer);
-                        rpcServer.AllowAutoPublish = allowAutoPublish;
-                        rpcServer.Start();
-                    };
-                    options.ModelFactory = new GrpcMethodModelFactory();
-                });
+            }
+            var definitionsProvider = rpcServer.ServiceDefinitionsProvider;
+
+            var conventionBuilders = ImmutableArray.CreateBuilder<IEndpointConventionBuilder>();
+
+            // Don't allow any more services to be registered, as that will (currently) not be be mapped
+            // to HTTP/2 routes.
+            definitionsProvider.Freeze();
+
+            builder.MapGrpcService<NetGrpcServer>();
+            foreach (var serviceType in definitionsProvider.GetRegisteredServiceTypes())
+            {
+                MapRegisteredType(builder, serviceType, conventionBuilders);
+            }
+
+            rpcServer.Start();
+
+            return new CompositeEndpointConventionBuilder(conventionBuilders.ToImmutable());
         }
 
-        private class GrpcMethodModelFactory : IGrpcMethodModelFactory<NetGrpcServiceActivator>
+        private static void MapRegisteredType(IEndpointRouteBuilder builder, Type serviceType, ImmutableArray<IEndpointConventionBuilder>.Builder conventionBuilders)
         {
-            public GrpcEndpointModel<ClientStreamingServerMethod<NetGrpcServiceActivator, TRequest, TResponse>> CreateClientStreamingModel<TRequest, TResponse>(Method<TRequest, TResponse> method)
-            {
-                throw new NotImplementedException();
-            }
+            var activatorType = typeof(NetGrpcServiceActivator<>).MakeGenericType(serviceType);
+            var typedMapGrpcServiceMethod = MapGrpcServiceMethod.MakeGenericMethod(activatorType);
 
-            public GrpcEndpointModel<DuplexStreamingServerMethod<NetGrpcServiceActivator, TRequest, TResponse>> CreateDuplexStreamingModel<TRequest, TResponse>(Method<TRequest, TResponse> method)
-            {
-                throw new NotImplementedException();
-            }
-
-            public GrpcEndpointModel<ServerStreamingServerMethod<NetGrpcServiceActivator, TRequest, TResponse>> CreateServerStreamingModel<TRequest, TResponse>(Method<TRequest, TResponse> method)
-            {
-                if (method is ServerStreamingMethodStub<TRequest, TResponse> streamingMethod)
-                {
-                    return new GrpcEndpointModel<ServerStreamingServerMethod<NetGrpcServiceActivator, TRequest, TResponse>>(streamingMethod.Invoker, new List<object>());
-                }
-
-                throw new NotSupportedException($"{nameof(GrpcMethodModelFactory)} should only be used for the SciTech.Rpc implementation of Grpc.AspNetCore.");
-            }
-
-            public GrpcEndpointModel<UnaryServerMethod<NetGrpcServiceActivator, TRequest, TResponse>> CreateUnaryModel<TRequest, TResponse>(Method<TRequest, TResponse> method)
-            {
-                if (method is UnaryMethodStub<TRequest, TResponse> unaryMethod)
-                {
-                    return new GrpcEndpointModel<UnaryServerMethod<NetGrpcServiceActivator, TRequest, TResponse>>(unaryMethod.Invoker, new List<object>());
-                }
-
-                throw new NotSupportedException($"{nameof(GrpcMethodModelFactory)} should only be used for the SciTech.Rpc implementation of Grpc.AspNetCore.");
-            }
+            var conventionBuilder = (IEndpointConventionBuilder)typedMapGrpcServiceMethod.Invoke(null, new object[] { builder });
+            conventionBuilders.Add(conventionBuilder);
         }
     }
 }

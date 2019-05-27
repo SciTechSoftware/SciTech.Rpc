@@ -37,14 +37,30 @@ namespace SciTech.Rpc.Server.Internal
         IRpcServerCallMetadata RequestHeaders { get; }
     }
 
+#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcStub
     {
-        protected RpcStub(IRpcServerImpl server)
+        protected RpcStub(IRpcServerImpl server, RpcServiceOptions? options)
         {
             this.Server = server;
             this.ServicePublisher = this.Server.ServicePublisher;
-            this.CustomFaultHandler = server.ServiceDefinitionsProvider.CustomFaultHandler;
+
+            this.AllowAutoPublish = options?.AllowAutoPublish ?? this.Server.AllowAutoPublish;
+            this.Serializer = options?.Serializer ?? this.Server.Serializer;
+
+            if (options?.ExceptionConverters?.Count > 0)
+            {
+                this.CustomFaultHandler = new RpcServerFaultHandler(this.Server.ExceptionConverters.Concat(options.ExceptionConverters));
+            }
+            else
+            {
+                this.CustomFaultHandler = this.Server.CustomFaultHandler;
+            }
         }
+
+        public bool AllowAutoPublish { get; }
+
+        public IRpcSerializer Serializer { get; }
 
         public IRpcServerImpl Server { get; }
 
@@ -98,7 +114,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 RpcObjectRef? serviceRef;
 
-                if (this.Server.AllowAutoPublish)
+                if (this.AllowAutoPublish)
                 {
                     serviceRef = this.ServicePublisher.GetOrPublishInstance(service)?.Cast();
                 }
@@ -118,8 +134,10 @@ namespace SciTech.Rpc.Server.Internal
             return null;
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 
 #pragma warning disable CA1031 // Do not catch general exception types
+#pragma warning disable CA1062 // Validate arguments of public methods
 
     public sealed class RpcStub<TService> : RpcStub where TService : class
     {
@@ -127,7 +145,7 @@ namespace SciTech.Rpc.Server.Internal
 
         private readonly IRpcServiceActivator serviceImplProvider;
 
-        public RpcStub(IRpcServerImpl server) : base(server)
+        public RpcStub(IRpcServerImpl server, RpcServiceOptions? options) : base(server, options)
         {
             this.serviceImplProvider = server.ServiceImplProvider;
         }
@@ -298,7 +316,12 @@ namespace SciTech.Rpc.Server.Internal
             catch (Exception e)
             {
                 var rpcError = CreateRpcError(e);
-                return new RpcResponse(rpcError);
+                if (rpcError != null)
+                {
+                    return new RpcResponse(rpcError);
+                }
+
+                throw;
             }
         }
 
@@ -340,7 +363,12 @@ namespace SciTech.Rpc.Server.Internal
             catch (Exception e)
             {
                 var rpcError = CreateRpcError(e);
-                return new RpcResponse(rpcError);
+                if (rpcError != null)
+                {
+                    return new RpcResponse(rpcError);
+                }
+
+                throw;
             }
         }
 
@@ -374,7 +402,7 @@ namespace SciTech.Rpc.Server.Internal
             return rpcResponse;
         }
 
-        private static RpcError CreateRpcError(Exception e)
+        private static RpcError? CreateRpcError(Exception e)
         {
             if (e is RpcServiceUnavailableException)
             {
@@ -385,35 +413,13 @@ namespace SciTech.Rpc.Server.Internal
                 };
             }
 
-            return new RpcError
-            {
-                ErrorType = WellKnownRpcErrors.Failure,
-                Message = "Failed to process RPC call"
-            };
-        }
+            return null;
 
-        private static RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
-        {
-            RpcError? rpcError = null;
-            foreach (var converter in converters)
-            {
-                // We have at least one declared exception handlers
-                var convertedFault = converter.CreateFault(e);
-
-                if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
-                {
-                    byte[]? detailsData = null;
-                    if (convertedFault.Details != null)
-                    {
-                        detailsData = serializer.ToBytes(convertedFault.Details);
-                    }
-
-                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = converter.FaultCode, Message = convertedFault.Message, FaultDetails = detailsData };
-                    break;
-                }
-            }
-
-            return rpcError;
+            //return new RpcError
+            //{
+            //    ErrorType = WellKnownRpcErrors.Failure,
+            //    Message = "Failed to process RPC call"
+            //};
         }
 
         /// <summary>
@@ -459,7 +465,7 @@ namespace SciTech.Rpc.Server.Internal
                 {
                     var interceptor = interceptors[index];
                     var interceptTask = interceptor(rpcMetaData!);
-                    if (interceptTask.Status != TaskStatus.RanToCompletion )
+                    if (interceptTask.Status != TaskStatus.RanToCompletion)
                     {
                         // TODO: This is completely untested. And investigate how an async interceptor
                         // will be able to update an AsyncLocal and propagate the change out from this method.
@@ -467,7 +473,7 @@ namespace SciTech.Rpc.Server.Internal
                     }
                     else
                     {
-                        interceptDisposables[index] = interceptTask.AwaitedResult();
+                        interceptDisposables[index] = interceptTask.AwaiterResult();
                     }
                 }
 
@@ -509,7 +515,7 @@ namespace SciTech.Rpc.Server.Internal
             throw new RpcServiceUnavailableException($"Service object '{objectId}' ({typeof(TService).Name}) not available.");
         }
 
-        private RpcError HandleRpcError(Exception e, RpcServerFaultHandler? declaredFaultHandler, IRpcSerializer serializer)
+        private RpcError? HandleRpcError(Exception e, RpcServerFaultHandler? declaredFaultHandler, IRpcSerializer serializer)
         {
             // TODO: Rethrow if operation is tagged as "RpcNoFault"
 
@@ -523,7 +529,7 @@ namespace SciTech.Rpc.Server.Internal
                     {
                         // Using the methodStub fault handler as the faultHandler argument, since 
                         // this faultHandler is used to check whether the fault is declared for the specific operation.
-                        rpcError = TryConvertToFault(e, customConverters!, declaredFaultHandler, serializer);
+                        rpcError = this.TryConvertToFault(e, customConverters!, declaredFaultHandler, serializer);
                     }
                 }
 
@@ -532,7 +538,7 @@ namespace SciTech.Rpc.Server.Internal
                     // Not handled by a custom converter, so let's try the declared converters. 
                     if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
                     {
-                        rpcError = TryConvertToFault(e, declaredConverters!, declaredFaultHandler, serializer);
+                        rpcError = this.TryConvertToFault(e, declaredConverters!, declaredFaultHandler, serializer);
                     }
                 }
             }
@@ -542,9 +548,9 @@ namespace SciTech.Rpc.Server.Internal
             {
                 // Exception not handled by any custom or declared fault handler. Let's
                 // perform default handling.
-                if (e is RpcFaultException)
+                if (e is RpcFaultException faultException)
                 {
-                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = "", Message = e.Message };
+                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = faultException.FaultCode, Message = faultException.Message };
                 }
                 else if (e is RpcFailureException)
                 {
@@ -557,10 +563,34 @@ namespace SciTech.Rpc.Server.Internal
                     // Note, in case the server is shutdown, it would be very good if the response is sent to the client first (add 
                     // suitable tests).
 
-                    // TODO: Implement IncludeExceptionDetailInFaults
-                    string message = "The server was unable to process the request due to an internal error. "
-                        + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
-                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = "", Message = message };
+                    //// TODO: Implement IncludeExceptionDetailInFaults
+                    //string message = "The server was unable to process the request due to an internal error. "
+                    //    + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
+                    //rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = "", Message = message };
+                }
+            }
+
+            return rpcError;
+        }
+
+        private RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
+        {
+            RpcError? rpcError = null;
+            foreach (var converter in converters)
+            {
+                // We have at least one declared exception handlers
+                var convertedFault = converter.CreateFault(e);
+
+                if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
+                {
+                    byte[]? detailsData = null;
+                    if (convertedFault.Details != null)
+                    {
+                        detailsData = serializer.ToBytes(convertedFault.Details);
+                    }
+
+                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = converter.FaultCode, Message = convertedFault.Message, FaultDetails = detailsData };
+                    break;
                 }
             }
 
@@ -568,6 +598,7 @@ namespace SciTech.Rpc.Server.Internal
         }
     }
 
+#pragma warning restore CA1062 // Validate arguments of public methods
 #pragma warning restore CA1031 // Do not catch general exception types
 
     internal static class RpcStubOptions

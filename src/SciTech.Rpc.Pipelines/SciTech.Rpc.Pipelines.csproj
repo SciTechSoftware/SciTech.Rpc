@@ -15,7 +15,8 @@
     <Copyright>Copyright 2019. SciTech Software AB</Copyright>
     <Description>
       SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
-      From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.&#13;
+      From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
       This package contains the communication layer for the Pipelines implementation of SciTech.Rpc.
     </Description>
   </PropertyGroup>
@@ -26,6 +27,7 @@
 
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
     <NullableContextOptions>enable</NullableContextOptions>
   </PropertyGroup>
 
@@ -42,10 +44,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.2">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="2.2.0" />
     <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.22" />
     <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
 

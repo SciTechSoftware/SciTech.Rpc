@@ -32,7 +32,7 @@ namespace SciTech.Rpc.Tests
         }
 
         [TestCaseSource(nameof(OperationTypes))]
-        public async Task ServiceUnavailableTest(TestOperationType operationType)
+        public async Task UnavailableService_ShouldThrowRpcServiceUnavailableException(TestOperationType operationType)
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
@@ -193,47 +193,12 @@ namespace SciTech.Rpc.Tests
 
                 using (var publishedInstanceScope = host.ServicePublisher.PublishInstance<IServiceFaultService>(new ServiceFaultServiceImpl()))
                 {
-
                     var faultService = connection.GetServiceInstance<IServiceFaultServiceClient>(publishedInstanceScope.Value);
 
                     Assert.Throws<RpcFaultException<AnotherServiceDeclaredFault>>(() => faultService.GenerateServiceFault(true, true));
                     Assert.Throws<RpcFaultException<AnotherDeclaredFault>>(() => faultService.GenerateServiceFault(true, false));
                     Assert.Throws<RpcFaultException<ServiceDeclaredFault>>(() => faultService.GenerateServiceFault(false, true));
                     Assert.Throws<RpcFaultException<DeclaredFault>>(() => faultService.GenerateServiceFault(false, false));
-
-                    //// Invoke unknown service instance
-                    //switch (operationType)
-                    //{
-                    //    case TestOperationType.BlockingBlocking:
-                    //        Assert.Throws<RpcFaultException<DeclaredFault>>(() => faultService.GenerateDeclaredFault(12));
-                    //        break;
-                    //    case TestOperationType.AsyncBlocking:
-                    //        Assert.ThrowsAsync<RpcFaultException<DeclaredFault>>(() => faultService.GenerateDeclaredFaultAsync(12));
-                    //        break;
-                    //    case TestOperationType.BlockingAsync:
-                    //        Assert.Throws<RpcFaultException<DeclaredFault>>(() => faultService.GenerateAsyncDeclaredFault(true));
-                    //        Assert.Throws<RpcFaultException<DeclaredFault>>(() => faultService.GenerateAsyncDeclaredFault(false));
-                    //        break;
-                    //    case TestOperationType.AsyncAsync:
-                    //        Assert.ThrowsAsync<RpcFaultException<DeclaredFault>>(() => faultService.GenerateAsyncDeclaredFaultAsync(true));
-                    //        Assert.ThrowsAsync<RpcFaultException<DeclaredFault>>(() => faultService.GenerateAsyncDeclaredFaultAsync(false));
-                    //        break;
-                    //    case TestOperationType.BlockingBlockingVoid:
-                    //        Assert.Throws<RpcFaultException<AnotherDeclaredFault>>(() => faultService.GenerateAnotherDeclaredFault(12));
-                    //        break;
-                    //    case TestOperationType.AsyncBlockingVoid:
-                    //        Assert.ThrowsAsync<RpcFaultException<AnotherDeclaredFault>>(() => faultService.GenerateAnotherDeclaredFaultAsync(12));
-                    //        break;
-                    //    case TestOperationType.BlockingAsyncVoid:
-                    //        Assert.Throws<RpcFaultException<DeclaredFault>>(() => faultService.GenerateAsyncAnotherDeclaredFault(true));
-                    //        Assert.Throws<RpcFaultException<AnotherDeclaredFault>>(() => faultService.GenerateAsyncAnotherDeclaredFault(false));
-                    //        break;
-
-                    //    case TestOperationType.AsyncAsyncVoid:
-                    //        Assert.ThrowsAsync<RpcFaultException<DeclaredFault>>(() => faultService.GenerateAsyncAnotherDeclaredFaultAsync(true));
-                    //        Assert.ThrowsAsync<RpcFaultException<AnotherDeclaredFault>>(() => faultService.GenerateAsyncAnotherDeclaredFaultAsync(false));
-                    //        break;
-                    //}
 
                     // Make sure that the connection is still usable after exception
                     Assert.AreEqual(12 + 13, faultService.Add(12, 13));
@@ -275,7 +240,7 @@ namespace SciTech.Rpc.Tests
         }
 
         [Test]
-        public async Task UndeclaredExceptionTest()
+        public async Task UndeclaredException_ShouldThrowRpcFailure()
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
@@ -285,12 +250,15 @@ namespace SciTech.Rpc.Tests
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
             var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl());
 
-            var faultService = connection.GetServiceInstance<IFaultService>(publishedInstanceScope.Value);
+            var faultService = connection.GetServiceInstance(publishedInstanceScope.Value);
             host.Start();
             try
             {
-                // TODO: Fault or failure exception here?
-                Assert.ThrowsAsync<RpcFaultException>(() => faultService.GenerateUndeclaredExceptionAsync(false));
+                Assert.ThrowsAsync<RpcFailureException>(() => faultService.GenerateUndeclaredExceptionAsync(false).DefaultTimeout());
+
+                // TODO: Should this be allowed, or should the connection be closed on undeclared exceptions?
+                int res = faultService.Add(5, 6);
+                Assert.AreEqual(5 + 6, res);
             }
             finally
             {
@@ -299,7 +267,7 @@ namespace SciTech.Rpc.Tests
         }
 
         [Test]
-        public async Task UndeclaredFaultExceptionTest()
+        public async Task UndeclaredFaultException_ShouldThrowFault()
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
@@ -313,13 +281,56 @@ namespace SciTech.Rpc.Tests
             try
             {
                 var faultException = Assert.ThrowsAsync<RpcFaultException>(()=>faultService.GenerateUndeclaredFaultExceptionAsync(false) );
-                Assert.AreEqual("", faultException.FaultCode);
+                Assert.AreEqual("AnotherDeclaredFault", faultException.FaultCode);
             }
             finally
             {
                 await host.ShutdownAsync();
             }
         }
+
+        [Test]
+        public void IncorrectFaultOp_ShouldThrowDefinitionException()
+        {
+            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+
+            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
+
+            Assert.Throws<RpcDefinitionException>(()=>connection.GetServiceInstance<IIncorrectFaultOpServiceClient>(RpcObjectId.NewId()));
+        }
+
+        [Test]
+        public void IncorrectServiceFault_ShouldThrowDefinitionException()
+        {
+            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+
+            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
+
+            Assert.Throws<RpcDefinitionException>(() => connection.GetServiceInstance<IIncorrectServiceFaultServiceClient>(RpcObjectId.NewId()));
+        }
+
+        //[Test]
+        //public async Task UnknownExceptionTest()
+        //{
+        //    var serviceRegistrator = new RpcServiceDefinitionBuilder();
+        //    serviceRegistrator
+        //        .RegisterService<IFaultService>();
+
+        //    var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
+        //    var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl());
+
+        //    var faultService = connection.GetServiceInstance<IFaultService>(publishedInstanceScope.Value);
+        //    host.Start();
+        //    try
+        //    {
+        //        var faultException = Assert.Throws<RpcFailureException>(() => faultService.GenerateUnknownException());
+        //        Assert.NotNull(faultException);
+        //    }
+        //    finally
+        //    {
+        //        await host.ShutdownAsync();
+        //    }
+        //}
 
         protected static readonly TestOperationType[] OperationTypes = {
             TestOperationType.BlockingBlocking,

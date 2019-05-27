@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Server;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -20,7 +21,20 @@ namespace SciTech.Rpc
         /// <summary>
         /// Gets a collection of interface types that implement RPC services.
         /// </summary>
-        IEnumerable<Type> GetServiceTypes(RpcServiceDefinitionType definitionType);
+        IEnumerable<RegisteredServiceType> GetServiceTypes(RpcServiceDefinitionSide definitionType);
+    }
+
+    public struct RegisteredServiceType
+    {
+        internal RegisteredServiceType(Type serviceType, RpcServiceOptions? serverOptions)
+        {
+            this.ServiceType = serviceType;
+            this.ServerOptions = serverOptions;
+        }
+
+        public RpcServiceOptions? ServerOptions { get; }
+
+        public Type ServiceType { get; }
     }
 
     public class KnownSerializationType
@@ -43,36 +57,47 @@ namespace SciTech.Rpc
 
     public class RpcServiceRegistration : IRpcServiceRegistration
     {
+        private readonly RpcServiceOptions? serverOptions;
+
         public RpcServiceRegistration(Type serviceType)
         {
             this.ServiceType = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
         }
 
+        public RpcServiceRegistration(Type serviceType, RpcServiceOptions? serverOptions)
+        {
+            this.ServiceType = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
+            this.serverOptions = serverOptions;
+        }
+
         public Type ServiceType { get; }
 
-        public IEnumerable<Type> GetServiceTypes(RpcServiceDefinitionType definitionType)
+        public IEnumerable<RegisteredServiceType> GetServiceTypes(RpcServiceDefinitionSide definitionType)
         {
             var rpcServiceAttribute = this.ServiceType.GetCustomAttribute<RpcServiceAttribute>(false);
             if (rpcServiceAttribute != null
-                && (definitionType == RpcServiceDefinitionType.Both
-                || rpcServiceAttribute.ServiceDefinitionType == RpcServiceDefinitionType.Both
-                || definitionType == rpcServiceAttribute.ServiceDefinitionType))
+                && (definitionType == RpcServiceDefinitionSide.Both
+                || rpcServiceAttribute.ServiceDefinitionSide == RpcServiceDefinitionSide.Both
+                || definitionType == rpcServiceAttribute.ServiceDefinitionSide))
             {
-                yield return this.ServiceType;
+                yield return new RegisteredServiceType(this.ServiceType, this.serverOptions);
             }
         }
     }
 
     public class RpcServicesAssemblyRegistration : IRpcServiceRegistration
     {
-        public RpcServicesAssemblyRegistration(Assembly servicesAssembly)
+        private readonly RpcServiceOptions? serverOptions;
+
+        public RpcServicesAssemblyRegistration(Assembly servicesAssembly, RpcServiceOptions? serverOptions = null)
         {
             this.ServicesAssembly = servicesAssembly;
+            this.serverOptions = serverOptions;
         }
 
         public Assembly ServicesAssembly { get; }
 
-        public IEnumerable<Type> GetServiceTypes(RpcServiceDefinitionType definitionType)
+        public IEnumerable<RegisteredServiceType> GetServiceTypes(RpcServiceDefinitionSide definitionType)
         {
             foreach (var type in this.ServicesAssembly.ExportedTypes)
             {
@@ -80,11 +105,11 @@ namespace SciTech.Rpc
                 {
                     var rpcServiceAttribute = type.GetCustomAttribute<RpcServiceAttribute>(false);
                     if (rpcServiceAttribute != null
-                        && (definitionType == RpcServiceDefinitionType.Both
-                        || rpcServiceAttribute.ServiceDefinitionType == RpcServiceDefinitionType.Both
-                        || definitionType == rpcServiceAttribute.ServiceDefinitionType))
+                        && (definitionType == RpcServiceDefinitionSide.Both
+                        || rpcServiceAttribute.ServiceDefinitionSide == RpcServiceDefinitionSide.Both
+                        || definitionType == rpcServiceAttribute.ServiceDefinitionSide))
                     {
-                        yield return type;
+                        yield return new RegisteredServiceType(type, this.serverOptions);
                     }
                 }
             }

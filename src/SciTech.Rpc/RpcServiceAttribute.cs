@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace SciTech.Rpc
 {
-    public enum RpcServiceDefinitionType
+    public enum RpcServiceDefinitionSide
     {
         Both,
         Client,
@@ -19,11 +19,11 @@ namespace SciTech.Rpc
     [AttributeUsage(AttributeTargets.Interface)]
     public class RpcServiceAttribute : Attribute
     {
-        private RpcServiceDefinitionType? serviceDefinitionType;
+        private RpcServiceDefinitionSide? serviceDefinitionType;
 
         /// <summary>
-        /// Optional information about the server side definition type, used when <see cref="ServiceDefinitionType"/> is 
-        /// <see cref="RpcServiceDefinitionType.Client"/>. Specifiying this type allows RPC analyzer and runtime code generation to validate 
+        /// Optional information about the server side definition type, used when <see cref="ServiceDefinitionSide"/> is 
+        /// <see cref="RpcServiceDefinitionSide.Client"/>. Specifiying this type allows RPC analyzer and runtime code generation to validate 
         /// that the client definition matches the server definition. It also allows service name and similar properties to be retrieved
         /// from the server side definition.
         /// </summary>
@@ -61,11 +61,12 @@ namespace SciTech.Rpc
         public bool IsSingleton { get; set; }
 
         /// <summary>
-        /// TODO: Change suffix. Type is misleading since it's not a Type
+        /// Indicates whether the service interface defines the server side, client side, or both sides of the RPC service. If <see cref="ServiceDefinitionType"/>
+        /// is specified, this property will be <see cref="RpcServiceDefinitionSide.Client"/> by default; otherwise it will be <see cref="RpcServiceDefinitionSide.Both"/>.
         /// </summary>
-        public RpcServiceDefinitionType ServiceDefinitionType
+        public RpcServiceDefinitionSide ServiceDefinitionSide
         {
-            get => this.serviceDefinitionType ?? (this.ServerDefinitionType != null ? RpcServiceDefinitionType.Client : RpcServiceDefinitionType.Both);
+            get => this.serviceDefinitionType ?? (this.ServerDefinitionType != null ? RpcServiceDefinitionSide.Client : RpcServiceDefinitionSide.Both);
             set => this.serviceDefinitionType = value;
         }
     }

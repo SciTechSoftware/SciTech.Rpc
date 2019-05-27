@@ -19,20 +19,19 @@ namespace SciTech.Rpc.Server
     {
         public static readonly RpcServerFaultHandler Default = new RpcServerFaultHandler();
 
-        private readonly Dictionary<Type, List<IRpcServerExceptionConverter>>? faultGenerators;
-
         private readonly HashSet<string>? declaredFaults;
 
-        private RpcServerFaultHandler()
-        {
+        private readonly Dictionary<Type, List<IRpcServerExceptionConverter>>? faultGenerators;
 
+        internal RpcServerFaultHandler(params IEnumerable<IRpcServerExceptionConverter>?[] errorGenerators)
+        {
         }
 
         internal RpcServerFaultHandler(IEnumerable<IRpcServerExceptionConverter> errorGenerators)//, IRpcSerializer serializer)
         {
             //this.Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
 
-            if (errorGenerators != null )
+            if (errorGenerators != null)
             {
                 this.faultGenerators = new Dictionary<Type, List<IRpcServerExceptionConverter>>();
                 this.declaredFaults = new HashSet<string>();
@@ -55,11 +54,17 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        private RpcServerFaultHandler()
+        {
+
+        }
+
+        public bool IsFaultDeclared(string faultCode) => this.declaredFaults?.Contains(faultCode) == true;
         //internal IRpcSerializer? Serializer { get; }
 
         public bool TryGetExceptionConverter(Exception e, out IReadOnlyList<IRpcServerExceptionConverter>? converters)
         {
-            if (this.faultGenerators != null && this.faultGenerators.TryGetValue(e.GetType(), out var convertersList))
+            if (e != null && this.faultGenerators != null && this.faultGenerators.TryGetValue(e.GetType(), out var convertersList))
             {
                 converters = convertersList;
                 return true;
@@ -68,16 +73,12 @@ namespace SciTech.Rpc.Server
             converters = default;
             return false;
         }
-
-        public bool IsFaultDeclared(string faultCode) => this.declaredFaults?.Contains(faultCode) == true;
-
         //public ConvertedFault HandleException(Exception e, IRpcSerializer serializer)
         //{
         //    if (this.faultGenerators != null && this.faultGenerators.TryGetValue(e.GetType(), out var faultGenerator))
         //    {
         //        return faultGenerator.CreateFault(e);
         //    }
-
         //    return null;
         //}
     }

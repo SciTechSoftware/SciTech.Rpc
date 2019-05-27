@@ -128,6 +128,7 @@ namespace SciTech.Rpc.Client
 
         public IRpcServerConnection GetServerConnection(RpcServerConnectionInfo connectionInfo)
         {
+            if (connectionInfo is null) throw new ArgumentNullException(nameof(connectionInfo));
 
             lock (this.syncRoot)
             {

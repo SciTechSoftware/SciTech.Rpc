@@ -201,6 +201,8 @@ namespace SciTech.Collections
 
         public void AddRange(IEnumerable<T> enumerable)
         {
+            if (enumerable is null) throw new ArgumentNullException(nameof(enumerable));
+
             if (enumerable is ICollection<T> collection)
             {
                 int totalCount = this.Count + collection.Count;
@@ -283,6 +285,8 @@ namespace SciTech.Collections
         {
             if (this.data != null)
             {
+                if (array is null) throw new ArgumentNullException(nameof(array));
+
                 if (this.data is SmallCollection<T> shortList)
                 {
                     shortList.CopyTo(array, arrayIndex);

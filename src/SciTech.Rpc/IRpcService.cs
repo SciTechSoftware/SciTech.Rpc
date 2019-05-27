@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,7 +39,7 @@ namespace SciTech.Rpc.Client
     {
         public static TService Cast<TService>(this IRpcService rpcService) where TService : class
         {
-            var service = rpcService.TryCastAsync<TService>().Result;
+            var service = rpcService?.TryCastAsync<TService>().Result;
             if (service != null)
             {
                 return service;
@@ -49,7 +50,7 @@ namespace SciTech.Rpc.Client
 
         public static async Task<TService> CastAsync<TService>(this IRpcService rpcService) where TService : class
         {
-            var service = await rpcService.TryCastAsync<TService>().ConfigureAwait(false);
+            var service = rpcService != null ? await rpcService.TryCastAsync<TService>().ConfigureAwait(false) : null;
             if (service != null)
             {
                 return service;
@@ -70,12 +71,12 @@ namespace SciTech.Rpc.Client
 
         public static TService? TryCast<TService>(this IRpcService rpcService) where TService : class
         {
-            return rpcService.TryCastAsync<TService>().Result;
+            return rpcService?.TryCastAsync<TService>()?.AwaiterResult();
         }
 
         public static bool TryCast<TService>(this IRpcService rpcService, out TService? service) where TService : class
         {
-            service = rpcService.TryCastAsync<TService>().Result;
+            service = rpcService?.TryCastAsync<TService>()?.AwaiterResult();
             return service != null;
         }
     }

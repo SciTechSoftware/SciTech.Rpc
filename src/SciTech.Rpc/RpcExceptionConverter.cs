@@ -43,6 +43,8 @@ namespace SciTech.Rpc
 
         public override ConvertedFault? CreateFault(TException exception)
         {
+            if (exception is null) throw new ArgumentNullException(nameof(exception));
+
             return new ConvertedFault(this.FaultCode, exception.Message);
         }
     }
@@ -93,7 +95,7 @@ namespace SciTech.Rpc
         }
 
         public Type ConverterType { get; }
-        
+
         public Type ExceptionType { get; }
     }
 
@@ -145,6 +147,8 @@ namespace SciTech.Rpc
 
         public override ConvertedFault? CreateFault(RpcFaultException exception)
         {
+            if (exception is null) throw new ArgumentNullException(nameof(exception));
+
             if (exception.FaultCode == this.FaultCode)
             {
                 return new ConvertedFault(this.FaultCode, exception.Message);
@@ -166,6 +170,8 @@ namespace SciTech.Rpc
 
         public override ConvertedFault? CreateFault(RpcFaultException<TFault> exception)
         {
+            if (exception is null) throw new ArgumentNullException(nameof(exception));
+
             return new ConvertedFault(this.FaultCode, exception.Message, exception.Fault);
         }
     }

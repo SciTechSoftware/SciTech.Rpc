@@ -169,12 +169,12 @@ namespace RpcCodeGen
             foreach (var exportedType in assembly.GetExportedTypes())
             {
                 var serviceInfo = RpcBuilderUtil.TryGetServiceInfoFromType(exportedType);
-                if (serviceInfo != null && serviceInfo.DefinitionType != RpcServiceDefinitionType.Client)
+                if (serviceInfo != null && serviceInfo.DefinitionSide != RpcServiceDefinitionSide.Client)
                 {
                     serviceBuilder.AppendLine();
                     serviceBuilder.AppendLine($"service {serviceInfo.Name} {{");
 
-                    foreach (var rpcMemberInfo in RpcBuilderUtil.EnumOperationHandlers(serviceInfo))
+                    foreach (var rpcMemberInfo in RpcBuilderUtil.EnumOperationHandlers(serviceInfo, true))
                     {
                         if (rpcMemberInfo is RpcOperationInfo rpcOpInfo)
                         {

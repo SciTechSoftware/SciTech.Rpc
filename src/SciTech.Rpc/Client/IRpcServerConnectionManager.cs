@@ -41,6 +41,7 @@ namespace SciTech.Rpc.Client
         bool RemoveKnownConnection(IRpcServerConnection connection);
     }
 
+#pragma warning disable CA1062 // Validate arguments of public methods
     public static class RpcServerConnectionManagerExtensions
     {
         public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
@@ -100,4 +101,5 @@ namespace SciTech.Rpc.Client
             return connectionManager.GetServiceSingleton<TService>(connection, syncContext);
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 }

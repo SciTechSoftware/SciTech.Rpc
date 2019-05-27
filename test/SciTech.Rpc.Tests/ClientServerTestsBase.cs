@@ -25,11 +25,11 @@ namespace SciTech.Rpc.Tests
 
         private RpcConnectionType connectionType;
 
-        private IRpcSerializer serializer;
+        private RpcServiceOptions options;
 
         protected ClientServerTestsBase(IRpcSerializer serializer, RpcConnectionType connectionType)
         {
-            this.serializer = serializer;
+            this.options = new RpcServiceOptions { Serializer = serializer };
             this.connectionType = connectionType;
         }
 
@@ -59,13 +59,13 @@ namespace SciTech.Rpc.Tests
             {
                 case RpcConnectionType.TcpPipelines:
                     {
-                        var host = new RpcPipelinesServer(rpcServerId, serviceDefinitionsBuilder, null, this.serializer);
+                        var host = new RpcPipelinesServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
                         host.AddEndPoint(new TcpPipelinesEndPoint("127.0.0.1", TcpTestPort, false));
 
                         var proxyGenerator = new PipelinesProxyProvider(proxyServicesProvider);
                         var connection = new TcpPipelinesConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"pipelines.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
-                            proxyGenerator, this.serializer);
+                            proxyGenerator, this.options.Serializer);
 
                         return (host, connection);
                     }
@@ -74,23 +74,23 @@ namespace SciTech.Rpc.Tests
                         Pipe requestPipe = new Pipe();
                         Pipe responsePipe = new Pipe();
 
-                        var host = new RpcPipelinesServer(rpcServerId, serviceDefinitionsBuilder, null, this.serializer);
+                        var host = new RpcPipelinesServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
                         host.AddEndPoint(new DirectPipelinesEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                         var proxyGenerator = new PipelinesProxyProvider(proxyServicesProvider);
                         var connection = new DirectPipelinesServerConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
-                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), proxyGenerator, this.serializer);
+                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), proxyGenerator, this.options.Serializer);
                         return (host, connection);
                     }
                 case RpcConnectionType.Grpc:
                     {
-                        var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.serializer);
+                        var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
                         var proxyGenerator = new GrpcProxyProvider(proxyServicesProvider);
                         var connection = new GrpcServerConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.SslCredentials, proxyGenerator, this.serializer );
+                            TestCertificates.SslCredentials, proxyGenerator, this.options.Serializer );
                         return (host, connection);
                     }
             }

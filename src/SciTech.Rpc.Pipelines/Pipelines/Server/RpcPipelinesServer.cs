@@ -9,17 +9,19 @@
 //
 #endregion
 
-using SciTech.Rpc.Server;
-using SciTech.Rpc.Server.Internal;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Pipelines.Server.Internal;
-using SciTech.Rpc.Pipelines.Internal;
+using SciTech.Rpc.Server;
+using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,6 +29,8 @@ namespace SciTech.Rpc.Pipelines.Server
 {
     public partial class RpcPipelinesServer : RpcServerBase
     {
+        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(RpcPipelinesServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+
         private readonly ConcurrentDictionary<Client, Client> clients = new ConcurrentDictionary<Client, Client>();
 
         private readonly Dictionary<string, PipelinesMethodStub> methodDefinitions = new Dictionary<string, PipelinesMethodStub>();
@@ -35,49 +39,42 @@ namespace SciTech.Rpc.Pipelines.Server
 
         private List<IRpcPipelinesEndPoint> startedEndpoints = new List<IRpcPipelinesEndPoint>();
 
-        public RpcPipelinesServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, IRpcSerializer serializer)
-            : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, serializer)
+        public RpcPipelinesServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServiceOptions options)
+            : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options)
         {
-        }
-
-        public RpcPipelinesServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, IRpcSerializer serializer)
-            : base(serverId, definitionsProvider)
-        {
-            this.ServiceProvider = serviceProvider;
-            this.Serializer = serializer;
         }
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="servicePublisher"></param>
-        public RpcPipelinesServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, IRpcSerializer serializer)
-            : base(servicePublisher)
+        public RpcPipelinesServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServiceOptions options)
+            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)), 
+                  servicePublisher, 
+                  servicePublisher.DefinitionsProvider, serviceProvider, options)
         {
-            this.ServiceProvider = serviceProvider;
-            this.Serializer = serializer;
+        }
+
+        public RpcPipelinesServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServiceOptions options)
+            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
+        {
         }
 
         /// <summary>
-        /// 
+        /// Only intended for testing.
         /// </summary>
-        /// <param name="servicePublisher"></param>
-        /// <param name="serviceImplProvider"></param>
-        /// <param name="definitionsProvider"></param>
         public RpcPipelinesServer(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider,
-            IRpcSerializer serializer)
-            : base(servicePublisher, serviceImplProvider, definitionsProvider)
+            RpcServiceOptions options)
+            : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
-            this.Serializer = serializer;
         }
-        protected override IServiceProvider? ServiceProvider { get; }
 
         public int ClientCount => this.clients.Count;
 
-        public IRpcSerializer Serializer { get; }
+        protected override IServiceProvider? ServiceProvider { get; }
 
         public void AddEndPoint(IRpcPipelinesEndPoint endPoint)
         {
@@ -116,9 +113,9 @@ namespace SciTech.Rpc.Pipelines.Server
 
         protected override void BuildServiceStub(Type serviceType)
         {
-            var builder = this.CreateServiceStubBuilder(serviceType);
-
-            var serviceDef = builder.Build(this);
+            var typedMethod = CreateServiceStubBuilderMethod.MakeGenericMethod(serviceType);
+            var stubBuilder = (IPipelinesServiceStubBuilder)typedMethod.Invoke(this, null);
+            var serviceDef = stubBuilder.Build(this);
 
             this.AddServiceDef(serviceDef);
         }
@@ -126,13 +123,18 @@ namespace SciTech.Rpc.Pipelines.Server
         protected override void BuildServiceStubs()
         {
             var methodStub = new PipelinesMethodStub<RpcObjectRequest, RpcServicesQueryResponse>(
-                "__SciTech.Rpc.RpcService.QueryServices",
+                "SciTech.Rpc.RpcService.QueryServices",
                 (request, _, context) => new ValueTask<RpcServicesQueryResponse>(this.QueryServices(request.Id)),
             this.Serializer, null);
 
-            this.methodDefinitions.Add("__SciTech.Rpc.RpcService.QueryServices", methodStub);
+            this.methodDefinitions.Add("SciTech.Rpc.RpcService.QueryServices", methodStub);
 
             base.BuildServiceStubs();
+        }
+
+        protected override IRpcSerializer CreateDefaultSerializer()
+        {
+            return new DataContractGrpcSerializer();
         }
 
         protected override void Dispose(bool disposing)
@@ -207,11 +209,10 @@ namespace SciTech.Rpc.Pipelines.Server
             }
         }
 
-        private IPipelinesServiceStubBuilder CreateServiceStubBuilder(Type serviceType)
+        private IPipelinesServiceStubBuilder CreateServiceStubBuilder<TService>() where TService : class
         {
-            return (IPipelinesServiceStubBuilder)typeof(PipelinesServiceStubBuilder<>).MakeGenericType(serviceType)
-                .GetConstructor(new Type[] { typeof(IRpcSerializer) })
-                .Invoke(new object[] { this.Serializer });
+            IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
+            return new PipelinesServiceStubBuilder<TService>(options?.Value);
         }
 
         private void RemoveClient(Client client) => this.clients.TryRemove(client, out _);

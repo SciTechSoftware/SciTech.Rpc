@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Collections;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +19,8 @@ namespace SciTech.Rpc.Client.Internal
     public interface IAsyncStreamingServerCall<TResponse> : IDisposable
         where TResponse : class
     {
-        IAsyncEnumerator<TResponse> ResponseStream { get; }
+        IAsyncStream<TResponse> ResponseStream { get; }
     }
+
+   
 }

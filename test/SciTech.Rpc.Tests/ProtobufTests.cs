@@ -222,19 +222,27 @@ namespace SciTech.Rpc
         public void BoolRequestErrorTest()
 
         {
-            var request = new RpcObjectRequest<bool>(RpcObjectId.NewId(), true);
+            var request = new ClassWithBool { First = true, Second = false };
             var ms = new MemoryStream();
 
             Serializer.Serialize(ms, request);
             ms.Seek(0, SeekOrigin.Begin);
 
             // Deserialize will throw in Protobuf 3.0.0-alpha.32
-            var dr = Serializer.Deserialize<RpcObjectRequest<bool>>(ms);
-            Assert.AreEqual(request.Id, dr.Id);
-            Assert.AreEqual(request.Value1, dr.Value1);
-
-
+            var dr = Serializer.Deserialize<ClassWithBool>(ms);
+            Assert.AreEqual(request.First, dr.First);
+            Assert.AreEqual(request.Second, dr.Second);
         }
+    }
+
+    [ProtoContract]
+    public class ClassWithBool
+    {
+        [ProtoMember(1)]
+        public bool First;
+
+        [ProtoMember(2)]
+        public bool Second;
     }
 
     [ProtoContract]

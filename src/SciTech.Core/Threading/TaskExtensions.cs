@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Threading
 {
+#pragma warning disable CA1062 // Validate arguments of public methods
     public static class TaskExtensions
     {
         private static volatile Action<Exception> defaultExceptionHandler;
@@ -32,21 +33,21 @@ namespace SciTech.Threading
             return tcs.Task;
         }
 
-        public static void Awaited(this Task task)
+        public static void AwaiterResult(this Task task)
         {
             task.GetAwaiter().GetResult();
         }
 
-        public static T AwaitedResult<T>(this Task<T> task)
+        public static T AwaiterResult<T>(this Task<T> task)
         {
             return task.GetAwaiter().GetResult();
         }
-        public static void Awaited(this ValueTask task)
+        public static void AwaiterResult(this ValueTask task)
         {
             task.GetAwaiter().GetResult();
         }
 
-        public static T AwaitedResult<T>(this ValueTask<T> task)
+        public static T AwaiterResult<T>(this ValueTask<T> task)
         {
             return task.GetAwaiter().GetResult();
         }
@@ -150,4 +151,5 @@ namespace SciTech.Threading
             return task.ConfigureAwait(true);
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 }

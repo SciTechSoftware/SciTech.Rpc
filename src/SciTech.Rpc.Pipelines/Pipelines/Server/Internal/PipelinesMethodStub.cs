@@ -155,14 +155,14 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
             return this.HandleStreamResponse(responseTask, responseWriter);
         }
 
-        private ValueTask HandleResponse(in RpcPipelinesFrame header, RpcPipeline pipeline, ValueTask<TResponse> responseTask)
+        private ValueTask HandleResponse(in RpcPipelinesFrame frame, RpcPipeline pipeline, ValueTask<TResponse> responseTask)
         {
             // Try to return response from synchronous methods directly.
             if (responseTask.IsCompletedSuccessfully)
             {
                 var response = responseTask.Result;
                 ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
-                var responseHeader = new RpcPipelinesFrame(RpcFrameType.UnaryResponse, header.MessageNumber, header.RpcOperation, headers);
+                var responseHeader = new RpcPipelinesFrame(RpcFrameType.UnaryResponse, frame.MessageNumber, frame.RpcOperation, headers);
 
                 var responseStreamTask = pipeline.BeginWriteAsync(responseHeader);
                 if (responseStreamTask.IsCompletedSuccessfully)
@@ -199,7 +199,7 @@ namespace SciTech.Rpc.Pipelines.Server.Internal
                     await pipeline.EndWriteAsync().ContextFree();
                 }
 
-                return AwaitAndWriteResponse(header.MessageNumber, header.RpcOperation);
+                return AwaitAndWriteResponse(frame.MessageNumber, frame.RpcOperation);
             }
         }
 

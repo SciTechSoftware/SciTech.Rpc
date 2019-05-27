@@ -31,9 +31,9 @@ namespace SciTech.Rpc.Client
             {
                 foreach (var registration in registrations)
                 {
-                    foreach (var serviceType in registration.GetServiceTypes(RpcServiceDefinitionType.Client))
+                    foreach (var registeredType in registration.GetServiceTypes(RpcServiceDefinitionSide.Client))
                     {
-                        this.RegisterKnownService(serviceType);
+                        this.RegisterKnownService(registeredType.ServiceType);
                     }
                 }
             }
@@ -68,6 +68,8 @@ namespace SciTech.Rpc.Client
 
         public void RegisterExceptionConverter(IRpcClientExceptionConverter exceptionConverter)
         {
+            if (exceptionConverter is null) throw new ArgumentNullException(nameof(exceptionConverter));
+
             this.exceptionConverters.Add(exceptionConverter.FaultCode, exceptionConverter);
         }
 
@@ -78,7 +80,7 @@ namespace SciTech.Rpc.Client
 
         private void RegisterKnownService(Type serviceType)
         {
-            var interfaceServices = RpcBuilderUtil.GetAllServices(serviceType, RpcServiceDefinitionType.Client, false);
+            var interfaceServices = RpcBuilderUtil.GetAllServices(serviceType, RpcServiceDefinitionSide.Client, false);
             foreach (var serviceInfo in interfaceServices)
             {
                 if (this.knownServices.TryGetValue(serviceInfo.FullName, out var services))

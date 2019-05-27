@@ -62,6 +62,7 @@ namespace SciTech.Rpc.Client.Internal
     }
 
 #pragma warning disable CA1051 // Do not declare visible instance fields
+#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcProxyBase
     {
         /// <summary>
@@ -115,10 +116,12 @@ namespace SciTech.Rpc.Client.Internal
                 || (this.implementedServices != null && this.implementedServices.IsSupersetOf(otherServices));
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 #pragma warning restore CA1051 // Do not declare visible instance fields
 
 #pragma warning disable CA1031 // Do not catch general exception types
 #pragma warning disable CA1051 // Do not declare visible instance fields
+#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcProxyBase<TMethodDef> : RpcProxyBase, IRpcService where TMethodDef : RpcProxyMethod
     {
         internal const string AddEventHandlerAsyncName = nameof(AddEventHandlerAsync);
@@ -192,7 +195,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 if (this.implementedServices != null)
                 {
-                    return this.implementedServices;
+                    // return this.implementedServices;
                 }
 
                 if (this.servicesTcs == null)
@@ -213,9 +216,9 @@ namespace SciTech.Rpc.Client.Internal
 
             if (this.queryServicesMethodDef == null)
             {
-                // Don't care if it's created multiple times, it's just a data class
+                // Don't care if it's created multiple times, it's just a small data class
                 this.queryServicesMethodDef = this.CreateDynamicMethodDef<RpcObjectRequest, RpcServicesQueryResponse>(
-                    "__SciTech.Rpc.RpcService", "QueryServices");
+                    "SciTech.Rpc.RpcService", "QueryServices");
             }
 
             var servicesResponse = await this.CallUnaryMethodImplAsync<RpcObjectRequest, RpcServicesQueryResponse>(
@@ -628,7 +631,7 @@ namespace SciTech.Rpc.Client.Internal
             }
 
             // If we get here, no one handled the fault. Let's just handle it by throwing a plain RpcFaultException.
-            throw new RpcFaultException("", error.Message);
+            throw new RpcFaultException(error.FaultCode, error.Message);
         }
 
         private void InvokeDelegate<TEventHandler, TEventArgs>(TEventHandler eventHandler, TEventArgs eventArgs)
@@ -688,19 +691,19 @@ namespace SciTech.Rpc.Client.Internal
                     // allow the client (us) to know that the event handler has been properly added 
                     // on the server side.
                     // The empty EventArgs is just ignored.
-#if PLAT_ASYNC_ENUM
-                    await responseStream.MoveNext().ContextFree();
-#else
+//#if PLAT_ASYNC_ENUM
+//                    await responseStream.MoveNext().ContextFree();
+//#else
                     await responseStream.MoveNextAsync().ContextFree();
-#endif
+//#endif
                     // Mark the listener as completed once we have received the initial EventArgs
                     eventData.eventListenerStartedTcs.SetResult(true);
 
-#if PLAT_ASYNC_ENUM
-                    while (await responseStream.MoveNext().ContextFree())
-#else
+//#if PLAT_ASYNC_ENUM
+//                    while (await responseStream.MoveNext().ContextFree())
+//#else
                     while (await responseStream.MoveNextAsync().ContextFree())
-#endif
+//#endif
                     {
                         TEventHandler? eventHandler = null;
                         lock (this.SyncRoot)
@@ -758,7 +761,7 @@ namespace SciTech.Rpc.Client.Internal
         {
             this.ClearEventHandlers();
             // TODO: Use IAsyncDisposable when available.
-            this.WaitForPendingEventHandlers().Awaited();
+            this.WaitForPendingEventHandlers().AwaiterResult();
             // TODO: Dispose (and end) owning RPC call.
         }
 
@@ -810,6 +813,7 @@ namespace SciTech.Rpc.Client.Internal
 
 #pragma warning restore CA1031 // Do not catch general exception types
 #pragma warning restore CA1051 // Do not declare visible instance fields
+#pragma warning restore CA1062 // Validate arguments of public methods
 
     public class RpcProxyMethodsCache<TMethodDef>
     {

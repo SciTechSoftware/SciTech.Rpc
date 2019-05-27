@@ -8,21 +8,21 @@ namespace SciTech.Collections.Generic
 {
     public static class AsyncEnumeratorExtensions
     {
-#if NETSTANDARD2_0 || NET461
-        public static Task<bool> MoveNextAsync<T>( this IAsyncEnumerator<T> asyncEnumerator )
-        {
-            return asyncEnumerator.MoveNext<T>();
+//#if NETSTANDARD2_0 || NET461
+//        public static Task<bool> MoveNextAsync<T>( this IAsyncEnumerator<T> asyncEnumerator )
+//        {
+//            return asyncEnumerator.MoveNext<T>();
 
-        }
+//        }
 
-        public static Task<bool> MoveNextAsync<T>(this IAsyncEnumerator<T> asyncEnumerator, CancellationToken cancellationToken)
-        {
-            return asyncEnumerator.MoveNext(cancellationToken);
-        }
-        public static IAsyncEnumerator<T> GetAsyncEnumerator<T>(this IAsyncEnumerable<T> asyncEnumerable)
-        {
-            return asyncEnumerable.GetEnumerator();
-        }
-#endif
+//        public static Task<bool> MoveNextAsync<T>(this IAsyncEnumerator<T> asyncEnumerator, CancellationToken cancellationToken)
+//        {
+//            return asyncEnumerator.MoveNext(cancellationToken);
+//        }
+//        public static IAsyncEnumerator<T> GetAsyncEnumerator<T>(this IAsyncEnumerable<T> asyncEnumerable)
+//        {
+//            return asyncEnumerable.GetEnumerator();
+//        }
+//#endif
     }
 }

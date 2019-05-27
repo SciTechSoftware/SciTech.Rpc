@@ -14,6 +14,7 @@ namespace SciTech.Rpc
     }
 
 
+#pragma warning disable CA1062 // Validate arguments of public methods
     public static class RpcSerializerExtensions
     {
         public static T FromStream<T>(this IRpcSerializer serializer, Stream input)
@@ -43,12 +44,14 @@ namespace SciTech.Rpc
 
         public static byte[] ToBytes<T>(this IRpcSerializer serializer, T input)
         {
-            var ms = new MemoryStream();
-
-            serializer.ToStream(ms, input);
-            return ms.ToArray();
+            using (var ms = new MemoryStream())
+            {
+                serializer.ToStream(ms, input);
+                return ms.ToArray();
+            }
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 
     public interface IRpcAsyncStreamSerializer
     {

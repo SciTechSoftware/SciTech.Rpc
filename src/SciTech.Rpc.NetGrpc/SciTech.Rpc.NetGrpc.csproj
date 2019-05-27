@@ -9,10 +9,10 @@
 
   <PropertyGroup>
     <Copyright>Copyright 2019. SciTech Software AB</Copyright>
-    <Description>
-      SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
-      From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.&#13;
-      This package contains the communication layer for the fully managed ASP.NET Core implementation of the gRPC library (https://github.com/grpc/grpc-dotnet).
+    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
+This package contains the communication layer for the fully managed ASP.NET Core implementation of the gRPC library (https://github.com/grpc/grpc-dotnet).
     </Description>
   </PropertyGroup>
 
@@ -23,6 +23,7 @@
 
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
     <NullableContextOptions>enable</NullableContextOptions>
   </PropertyGroup>
 
@@ -40,12 +41,14 @@
   
   <ItemGroup>
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Server\Internal\GrpcCallContext.cs" Link="Grpc\Server\Internal\GrpcCallContext.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Server\Internal\GrpcMethodDefinition.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Grpc.AspNetCore.Server" Version="0.1.21-pre1" />
     
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.2">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -54,7 +57,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\lib\grpc-dotnet\src\Grpc.AspNetCore.Server\Grpc.AspNetCore.Server.csproj" />
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>

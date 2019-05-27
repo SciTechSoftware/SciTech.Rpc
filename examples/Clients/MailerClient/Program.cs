@@ -6,9 +6,20 @@ using System.Threading.Tasks;
 
 namespace MailerClient
 {
-    class Program
+    internal class Program
     {
-        static async Task Main(string[] args)
+        private static string GetMailboxName(string[] args)
+        {
+            if (args.Length != 1)
+            {
+                Console.WriteLine("No mailbox name provided. Using default name. Usage: dotnet run <name>.");
+                return "DefaultMailbox";
+            }
+
+            return args[0];
+        }
+
+        private static async Task Main(string[] args)
         {
             var mailboxName = GetMailboxName(args);
 
@@ -36,7 +47,7 @@ namespace MailerClient
                 {
                     Console.ForegroundColor = ConsoleColor.White;
                     Console.WriteLine();
-                    Console.WriteLine("Mail received" );
+                    Console.WriteLine("Mail received");
                     Console.WriteLine($"New mail: {msg.New}, Forwarded mail: {msg.Forwarded}");
                     Console.ResetColor();
                 };
@@ -67,18 +78,6 @@ namespace MailerClient
 
             Console.WriteLine("Disconnected. Press any key to exit.");
             Console.ReadKey();
-        }
-
-
-        private static string GetMailboxName(string[] args)
-        {
-            if (args.Length != 1)
-            {
-                Console.WriteLine("No mailbox name provided. Using default name. Usage: dotnet run <name>.");
-                return "DefaultMailbox";
-            }
-
-            return args[0];
         }
     }
 }

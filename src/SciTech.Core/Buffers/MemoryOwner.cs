@@ -57,11 +57,14 @@ namespace SciTech.Buffers
             encoding.GetChars(blob.Array, blob.Offset, blob.Count, clob, 0);
             return new ArrayPoolOwner<char>(clob, charCount);
         }
+        
         /// <summary>
         /// Encode a string to a leased byte array
         /// </summary>
         public static IMemoryOwner<byte> Encode(this string value, Encoding encoding = null)
         {
+            if (value is null) throw new ArgumentNullException(nameof(value));
+
             if (encoding == null) encoding = Encoding.UTF8;
 
             var byteCount = encoding.GetByteCount(value);

@@ -48,7 +48,7 @@ namespace SciTech.Rpc.Pipelines.Server
             return new RpcServerConnectionInfo("Direct", new Uri("direct://localhost"), serverId);
         }
 
-        public void Start(Func<IDuplexPipe, Task> clientConnectedCallback)
+        void IRpcPipelinesEndPoint.Start(Func<IDuplexPipe, Task> clientConnectedCallback)
         {
             IDuplexPipe pipe;
             lock (this.syncRoot)

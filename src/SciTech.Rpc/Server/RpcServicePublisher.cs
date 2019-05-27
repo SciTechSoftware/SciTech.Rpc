@@ -136,14 +136,14 @@ namespace SciTech.Rpc.Server
 
         public RpcServicePublisher(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId = default)
         {
-            this.DefinitionsProvider = serviceDefinitionsProvider;
+            this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
             this.serverId = serverId;
         }
 
         public RpcServicePublisher(RpcServerConnectionInfo connectionInfo, IRpcServiceDefinitionsProvider serviceDefinitionsProvider)
         {
             this.InitConnectionInfo(connectionInfo);
-            this.DefinitionsProvider = serviceDefinitionsProvider;
+            this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
         }
 
         public RpcServerConnectionInfo? ConnectionInfo
@@ -163,6 +163,8 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        public IRpcServiceDefinitionsProvider DefinitionsProvider { get; }
+
         public RpcServerId ServerId
         {
             get
@@ -174,10 +176,10 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        internal IRpcServiceDefinitionsProvider DefinitionsProvider { get; }
-
         public RpcObjectRef<TService> GetOrPublishInstance<TService>(TService serviceInstance) where TService : class
         {
+            if (serviceInstance is null) throw new ArgumentNullException(nameof(serviceInstance));
+
             InstanceKey key;
             lock (this.syncRoot)
             {
@@ -236,14 +238,61 @@ namespace SciTech.Rpc.Server
         }
 
         /// <summary>
+        /// TODO: This should be an explicit interface member, but due to changes 
+        /// between Visual Studio 2019 and the upcoming preview of Visual Studio 2019 16.1 this
+        /// doesn't work. Should be made internal somehow.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="serviceProvider"></param>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public TService? GetServiceImpl<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
+        {
+            var key = new ServiceImplKey(id, typeof(TService));
+            lock (this.syncRoot)
+            {
+                if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
+                {
+                    return service;
+                }
+
+                if (id != RpcObjectId.Empty)
+                {
+                    if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
+                    {
+                        if (serviceProvider == null)
+                        {
+                            // TODO: At least log, maybe throw?
+                            return null;
+                        }
+
+                        return (TService)serviceFactory(serviceProvider, id);
+                    }
+                }
+                else
+                {
+                    if (this.typeToSingletonServiceFactory.TryGetValue(typeof(TService), out var singletonfactory))
+                    {
+                        if (serviceProvider == null)
+                        {
+                            // TODO: At least log, maybe throw?
+                            return null;
+                        }
+
+                        return (TService)singletonfactory(serviceProvider);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// </summary>
         /// <param name="value"></param>
         public void InitConnectionInfo(RpcServerConnectionInfo value)
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            if (value == null) throw new ArgumentNullException(nameof(value));
 
             lock (this.syncRoot)
             {
@@ -294,6 +343,8 @@ namespace SciTech.Rpc.Server
         public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false)
             where TService : class
         {
+            if (serviceInstance is null) throw new ArgumentNullException(nameof(serviceInstance));
+
             lock (this.syncRoot)
             {
                 var serviceInstanceId = RpcObjectId.NewId();
@@ -451,56 +502,6 @@ namespace SciTech.Rpc.Server
                 //throw new NotImplementedException();
                 //this.idToServiceImpl.Remove(serviceInstanceId);
             }
-        }
-
-        /// <summary>
-        /// TODO: This should be an explicit interface member, but due to changes 
-        /// between Visual Studio 2019 and the upcoming preview of Visual Studio 2019 16.1 this
-        /// doesn't work. Should be made internal somehow.
-        /// </summary>
-        /// <typeparam name="TService"></typeparam>
-        /// <param name="serviceProvider"></param>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        public TService? GetServiceImpl<TService>(IServiceProvider? serviceProvider, RpcObjectId id)  where TService : class
-        {
-            var key = new ServiceImplKey(id, typeof(TService));
-            lock (this.syncRoot)
-            {
-                if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
-                {
-                    return service;
-                }
-
-                if (id != RpcObjectId.Empty)
-                {
-                    if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
-                    {
-                        if( serviceProvider == null )
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)serviceFactory(serviceProvider, id);
-                    }
-                }
-                else
-                {
-                    if (this.typeToSingletonServiceFactory.TryGetValue(typeof(TService), out var singletonfactory))
-                    {
-                        if (serviceProvider == null)
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)singletonfactory(serviceProvider);
-                    }
-                }
-            }
-
-            return null;
         }
 
         private void InitServerId()
@@ -713,6 +714,13 @@ namespace SciTech.Rpc.Server
         public static IList<RpcObjectRef<TService>?> GetPublishedServiceInstances<TService>(this IRpcServicePublisher servicePublisher,
             IReadOnlyList<TService> serviceInstances, bool allowUnpublished) where TService : class
         {
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            if ( serviceInstances == null )
+            {
+                return null!;
+            }
+            
             var publishedServices = new List<RpcObjectRef<TService>?>();
             foreach (var s in serviceInstances)
             {
@@ -747,6 +755,8 @@ namespace SciTech.Rpc.Server
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher publisher)
             where TService : class
         {
+            if (publisher is null) throw new ArgumentNullException(nameof(publisher));
+
             return publisher.PublishSingleton<TService, TService>();
         }
     }

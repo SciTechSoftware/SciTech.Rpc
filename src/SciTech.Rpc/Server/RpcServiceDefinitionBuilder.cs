@@ -22,28 +22,45 @@ namespace SciTech.Rpc.Server
     {
         private readonly List<IRpcServerExceptionConverter> registeredExceptionConverters = new List<IRpcServerExceptionConverter>();
 
-        private readonly HashSet<Type> registeredServiceTypes = new HashSet<Type>();
-
         private readonly Dictionary<string, Type> registeredServices = new Dictionary<string, Type>();
+
+        private readonly HashSet<Type> registeredServiceTypes = new HashSet<Type>();
 
         private readonly object syncRoot = new object();
 
         private RpcServerFaultHandler? customFaultHandler;
 
+        private ImmutableArray<IRpcServerExceptionConverter> exceptionConverters;
+
         private bool isFrozen;
 
         private IImmutableList<Type>? registeredServicesList;
 
-        public RpcServiceDefinitionBuilder(IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null, IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
+        public RpcServiceDefinitionBuilder(RpcServiceOptions? options = null, IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null, IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
         {
+            this.Serializer = options?.Serializer;
+
             if (serviceRegistrations != null)
             {
                 foreach (var registration in serviceRegistrations)
                 {
-                    foreach (var serviceType in registration.GetServiceTypes(RpcServiceDefinitionType.Server))
+                    foreach (var registeredType in registration.GetServiceTypes(RpcServiceDefinitionSide.Server))
                     {
-                        this.RegisterService(serviceType);
+                        this.RegisterService(registeredType.ServiceType, registeredType.ServerOptions);
                     }
+                }
+            }
+
+            if (options != null)
+            {
+                foreach (var exceptionConverter in options.ExceptionConverters)
+                {
+                    this.RegisterExceptionConverter(exceptionConverter);
+                }
+
+                if (options.Interceptors.Count > 0)
+                {
+                    this.CallInterceptors = options.Interceptors.ToImmutableArray();
                 }
             }
 
@@ -57,6 +74,8 @@ namespace SciTech.Rpc.Server
         }
 
         public event EventHandler<RpcServicesEventArgs> ServicesRegistered;
+
+        public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
 
         public RpcServerFaultHandler? CustomFaultHandler
         {
@@ -74,7 +93,25 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        public ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters
+        {
+            get
+            {
+                lock (this.syncRoot)
+                {
+                    if (this.exceptionConverters.IsDefault)
+                    {
+                        this.exceptionConverters = this.registeredExceptionConverters.ToImmutableArray();
+                    }
+
+                    return this.exceptionConverters;
+                }
+            }
+        }
+
         public bool IsFrozen => this.isFrozen;
+
+        public IRpcSerializer? Serializer { get; }
 
         public void Freeze()
         {
@@ -104,16 +141,19 @@ namespace SciTech.Rpc.Server
 
         public IRpcServiceDefinitionBuilder RegisterAssemblyServices(params Assembly[] assemblies)
         {
-            foreach (var assembly in assemblies)
+            if (assemblies != null)
             {
-                foreach (var type in assembly.ExportedTypes)
+                foreach (var assembly in assemblies)
                 {
-                    if (type.IsInterface)
+                    foreach (var type in assembly.ExportedTypes)
                     {
-                        var rpcServiceAttribute = type.GetCustomAttribute<RpcServiceAttribute>(false);
-                        if (rpcServiceAttribute != null && rpcServiceAttribute.ServiceDefinitionType != RpcServiceDefinitionType.Client)
+                        if (type.IsInterface)
                         {
-                            this.RegisterService(type);
+                            var rpcServiceAttribute = type.GetCustomAttribute<RpcServiceAttribute>(false);
+                            if (rpcServiceAttribute != null && rpcServiceAttribute.ServiceDefinitionSide != RpcServiceDefinitionSide.Client)
+                            {
+                                this.RegisterService(type);
+                            }
                         }
                     }
                 }
@@ -128,21 +168,24 @@ namespace SciTech.Rpc.Server
             {
                 this.registeredExceptionConverters.Add(exceptionConverter);
                 this.customFaultHandler = null;
+                this.exceptionConverters = default;
             }
 
             return this;
         }
 
-        public IRpcServiceDefinitionBuilder RegisterService<TService>()
+        public IRpcServiceDefinitionBuilder RegisterService<TService>(RpcServiceOptions? options = null)
         {
-            return this.RegisterService(typeof(TService));
+            return this.RegisterService(typeof(TService), options);
         }
 
-        public IRpcServiceDefinitionBuilder RegisterService(Type serviceType)
+        public IRpcServiceDefinitionBuilder RegisterService(Type serviceType, RpcServiceOptions? options = null)
         {
+            if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
+
             this.CheckFrozen();
 
-            List<RpcServiceInfo> allServices = RpcBuilderUtil.GetAllServices(serviceType, RpcServiceDefinitionType.Server, false);
+            List<RpcServiceInfo> allServices = RpcBuilderUtil.GetAllServices(serviceType, RpcServiceDefinitionSide.Server, false);
 
             var newServices = new List<RpcServiceInfo>();
             Type[]? newServiceTypes = null;
@@ -152,12 +195,11 @@ namespace SciTech.Rpc.Server
                 {
                     if (this.registeredServiceTypes.Add(service.Type))
                     {
-
                         if (this.registeredServices.TryGetValue(service.FullName, out var existingServiceType))
                         {
                             if (!service.Type.Equals(existingServiceType))
                             {
-                                // TODO: This should be allowed, as long as the service operations don't collide.
+                                // TODO: This should be allowed, as long as the service operations and options don't collide.
                                 throw new RpcDefinitionException($"Service '{service.FullName}' already registered using the interface '{existingServiceType}'");
                             }
 
@@ -168,7 +210,8 @@ namespace SciTech.Rpc.Server
                         {
                             newServices.Add(service);
                         }
-                    } else
+                    }
+                    else
                     {
                         // Type already registered
                         continue;
@@ -193,12 +236,6 @@ namespace SciTech.Rpc.Server
             }
 
             return this;
-        }
-
-        public IRpcServiceDefinitionBuilder RegisterSingletonService<TService>()
-        {
-            // TODO: Mark it as singleton?
-            return this.RegisterService(typeof(TService));
         }
 
         private void CheckFrozen()

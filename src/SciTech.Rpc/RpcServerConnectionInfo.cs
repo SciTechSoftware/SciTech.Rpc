@@ -145,9 +145,9 @@ namespace SciTech.Rpc
 
         public virtual bool Equals(RpcServerConnectionInfo other)
         {
-            if (this.GetType() == other?.GetType())
+            if (other != null && this.GetType() == other.GetType())
             {
-                return other!.ServerId == this.ServerId;
+                return other.ServerId == this.ServerId;
             }
 
             return false;

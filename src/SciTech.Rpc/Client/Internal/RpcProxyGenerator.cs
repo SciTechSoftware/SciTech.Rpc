@@ -99,7 +99,7 @@ namespace SciTech.Rpc.Client.Internal
 
         internal List<RpcServiceInfo> GetAllServices<TService>(IReadOnlyCollection<string>? implementedServices)
         {
-            var interfaceServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionType.Client, false);
+            var interfaceServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Client, false);
             if (implementedServices != null && implementedServices.Count > 0)
             {
                 // We have information about implemented services on the server side.

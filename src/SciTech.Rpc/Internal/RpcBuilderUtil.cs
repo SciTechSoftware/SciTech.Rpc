@@ -23,8 +23,8 @@ namespace SciTech.Rpc.Internal
     public enum RpcMethodType
     {
         Unary,
-        PropertySet,
-        PropertyGet,
+        //PropertySet,
+        //PropertyGet,
         EventAdd,
         EventRemove
     }
@@ -38,6 +38,7 @@ namespace SciTech.Rpc.Internal
         ServiceRefArray
     }
 
+#pragma warning disable CA1062 // Validate arguments of public methods
     public static class RpcBuilderUtil
     {
 
@@ -132,6 +133,7 @@ namespace SciTech.Rpc.Internal
             (
                 service: serviceInfo,
                 method: method,
+                declaringMember: method,
                 methodType: RpcMethodType.Unary,
                 isAsync: isAsync,
                 name: operationName,
@@ -283,7 +285,15 @@ namespace SciTech.Rpc.Internal
             return GetServiceInfoFromType(serviceType, true)!;
         }
 
-        public static IEnumerable<RpcMemberInfo> EnumOperationHandlers(RpcServiceInfo serviceInfo)
+        /// <summary>
+        /// Enumerates all declared RPC members in the service interface specified by <paramref name="serviceInfo"/>.
+        /// </summary>
+        /// <param name="serviceInfo"></param>
+        /// <param name="splitProperties">Indicates that seperate <see cref="RpcOperationInfo"/>s should be returned for property get/set 
+        /// methods, instead of a single <see cref="RpcEventInfo"/>.</param>
+        /// <returns></returns>
+        // TODO: This method should maybe be moved to RpcServiceInfo, or at least be an RpcServiceInfo extension method.
+        public static IEnumerable<RpcMemberInfo> EnumOperationHandlers(RpcServiceInfo serviceInfo, bool splitProperties)
         {
             var handledMembers = new HashSet<MemberInfo>();
 
@@ -293,10 +303,53 @@ namespace SciTech.Rpc.Internal
                 var rpcEventInfo = RpcBuilderUtil.GetEventInfoFromEvent(serviceInfo, eventInfo);
                 // this.CheckEvent(rpcEventInfo);
 
-                yield return rpcEventInfo;
+                if( rpcEventInfo.Event.AddMethod != null )
+                {
+                    //var addOp = new RpcOperationInfo(
+                    //    service: rpcEventInfo.Service,
+                    //    name: $"{eventInfo.Name}",
+                    //    declaringMember: eventInfo,
+                    //    method: eventInfo.AddMethod,
+                    //    requestType: typeof(RpcObjectRequest),
+                    //    requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
+                    //    methodType: RpcMethodType.EventAdd,
+                    //    isAsync: false,
+                    //    parametersCount: 0,
+                    //    responseType: rpcEventInfo.EventArgsType,
+                    //    responseReturnType: rpcEventInfo.EventArgsType,
+                    //    returnType: rpcEventInfo.EventArgsType,
+                    //    returnKind:  ServiceOperationReturnKind.Standard
+                    //    );
 
-                handledMembers.Add(rpcEventInfo.Event.AddMethod);
-                handledMembers.Add(rpcEventInfo.Event.RemoveMethod);
+                    //yield return addOp;
+
+                    handledMembers.Add(rpcEventInfo.Event.AddMethod);
+                }
+
+                if (rpcEventInfo.Event.RemoveMethod != null)
+                {
+                    //var removeOp = new RpcOperationInfo(
+                    //    service: rpcEventInfo.Service,
+                    //    name: $"{eventInfo.Name}",
+                    //    declaringMember: eventInfo,
+                    //    method: eventInfo.RemoveMethod,
+                    //    requestType: typeof(RpcObjectRequest),
+                    //    requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
+                    //    methodType: RpcMethodType.EventRemove,
+                    //    isAsync: false,
+                    //    parametersCount: 0,
+                    //    responseType: rpcEventInfo.EventArgsType,
+                    //    responseReturnType: rpcEventInfo.EventArgsType,
+                    //    returnType: rpcEventInfo.EventArgsType,
+                    //    returnKind: ServiceOperationReturnKind.Standard
+                    //    );
+
+                    //yield return removeOp;
+
+                    handledMembers.Add(rpcEventInfo.Event.RemoveMethod);
+                }
+
+                yield return rpcEventInfo;
             }
 
             var properties = serviceInfo.Type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
@@ -305,17 +358,61 @@ namespace SciTech.Rpc.Internal
                 var rpcPropertyInfo = RpcBuilderUtil.GetPropertyInfoFromProperty(serviceInfo, propertyInfo);
                 // this.CheckOperation(rpcPropertyInfo.FullName);
 
-                if (propertyInfo.GetMethod != null || propertyInfo.SetMethod != null)
+                if (propertyInfo.GetMethod != null)
+                {
+                    if (splitProperties)
+                    {
+                        var getOp = new RpcOperationInfo(
+                            service: rpcPropertyInfo.Service,
+                            name: $"Get{propertyInfo.Name}",
+                            declaringMember: propertyInfo,
+                            method: propertyInfo.GetMethod,
+                            requestType: typeof(RpcObjectRequest),
+                            requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
+                            methodType: RpcMethodType.Unary,
+                            isAsync: false,
+                            parametersCount: 0,
+                            responseType: typeof(RpcResponse<>).MakeGenericType(rpcPropertyInfo.ResponseReturnType),
+                            responseReturnType: rpcPropertyInfo.ResponseReturnType,
+                            returnType: propertyInfo.PropertyType,
+                            returnKind: rpcPropertyInfo.PropertyTypeKind
+                            );
+
+                        yield return getOp;
+                    }
+
+                    handledMembers.Add(propertyInfo.GetMethod);
+                }
+
+                if ( propertyInfo.SetMethod != null)
+                {
+                    if (splitProperties)
+                    {
+                        var setOp = new RpcOperationInfo(
+                            service: rpcPropertyInfo.Service,
+                            name: $"Set{propertyInfo.Name}",
+                            declaringMember: propertyInfo,
+                            method: propertyInfo.SetMethod,
+                            requestType: typeof(RpcObjectRequest<>).MakeGenericType(propertyInfo.PropertyType),
+                            requestTypeCtorArgTypes: ImmutableArray.Create<Type>(typeof(RpcObjectId), propertyInfo.PropertyType),
+                            methodType: RpcMethodType.Unary,
+                            isAsync: false,
+                            parametersCount: 1,
+                            responseType: typeof(RpcResponse),
+                            returnType: typeof(void),
+                            responseReturnType: typeof(void),
+                            returnKind: ServiceOperationReturnKind.Standard
+                        );
+
+                        yield return setOp;
+                    }
+
+                    handledMembers.Add(propertyInfo.SetMethod);
+                }
+
+                if( !splitProperties)
                 {
                     yield return rpcPropertyInfo;
-                    if (propertyInfo.GetMethod != null)
-                    {
-                        handledMembers.Add(propertyInfo.GetMethod);
-                    }
-                    if (propertyInfo.SetMethod != null)
-                    {
-                        handledMembers.Add(propertyInfo.SetMethod);
-                    }
                 }
             }
 
@@ -392,14 +489,15 @@ namespace SciTech.Rpc.Internal
                 }
             }
 
-            var definitionType = rpcAttribute.ServiceDefinitionType;
+            var definitionType = rpcAttribute.ServiceDefinitionSide;
 
             return new RpcServiceInfo
             (
                 type: serviceType,
                 @namespace: serviceNamespace,
                 name: serviceName,
-                definitionType: definitionType
+                definitionSide: definitionType,
+                serverType: rpcAttribute.ServerDefinitionType
             );
         }
 
@@ -449,23 +547,23 @@ namespace SciTech.Rpc.Internal
 
         public static List<RpcServiceInfo> GetAllServices<TService>(bool ignoreUnknownInterfaces)
         {
-            return GetAllServices(typeof(TService), RpcServiceDefinitionType.Both, ignoreUnknownInterfaces);
+            return GetAllServices(typeof(TService), RpcServiceDefinitionSide.Both, ignoreUnknownInterfaces);
         }
 
         internal static List<RpcServiceInfo> GetAllServices(Type serviceType, bool ignoreUnknownInterfaces)
         {
-            return GetAllServices(serviceType, RpcServiceDefinitionType.Both, ignoreUnknownInterfaces);
+            return GetAllServices(serviceType, RpcServiceDefinitionSide.Both, ignoreUnknownInterfaces);
         }
 
-        internal static List<RpcServiceInfo> GetAllServices(Type serviceType, RpcServiceDefinitionType serviceDefinitionType, bool ignoreUnknownInterfaces)
+        internal static List<RpcServiceInfo> GetAllServices(Type serviceType, RpcServiceDefinitionSide serviceDefinitionType, bool ignoreUnknownInterfaces)
         {
             var allServices = new List<RpcServiceInfo>();
             var declaredServiceInfo = GetServiceInfoFromType(serviceType, !ignoreUnknownInterfaces);
             if (declaredServiceInfo != null)
             {
-                if (serviceDefinitionType == RpcServiceDefinitionType.Both
-                    || declaredServiceInfo.DefinitionType == RpcServiceDefinitionType.Both
-                    || serviceDefinitionType == declaredServiceInfo.DefinitionType)
+                if (serviceDefinitionType == RpcServiceDefinitionSide.Both
+                    || declaredServiceInfo.DefinitionSide == RpcServiceDefinitionSide.Both
+                    || serviceDefinitionType == declaredServiceInfo.DefinitionSide)
                 {
                     declaredServiceInfo.IsDeclaredService = true;
                     allServices.Add(declaredServiceInfo);
@@ -486,9 +584,9 @@ namespace SciTech.Rpc.Internal
                 var interfaceServiceInfo = GetServiceInfoFromType(inheritedInterfaceType, !ignoreUnknownInterfaces);
                 if (interfaceServiceInfo != null)
                 {
-                    if (serviceDefinitionType == RpcServiceDefinitionType.Both
-                        || interfaceServiceInfo.DefinitionType == RpcServiceDefinitionType.Both
-                        || serviceDefinitionType == interfaceServiceInfo.DefinitionType)
+                    if (serviceDefinitionType == RpcServiceDefinitionSide.Both
+                        || interfaceServiceInfo.DefinitionSide == RpcServiceDefinitionSide.Both
+                        || serviceDefinitionType == interfaceServiceInfo.DefinitionSide)
 
                     {
                         allServices.Add(interfaceServiceInfo);
@@ -573,10 +671,11 @@ namespace SciTech.Rpc.Internal
             return faultType.Name;
         }
     }
+#pragma warning restore CA1062 // Validate arguments of public methods
 
     public class RpcEventInfo : RpcMemberInfo
     {
-        public RpcEventInfo(RpcServiceInfo service, EventInfo eventInfo, Type eventArgsType) : base(eventInfo?.Name!, service)
+        public RpcEventInfo(RpcServiceInfo service, EventInfo eventInfo, Type eventArgsType) : base(eventInfo?.Name!, service, eventInfo!)
         {
             this.Event = eventInfo ?? throw new ArgumentNullException(nameof(eventInfo));
             this.EventArgsType = eventArgsType ?? throw new ArgumentNullException(nameof(eventArgsType));
@@ -589,10 +688,11 @@ namespace SciTech.Rpc.Internal
 
     public class RpcMemberInfo
     {
-        public RpcMemberInfo(string name, RpcServiceInfo service)
+        public RpcMemberInfo(string name, RpcServiceInfo service, MemberInfo declaringMember)
         {
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Service = service ?? throw new ArgumentNullException(nameof(service));
+            this.DeclaringMember = declaringMember ?? throw new ArgumentNullException(nameof(declaringMember));
         }
 
         public string FullName => $"{this.Service.FullName}.{this.Name}";
@@ -601,6 +701,8 @@ namespace SciTech.Rpc.Internal
 
         public string Name { get; }
 
+        public MemberInfo DeclaringMember { get; }
+
         public RpcServiceInfo Service { get; }
     }
 
@@ -608,6 +710,7 @@ namespace SciTech.Rpc.Internal
     {
         internal RpcOperationInfo(string name,
             RpcServiceInfo service,
+            MemberInfo declaringMember,
             MethodInfo method,
             RpcMethodType methodType,
             bool isAsync,
@@ -618,9 +721,8 @@ namespace SciTech.Rpc.Internal
             Type requestType,
             Type responseType,
             ServiceOperationReturnKind returnKind) :
-            base(name, service)
+            base(name, service, declaringMember)
         {
-            this.Method = method ?? throw new ArgumentNullException(nameof(method));
             this.Method = method ?? throw new ArgumentNullException(nameof(method));
             this.MethodType = methodType;
             this.IsAsync = isAsync;
@@ -634,6 +736,7 @@ namespace SciTech.Rpc.Internal
         }
 
         public bool IsAsync { get; }
+
 
         public MethodInfo Method { get; }
 
@@ -670,7 +773,7 @@ namespace SciTech.Rpc.Internal
     public class RpcPropertyInfo : RpcMemberInfo
     {
         internal RpcPropertyInfo(RpcServiceInfo service, PropertyInfo propertyInfo, ServiceOperationReturnKind propertyTypeKind, Type responseReturnType)
-            : base(propertyInfo?.Name!, service)
+            : base(propertyInfo?.Name!, service, propertyInfo!)
         {
             this.Property = propertyInfo ?? throw new ArgumentNullException(nameof(propertyInfo));
             this.PropertyTypeKind = propertyTypeKind;
@@ -686,15 +789,16 @@ namespace SciTech.Rpc.Internal
 
     public class RpcServiceInfo
     {
-        public RpcServiceInfo(string @namespace, string name, Type type, RpcServiceDefinitionType definitionType)
+        public RpcServiceInfo(string @namespace, string name, Type type, RpcServiceDefinitionSide definitionSide, Type? serverType )
         {
             this.Namespace = @namespace ?? throw new ArgumentNullException(nameof(@namespace));
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
-            this.DefinitionType = definitionType;
+            this.DefinitionSide = definitionSide;
+            this.ServerType = serverType;
         }
 
-        public RpcServiceDefinitionType DefinitionType { get; }
+        public RpcServiceDefinitionSide DefinitionSide { get; }
 
         public string FullName => $"{this.Namespace}.{this.Name}";
 
@@ -709,5 +813,7 @@ namespace SciTech.Rpc.Internal
         public string Namespace { get; }
 
         public Type Type { get; }
+
+        public Type? ServerType { get; }
     }
 }

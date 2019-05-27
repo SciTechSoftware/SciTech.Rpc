@@ -10,6 +10,8 @@
 #endregion
 
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
@@ -17,38 +19,39 @@ using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.Grpc.Server
 {
+    /// <summary>
+    /// The managed/native gRPC implementation of <see cref="RpcServerBase"/>. 
+    /// </summary>
     public sealed class GrpcServer : RpcServerBase
     {
-        private static readonly Type[] GrpcServiceStubBuilderCtorArgTypes = new Type[] { typeof(IRpcSerializer) };
+        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(GrpcServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
 
         private List<GrpcServerEndPoint> endPoints = new List<GrpcServerEndPoint>();
 
-        private GrpcCore.Server? grpcServer = new GrpcCore.Server();
+        private GrpcCore.Server? grpcServer;
 
-        private IRpcSerializer serializer;
-
-        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, IRpcSerializer? serializer = null)
-            : this(RpcServerId.Empty, definitionsProvider, serviceProvider, serializer)
+        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+            : this(RpcServerId.Empty, definitionsProvider, serviceProvider, options)
         {
         }
 
-        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, IRpcSerializer? serializer = null)
-            : base(servicePublisher)
+        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)), 
+                  servicePublisher, 
+                  servicePublisher.DefinitionsProvider, 
+                  serviceProvider, options)
         {
-            this.ServiceProvider = serviceProvider;
-            this.serializer = serializer ?? new ProtobufSerializer();
         }
 
-        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, IRpcSerializer? serializer = null)
-            : base(serverId, definitionsProvider)
+        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
         {
-            this.ServiceProvider = serviceProvider;
-            this.serializer = serializer ?? new ProtobufSerializer();
         }
 
         /// <summary>
@@ -63,16 +66,13 @@ namespace SciTech.Rpc.Grpc.Server
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             IServiceProvider? serviceProvider,
-            IRpcSerializer serializer)
-            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider)
+            RpcServiceOptions? options = null)
+            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
-            this.serializer = serializer ?? new ProtobufSerializer();
-        }
 
-        public IRpcSerializer Serializer
-        {
-            get => this.serializer;
+            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null;// TODO: Create from options
+            this.grpcServer = new GrpcCore.Server(channelOptions);
         }
 
         protected override IServiceProvider? ServiceProvider { get; }
@@ -85,6 +85,8 @@ namespace SciTech.Rpc.Grpc.Server
         /// </summary>
         public void AddEndPoint(GrpcServerEndPoint endPoint)
         {
+            if (endPoint is null) throw new ArgumentNullException(nameof(endPoint));
+
             bool firstEndPoint = false;
             lock (this.syncRoot)
             {
@@ -120,7 +122,9 @@ namespace SciTech.Rpc.Grpc.Server
         protected override void BuildServiceStub(Type serviceType)
         {
             var server = this.grpcServer ?? throw new InvalidOperationException("BuildServiceStub should not be called after shutdown");
-            var stubBuilder = this.CreateServiceStubBuilder(serviceType);
+
+            var typedMethod = CreateServiceStubBuilderMethod.MakeGenericMethod(serviceType);
+            var stubBuilder = (IGrpcServiceStubBuilder)typedMethod.Invoke(this, null);
             var serviceDef = stubBuilder.Build(this);
 
             server.Services.Add(serviceDef);
@@ -130,9 +134,9 @@ namespace SciTech.Rpc.Grpc.Server
         {
             var grpcServer = this.grpcServer ?? throw new InvalidOperationException("BuildServiceStubs should not be called after shutdown");
 
-            var queryServiceMethodDef = GrpcMethodDefinitionGenerator.CreateMethodDefinition<RpcObjectRequest, RpcServicesQueryResponse>(GrpcCore.MethodType.Unary,
-                "__SciTech.Rpc.RpcService", "QueryServices",
-                this.serializer);
+            var queryServiceMethodDef = GrpcMethodDefinition.Create<RpcObjectRequest, RpcServicesQueryResponse>(GrpcCore.MethodType.Unary,
+                "SciTech.Rpc.RpcService", "QueryServices",
+                this.Serializer);
 
             var rpcServiceBuilder = new GrpcCore.ServerServiceDefinition.Builder();
             rpcServiceBuilder.AddMethod(queryServiceMethodDef, this.QueryServices);
@@ -145,6 +149,11 @@ namespace SciTech.Rpc.Grpc.Server
         protected override void CheckCanStart()
         {
             base.CheckCanStart();
+        }
+
+        protected override IRpcSerializer CreateDefaultSerializer()
+        {
+            return new ProtobufSerializer();
         }
 
         protected async override Task ShutdownCoreAsync()
@@ -177,11 +186,10 @@ namespace SciTech.Rpc.Grpc.Server
             grpcServer.Start();
         }
 
-        private IGrpcServiceStubBuilder CreateServiceStubBuilder(Type serviceType)
+        private IGrpcServiceStubBuilder CreateServiceStubBuilder<TService>() where TService : class
         {
-            return (IGrpcServiceStubBuilder)typeof(GrpcServiceStubBuilder<>).MakeGenericType(serviceType)
-                .GetConstructor(GrpcServiceStubBuilderCtorArgTypes)
-                .Invoke(new object[] { this.serializer });
+            IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
+            return new GrpcServiceStubBuilder<TService>(options?.Value);
         }
     }
 }

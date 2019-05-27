@@ -10,12 +10,13 @@
 #endregion
 
 
-using Grpc.Core;
+using Grpc.AspNetCore.Server.Model;
 using SciTech.Rpc.Grpc.Server.Internal;
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Internal;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -29,12 +30,12 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     {
         private static readonly Type[] GrpcServiceStubBuilderCtorArgTypes = new Type[] { typeof(IRpcSerializer) };
 
+        private ServiceMethodProviderContext<NetGrpcServiceActivator>? context;
+
         private IRpcSerializer serializer;
 
-        private ServiceBinderBase? serviceBinder;
-
-        internal NetGrpcServer(RpcServicePublisher servicePublisher, IRpcServiceDefinitionsProvider serviceDefinitionsProvider, ServiceBinderBase serviceBinder, RpcServiceOptions? options, IRpcSerializer? serializer=null)
-            : this(servicePublisher, servicePublisher, serviceDefinitionsProvider, serviceBinder, options, serializer)
+        internal NetGrpcServer(RpcServicePublisher servicePublisher, ServiceMethodProviderContext<NetGrpcServiceActivator> context, RpcServiceOptions? options)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, context, options)
         {
         }
 
@@ -42,18 +43,12 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             IRpcServicePublisher servicePublisher,
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
-            ServiceBinderBase serviceBinder,
-            RpcServiceOptions? options,
-            IRpcSerializer? serializer=null)
+            ServiceMethodProviderContext<NetGrpcServiceActivator> context,
+            RpcServiceOptions? options)
             : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
-            this.serializer = serializer ?? new ProtobufSerializer();
-            this.serviceBinder = serviceBinder;
-        }
-
-        public IRpcSerializer Serializer
-        {
-            get => this.serializer;
+            this.serializer = options?.Serializer ?? new ProtobufSerializer();
+            this.context = context;
         }
 
         internal Task<RpcServicesQueryResponse> QueryServices(NetGrpcServiceActivator _, RpcObjectRequest request, GrpcCore.ServerCallContext context)
@@ -68,26 +63,26 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         protected override void BuildServiceStub(Type serviceType)
         {
-            var serviceBinder = this.serviceBinder ?? throw new InvalidOperationException("BuildServiceStubs should only be called once.");
+            var context = this.context ?? throw new InvalidOperationException("BuildServiceStubs should only be called once.");
             var stubBuilder = this.CreateServiceStubBuilder(serviceType);
-            stubBuilder.Bind(serviceBinder, this);
+            stubBuilder.Bind(context, this);
         }
 
         protected override void BuildServiceStubs()
         {
             this.ServiceDefinitionsProvider.Freeze();
 
-            var serviceBinder = this.serviceBinder ?? throw new InvalidOperationException("BuildServiceStubs should only be called once.");
+            var context = this.context ?? throw new InvalidOperationException("BuildServiceStubs should only be called once.");
 
-            var queryServiceMethodDef = new UnaryMethodStub<RpcObjectRequest, RpcServicesQueryResponse>(
+            var queryServiceMethodDef = GrpcMethodDefinition.Create<RpcObjectRequest, RpcServicesQueryResponse>(
+                GrpcCore.MethodType.Unary,
                 "__SciTech.Rpc.RpcService", "QueryServices",
-                this.serializer,
-                this.QueryServices);
-            serviceBinder.AddMethod(queryServiceMethodDef, (UnaryServerMethod<RpcObjectRequest, RpcServicesQueryResponse>?)null);
+                this.serializer);
+            context.AddUnaryMethod(queryServiceMethodDef, new List<object>(), this.QueryServices);
 
             base.BuildServiceStubs();
 
-            this.serviceBinder = null;
+            this.context = null;
         }
 
         protected override void CheckCanStart()

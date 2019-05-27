@@ -1,20 +1,16 @@
 ﻿using Grpc.AspNetCore.Server;
-using Microsoft.Extensions.Configuration;
+using Grpc.AspNetCore.Server.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-using Microsoft.Extensions.Primitives;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Text;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
-
     /// <summary>
     /// Extension methods for the SciTech.Rpc gRPC services.
     /// </summary>
@@ -28,6 +24,19 @@ namespace SciTech.Rpc.NetGrpc.Server
         public static IServiceCollection AddNetGrpc(this IServiceCollection services, Action<RpcServiceOptions>? options = null)
         {
             services.AddGrpc();
+
+            services.AddSingleton<IConfigureOptions<GrpcServiceOptions<NetGrpcServiceActivator>>, NetGrpcServiceActivatorConfig>();
+
+            if (options != null)
+            {
+                services.Configure<RpcServiceOptions>(options)
+                    .AddSingleton<IServiceMethodProvider<NetGrpcServiceActivator>, NetGrpcServiceMethodProvider>();
+            }
+            else
+            {
+                services.AddSingleton<IServiceMethodProvider<NetGrpcServiceActivator>, NetGrpcServiceMethodProvider>();
+
+            }
 
             services.AddSingleton<RpcServiceDefinitionBuilder>()
                 .AddSingleton<IRpcServiceDefinitionBuilder>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>())
@@ -78,7 +87,6 @@ namespace SciTech.Rpc.NetGrpc.Server
             return services;
         }
 
-
         /// <summary>
         /// Registers an RPC service interface that could be used to implement an RPC service.
         /// </summary>
@@ -95,6 +103,26 @@ namespace SciTech.Rpc.NetGrpc.Server
         {
             builder.AddSingleton<IRpcServiceRegistration>(new RpcServicesAssemblyRegistration(assembly));
             return builder;
+        }
+    }
+
+    internal class NetGrpcServiceMethodProvider : IServiceMethodProvider<NetGrpcServiceActivator>
+    {
+        private readonly RpcServicePublisher servicePublisher;
+
+        private RpcServiceOptions options;
+
+        public NetGrpcServiceMethodProvider(RpcServicePublisher servicePublisher, IOptions<RpcServiceOptions> options)
+        {
+            this.servicePublisher = servicePublisher;
+            this.options = options.Value;
+        }
+
+        public void OnServiceMethodDiscovery(ServiceMethodProviderContext<NetGrpcServiceActivator> context)
+        {
+            var rpcServer = new NetGrpcServer(this.servicePublisher, context, this.options);
+            rpcServer.Start();
+
         }
     }
 }

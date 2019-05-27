@@ -29,4 +29,25 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             this.ServiceProvider = serviceProvider;
         }
     }
+
+    /// <summary>
+    /// An <see cref="IConfigureOptions{TOptions}"/> implementation that is used to forward suitable RpcServiceOptions options to the
+    /// GrpcServiceOptions associated with <see cref="NetGrpcServiceActivator"/>.
+    /// </summary>
+    internal class NetGrpcServiceActivatorConfig : IConfigureOptions<GrpcServiceOptions<NetGrpcServiceActivator>>
+    {
+        private RpcServiceOptions rpcOptions;
+
+        public NetGrpcServiceActivatorConfig(IOptions<RpcServiceOptions> options)
+        {
+
+            this.rpcOptions = options.Value;
+        }
+
+        public void Configure(GrpcServiceOptions<NetGrpcServiceActivator> options)
+        {
+            options.ReceiveMaxMessageSize = this.rpcOptions.ReceiveMaxMessageSize;
+            options.SendMaxMessageSize = this.rpcOptions.SendMaxMessageSize;
+        }
+    }
 }

@@ -13,8 +13,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc.Server;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
@@ -23,13 +21,6 @@ namespace SciTech.Rpc.NetGrpc.Server
     /// </summary>
     public static class NetGrpcApplicationBuilderExtensions
     {
-        public static IApplicationBuilder RegisterRpcService<TService>(this IApplicationBuilder builder)
-        {
-            var definitionsBuilder = builder.ApplicationServices.GetRequiredService<IRpcServiceDefinitionBuilder>();
-            definitionsBuilder.RegisterService(typeof(TService));
-            return builder;
-        }
-
         /// <summary>
         /// Publishes a singleton service that will be contructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
         /// This method expects that an implementation class has been registered for the RPC service interface type <typeparamref name="TService"/>
@@ -44,7 +35,6 @@ namespace SciTech.Rpc.NetGrpc.Server
 
             return builder;
         }
-
 
         /// <summary>
         /// Publishes a singleton service that will be contructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
@@ -89,5 +79,11 @@ namespace SciTech.Rpc.NetGrpc.Server
 
         }
 
+        public static IApplicationBuilder RegisterRpcService<TService>(this IApplicationBuilder builder)
+        {
+            var definitionsBuilder = builder.ApplicationServices.GetRequiredService<IRpcServiceDefinitionBuilder>();
+            definitionsBuilder.RegisterService(typeof(TService));
+            return builder;
+        }
     }
 }

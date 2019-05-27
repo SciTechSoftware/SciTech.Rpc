@@ -74,7 +74,7 @@ namespace NetGrpcServer
                 // Map all registered RPC service interfaces to make 
                 // them callable as gRPC HTTP/2 operations.
                 // TODO: NetGrpc configuration should be improved.
-                endpoints.MapNetGrpcServices(new RpcServiceOptions { AllowAutoPublish = true });
+                endpoints.MapNetGrpcServices();
             });
         }
     }

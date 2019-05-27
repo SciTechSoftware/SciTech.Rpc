@@ -18,6 +18,9 @@ using System.Text;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
+    /// <summary>
+    /// Extension methods for publishing an registering RPC services.
+    /// </summary>
     public static class NetGrpcApplicationBuilderExtensions
     {
         public static IApplicationBuilder RegisterRpcService<TService>(this IApplicationBuilder builder)

@@ -29,6 +29,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 #pragma warning disable CA1812
     /// <summary>
     /// The GrpcServiceBuilder builds a type implementing server side stubs for a gRPC service defined by an RpcService
+    /// Builds a type implementing server side stubs for a ASP.NET Core gRPC service defined by an RpcService
     /// interface. The service interface must be tagged with the <see cref="RpcServiceAttribute"/> attribute.
     /// Note, this class will only generate an implementation for the declared members of the service, nothing
     /// is generated for inherited members.

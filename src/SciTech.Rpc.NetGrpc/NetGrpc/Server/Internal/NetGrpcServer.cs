@@ -21,6 +21,10 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.NetGrpc.Server.Internal
 {
+    /// <summary>
+    /// The ASP.NET Core gRPC implementation of <see cref="RpcServerBase"/>. Will not be directly used by client code, instead it is 
+    /// registered using <see cref="NetGrpcEndpointRouteBuilderExtensions.MapNetGrpcServices"/>.
+    /// </summary>
     internal sealed class NetGrpcServer : RpcServerBase
     {
         private static readonly Type[] GrpcServiceStubBuilderCtorArgTypes = new Type[] { typeof(IRpcSerializer) };

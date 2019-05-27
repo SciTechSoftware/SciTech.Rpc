@@ -15,6 +15,9 @@ using System.Text;
 namespace SciTech.Rpc.NetGrpc.Server
 {
 
+    /// <summary>
+    /// Extension methods for the SciTech.Rpc gRPC services.
+    /// </summary>
     public static class NetGrpcServiceCollectionExtensions
     {
         /// <summary>
@@ -39,29 +42,53 @@ namespace SciTech.Rpc.NetGrpc.Server
             return services;
         }
 
-        public static IServiceCollection RegisterKnownType<T>(this IServiceCollection builder)
+        /// <summary>
+        /// Registers a known serializable type that should be available for RPC serializers.
+        /// </summary>
+        /// <typeparam name="T">The known type.</typeparam>
+        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
+        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
+        public static IServiceCollection RegisterKnownType<T>(this IServiceCollection services)
         {
-            builder.AddSingleton(new KnownSerializationType(typeof(T)));
-            return builder;
+            services.AddSingleton(new KnownSerializationType(typeof(T)));
+            return services;
         }
 
+        /// <summary>
+        /// Registers a known serializable type that should be available for RPC serializers.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
+        /// <param name="type">The known type.</param>
+        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
         public static IServiceCollection RegisterKnownType(this IServiceCollection builder, Type type)
         {
             builder.AddSingleton(new KnownSerializationType(type));
             return builder;
         }
 
-        public static IServiceCollection RegisterRpcService<TService>(this IServiceCollection builder)
+        /// <summary>
+        /// Registers an RPC service interface that could be used to implement an RPC service.
+        /// </summary>
+        /// <typeparam name="TService">The service interface type. Must be an interface with the <see cref="RpcServiceAttribute"/> applied.</typeparam>
+        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
+        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
+        public static IServiceCollection RegisterRpcService<TService>(this IServiceCollection services) where TService : class
         {
-            builder.AddSingleton<IRpcServiceRegistration>(new RpcServiceRegistration(typeof(TService)));
-            return builder;
+            services.AddSingleton<IRpcServiceRegistration>(new RpcServiceRegistration(typeof(TService)));
+            return services;
         }
 
 
-        public static IServiceCollection RegisterRpcService(this IServiceCollection builder, Type type)
+        /// <summary>
+        /// Registers an RPC service interface that could be used to implement an RPC service.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
+        /// <param name="type">The service interface type. Must be an interface with the <see cref="RpcServiceAttribute"/> applied.</param>
+        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
+        public static IServiceCollection RegisterRpcService(this IServiceCollection services, Type type)
         {
-            builder.AddSingleton<IRpcServiceRegistration>(new RpcServiceRegistration(type));
-            return builder;
+            services.AddSingleton<IRpcServiceRegistration>(new RpcServiceRegistration(type));
+            return services;
         }
 
         public static IServiceCollection RegisterRpcServicesAssembly(this IServiceCollection builder, Assembly assembly)
@@ -69,6 +96,5 @@ namespace SciTech.Rpc.NetGrpc.Server
             builder.AddSingleton<IRpcServiceRegistration>(new RpcServicesAssemblyRegistration(assembly));
             return builder;
         }
-
     }
 }

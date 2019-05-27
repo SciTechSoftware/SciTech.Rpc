@@ -21,6 +21,9 @@ using System.Collections.Generic;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
+    /// <summary>
+    /// Provides extension methods for <see cref="IEndpointRouteBuilder"/> to add SciTech.RPC gRPC service endpoints.
+    /// </summary>
     public static class NetGrpcEndpointRouteBuilderExtensions
     {
         public static IEndpointConventionBuilder MapNetGrpcServices(

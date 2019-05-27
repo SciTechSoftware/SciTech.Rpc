@@ -9,6 +9,9 @@
 //
 #endregion
 
+using Grpc.AspNetCore.Server;
+using Microsoft.Extensions.Options;
+using SciTech.Rpc.Server;
 using System;
 
 namespace SciTech.Rpc.NetGrpc.Server.Internal

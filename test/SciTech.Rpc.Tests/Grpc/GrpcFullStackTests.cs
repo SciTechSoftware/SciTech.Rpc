@@ -22,11 +22,11 @@ namespace SciTech.Rpc.Grpc.Tests
             new object[] { new DataContractGrpcSerializer(null) }
         };
 
-        private IRpcSerializer serializer;
+        private RpcServiceOptions options;
 
         public GrpcFullStackTests(IRpcSerializer serializer)
         {
-            this.serializer = serializer;
+            this.options = new RpcServiceOptions { Serializer = serializer };
         }
 
         [Test]
@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Grpc.Tests
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
 
-            var host = new GrpcServer(serverBuilder, null, this.serializer);
+            var host = new GrpcServer(serverBuilder, null, this.options);
 
             host.AddEndPoint(CreateEndPoint());
 
@@ -85,7 +85,7 @@ namespace SciTech.Rpc.Grpc.Tests
         {
             var serverBuilder = new RpcServiceDefinitionBuilder();
             serverBuilder.RegisterService<IThermostatService>();
-            var host = new GrpcServer(serverBuilder, null, this.serializer);
+            var host = new GrpcServer(serverBuilder, null,  this.options);
 
             host.AddEndPoint(CreateEndPoint());
 
@@ -120,7 +120,7 @@ namespace SciTech.Rpc.Grpc.Tests
             var serverBuilder = new RpcServiceDefinitionBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
-            var host = new GrpcServer(serverBuilder, null, this.serializer);
+            var host = new GrpcServer(serverBuilder, null, this.options);
             host.AddEndPoint(CreateEndPoint());
             host.Start();
 
@@ -184,7 +184,7 @@ namespace SciTech.Rpc.Grpc.Tests
         {
             var serverBuilder = new RpcServiceDefinitionBuilder();
             serverBuilder.RegisterService<IThermostatService>();
-            var host = new GrpcServer(serverBuilder, null, this.serializer);
+            var host = new GrpcServer(serverBuilder, null, this.options);
 
             host.AddEndPoint(CreateEndPoint());
 
@@ -220,7 +220,7 @@ namespace SciTech.Rpc.Grpc.Tests
             serverBuilder.RegisterSingletonService<IServiceProviderService>()
                 .RegisterService<ISimpleService>();
 
-            var host = new GrpcServer(serverBuilder, null, this.serializer);
+            var host = new GrpcServer(serverBuilder, null, this.options);
             host.AddEndPoint(CreateEndPoint());
 
             host.Start();
@@ -255,7 +255,7 @@ namespace SciTech.Rpc.Grpc.Tests
         {
             var serverBuilder = new RpcServiceDefinitionBuilder();
             serverBuilder.RegisterService<ISimpleService>();
-            var host = new GrpcServer(serverBuilder, null, this.serializer);
+            var host = new GrpcServer(serverBuilder, null, this.options);
             host.AddEndPoint(CreateEndPoint());
 
             host.Start();
@@ -282,7 +282,7 @@ namespace SciTech.Rpc.Grpc.Tests
 
         private GrpcServerConnection CreateGrpcConnection(GrpcProxyProvider proxyGenerator)
         {
-            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.SslCredentials, proxyGenerator, this.serializer);
+            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.SslCredentials, proxyGenerator, this.options.Serializer);
         }
     }
 }

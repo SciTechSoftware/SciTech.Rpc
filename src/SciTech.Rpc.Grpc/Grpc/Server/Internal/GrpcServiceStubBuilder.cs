@@ -81,7 +81,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             var beginEventProducerName = $"Begin{eventInfo.Name}";
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<RpcObjectRequest, TEventArgs>(
+                GrpcMethodDefinition.Create<RpcObjectRequest, TEventArgs>(
                     GrpcCore.MethodType.ServerStreaming,
                     eventInfo.FullServiceName,
                     beginEventProducerName,
@@ -108,7 +108,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
                     operationInfo.FullServiceName, operationInfo.Name, this.serializer),
                 handler);
         }
@@ -134,7 +134,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
                     operationInfo.FullServiceName, operationInfo.Name, this.serializer),
                 handler);
         }
@@ -159,7 +159,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
+                GrpcMethodDefinition.Create<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
                     operationInfo.FullServiceName, operationInfo.Name, this.serializer),
                 handler);
         }
@@ -184,7 +184,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             };
 
             binder.AddMethod(
-                GrpcMethodDefinitionGenerator.CreateMethodDefinition<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
+                GrpcMethodDefinition.Create<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
                     operationInfo.FullServiceName, operationInfo.Name, this.serializer),
                 handler);
         }

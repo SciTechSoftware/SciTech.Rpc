@@ -29,8 +29,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         private ServiceBinderBase? serviceBinder;
 
-        internal NetGrpcServer(RpcServicePublisher servicePublisher, IRpcServiceDefinitionsProvider serviceDefinitionsProvider, ServiceBinderBase serviceBinder, IRpcSerializer? serializer=null)
-            : this(servicePublisher, servicePublisher, serviceDefinitionsProvider, serviceBinder, serializer)
+        internal NetGrpcServer(RpcServicePublisher servicePublisher, IRpcServiceDefinitionsProvider serviceDefinitionsProvider, ServiceBinderBase serviceBinder, RpcServiceOptions? options, IRpcSerializer? serializer=null)
+            : this(servicePublisher, servicePublisher, serviceDefinitionsProvider, serviceBinder, options, serializer)
         {
         }
 
@@ -39,8 +39,9 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             ServiceBinderBase serviceBinder,
+            RpcServiceOptions? options,
             IRpcSerializer? serializer=null)
-            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider)
+            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
             this.serializer = serializer ?? new ProtobufSerializer();
             this.serviceBinder = serviceBinder;

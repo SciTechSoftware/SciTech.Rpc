@@ -25,7 +25,7 @@ namespace SciTech.Rpc.NetGrpc.Server
     {
         public static IEndpointConventionBuilder MapNetGrpcServices(
             this IEndpointRouteBuilder builder,
-            bool allowAutoPublish = false,
+            RpcServiceOptions? serviceOptions = null,
             IRpcSerializer? serializer = null)
         {
             if (builder == null)
@@ -40,8 +40,7 @@ namespace SciTech.Rpc.NetGrpc.Server
                 {
                     options.BindAction = (serviceBinder, serviceImplProvider) =>
                     {
-                        var rpcServer = new NetGrpcServer(publisher, serviceDefinitionsProvider, serviceBinder, serializer);
-                        rpcServer.AllowAutoPublish = allowAutoPublish;
+                        var rpcServer = new NetGrpcServer(publisher, serviceDefinitionsProvider, serviceBinder, serviceOptions, serializer);
                         rpcServer.Start();
                     };
                     options.ModelFactory = new GrpcMethodModelFactory();

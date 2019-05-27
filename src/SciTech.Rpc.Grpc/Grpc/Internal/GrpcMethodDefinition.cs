@@ -3,16 +3,14 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.Grpc.Server.Internal
 {
-    public static class GrpcMethodDefinitionGenerator
+    internal static class GrpcMethodDefinition
     {
-        public static GrpcCore.Method<TRequest, TResponse> CreateMethodDefinition<TRequest, TResponse>(
+        public static GrpcCore.Method<TRequest, TResponse> Create<TRequest, TResponse>(
             GrpcCore.MethodType methodType,
             string serviceName,
             string methodName,
             IRpcSerializer serializer
         )
-            where TRequest : class
-            where TResponse : class
         {
 #nullable disable
             return new GrpcCore.Method<TRequest, TResponse>(

@@ -32,23 +32,19 @@ namespace SciTech.Rpc.Grpc.Server
 
         private IRpcSerializer serializer;
 
-        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, IRpcSerializer? serializer = null)
-            : this(RpcServerId.Empty, definitionsProvider, serviceProvider, serializer)
+        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options= null)
+            : this(RpcServerId.Empty, definitionsProvider, serviceProvider, options)
         {
         }
 
-        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, IRpcSerializer? serializer = null)
-            : base(servicePublisher)
+        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, serviceProvider, options)
         {
-            this.ServiceProvider = serviceProvider;
-            this.serializer = serializer ?? new ProtobufSerializer();
         }
 
-        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, IRpcSerializer? serializer = null)
-            : base(serverId, definitionsProvider)
+        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
         {
-            this.ServiceProvider = serviceProvider;
-            this.serializer = serializer ?? new ProtobufSerializer();
         }
 
         /// <summary>
@@ -63,11 +59,11 @@ namespace SciTech.Rpc.Grpc.Server
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             IServiceProvider? serviceProvider,
-            IRpcSerializer serializer)
-            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider)
+            RpcServiceOptions? options = null)
+            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
-            this.serializer = serializer ?? new ProtobufSerializer();
+            this.serializer = options?.Serializer ?? new ProtobufSerializer();
         }
 
         public IRpcSerializer Serializer
@@ -130,7 +126,7 @@ namespace SciTech.Rpc.Grpc.Server
         {
             var grpcServer = this.grpcServer ?? throw new InvalidOperationException("BuildServiceStubs should not be called after shutdown");
 
-            var queryServiceMethodDef = GrpcMethodDefinitionGenerator.CreateMethodDefinition<RpcObjectRequest, RpcServicesQueryResponse>(GrpcCore.MethodType.Unary,
+            var queryServiceMethodDef = GrpcMethodDefinition.Create<RpcObjectRequest, RpcServicesQueryResponse>(GrpcCore.MethodType.Unary,
                 "__SciTech.Rpc.RpcService", "QueryServices",
                 this.serializer);
 

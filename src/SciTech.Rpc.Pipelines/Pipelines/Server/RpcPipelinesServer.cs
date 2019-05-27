@@ -9,11 +9,10 @@
 //
 #endregion
 
-using SciTech.Rpc.Server;
-using SciTech.Rpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Pipelines.Server.Internal;
-using SciTech.Rpc.Pipelines.Internal;
+using SciTech.Rpc.Server;
+using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Buffers;
@@ -35,49 +34,43 @@ namespace SciTech.Rpc.Pipelines.Server
 
         private List<IRpcPipelinesEndPoint> startedEndpoints = new List<IRpcPipelinesEndPoint>();
 
-        public RpcPipelinesServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, IRpcSerializer serializer)
-            : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, serializer)
+        public RpcPipelinesServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServiceOptions options)
+            : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options)
         {
-        }
-
-        public RpcPipelinesServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, IRpcSerializer serializer)
-            : base(serverId, definitionsProvider)
-        {
-            this.ServiceProvider = serviceProvider;
-            this.Serializer = serializer;
         }
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="servicePublisher"></param>
-        public RpcPipelinesServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, IRpcSerializer serializer)
-            : base(servicePublisher)
+        public RpcPipelinesServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServiceOptions options)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, serviceProvider, options)
         {
-            this.ServiceProvider = serviceProvider;
-            this.Serializer = serializer;
+        }
+
+        public RpcPipelinesServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServiceOptions options)
+            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
+        {
         }
 
         /// <summary>
-        /// 
+        /// Only intended for testing.
         /// </summary>
-        /// <param name="servicePublisher"></param>
-        /// <param name="serviceImplProvider"></param>
-        /// <param name="definitionsProvider"></param>
         public RpcPipelinesServer(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider,
-            IRpcSerializer serializer)
-            : base(servicePublisher, serviceImplProvider, definitionsProvider)
+            RpcServiceOptions options)
+            : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
-            this.Serializer = serializer;
+            this.Serializer = options.Serializer ?? throw new ArgumentException("RpcPipelinesServer has not default serializer, Serializer must be specified in options.", nameof(options));
         }
-        protected override IServiceProvider? ServiceProvider { get; }
 
         public int ClientCount => this.clients.Count;
 
         public IRpcSerializer Serializer { get; }
+
+        protected override IServiceProvider? ServiceProvider { get; }
 
         public void AddEndPoint(IRpcPipelinesEndPoint endPoint)
         {

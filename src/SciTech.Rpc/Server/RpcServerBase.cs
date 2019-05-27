@@ -24,7 +24,8 @@ namespace SciTech.Rpc.Server
         private ImmutableArray<RpcServerCallInterceptor>.Builder? callInterceptorsBuilder = ImmutableArray.CreateBuilder<RpcServerCallInterceptor>();
         //private HashSet<string> registeredServices;
 
-        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider)
+        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, RpcServiceOptions? options) : 
+            this(new RpcServicePublisher(definitionsProvider, serverId), options)
         {
             var servicePublisher = new RpcServicePublisher(definitionsProvider, serverId );
             this.ServicePublisher = servicePublisher;
@@ -32,12 +33,9 @@ namespace SciTech.Rpc.Server
             this.ServiceDefinitionsProvider = definitionsProvider;
         }
 
-        protected RpcServerBase(RpcServicePublisher servicePublisher)
+        protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServiceOptions? options) :
+            this( servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options)
         {
-            this.ServicePublisher = servicePublisher;
-            this.ServiceImplProvider = servicePublisher;
-            this.ServiceDefinitionsProvider = servicePublisher.DefinitionsProvider;
-
         }
 
         /// <summary>
@@ -46,11 +44,12 @@ namespace SciTech.Rpc.Server
         /// <param name="servicePublisher"></param>
         /// <param name="serviceImplProvider"></param>
         /// <param name="definitionsProvider"></param>
-        protected RpcServerBase(IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider, IRpcServiceDefinitionsProvider definitionsProvider)
+        protected RpcServerBase(IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider, IRpcServiceDefinitionsProvider definitionsProvider, RpcServiceOptions? options)
         {
             this.ServicePublisher = servicePublisher;
             this.ServiceImplProvider = serviceImplProvider;
             this.ServiceDefinitionsProvider = definitionsProvider;
+            this.InitOptions(options);
         }
 
         protected enum ServerState
@@ -309,6 +308,22 @@ namespace SciTech.Rpc.Server
             //    }
             //}
         }
+        private void InitOptions(RpcServiceOptions? options)
+        {
+            if (options != null)
+            {
+                this.AllowAutoPublish = options.AllowAutoPublish;
+
+                if (options.Interceptors != null)
+                {
+                    foreach (var interceptor in options.Interceptors)
+                    {
+                        this.AddCallInterceptor(interceptor);
+                    }
+                }
+            }
+        }
+
         //TService IServiceImplProvider.GetServiceImpl<TService>(RpcObjectId id)
         //{
         //    return this.ServicePublisher.GetServiceImpl<TService>(id);

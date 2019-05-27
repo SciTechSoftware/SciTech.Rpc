@@ -20,7 +20,7 @@ namespace SciTech.Rpc.Tests.Pipelines
     public class PipelinesServerTests
     {
         /// <summary>
-        /// Makes a simple RPC call to a pipelines server, by expicitly building the request frame and parsing the response frame.
+        /// Makes a simple RPC call to a pipelines server, by explicitly building the request frame and parsing the response frame.
         /// </summary>
         /// <returns></returns>
         [Test]
@@ -42,7 +42,7 @@ namespace SciTech.Rpc.Tests.Pipelines
             serviceRegistrator.RegisterService<ISimpleService>();
 
             var serverId = RpcServerId.NewId();
-            using (var host = new RpcPipelinesServer(Mock.Of<IRpcServicePublisher>(), serviceImplProviderMock.Object, serviceRegistrator, null, serializer))
+            using (var host = new RpcPipelinesServer(Mock.Of<IRpcServicePublisher>(), serviceImplProviderMock.Object, serviceRegistrator, null, new RpcServiceOptions { Serializer = serializer } ))
             {
                 host.AddEndPoint(new DirectPipelinesEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 

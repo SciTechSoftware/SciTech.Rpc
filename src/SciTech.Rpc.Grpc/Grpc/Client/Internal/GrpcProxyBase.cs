@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Threading;
 using System;
@@ -218,19 +219,11 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             where TResponse : class
         {
             IRpcSerializer actualSerializer = this.SerializerOverride ?? serializer;
-#nullable disable
-            return new GrpcCore.Method<TRequest, TResponse>(
-                type: this.MethodType,
+            return GrpcMethodDefinition.Create<TRequest, TResponse>(
+                methodType: this.MethodType,
                 serviceName: this.ServiceName,
-                name: this.MethodName,
-                requestMarshaller: GrpcCore.Marshallers.Create(
-                    serializer: actualSerializer.ToBytes,
-                    deserializer: actualSerializer.FromBytes<TRequest>
-                    ),
-                responseMarshaller: GrpcCore.Marshallers.Create(
-                    serializer: actualSerializer.ToBytes,
-                    deserializer: actualSerializer.FromBytes<TResponse>)
-                );
+                methodName: this.MethodName,
+                actualSerializer);
 #nullable restore
         }
     }

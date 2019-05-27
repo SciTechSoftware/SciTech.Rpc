@@ -174,7 +174,7 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        internal IRpcServiceDefinitionsProvider DefinitionsProvider { get; }
+        public IRpcServiceDefinitionsProvider DefinitionsProvider { get; }
 
         public RpcObjectRef<TService> GetOrPublishInstance<TService>(TService serviceInstance) where TService : class
         {

@@ -1,5 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Grpc.AspNetCore.Server;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
@@ -10,13 +14,19 @@ using System.Text;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
+
     public static class NetGrpcServiceCollectionExtensions
     {
-        public static void AddNetGrpc(this IServiceCollection services)
+        /// <summary>
+        /// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
+        /// </summary>
+        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
+        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
+        public static IServiceCollection AddNetGrpc(this IServiceCollection services, Action<RpcServiceOptions>? options = null)
         {
             services.AddGrpc();
 
-            services.AddSingleton(s => new RpcServiceDefinitionBuilder(s.GetServices<IRpcServiceRegistration>(), s.GetServices<IRpcServerExceptionConverter>()))
+            services.AddSingleton<RpcServiceDefinitionBuilder>()
                 .AddSingleton<IRpcServiceDefinitionBuilder>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>())
                 .AddSingleton<IRpcServiceDefinitionsProvider>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>());
 
@@ -25,6 +35,8 @@ namespace SciTech.Rpc.NetGrpc.Server
             services.TryAddSingleton<IRpcServiceActivator>(s => s.GetRequiredService<RpcServicePublisher>());
 
             services.AddScoped(s => new NetGrpcServiceActivator(s));
+
+            return services;
         }
 
         public static IServiceCollection RegisterKnownType<T>(this IServiceCollection builder)

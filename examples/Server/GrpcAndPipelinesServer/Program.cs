@@ -38,13 +38,16 @@ namespace GrpcAndPipelinesServer
             RegisterServiceDefinitions(definitionsBuilder);
             PublishServices(rpcPublisher);
 
-            var serializer = new ProtobufSerializer();
+            var options = new RpcServiceOptions
+            {
+                Serializer = new ProtobufSerializer()
+            };
             
-            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider, serializer);
+            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider, options);
             grpcServer.AllowAutoPublish = true;
             grpcServer.AddEndPoint(CreateGrpcEndPoint(50051));
 
-            var pipelinesServer = new RpcPipelinesServer(rpcPublisher, serviceProvider, serializer);
+            var pipelinesServer = new RpcPipelinesServer(rpcPublisher, serviceProvider, options);
             pipelinesServer.AllowAutoPublish = true;
             pipelinesServer.AddEndPoint(new TcpPipelinesEndPoint("127.0.0.1", 50052, false));
 

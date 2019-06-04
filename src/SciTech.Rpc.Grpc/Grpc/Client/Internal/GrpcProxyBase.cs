@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Collections;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Grpc.Server.Internal;
@@ -181,14 +182,41 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall)
             {
                 this.grpcCall = grpcCall;
+                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream);
+
 
             }
 
-            public IAsyncEnumerator<TResponse> ResponseStream => this.grpcCall.ResponseStream;
+            public IAsyncStream<TResponse> ResponseStream { get; }
 
             public void Dispose()
             {
                 this.grpcCall.Dispose();
+            }
+
+            private class AsyncStreamWrapper : IAsyncStream<TResponse>
+            {
+                private GrpcCore.IAsyncStreamReader<TResponse> reader;
+
+                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader)
+                {
+                    this.reader = reader;
+                }
+
+                public TResponse Current => this.reader.Current;
+
+                public ValueTask<bool> MoveNextAsync()
+                {
+                    var task = this.reader.MoveNext();
+                    if (task.Status == TaskStatus.RanToCompletion)
+                    {
+                        return new ValueTask<bool>(task.Result);
+                    }
+
+                    async ValueTask<bool> AwaitNext() => await task.ContextFree();
+
+                    return AwaitNext();
+                }
             }
         }
     }

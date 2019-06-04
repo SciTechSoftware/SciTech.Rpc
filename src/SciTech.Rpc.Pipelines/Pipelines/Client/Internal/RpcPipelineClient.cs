@@ -13,6 +13,7 @@
 //
 #endregion
 
+using SciTech.Collections;
 using SciTech.IO;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Pipelines.Internal;
@@ -265,7 +266,7 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
 
             public bool IsStreaming => true;
 
-            public IAsyncEnumerator<TResponse> ResponseStream => this.responseStream;
+            public IAsyncStream<TResponse> ResponseStream => this.responseStream;
 
             public void Dispose()
             {
@@ -326,7 +327,7 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
         }
 
 #nullable disable   // Should only be disabled around TResponse current, but that does not seem to work currently.
-        private class StreamingResponseStream<TResponse> : IAsyncEnumerator<TResponse>
+        private class StreamingResponseStream<TResponse> : IAsyncStream<TResponse>
         {
             public Queue<TResponse> responseQueue = new Queue<TResponse>();
 
@@ -361,9 +362,10 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
                 // Not implemented. What should we do?
             }
 
-            public Task<bool> MoveNext(CancellationToken cancellationToken)
+            public ValueTask<bool> MoveNextAsync()
             {
-                TaskCompletionSource<bool> responseTcs;
+                //TaskCompletionSource<bool> responseTcs;
+                Task<bool> nextTask;
 
                 lock (this.syncRoot)
                 {
@@ -376,7 +378,7 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
                     {
                         this.current = this.responseQueue.Dequeue();
                         this.hasCurrent = true;
-                        return Task.FromResult(true);
+                        return new ValueTask<bool>(true);
                     }
                     else
                     {
@@ -387,13 +389,16 @@ namespace SciTech.Rpc.Pipelines.Client.Internal
                     if (this.isEnded)
                     {
                         // TODO: Handles exceptions.
-                        return Task.FromResult(false);
+                        return new ValueTask<bool>(false);
                     }
 
-                    responseTcs = this.responseTcs = new TaskCompletionSource<bool>();
+                    this.responseTcs = new TaskCompletionSource<bool>();
+                    nextTask = this.responseTcs.Task;
                 }
+                
+                async ValueTask<bool> AwaitNext() => await nextTask.ContextFree();
 
-                return responseTcs.Task;
+                return AwaitNext();
             }
 
             internal void Complete()

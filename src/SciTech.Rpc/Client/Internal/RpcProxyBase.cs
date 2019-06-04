@@ -688,19 +688,19 @@ namespace SciTech.Rpc.Client.Internal
                     // allow the client (us) to know that the event handler has been properly added 
                     // on the server side.
                     // The empty EventArgs is just ignored.
-#if PLAT_ASYNC_ENUM
-                    await responseStream.MoveNext().ContextFree();
-#else
+//#if PLAT_ASYNC_ENUM
+//                    await responseStream.MoveNext().ContextFree();
+//#else
                     await responseStream.MoveNextAsync().ContextFree();
-#endif
+//#endif
                     // Mark the listener as completed once we have received the initial EventArgs
                     eventData.eventListenerStartedTcs.SetResult(true);
 
-#if PLAT_ASYNC_ENUM
-                    while (await responseStream.MoveNext().ContextFree())
-#else
+//#if PLAT_ASYNC_ENUM
+//                    while (await responseStream.MoveNext().ContextFree())
+//#else
                     while (await responseStream.MoveNextAsync().ContextFree())
-#endif
+//#endif
                     {
                         TEventHandler? eventHandler = null;
                         lock (this.SyncRoot)

@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(EnableMultiTargeting)'!='true'">
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -14,7 +14,7 @@
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>0.5.2-alpha2</Version>
+    <Version>0.5.3-alpha1</Version>
     <Description>Contains utility/helper classes used by the SciTech.Rpc project. This 
     package is currently not intended for other use.</Description>
   </PropertyGroup>
@@ -39,8 +39,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
-
-    <PackageReference Include="System.Interactive.Async" Version="3.2.0" />
     <PackageReference Include="System.IO.Pipelines" Version="4.5.3" />
   </ItemGroup>
 </Project>

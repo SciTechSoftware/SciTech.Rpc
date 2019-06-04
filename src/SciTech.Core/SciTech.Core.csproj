@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup Condition="'$(EnableMultiTargeting)'=='true'">
-    <TargetFrameworks>netstandard2.0;net461;netcoreapp2.1</TargetFrameworks>
+      <TargetFrameworks>netstandard2.0;net461;netcoreapp2.1</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(EnableMultiTargeting)'!='true'">

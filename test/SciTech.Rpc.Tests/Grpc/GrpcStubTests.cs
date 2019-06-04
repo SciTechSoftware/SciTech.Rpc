@@ -3,9 +3,9 @@ using Grpc.Core.Testing;
 using Moq;
 using NUnit.Framework;
 using SciTech.Rpc.Grpc.Server.Internal;
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Internal;
 using SciTech.Rpc.Tests;
 using SciTech.Threading;
 using System;
@@ -21,6 +21,8 @@ namespace SciTech.Rpc.Grpc.Tests
     [TestFixture]
     public class GrpcStubTests
     {
+        private static readonly IRpcSerializer DefaultSerializer = new ProtobufSerializer();
+
         public GrpcStubTests()
         {
         }
@@ -277,7 +279,7 @@ namespace SciTech.Rpc.Grpc.Tests
 
         private static void CreateSimpleServiceStub<TService>(TService serviceImpl, IGrpcMethodBinder methodBinder) where TService : class
         {
-            var builder = new GrpcServiceStubBuilder<TService>(new ProtobufSerializer());
+            var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufSerializer() });
 
             var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
 
@@ -293,6 +295,9 @@ namespace SciTech.Rpc.Grpc.Tests
             hostMock.Setup(h => h.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
             hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
             hostMock.Setup(h => h.ServiceProvider).Returns((IServiceProvider)null);
+            hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
+            hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
+            hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }

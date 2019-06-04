@@ -1,11 +1,11 @@
 ﻿using Moq;
 using NUnit.Framework;
 using SciTech.IO;
+using SciTech.Rpc.Internal;
+using SciTech.Rpc.Pipelines.Internal;
+using SciTech.Rpc.Pipelines.Server.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Internal;
-using SciTech.Rpc.Pipelines.Server.Internal;
-using SciTech.Rpc.Pipelines.Internal;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -20,67 +20,7 @@ namespace SciTech.Rpc.Tests.Pipelines
     [TestFixture]
     public class PipelinesStubTests
     {
-        private IRpcSerializer serializer = new ProtobufSerializer();
-
-        [Test]
-        public async Task GenerateImplicitServiceProviderStubTest()
-        {
-            var binder = new TestMethodBinder();
-            var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
-            definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
-            RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
-            var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
-
-            var publishedServiceScope = servicePublisher.PublishInstance(serviceImpl);
-            CreateSimpleServiceStub<IImplicitServiceProviderService>(servicePublisher, binder, false );
-
-            var objectId = publishedServiceScope.Value.ObjectId;
-
-            PipelinesMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
-                "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetSimpleService");
-
-            Assert.NotNull(getServiceStub);
-
-            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
-                getServiceStub, new RpcObjectRequest<int>(objectId, 1));
-            Assert.NotNull(getServiceResponse.Result);
-
-            var actualServiceRef = servicePublisher.GetPublishedInstance(serviceImpl.GetSimpleService(1));
-
-            Assert.AreEqual(actualServiceRef, getServiceResponse.Result);
-
-
-        }
-
-        [Test]
-        public async Task GenerateImplicitServiceProviderPropertyStubTest()
-        {
-            var binder = new TestMethodBinder();
-            var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
-            definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
-            RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
-            var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
-
-            var publishedServiceScope = servicePublisher.PublishInstance(serviceImpl);
-            CreateSimpleServiceStub<IImplicitServiceProviderService>(servicePublisher, binder, false);
-
-            var objectId = publishedServiceScope.Value.ObjectId;
-
-            PipelinesMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest, RpcResponse<RpcObjectRef>>(
-                "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetFirstSimpleService");
-
-            Assert.NotNull(getServiceStub);
-
-            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponse<RpcObjectRef>>(
-                getServiceStub, new RpcObjectRequest(objectId));
-            Assert.NotNull(getServiceResponse.Result);
-
-            var actualServiceRef = servicePublisher.GetPublishedInstance(serviceImpl.FirstSimpleService);
-
-            Assert.AreEqual(actualServiceRef, getServiceResponse.Result);
-
-
-        }
+        private static readonly IRpcSerializer DefaultSerializer = new ProtobufSerializer();
 
         [Test]
         public async Task FailUnpublishedServiceProviderStubTest()
@@ -106,7 +46,6 @@ namespace SciTech.Rpc.Tests.Pipelines
 
             Assert.AreEqual(WellKnownRpcErrors.Failure, response.Error?.ErrorType);
         }
-
 
         [Test]
         public async Task GenerateAutoPublishServiceProviderStubTest()
@@ -145,10 +84,70 @@ namespace SciTech.Rpc.Tests.Pipelines
             var actualServiceRefs = servicePublisher.GetPublishedServiceInstances(serviceImpl.GetSimpleServices(), false);
 
             Assert.AreEqual(actualServiceRefs.Count, getServicesResponse.Result.Length);
-            for( int i=0; i < actualServiceRefs.Count;i++ )
+            for (int i = 0; i < actualServiceRefs.Count; i++)
             {
                 Assert.AreEqual(actualServiceRefs[i], getServicesResponse.Result[i]);
             }
+        }
+
+        [Test]
+        public async Task GenerateImplicitServiceProviderPropertyStubTest()
+        {
+            var binder = new TestMethodBinder();
+            var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
+            definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
+            RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
+            var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
+
+            var publishedServiceScope = servicePublisher.PublishInstance(serviceImpl);
+            CreateSimpleServiceStub<IImplicitServiceProviderService>(servicePublisher, binder, false);
+
+            var objectId = publishedServiceScope.Value.ObjectId;
+
+            PipelinesMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest, RpcResponse<RpcObjectRef>>(
+                "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetFirstSimpleService");
+
+            Assert.NotNull(getServiceStub);
+
+            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponse<RpcObjectRef>>(
+                getServiceStub, new RpcObjectRequest(objectId));
+            Assert.NotNull(getServiceResponse.Result);
+
+            var actualServiceRef = servicePublisher.GetPublishedInstance(serviceImpl.FirstSimpleService);
+
+            Assert.AreEqual(actualServiceRef, getServiceResponse.Result);
+
+
+        }
+
+        [Test]
+        public async Task GenerateImplicitServiceProviderStubTest()
+        {
+            var binder = new TestMethodBinder();
+            var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
+            definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
+            RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
+            var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
+
+            var publishedServiceScope = servicePublisher.PublishInstance(serviceImpl);
+            CreateSimpleServiceStub<IImplicitServiceProviderService>(servicePublisher, binder, false);
+
+            var objectId = publishedServiceScope.Value.ObjectId;
+
+            PipelinesMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
+                "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetSimpleService");
+
+            Assert.NotNull(getServiceStub);
+
+            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
+                getServiceStub, new RpcObjectRequest<int>(objectId, 1));
+            Assert.NotNull(getServiceResponse.Result);
+
+            var actualServiceRef = servicePublisher.GetPublishedInstance(serviceImpl.GetSimpleService(1));
+
+            Assert.AreEqual(actualServiceRef, getServiceResponse.Result);
+
+
         }
 
         [Test]
@@ -207,7 +206,7 @@ namespace SciTech.Rpc.Tests.Pipelines
 
         private void CreateSimpleServiceStub<TService>(TService serviceImpl, IPipelinesMethodBinder methodBinder) where TService : class
         {
-            var builder = new PipelinesServiceStubBuilder<TService>(this.serializer);
+            var builder = new PipelinesServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = DefaultSerializer });
 
             var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
@@ -222,13 +221,16 @@ namespace SciTech.Rpc.Tests.Pipelines
             hostMock.Setup(h => h.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProviderMock.Object);
             hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
+            hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
+            hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
+            hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }
 
-        private void CreateSimpleServiceStub<TService>(RpcServicePublisher servicePublisher, IPipelinesMethodBinder methodBinder, bool allowAutoPublish ) where TService : class
+        private void CreateSimpleServiceStub<TService>(RpcServicePublisher servicePublisher, IPipelinesMethodBinder methodBinder, bool allowAutoPublish) where TService : class
         {
-            var builder = new PipelinesServiceStubBuilder<TService>(this.serializer);
+            var builder = new PipelinesServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = DefaultSerializer });
 
             var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
@@ -238,6 +240,8 @@ namespace SciTech.Rpc.Tests.Pipelines
             hostMock.Setup(h => h.ServiceImplProvider).Returns(servicePublisher);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProviderMock.Object);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(allowAutoPublish);
+            hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
+            hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
 
             hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
 
@@ -258,7 +262,7 @@ namespace SciTech.Rpc.Tests.Pipelines
             using (var pipeline = new TestPipeline(duplexPipe))
             {
 
-                var payload = new ReadOnlySequence<byte>(this.serializer.ToBytes(request));
+                var payload = new ReadOnlySequence<byte>(DefaultSerializer.ToBytes(request));
 
                 var frame = new RpcPipelinesFrame(RpcFrameType.UnaryRequest, 1, methodStub.OperationName, RpcOperationFlags.None, 0, payload, null);
 
@@ -271,7 +275,7 @@ namespace SciTech.Rpc.Tests.Pipelines
 
                 using (var responsePayloadStream = responseFrame.Payload.AsStream())
                 {
-                    response = (TResponse)this.serializer.FromStream(typeof(TResponse), responsePayloadStream);
+                    response = (TResponse)DefaultSerializer.FromStream(typeof(TResponse), responsePayloadStream);
                 }
 
                 return response;

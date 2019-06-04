@@ -31,9 +31,9 @@ namespace SciTech.Rpc.Client
             {
                 foreach (var registration in registrations)
                 {
-                    foreach (var serviceType in registration.GetServiceTypes(RpcServiceDefinitionType.Client))
+                    foreach (var registeredType in registration.GetServiceTypes(RpcServiceDefinitionType.Client))
                     {
-                        this.RegisterKnownService(serviceType);
+                        this.RegisterKnownService(registeredType.ServiceType);
                     }
                 }
             }

@@ -20,34 +20,38 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// Helper class that forwards the ServiceProvider for the ASP.NET Core handler to the 
     /// NetGrpc implementation.
     /// </summary>
-    internal class NetGrpcServiceActivator
+    internal class NetGrpcServiceActivator<TService> where TService : class
     {
         internal readonly IServiceProvider ServiceProvider;
 
-        internal NetGrpcServiceActivator(IServiceProvider serviceProvider)
+        public NetGrpcServiceActivator(IServiceProvider serviceProvider)
         {
             this.ServiceProvider = serviceProvider;
         }
+        //void Build( IRpcSerializer serializer )
+        //{
+        //    var stubBuilder = new NetGrpcServiceStubBuilder<TService>(serializer);
+        //    stubBuilder.Bind()
+        //}
     }
 
     /// <summary>
     /// An <see cref="IConfigureOptions{TOptions}"/> implementation that is used to forward suitable RpcServiceOptions options to the
-    /// GrpcServiceOptions associated with <see cref="NetGrpcServiceActivator"/>.
+    /// GrpcServiceOptions associated with <see cref="NetGrpcServiceActivator{TService}"/>.
     /// </summary>
-    internal class NetGrpcServiceActivatorConfig : IConfigureOptions<GrpcServiceOptions<NetGrpcServiceActivator>>
+    internal class NetGrpcServiceActivatorConfig<TService> : IConfigureOptions<GrpcServiceOptions<NetGrpcServiceActivator<TService>>> where TService : class
     {
         private RpcServiceOptions rpcOptions;
 
         public NetGrpcServiceActivatorConfig(IOptions<RpcServiceOptions> options)
         {
-
             this.rpcOptions = options.Value;
         }
 
-        public void Configure(GrpcServiceOptions<NetGrpcServiceActivator> options)
+        public void Configure(GrpcServiceOptions<NetGrpcServiceActivator<TService>> options)
         {
-            options.ReceiveMaxMessageSize = this.rpcOptions.ReceiveMaxMessageSize;
-            options.SendMaxMessageSize = this.rpcOptions.SendMaxMessageSize;
+            options.ReceiveMaxMessageSize = this.rpcOptions.ReceiveMaxMessageSize ?? options.ReceiveMaxMessageSize;
+            options.SendMaxMessageSize = this.rpcOptions.SendMaxMessageSize ?? options.SendMaxMessageSize;
         }
     }
 }

@@ -192,7 +192,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 if (this.implementedServices != null)
                 {
-                    return this.implementedServices;
+                    // return this.implementedServices;
                 }
 
                 if (this.servicesTcs == null)
@@ -213,9 +213,9 @@ namespace SciTech.Rpc.Client.Internal
 
             if (this.queryServicesMethodDef == null)
             {
-                // Don't care if it's created multiple times, it's just a data class
+                // Don't care if it's created multiple times, it's just a small data class
                 this.queryServicesMethodDef = this.CreateDynamicMethodDef<RpcObjectRequest, RpcServicesQueryResponse>(
-                    "__SciTech.Rpc.RpcService", "QueryServices");
+                    "SciTech.Rpc.RpcService", "QueryServices");
             }
 
             var servicesResponse = await this.CallUnaryMethodImplAsync<RpcObjectRequest, RpcServicesQueryResponse>(

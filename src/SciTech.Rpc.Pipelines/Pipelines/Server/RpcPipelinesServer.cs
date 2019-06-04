@@ -9,6 +9,8 @@
 //
 #endregion
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Pipelines.Server.Internal;
 using SciTech.Rpc.Server;
@@ -19,6 +21,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO.Pipelines;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,6 +29,8 @@ namespace SciTech.Rpc.Pipelines.Server
 {
     public partial class RpcPipelinesServer : RpcServerBase
     {
+        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(RpcPipelinesServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+
         private readonly ConcurrentDictionary<Client, Client> clients = new ConcurrentDictionary<Client, Client>();
 
         private readonly Dictionary<string, PipelinesMethodStub> methodDefinitions = new Dictionary<string, PipelinesMethodStub>();
@@ -63,12 +68,9 @@ namespace SciTech.Rpc.Pipelines.Server
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
-            this.Serializer = options.Serializer ?? throw new ArgumentException("RpcPipelinesServer has not default serializer, Serializer must be specified in options.", nameof(options));
         }
 
         public int ClientCount => this.clients.Count;
-
-        public IRpcSerializer Serializer { get; }
 
         protected override IServiceProvider? ServiceProvider { get; }
 
@@ -109,9 +111,9 @@ namespace SciTech.Rpc.Pipelines.Server
 
         protected override void BuildServiceStub(Type serviceType)
         {
-            var builder = this.CreateServiceStubBuilder(serviceType);
-
-            var serviceDef = builder.Build(this);
+            var typedMethod = CreateServiceStubBuilderMethod.MakeGenericMethod(serviceType);
+            var stubBuilder = (IPipelinesServiceStubBuilder)typedMethod.Invoke(this, null);
+            var serviceDef = stubBuilder.Build(this);
 
             this.AddServiceDef(serviceDef);
         }
@@ -119,13 +121,18 @@ namespace SciTech.Rpc.Pipelines.Server
         protected override void BuildServiceStubs()
         {
             var methodStub = new PipelinesMethodStub<RpcObjectRequest, RpcServicesQueryResponse>(
-                "__SciTech.Rpc.RpcService.QueryServices",
+                "SciTech.Rpc.RpcService.QueryServices",
                 (request, _, context) => new ValueTask<RpcServicesQueryResponse>(this.QueryServices(request.Id)),
             this.Serializer, null);
 
-            this.methodDefinitions.Add("__SciTech.Rpc.RpcService.QueryServices", methodStub);
+            this.methodDefinitions.Add("SciTech.Rpc.RpcService.QueryServices", methodStub);
 
             base.BuildServiceStubs();
+        }
+
+        protected override IRpcSerializer CreateDefaultSerializer()
+        {
+            return new DataContractGrpcSerializer();
         }
 
         protected override void Dispose(bool disposing)
@@ -200,11 +207,10 @@ namespace SciTech.Rpc.Pipelines.Server
             }
         }
 
-        private IPipelinesServiceStubBuilder CreateServiceStubBuilder(Type serviceType)
+        private IPipelinesServiceStubBuilder CreateServiceStubBuilder<TService>() where TService : class
         {
-            return (IPipelinesServiceStubBuilder)typeof(PipelinesServiceStubBuilder<>).MakeGenericType(serviceType)
-                .GetConstructor(new Type[] { typeof(IRpcSerializer) })
-                .Invoke(new object[] { this.Serializer });
+            IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
+            return new PipelinesServiceStubBuilder<TService>(options?.Value);
         }
 
         private void RemoveClient(Client client) => this.clients.TryRemove(client, out _);

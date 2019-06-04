@@ -39,12 +39,27 @@ namespace SciTech.Rpc.Server.Internal
 
     public abstract class RpcStub
     {
-        protected RpcStub(IRpcServerImpl server)
+        protected RpcStub(IRpcServerImpl server, RpcServiceOptions? options)
         {
             this.Server = server;
             this.ServicePublisher = this.Server.ServicePublisher;
-            this.CustomFaultHandler = server.ServiceDefinitionsProvider.CustomFaultHandler;
+
+            this.AllowAutoPublish = options?.AllowAutoPublish ?? this.Server.AllowAutoPublish;
+            this.Serializer = options?.Serializer ?? this.Server.Serializer;
+
+            if (options?.ExceptionConverters?.Count > 0)
+            {
+                this.CustomFaultHandler = new RpcServerFaultHandler(this.Server.ExceptionConverters.Concat(options.ExceptionConverters));
+            }
+            else
+            {
+                this.CustomFaultHandler = this.Server.CustomFaultHandler;
+            }
         }
+
+        public bool AllowAutoPublish { get; }
+
+        public IRpcSerializer Serializer { get; }
 
         public IRpcServerImpl Server { get; }
 
@@ -98,7 +113,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 RpcObjectRef? serviceRef;
 
-                if (this.Server.AllowAutoPublish)
+                if (this.AllowAutoPublish)
                 {
                     serviceRef = this.ServicePublisher.GetOrPublishInstance(service)?.Cast();
                 }
@@ -127,7 +142,7 @@ namespace SciTech.Rpc.Server.Internal
 
         private readonly IRpcServiceActivator serviceImplProvider;
 
-        public RpcStub(IRpcServerImpl server) : base(server)
+        public RpcStub(IRpcServerImpl server, RpcServiceOptions? options) : base(server, options)
         {
             this.serviceImplProvider = server.ServiceImplProvider;
         }
@@ -392,30 +407,6 @@ namespace SciTech.Rpc.Server.Internal
             };
         }
 
-        private static RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
-        {
-            RpcError? rpcError = null;
-            foreach (var converter in converters)
-            {
-                // We have at least one declared exception handlers
-                var convertedFault = converter.CreateFault(e);
-
-                if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
-                {
-                    byte[]? detailsData = null;
-                    if (convertedFault.Details != null)
-                    {
-                        detailsData = serializer.ToBytes(convertedFault.Details);
-                    }
-
-                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = converter.FaultCode, Message = convertedFault.Message, FaultDetails = detailsData };
-                    break;
-                }
-            }
-
-            return rpcError;
-        }
-
         /// <summary>
         /// Prepares a call to the RPC implementation method. Must be combined with a corresponding call to 
         /// <see cref="EndCall(CompactList{IDisposable?})"/>
@@ -459,7 +450,7 @@ namespace SciTech.Rpc.Server.Internal
                 {
                     var interceptor = interceptors[index];
                     var interceptTask = interceptor(rpcMetaData!);
-                    if (interceptTask.Status != TaskStatus.RanToCompletion )
+                    if (interceptTask.Status != TaskStatus.RanToCompletion)
                     {
                         // TODO: This is completely untested. And investigate how an async interceptor
                         // will be able to update an AsyncLocal and propagate the change out from this method.
@@ -523,7 +514,7 @@ namespace SciTech.Rpc.Server.Internal
                     {
                         // Using the methodStub fault handler as the faultHandler argument, since 
                         // this faultHandler is used to check whether the fault is declared for the specific operation.
-                        rpcError = TryConvertToFault(e, customConverters!, declaredFaultHandler, serializer);
+                        rpcError = this.TryConvertToFault(e, customConverters!, declaredFaultHandler, serializer);
                     }
                 }
 
@@ -532,7 +523,7 @@ namespace SciTech.Rpc.Server.Internal
                     // Not handled by a custom converter, so let's try the declared converters. 
                     if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
                     {
-                        rpcError = TryConvertToFault(e, declaredConverters!, declaredFaultHandler, serializer);
+                        rpcError = this.TryConvertToFault(e, declaredConverters!, declaredFaultHandler, serializer);
                     }
                 }
             }
@@ -561,6 +552,30 @@ namespace SciTech.Rpc.Server.Internal
                     string message = "The server was unable to process the request due to an internal error. "
                         + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
                     rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = "", Message = message };
+                }
+            }
+
+            return rpcError;
+        }
+
+        private RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
+        {
+            RpcError? rpcError = null;
+            foreach (var converter in converters)
+            {
+                // We have at least one declared exception handlers
+                var convertedFault = converter.CreateFault(e);
+
+                if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
+                {
+                    byte[]? detailsData = null;
+                    if (convertedFault.Details != null)
+                    {
+                        detailsData = serializer.ToBytes(convertedFault.Details);
+                    }
+
+                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = converter.FaultCode, Message = convertedFault.Message, FaultDetails = detailsData };
+                    break;
                 }
             }
 

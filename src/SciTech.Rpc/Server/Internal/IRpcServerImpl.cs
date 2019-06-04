@@ -1,6 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿#region Copyright notice and license
+// Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License. 
+// You may obtain a copy of the License at:
+//
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+#endregion
+
+using System;
+using System.Collections.Immutable;
 
 namespace SciTech.Rpc.Server.Internal
 {
@@ -11,14 +21,32 @@ namespace SciTech.Rpc.Server.Internal
     public interface IRpcServerImpl : IRpcServer
     {
         /// <summary>
-        /// Gets the <see cref="IRpcServiceActivator"/> associated with <see cref="IRpcServer.ServicePublisher"/>.
+        /// Gets the custom <see cref="RpcServerFaultHandler"/> that has been initialized 
+        /// using the <see cref="ExceptionConverters"/>. If there are no <c>ExceptionConverters</c>
+        /// this property will return <c>null</c>.
         /// </summary>
-        IRpcServiceActivator ServiceImplProvider { get; }
+        /// <value>An <see cref="RpcServerFaultHandler"/> that has been initialized 
+        /// using the <see cref="ExceptionConverters"/> , or <c>null</c> if there are no exception converters.</value>
+        RpcServerFaultHandler? CustomFaultHandler { get; }
+
+        /// <summary>
+        /// Gets the exceptions converters associated with this server. If the array is 
+        /// not empty, the <see cref="CustomFaultHandler"/> will represent the fault handler
+        /// for the combined exception converters.
+        /// </summary>
+        ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; }
+
+        IRpcSerializer Serializer { get; }
 
         /// <summary>
         /// Gets the <see cref="IRpcServiceDefinitionsProvider"/> associated with <see cref="IRpcServer.ServicePublisher"/>.
         /// </summary>
         IRpcServiceDefinitionsProvider ServiceDefinitionsProvider { get; }
+
+        /// <summary>
+        /// Gets the <see cref="IRpcServiceActivator"/> associated with <see cref="IRpcServer.ServicePublisher"/>.
+        /// </summary>
+        IRpcServiceActivator ServiceImplProvider { get; }
 
         IServiceProvider? ServiceProvider { get; }
     }

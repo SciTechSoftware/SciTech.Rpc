@@ -17,7 +17,7 @@ using System;
 namespace SciTech.Rpc.NetGrpc.Server
 {
     /// <summary>
-    /// Extension methods for publishing an registering RPC services.
+    /// Extension methods for publishing and registering RPC services.
     /// </summary>
     public static class NetGrpcApplicationBuilderExtensions
     {

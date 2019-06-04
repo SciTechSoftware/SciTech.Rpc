@@ -136,14 +136,14 @@ namespace SciTech.Rpc.Server
 
         public RpcServicePublisher(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId = default)
         {
-            this.DefinitionsProvider = serviceDefinitionsProvider;
+            this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
             this.serverId = serverId;
         }
 
         public RpcServicePublisher(RpcServerConnectionInfo connectionInfo, IRpcServiceDefinitionsProvider serviceDefinitionsProvider)
         {
             this.InitConnectionInfo(connectionInfo);
-            this.DefinitionsProvider = serviceDefinitionsProvider;
+            this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
         }
 
         public RpcServerConnectionInfo? ConnectionInfo
@@ -163,6 +163,8 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        public IRpcServiceDefinitionsProvider DefinitionsProvider { get; }
+
         public RpcServerId ServerId
         {
             get
@@ -173,8 +175,6 @@ namespace SciTech.Rpc.Server
                 }
             }
         }
-
-        public IRpcServiceDefinitionsProvider DefinitionsProvider { get; }
 
         public RpcObjectRef<TService> GetOrPublishInstance<TService>(TService serviceInstance) where TService : class
         {
@@ -233,6 +233,56 @@ namespace SciTech.Rpc.Server
                 this.idToPublishedServices.TryGetValue(objectId, out var servicesList);
                 return servicesList ?? Array.Empty<string>();
             }
+        }
+
+        /// <summary>
+        /// TODO: This should be an explicit interface member, but due to changes 
+        /// between Visual Studio 2019 and the upcoming preview of Visual Studio 2019 16.1 this
+        /// doesn't work. Should be made internal somehow.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="serviceProvider"></param>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public TService? GetServiceImpl<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
+        {
+            var key = new ServiceImplKey(id, typeof(TService));
+            lock (this.syncRoot)
+            {
+                if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
+                {
+                    return service;
+                }
+
+                if (id != RpcObjectId.Empty)
+                {
+                    if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
+                    {
+                        if (serviceProvider == null)
+                        {
+                            // TODO: At least log, maybe throw?
+                            return null;
+                        }
+
+                        return (TService)serviceFactory(serviceProvider, id);
+                    }
+                }
+                else
+                {
+                    if (this.typeToSingletonServiceFactory.TryGetValue(typeof(TService), out var singletonfactory))
+                    {
+                        if (serviceProvider == null)
+                        {
+                            // TODO: At least log, maybe throw?
+                            return null;
+                        }
+
+                        return (TService)singletonfactory(serviceProvider);
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -451,56 +501,6 @@ namespace SciTech.Rpc.Server
                 //throw new NotImplementedException();
                 //this.idToServiceImpl.Remove(serviceInstanceId);
             }
-        }
-
-        /// <summary>
-        /// TODO: This should be an explicit interface member, but due to changes 
-        /// between Visual Studio 2019 and the upcoming preview of Visual Studio 2019 16.1 this
-        /// doesn't work. Should be made internal somehow.
-        /// </summary>
-        /// <typeparam name="TService"></typeparam>
-        /// <param name="serviceProvider"></param>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        public TService? GetServiceImpl<TService>(IServiceProvider? serviceProvider, RpcObjectId id)  where TService : class
-        {
-            var key = new ServiceImplKey(id, typeof(TService));
-            lock (this.syncRoot)
-            {
-                if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
-                {
-                    return service;
-                }
-
-                if (id != RpcObjectId.Empty)
-                {
-                    if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
-                    {
-                        if( serviceProvider == null )
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)serviceFactory(serviceProvider, id);
-                    }
-                }
-                else
-                {
-                    if (this.typeToSingletonServiceFactory.TryGetValue(typeof(TService), out var singletonfactory))
-                    {
-                        if (serviceProvider == null)
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)singletonfactory(serviceProvider);
-                    }
-                }
-            }
-
-            return null;
         }
 
         private void InitServerId()

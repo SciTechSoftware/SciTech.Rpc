@@ -85,7 +85,7 @@ namespace SciTech.Rpc.Grpc.Tests
         {
             var serverBuilder = new RpcServiceDefinitionBuilder();
             serverBuilder.RegisterService<IThermostatService>();
-            var host = new GrpcServer(serverBuilder, null,  this.options);
+            var host = new GrpcServer(serverBuilder, null, this.options);
 
             host.AddEndPoint(CreateEndPoint());
 
@@ -217,7 +217,7 @@ namespace SciTech.Rpc.Grpc.Tests
         public async Task ServiceProviderServiceCallTest()
         {
             var serverBuilder = new RpcServiceDefinitionBuilder();
-            serverBuilder.RegisterSingletonService<IServiceProviderService>()
+            serverBuilder.RegisterService<IServiceProviderService>()
                 .RegisterService<ISimpleService>();
 
             var host = new GrpcServer(serverBuilder, null, this.options);

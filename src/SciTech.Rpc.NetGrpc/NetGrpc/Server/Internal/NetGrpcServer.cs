@@ -10,13 +10,11 @@
 #endregion
 
 
-using Grpc.AspNetCore.Server.Model;
-using SciTech.Rpc.Grpc.Server.Internal;
+using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -28,32 +26,25 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// </summary>
     internal sealed class NetGrpcServer : RpcServerBase
     {
-        private static readonly Type[] GrpcServiceStubBuilderCtorArgTypes = new Type[] { typeof(IRpcSerializer) };
-
-        private ServiceMethodProviderContext<NetGrpcServiceActivator>? context;
-
-        private IRpcSerializer serializer;
-
-        internal NetGrpcServer(RpcServicePublisher servicePublisher, ServiceMethodProviderContext<NetGrpcServiceActivator> context, RpcServiceOptions? options)
-            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, context, options)
+        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServiceOptions> options)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value)
         {
+
         }
 
         internal NetGrpcServer(
             IRpcServicePublisher servicePublisher,
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
-            ServiceMethodProviderContext<NetGrpcServiceActivator> context,
+            //ServiceMethodProviderContext<NetGrpcServiceActivator>? context,
             RpcServiceOptions? options)
             : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
-            this.serializer = options?.Serializer ?? new ProtobufSerializer();
-            this.context = context;
         }
 
-        internal Task<RpcServicesQueryResponse> QueryServices(NetGrpcServiceActivator _, RpcObjectRequest request, GrpcCore.ServerCallContext context)
+        internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request, GrpcCore.ServerCallContext callContext)
         {
-            return Task.FromResult(this.QueryServices(request.Id));
+            return Task.FromResult(server.QueryServices(request.Id));
         }
 
         protected override void AddEndPoint(IRpcServerEndPoint endPoint)
@@ -63,31 +54,23 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         protected override void BuildServiceStub(Type serviceType)
         {
-            var context = this.context ?? throw new InvalidOperationException("BuildServiceStubs should only be called once.");
-            var stubBuilder = this.CreateServiceStubBuilder(serviceType);
-            stubBuilder.Bind(context, this);
+            throw new NotSupportedException("Service stubs should be built by NetGrpcServiceMethodProvider<TService>, using BuildServiceStub<TService>.");
         }
 
         protected override void BuildServiceStubs()
         {
+            // Not much to do here. Service stubs are built by NetGrpcServiceMethodProvider.
             this.ServiceDefinitionsProvider.Freeze();
-
-            var context = this.context ?? throw new InvalidOperationException("BuildServiceStubs should only be called once.");
-
-            var queryServiceMethodDef = GrpcMethodDefinition.Create<RpcObjectRequest, RpcServicesQueryResponse>(
-                GrpcCore.MethodType.Unary,
-                "__SciTech.Rpc.RpcService", "QueryServices",
-                this.serializer);
-            context.AddUnaryMethod(queryServiceMethodDef, new List<object>(), this.QueryServices);
-
-            base.BuildServiceStubs();
-
-            this.context = null;
         }
 
         protected override void CheckCanStart()
         {
             base.CheckCanStart();
+        }
+
+        protected override IRpcSerializer CreateDefaultSerializer()
+        {
+            return new ProtobufSerializer();
         }
 
         protected override Task ShutdownCoreAsync()
@@ -97,13 +80,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         protected override void StartCore()
         {
-        }
-
-        private INetGrpcServiceStubBuilder CreateServiceStubBuilder(Type serviceType)
-        {
-            return (INetGrpcServiceStubBuilder)typeof(NetGrpcServiceStubBuilder<>).MakeGenericType(serviceType)
-                .GetConstructor(GrpcServiceStubBuilderCtorArgTypes)
-                .Invoke(new object[] { this.serializer });
         }
     }
 }

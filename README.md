@@ -2,16 +2,16 @@
 
 SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From  internet deployed services over HTTP/2 (based on [gRPC](https://grpc.io/)), to in-process proxy communication. Similar to WCF, you define service interfaces with the help of attributes in code, and not using external definition files.
 
-**NOTE!** _This is an early preview of SciTech.Rpc. The documentation is very sparse, automated tests are not finished, and there will still be incompatible changes on source level, binary level, and the communication level. The ASP.NET Core implementation of gRPC communication is using a fork of the [grpc-dotnet preview](https://github.com/grpc/grpc-dotnet). The fork contains minor changes necessary to connect SciTech.RPC with the gRPC library. These changes will hopefully be pulled into the main grpc-net project._
+**NOTE!** _This is an early preview of SciTech.Rpc. The documentation is very sparse, automated tests are not finished, and there will still be incompatible changes on source level, binary level, and the communication level._
 
 Currently there are three comnunication layer implementations for the RPC communication:
 * **gRPC**, based on the [native/.NET implementation of gRPC](https://github.com/grpc/grpc)
 * **.NET gRPC**, based on the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet)
 
   The gRPC layers can be used to publish services that can be accessed over HTTP/2, by SciTech.RPC clients or by other gRPC clients (e.g. Java, Go, or C++ clients). The RpcCodeGen tool can be used to generate '.proto' files which can be consumed by other gRPC implementations.
-* **Pipelines**, a very efficient RPC implementation based on [System.IO.Pipelines](https://devblogs.microsoft.com/dotnet/system-io-pipelines-high-performance-io-in-net/).
+* **Lightweight**, a very efficient RPC implementation based on [System.IO.Pipelines](https://devblogs.microsoft.com/dotnet/system-io-pipelines-high-performance-io-in-net/).
 
-  The pipelines implementation provides RPC communication over a range of different protocols: TCP (with SSL), named pipes, and even direct in-process communication.
+  The lightweight implementation provides RPC communication over a range of different protocols: TCP (with SSL), named pipes, and even direct in-process communication.
 
 ## Runtime installation
 
@@ -19,10 +19,10 @@ SciTech.Rpc is available as the following NuGet packages:
 
 * [SciTech.Rpc](https://www.nuget.org/packages/SciTech.Rpc/): This is the core SciTech.Rpc package, used by the other packages. Should normally not be added separately.
 * [SciTech.Rpc.Grpc](https://www.nuget.org/packages/SciTech.Rpc.Grpc/): Includes the gRPC implementation for the  [native/.NET implementation of gRPC](https://github.com/grpc/grpc) implementation of gRPC.
-* [SciTech.Rpc.Pipelines](https://www.nuget.org/packages/SciTech.Rpc.Pipelines/): Includes the Pipelines implementation of SciTech.Rpc.
+* [SciTech.Rpc.Lightweight](https://www.nuget.org/packages/SciTech.Rpc.Lightweight/): Includes the Lightweight implementation of SciTech.Rpc.
 * ~~SciTech.Rpc.NetGrpc: Includes the gRPC implementation for the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet) implementation of gRPC.~~
   
-  **NOTE!** _The SciTech.Rpc.NetGrpc package has not yet been published, since it currently uses a fork of the grpc-net project._
+  **NOTE!** _The SciTech.Rpc.NetGrpc package has not yet been published, since the official protobuf-net implementation does not work correctly under .NET Core 3.0. This will hopefully be corrected soon._
 
 A copy of the examples provided in this repository is available at [SciTech.Rpc.Examples](https://github.com/SciTechSoftware/SciTech.Rpc.Examples). The examples repository uses the NuGet packages instead of project references.
 
@@ -164,23 +164,29 @@ server.AddEndPoint(new GrpcEndPoint("localhost", GrpcTestPort, false));
 server.Start();
 ```
 
-For more information, see the [GrpcAndPipelinesServer](examples/Server/GrpcAndPipelinesServer) example.
+For more information, see the [GrpcAndLightweightServer](examples/Server/GrpcAndLightweightServer) example.
 
-### Publish using Pipelines
-The `RpcPipelinesServer` class is used to publish services using the Pipelines RPC implementation. 
+### Publish using Lightweight RPC
+The `LightweightRpcServer` class is used to publish services using the Lightweight RPC implementation. 
 
 ```csharp
 var definitionsBuilder = new RpcServiceDefinitionBuilder();
 definitionsBuilder
     .RegisterService<IBlockingService>()
     .RegisterService<ISimpleService>();
-IRpcServerHost server = new RpcPipelinesServer( definitionsBuilder, null, new ProtobufSerializer() );
-server.AddEndPoint(new TcpPipelinesEndPoint("127.0.0.1", 50052, false));
+
+var options = new RpcServiceOptions
+{
+    Serializer = new ProtobufSerializer(),
+};
+            
+IRpcServerHost server = new LightweightRpcServer( definitionsBuilder, null, options );
+server.AddEndPoint(new LightweightRpcEndPoint("127.0.0.1", 50052, false));
  
 server.Start();
 ```
 
-For more information, see the [GrpcAndPipelinesServer](examples/Server/GrpcAndPipelinesServer) example.
+For more information, see the [GrpcAndLightweightServer](examples/Server/GrpcAndLightweightServer) example.
 
 ## Connecting to RPC Services
 
@@ -199,7 +205,7 @@ var mailboxService = connection.GetServiceInstance(mailboxRef);
 // ...
 ```
 
-The [GreeterClient example](examples/Clients/GreeterClient/Program.cs) shows how an `RpcServerConnectionManager` can be initialized to provide connections to a gRPC server and a Pipelines server.
+The [GreeterClient example](examples/Clients/GreeterClient/Program.cs) shows how an `RpcServerConnectionManager` can be initialized to provide connections to a gRPC server and a Lightweight server.
 
 ## EventHandlers and Delegates
 
@@ -214,7 +220,7 @@ The [MailerClient example](examples/Clients/MailerClient/Program.cs) shows how a
 
 ## Exception and Error Handling
 
-By default, any exception thrown by the service operation will be propagated to the communication layer (e.g. gRPC or Pipelines). The communication layer will normally generate some kind of error return which will cause another exception on the client side (e.g. a `Grpc.Core.RpcException`). The client side proxy will investigate exceptions thrown by the communication layer and convert them to a suitable SciTech.Rpc exception. This will normally be an `RpcFailureException` in case of an exception in the operation server side implementation. The RpcFailureException will just include the message provided with underlying exception, which is usually not very informative (since the communication layer by default doesn't include exception details).
+By default, any exception thrown by the service operation will be propagated to the communication layer (e.g. gRPC or Lightweight). The communication layer will normally generate some kind of error return which will cause another exception on the client side (e.g. a `Grpc.Core.RpcException`). The client side proxy will investigate exceptions thrown by the communication layer and convert them to a suitable SciTech.Rpc exception. This will normally be an `RpcFailureException` in case of an exception in the operation server side implementation. The RpcFailureException will just include the message provided with underlying exception, which is usually not very informative (since the communication layer by default doesn't include exception details).
 
 To allow an operation to provide more detailed error information, it is possible to tag the operation with an `[RpcFault]` attribute. This is similar to the `[OperationFault]` attribute in WCF. Unlike WCF, it is also possible to apply the fault attribute at the service definition level, in which case the attribute will apply to all operations in the service.
 
@@ -244,7 +250,7 @@ _**NOTE!** The exception handling design is not fully finished yet. More details
 
 It is possible to provide client credentials to the service at connection level (channel), or at call level. Connection level credentials are provided as an SSL certificate when creating a connection. For the gRPC implementation, this is based on the [`Grpc.Core.SslCredentials`](https://grpc.github.io/grpc/csharp/api/Grpc.Core.SslCredentials.html) class. 
 
-_**NOTE!** SSL support and connection levels credentials have not yet been implemented for the Pipelines communication. It will be implemented soon._
+_**NOTE!** SSL support and connection levels credentials have not yet been implemented for the Lightweight communication. It will be implemented soon._
 
 Per call credentials can be provided by attaching security tokens to the call metadata. Attaching and reading call metadata is performed with the help of the `RpcClientCallInterceptor`and the `RpcServerCallInterceptor` delegates. These delegates are registered using `IRpcServer.AddCallInterceptor` and `IRpcServerConnectionManager.AddCallInterceptor`. 
 
@@ -256,25 +262,23 @@ By default gRPC serialization is based on the [Protobuf (Protocol buffer)](https
 
 ## Building SciTech.Rpc
 
-To build the SciTech.Rpc solution, you need to use Visual Studio 2019 v16.1 and have [.NET Core 3.0 Preview 5](https://dotnet.microsoft.com/download/dotnet-core/3.0) installed. 
-
-**NOTE!** _After upgrading to Visual Studio 2019 v16.1, the Roslyn process started to crash when editing files and we had to remove multi-targeting from the projects. This will hopefully be solved soon, maybe in .NET Core 3.0 Preview 6._
-
-To build the solution for all available targets (currently .NET Framework 4.6.1+, .NET Standard 2.0+, and .NET Core 2.1+), the property `EnableMultiTargeting` should be set to "true". The ASP.NET Core gRPC implementation is only available for .NET Core 3.0.
+To build the SciTech.Rpc solution, you need to use Visual Studio 2019 v16.2 Preview 2 and have [.NET Core 3.0 Preview 6](https://dotnet.microsoft.com/download/dotnet-core/3.0) installed. 
 
 To build the solution using the command line, use the following command:
 
-`dotnet build -p:EnableMultiTargeting=true --configuration Release`
+`dotnet build --configuration Release`
 
 To run the unit tests, use the following command:
 
-`dotnet test -p:EnableMultiTargeting=true --configuration Release`
+`dotnet test --configuration Release`
+
+_**NOTE!** There are a number of compiler and code analysis warnings when building the solution. These warnings will of course be fixed before the official release._
 
 ## Performance
 
 SciTech.Rpc is designed with performance as a primary goal. The gRPC implementation should not add any noticable overhead to the underlying gRPC framework, except for an initial delay when generating dynamic code. It will also be possible to avoid the dynamic code generation in future releases by using the `RpcCodeGen` tool, which will pre-generate the necessary assemblies. This is particularly useful in AOT compilation scenarios.
 
-The Pipelines implementation is designed to be as fast as possible, with as little data transfer and memory allocations as possible. _(There are still areas to improve related to this is the current release.)_
+The Lightweight implementation is designed to be as fast as possible, with as little data transfer and memory allocations as possible. _(There are still areas to improve related to this is the current release.)_
 
 Benchmark tests and [memory usage tests](https://memprofiler.com/api-examples) will be added, so that performance and memory usage can be better evaluated.
 

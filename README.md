@@ -52,7 +52,7 @@ public interface IBlockingService
 
 Unlike WCF, there’s no need to mark each member with an attribute and the service must be defined using an interface. All members of an RPCService will be available for remote calls.
 
-Each member of an RPC interface defines an RPC operation. The operation is only identified by name, so it’s not possible to have overloaded members, e.g. it’s not allowed to have one “int Add(int,int)” member and one “double Add(double,double)” member. A simple method operation can be defined by three different interface methods, a blocking member, an asynchronous member, or an asynchronous member with cancellation support (not yet implemented). Consider a method operation like `GetDeviceWithIdAsync(string deviceId)`, which returns a device reference for a specific identifier. This operation can be defined as:
+Each member of an RPC interface defines an RPC operation. The operation is only identified by name, so it’s not possible to have overloaded members, e.g. it’s not allowed to have one “int Add(int,int)” member and one “double Add(double,double)” member. A simple method operation can be defined by three different interface methods, a blocking member, an asynchronous member, or an asynchronous member with cancellation support (not yet implemented). Consider a method operation like `GetMailbox(string name)`, which returns a mailbox reference for a specific name. This operation can be defined as:
 
 ```csharp
 [RpcService]

@@ -4,7 +4,7 @@ SciTech.Rpc is a high-performance, code-first, remote procedure call framework, 
 
 **NOTE!** _This is an early preview of SciTech.Rpc. The documentation is very sparse, automated tests are not finished, and there will still be incompatible changes on source level, binary level, and the communication level._
 
-Currently there are three comnunication layer implementations for the RPC communication:
+Currently there are three communication layer implementations for the RPC framework:
 * **gRPC**, based on the [native/.NET implementation of gRPC](https://github.com/grpc/grpc)
 * **.NET gRPC**, based on the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet)
 
@@ -20,9 +20,9 @@ SciTech.Rpc is available as the following NuGet packages:
 * [SciTech.Rpc](https://www.nuget.org/packages/SciTech.Rpc/): This is the core SciTech.Rpc package, used by the other packages. Should normally not be added separately.
 * [SciTech.Rpc.Grpc](https://www.nuget.org/packages/SciTech.Rpc.Grpc/): Includes the gRPC implementation for the  [native/.NET implementation of gRPC](https://github.com/grpc/grpc) implementation of gRPC.
 * [SciTech.Rpc.Lightweight](https://www.nuget.org/packages/SciTech.Rpc.Lightweight/): Includes the Lightweight implementation of SciTech.Rpc.
-* ~~SciTech.Rpc.NetGrpc: Includes the gRPC implementation for the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet) implementation of gRPC.~~
+* [SciTech.Rpc.NetGrpc](https://www.nuget.org/packages/SciTech.Rpc.NetGrpc/): Includes the server side gRPC implementation for the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet) implementation of gRPC.
   
-  **NOTE!** _The SciTech.Rpc.NetGrpc package has not yet been published, since the official protobuf-net implementation does not work correctly under .NET Core 3.0. This will hopefully be corrected soon._
+  **NOTE!** _The client side SciTech.Rpc.NetGrpc implementation has not yet been written yet. To use a gRPC client, the SciTech.Rpc.Grpc package should currently be used._
 
 A copy of the examples provided in this repository is available at [SciTech.Rpc.Examples](https://github.com/SciTechSoftware/SciTech.Rpc.Examples). The examples repository uses the NuGet packages instead of project references.
 

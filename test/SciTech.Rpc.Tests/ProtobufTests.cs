@@ -1,6 +1,7 @@
 using System.IO;
 using NUnit.Framework;
 using ProtoBuf;
+using ProtoBuf.Meta;
 using SciTech.Rpc.Grpc;
 using SciTech.Rpc.Internal;
 
@@ -233,6 +234,21 @@ namespace SciTech.Rpc
             Assert.AreEqual(request.First, dr.First);
             Assert.AreEqual(request.Second, dr.Second);
         }
+
+        //[Test(Description = "Test of GetSchema generic array error in Protobuf")]
+        //public void GenericArrayFieldErrorTest()
+        //{
+        //    var typeModel = TypeModel.Create();
+
+        //    typeModel.Add(typeof(RpcObjectRequest<BaseClass[]>), true);
+
+        //    // Will throw System.ArgumentException
+        //    // "Data of this type has inbuilt behaviour, and cannot be added to a model in this way: SciTech.Rpc.BaseClass[]"
+        //    string schema = typeModel.GetSchema(null);
+
+        //    Assert.IsNotEmpty(schema);
+        //}
+
     }
 
     [ProtoContract]

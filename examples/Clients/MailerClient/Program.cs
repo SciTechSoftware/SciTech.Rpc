@@ -27,7 +27,7 @@ namespace MailerClient
             var connectionManager = new RpcServerConnectionManager(
                 new IRpcConnectionProvider[] {
                     new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
-                    new SciTech.Rpc.Pipelines.Client.PipelinesConnectionProvider()
+                    new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider()
                 });
 
             var connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();

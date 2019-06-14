@@ -19,7 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
-    <ProjectReference Include="..\..\src\SciTech.Rpc.Pipelines\SciTech.Rpc.Pipelines.csproj" />
   </ItemGroup>
 
 </Project>

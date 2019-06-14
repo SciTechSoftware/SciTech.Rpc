@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Server;
-using SciTech.Rpc.Tests.Pipelines;
+using SciTech.Rpc.Tests.Lightweight;
 using System;
 using System.Collections.Generic;
 using System.Text;

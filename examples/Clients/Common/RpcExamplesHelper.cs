@@ -11,7 +11,7 @@ namespace Client
             {
                 Console.WriteLine("--- Select how to connect to the RPC server:");
                 Console.WriteLine("1. Use gRPC");
-                Console.WriteLine("2. Use pipelines RPC");
+                Console.WriteLine("2. Use lightweight RPC");
                 Console.Write("Make your choice (1 or 2): ");
 
                 string choiceText = Console.ReadLine();
@@ -27,7 +27,7 @@ namespace Client
                         case 1:
                             return new RpcServerConnectionInfo(new Uri("grpc://localhost:50051"));
                         case 2:
-                            return new RpcServerConnectionInfo(new Uri("pipelines.tcp://localhost:50052"));
+                            return new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052"));
                     }
                 }
 

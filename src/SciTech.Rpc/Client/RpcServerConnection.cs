@@ -29,7 +29,7 @@ namespace SciTech.Rpc.Client
 
         private readonly object syncRoot = new object();
 
-        public RpcServerConnection(RpcServerConnectionInfo connectionInfo, RpcProxyProvider proxyProvider)
+        protected RpcServerConnection(RpcServerConnectionInfo connectionInfo, RpcProxyProvider proxyProvider)
         {
             this.ConnectionInfo = connectionInfo;
             this.proxyProvider = proxyProvider;

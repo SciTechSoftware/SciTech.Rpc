@@ -33,7 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
-    <ProjectReference Include="..\..\..\src\SciTech.Rpc.Pipelines\SciTech.Rpc.Pipelines.csproj" />
+    <ProjectReference Include="..\..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
   </ItemGroup>
 
 </Project>

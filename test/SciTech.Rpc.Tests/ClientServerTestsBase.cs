@@ -3,8 +3,8 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client;
 using SciTech.Rpc.Grpc.Server;
 using SciTech.Rpc.Grpc.Tests;
-using SciTech.Rpc.Pipelines.Client;
-using SciTech.Rpc.Pipelines.Server;
+using SciTech.Rpc.Lightweight.Client;
+using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -14,8 +14,8 @@ namespace SciTech.Rpc.Tests
 {
     public enum RpcConnectionType
     {
-        InprocPipelines,
-        TcpPipelines,
+        LightweightInproc,
+        LightweightTcp,
         Grpc
     }
 
@@ -57,28 +57,28 @@ namespace SciTech.Rpc.Tests
 
             switch (this.connectionType)
             {
-                case RpcConnectionType.TcpPipelines:
+                case RpcConnectionType.LightweightTcp:
                     {
-                        var host = new RpcPipelinesServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
-                        host.AddEndPoint(new TcpPipelinesEndPoint("127.0.0.1", TcpTestPort, false));
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
+                        host.AddEndPoint(new TcpLightweightRpcEndPoint("127.0.0.1", TcpTestPort, false));
 
-                        var proxyGenerator = new PipelinesProxyProvider(proxyServicesProvider);
-                        var connection = new TcpPipelinesConnection(
-                            new RpcServerConnectionInfo("TCP", new Uri($"pipelines.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
+                        var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
+                        var connection = new TcpLightweightRpcConnection(
+                            new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
                             proxyGenerator, this.options.Serializer);
 
                         return (host, connection);
                     }
-                case RpcConnectionType.InprocPipelines:
+                case RpcConnectionType.LightweightInproc:
                     {
                         Pipe requestPipe = new Pipe();
                         Pipe responsePipe = new Pipe();
 
-                        var host = new RpcPipelinesServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
-                        host.AddEndPoint(new DirectPipelinesEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
+                        host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
-                        var proxyGenerator = new PipelinesProxyProvider(proxyServicesProvider);
-                        var connection = new DirectPipelinesServerConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
+                        var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
+                        var connection = new DirectLightweightRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
                             new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), proxyGenerator, this.options.Serializer);
                         return (host, connection);
                     }

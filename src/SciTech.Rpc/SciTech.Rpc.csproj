@@ -13,7 +13,7 @@
 
   <PropertyGroup>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
-    From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
     This package contains the core SciTech.Rpc implementation and should normally not be added separately. 
     Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.Pipelines.

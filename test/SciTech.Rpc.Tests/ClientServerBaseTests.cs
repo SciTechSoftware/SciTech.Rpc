@@ -93,44 +93,7 @@ namespace SciTech.Rpc.Tests
                 await host.ShutdownAsync();
             }
         }
-        //[Test]
-        //public async Task BlockingServiceCallTest()
-        //{
-        //    var serviceRegistrator = new RpcServiceDefinitionBuilder();
-        //    serviceRegistrator
-        //        .RegisterService<IBlockingService>()
-        //        .RegisterService<ISimpleService>();
-        //    Pipe requestPipe = new Pipe();
-        //    Pipe responsePipe = new Pipe();
-        //    var rpcServerId = RpcServerId.NewId();
-        //    var host = new RpcPipelinesHost(rpcServerId, serviceRegistrator, this.serializer);
-        //    host.AddEndPoint(new DirectPipelinesEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
-        //    host.Start();
-        //    try
-        //    {
-        //        var serviceImpl = new TestBlockingSimpleServiceImpl();
-        //        using (var publishScope = host.PublishServiceInstance(serviceImpl))
-        //        {
-        //            var objectId = publishScope.Value.ObjectId;
-        //            var proxyGenerator = new PipelinesProxyGenerator();
-        //            var connection = new DirectPipelinesHostConnection(new RpcServerConnectionInfo("Direct", "direct:localhost", rpcServerId), 
-        //                new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), proxyGenerator, this.serializer);
-        //            var clientService = connection.GetRpcServiceInstance<IBlockingServiceClient>(objectId);
-        //            int blockingRes = clientService.Add(12, 13);
-        //            Assert.AreEqual(12 + 13, blockingRes);
-        //            int asyncRes = await clientService.AddAsync(8, 9);
-        //            Assert.AreEqual(8 + 9, asyncRes);
-        //            clientService.Value = 123.45;
-        //            Assert.AreEqual(123.45, await clientService.GetValueAsync());
-        //            await clientService.SetValueAsync(543.21).ConfigureAwait(false);
-        //            Assert.AreEqual(543.21, clientService.Value);
-        //        }
-        //    }
-        //    finally
-        //    {
-        //        await host.ShutdownAsync();
-        //    }
-        //}
+
 
         [Test]
         public async Task DirectServiceProviderServiceCallTest()
@@ -143,9 +106,6 @@ namespace SciTech.Rpc.Tests
             var servicePublisher = host.ServicePublisher;
             var rpcServerId = servicePublisher.ServerId;
 
-            //var directConnector = new DirectPipelinesConnector(rpcServerId, this.serializer);            
-            //var host = new RpcPipelinesHost(rpcServerId, serverBuilder, directConnector.Serializer);           
-            //host.AddEndPoint(directConnector.EndPoint);
             host.Start();
 
             try
@@ -411,9 +371,6 @@ namespace SciTech.Rpc.Tests
             var servicePublisher = host.ServicePublisher;
             var rpcServerId = servicePublisher.ServerId;
 
-            //var directConnector = new DirectPipelinesConnector(rpcServerId, this.serializer);            
-            //var host = new RpcPipelinesHost(rpcServerId, serverBuilder, directConnector.Serializer);           
-            //host.AddEndPoint(directConnector.EndPoint);
             host.Start();
 
             try

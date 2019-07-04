@@ -134,6 +134,7 @@ namespace SciTech.Rpc.Server.Internal
             return null;
         }
     }
+
 #pragma warning restore CA1062 // Validate arguments of public methods
 
 #pragma warning disable CA1031 // Do not catch general exception types
@@ -232,8 +233,12 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                var rpcError = CreateRpcError(e);
-                return new RpcResponse<TResponse>(rpcError);
+                if (CreateRpcErrorResponse<TResponse>(e) is RpcResponse<TResponse> errorResponse)
+                {
+                    return errorResponse;
+                }
+
+                throw;
             }
         }
 
@@ -274,8 +279,12 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                var rpcError = CreateRpcError(e);
-                return new RpcResponse<TResponse>(rpcError);
+                if (CreateRpcErrorResponse<TResponse>(e) is RpcResponse<TResponse> errorResponse)
+                {
+                    return errorResponse;
+                }
+
+                throw;
             }
         }
 
@@ -315,10 +324,9 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                var rpcError = CreateRpcError(e);
-                if (rpcError != null)
+                if (CreateRpcErrorResponse(e) is RpcResponse errorResponse)
                 {
-                    return new RpcResponse(rpcError);
+                    return errorResponse;
                 }
 
                 throw;
@@ -362,10 +370,9 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                var rpcError = CreateRpcError(e);
-                if (rpcError != null)
+                if (CreateRpcErrorResponse(e) is RpcResponse errorResponse)
                 {
-                    return new RpcResponse(rpcError);
+                    return errorResponse;
                 }
 
                 throw;
@@ -420,6 +427,26 @@ namespace SciTech.Rpc.Server.Internal
             //    ErrorType = WellKnownRpcErrors.Failure,
             //    Message = "Failed to process RPC call"
             //};
+        }
+
+        private static RpcResponse<TResponse>? CreateRpcErrorResponse<TResponse>(Exception e)
+        {
+            if (CreateRpcError(e) is RpcError rpcError)
+            {
+                return new RpcResponse<TResponse>(rpcError);
+            }
+
+            return null;
+        }
+
+        private static RpcResponse? CreateRpcErrorResponse(Exception e)
+        {
+            if (CreateRpcError(e) is RpcError rpcError)
+            {
+                return new RpcResponse(rpcError);
+            }
+
+            return null;
         }
 
         /// <summary>

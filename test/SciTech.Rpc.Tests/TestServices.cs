@@ -101,7 +101,17 @@ namespace SciTech.Rpc.Tests
 
 
         [RpcFault(typeof(DeclaredFault))]
-        Task GenerateUndeclaredExceptionAsync(bool direct);
+        Task GenerateUndeclaredAsyncExceptionAsync(bool direct);
+
+        [RpcFault(typeof(DeclaredFault))]
+        Task<int> GenerateUndeclaredAsyncExceptionWithReturnAsync(bool direct);
+
+        [RpcFault(typeof(DeclaredFault))]
+        void GenerateUndeclaredException();
+
+        [RpcFault(typeof(DeclaredFault))]
+        int GenerateUndeclaredExceptionWithReturn();
+
 
         [RpcFault(typeof(DeclaredFault))]
         Task GenerateUndeclaredFaultExceptionAsync(bool direct);
@@ -124,6 +134,18 @@ namespace SciTech.Rpc.Tests
         [RpcFault(typeof(DeclaredFault))]
         [RpcFault(typeof(AnotherDeclaredFault))]
         void GenerateAsyncAnotherDeclaredFault(bool direct);
+
+        [RpcFault(typeof(DeclaredFault))]
+        void GenerateUndeclaredAsyncException(bool direct);
+
+        [RpcFault(typeof(DeclaredFault))]
+        int GenerateUndeclaredAsyncExceptionWithReturn(bool direct);
+
+        [RpcFault(typeof(DeclaredFault))]
+        Task GenerateUndeclaredExceptionAsync();
+
+        [RpcFault(typeof(DeclaredFault))]
+        Task<int> GenerateUndeclaredExceptionWithReturnAsync();
     }
 
 
@@ -268,7 +290,7 @@ namespace SciTech.Rpc.Tests
         }
 
 
-        public async Task GenerateUndeclaredExceptionAsync(bool direct)
+        public async Task GenerateUndeclaredAsyncExceptionAsync(bool direct)
         {
             if (direct)
             {
@@ -278,6 +300,28 @@ namespace SciTech.Rpc.Tests
             await Task.Delay(1).ContextFree();
 
             throw new InvalidOperationException("Undeclared exception after await");
+        }
+
+        public async Task<int> GenerateUndeclaredAsyncExceptionWithReturnAsync(bool direct)
+        {
+            if (direct)
+            {
+                throw new InvalidOperationException("Undeclared exception before await");
+            }
+
+            await Task.Delay(1).ContextFree();
+
+            throw new InvalidOperationException("Undeclared exception after await");
+        }
+
+        public void GenerateUndeclaredException()
+        {
+            throw new InvalidOperationException("Undeclared exception");
+        }
+
+        public int GenerateUndeclaredExceptionWithReturn()
+        {
+            throw new InvalidOperationException("Undeclared exception");
         }
 
         public async Task GenerateUndeclaredFaultExceptionAsync(bool direct)

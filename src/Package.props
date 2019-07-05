@@ -5,12 +5,16 @@
     <Copyright>Copyright 2019. SciTech Software AB and TA Instruments, Inc.</Copyright>
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
-    <Version>0.6.0-alpha2</Version>
+    <Version>0.6.1-alpha1</Version>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageTags>rpc grpc http/2 communication</PackageTags>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.</Description>
     <PackageProjectUrl>https://github.com/SciTechSoftware/SciTech.Rpc</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SciTechSoftware/SciTech.Rpc</RepositoryUrl>
+    <PackageReleaseNotes>* Added SSL support to Lightweight TCP client connection and server end point.
+* Fixed an error where default values were sometimes returned in case of an undeclared exception in handler (instead of RpcFailureException).
+* Several other improvements and fixes.     
+    </PackageReleaseNotes>
   </PropertyGroup>
 
 </Project>

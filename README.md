@@ -250,8 +250,6 @@ _**NOTE!** The exception handling design is not fully finished yet. More details
 
 It is possible to provide client credentials to the service at connection level (channel), or at call level. Connection level credentials are provided as an SSL certificate when creating a connection. For the gRPC implementation, this is based on the [`Grpc.Core.SslCredentials`](https://grpc.github.io/grpc/csharp/api/Grpc.Core.SslCredentials.html) class. 
 
-_**NOTE!** SSL support and connection levels credentials have not yet been implemented for the Lightweight communication. It will be implemented soon._
-
 Per call credentials can be provided by attaching security tokens to the call metadata. Attaching and reading call metadata is performed with the help of the `RpcClientCallInterceptor`and the `RpcServerCallInterceptor` delegates. These delegates are registered using `IRpcServer.AddCallInterceptor` and `IRpcServerConnectionManager.AddCallInterceptor`. 
 
 _**NOTE!** The authentication design is not fully finished yet. More details and examples about authentication will be added._

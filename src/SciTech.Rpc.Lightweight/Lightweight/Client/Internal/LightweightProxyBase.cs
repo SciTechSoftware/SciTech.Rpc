@@ -223,7 +223,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             {
                 async ValueTask<RpcPipelineClient> AwaitConnection()
                 {
-                    var connectedClient = await this.connection.ConnectAsync().ContextFree();
+                    var connectedClient = await this.connection.ConnectClientAsync().ContextFree();
 
                     var connectTcs = this.connectTcs!;
                     lock (this.SyncRoot)

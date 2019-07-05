@@ -23,7 +23,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private IDuplexPipe clientPipe;
 
-        private RpcPipelineClient? connectedClient;
+        private volatile RpcPipelineClient? connectedClient;
 
         public DirectLightweightRpcConnection(RpcServerConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
@@ -35,6 +35,14 @@ namespace SciTech.Rpc.Lightweight.Client
             this.clientPipe = clientPipe;
 
         }
+
+        public override bool IsConnected => this.connectedClient != null;
+
+        public override bool IsEncrypted => false;
+
+        public override bool IsMutuallyAuthenticated => false;
+
+        public override bool IsSigned => false;
 
         public void Dispose()
         {
@@ -64,13 +72,12 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 connectedClient.Close();
                 return connectedClient.AwaitFinished();
-
             }
 
             return Task.CompletedTask;
         }
-
-        internal override Task<RpcPipelineClient> ConnectAsync()
+        
+        internal override Task<RpcPipelineClient> ConnectClientAsync()
         {
             RpcPipelineClient connectedClient;
             lock (this.syncRoot)

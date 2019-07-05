@@ -14,8 +14,16 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly IRpcSerializer serializer;
 
+        private readonly SslClientOptions? sslOptions;
+
         public LightweightConnectionProvider(LightweightProxyProvider? proxyProvider = null, IRpcSerializer? serializer = null)
         {
+            this.proxyProvider = proxyProvider ?? new LightweightProxyProvider();
+            this.serializer = serializer ?? new ProtobufSerializer();
+        }
+        public LightweightConnectionProvider(SslClientOptions sslOptions, LightweightProxyProvider? proxyProvider = null, IRpcSerializer? serializer = null)
+        {
+            this.sslOptions = sslOptions;
             this.proxyProvider = proxyProvider ?? new LightweightProxyProvider();
             this.serializer = serializer ?? new ProtobufSerializer();
         }
@@ -39,7 +47,7 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 if (parsedUrl.Scheme == LightweightTcpScheme)
                 {
-                    return new TcpLightweightRpcConnection(connectionInfo, this.proxyProvider, this.serializer, callInterceptors);
+                    return new TcpLightweightRpcConnection(connectionInfo, this.proxyProvider, this.serializer, this.sslOptions, callInterceptors );
                 }
             }
 

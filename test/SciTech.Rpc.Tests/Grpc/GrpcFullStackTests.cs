@@ -282,7 +282,7 @@ namespace SciTech.Rpc.Grpc.Tests
 
         private GrpcServerConnection CreateGrpcConnection(GrpcProxyProvider proxyGenerator)
         {
-            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.SslCredentials, proxyGenerator, this.options.Serializer);
+            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, proxyGenerator, this.options.Serializer);
         }
     }
 }

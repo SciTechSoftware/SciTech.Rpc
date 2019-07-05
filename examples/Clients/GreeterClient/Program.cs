@@ -10,11 +10,13 @@ namespace GrpcGreeter
     {
         private static async Task Main(string[] args)
         {
-            var credentials = TestCertificates.SslCredentials;
+            var credentials = TestCertificates.GrpcSslCredentials;
+            var sslOptions = TestCertificates.SslClientOptions;
+            
             var connectionManager = new RpcServerConnectionManager(
                 new IRpcConnectionProvider[] {
                     new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
-                    new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider()
+                    new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)
                 });
             
             var connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();

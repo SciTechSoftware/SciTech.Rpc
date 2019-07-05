@@ -29,7 +29,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServiceOptions> options)
             : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value)
         {
-
         }
 
         internal NetGrpcServer(

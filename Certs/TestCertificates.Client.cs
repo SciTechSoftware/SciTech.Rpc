@@ -26,9 +26,10 @@
 
 #endregion
 
+using SciTech.Rpc.Client;
 using System;
 using System.IO;
-using Grpc.Core;
+using GrpcCore=Grpc.Core;
 
 namespace SciTech.Rpc
 {
@@ -36,11 +37,19 @@ namespace SciTech.Rpc
     {
         public static readonly string ClientCertDir = AppContext.BaseDirectory;// Path.Combine(GetSolutionDirectory(), "examples", "Certs");
 
-        public static readonly SslCredentials SslCredentials
-            = new SslCredentials(
+        public static readonly GrpcCore.SslCredentials GrpcSslCredentials
+            = new GrpcCore.SslCredentials(
                 File.ReadAllText(Path.Combine(ClientCertDir, "ca.crt")),
-                new KeyCertificatePair(
+                new GrpcCore.KeyCertificatePair(
                     File.ReadAllText(Path.Combine(ClientCertDir, "client.crt")),
                     File.ReadAllText(Path.Combine(ClientCertDir, "client.key"))));
+
+        public static readonly SslClientOptions SslClientOptions = new SslClientOptions
+        {
+            // Just for testing! Allow any server certificate
+            RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors)=>true
+        };
+            
+            
     }
 }

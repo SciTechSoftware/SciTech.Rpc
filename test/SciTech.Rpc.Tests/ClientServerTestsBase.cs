@@ -9,6 +9,8 @@ using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.IO.Pipelines;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 
 namespace SciTech.Rpc.Tests
 {
@@ -16,6 +18,7 @@ namespace SciTech.Rpc.Tests
     {
         LightweightInproc,
         LightweightTcp,
+        LightweightSslTcp,
         Grpc
     }
 
@@ -58,14 +61,29 @@ namespace SciTech.Rpc.Tests
             switch (this.connectionType)
             {
                 case RpcConnectionType.LightweightTcp:
+                case RpcConnectionType.LightweightSslTcp:
                     {
                         var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
-                        host.AddEndPoint(new TcpLightweightRpcEndPoint("127.0.0.1", TcpTestPort, false));
 
+                        SslServerOptions sslServerOptions = null;
+                        if ( this.connectionType == RpcConnectionType.LightweightSslTcp)
+                        {
+                            sslServerOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
+                        }
+
+                        host.AddEndPoint(new TcpLightweightRpcEndPoint("127.0.0.1", TcpTestPort, false, sslServerOptions));
+
+                        SslClientOptions sslClientOptions = null;
+                        if(this.connectionType == RpcConnectionType.LightweightSslTcp)
+                        {
+                            sslClientOptions = new SslClientOptions { RemoteCertificateValidationCallback = ValidateTestCertificate };
+
+                        }
                         var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
                         var connection = new TcpLightweightRpcConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
-                            proxyGenerator, this.options.Serializer);
+                            proxyGenerator, this.options.Serializer,
+                            sslClientOptions );
 
                         return (host, connection);
                     }
@@ -90,13 +108,20 @@ namespace SciTech.Rpc.Tests
                         var proxyGenerator = new GrpcProxyProvider(proxyServicesProvider);
                         var connection = new GrpcServerConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.SslCredentials, proxyGenerator, this.options.Serializer );
+                            TestCertificates.GrpcSslCredentials, proxyGenerator, this.options.Serializer );
                         return (host, connection);
                     }
             }
 
             throw new NotSupportedException();
         }
+
+        bool ValidateTestCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+        {
+            return true;
+
+        }
+
     }
 
     public sealed class DirectDuplexPipe : IDuplexPipe, IDisposable

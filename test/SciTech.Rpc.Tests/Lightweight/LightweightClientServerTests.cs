@@ -9,6 +9,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         protected static readonly object[] DefaultLightweightClientHostFixtureArgs = {
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightInproc},
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightTcp},
+            new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightSslTcp},
             new object[] { new DataContractGrpcSerializer(), RpcConnectionType.LightweightTcp},
             new object[] { new DataContractGrpcSerializer(), RpcConnectionType.LightweightInproc},
         };

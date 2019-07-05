@@ -15,7 +15,13 @@ using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Pipelines;
 using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
@@ -26,9 +32,13 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private RpcPipelineClient? connectedClient;
 
-        private SocketConnection? connection;
+        private volatile IDuplexPipe? connection;
 
         private TaskCompletionSource<RpcPipelineClient>? connectionTcs;
+
+        private readonly SslClientOptions? sslOptions;
+
+        private volatile SslStream? sslStream;
 
         private bool hasShutDown;
 
@@ -36,15 +46,17 @@ namespace SciTech.Rpc.Lightweight.Client
             RpcServerConnectionInfo connectionInfo,
             LightweightProxyProvider proxyGenerator,
             IRpcSerializer serializer,
+            SslClientOptions? sslOptions=null,            
             IReadOnlyList<RpcClientCallInterceptor>? callInterceptors = null)
             : base(connectionInfo, proxyGenerator, serializer, callInterceptors)
         {
+            this.sslOptions = sslOptions;
         }
 
         public override Task ShutdownAsync()
         {
             TaskCompletionSource<RpcPipelineClient>? connectionTcs;
-            SocketConnection? connection;
+            IDuplexPipe? connection;
             RpcPipelineClient? connectedClient;
             lock (this.syncRoot)
             {
@@ -69,7 +81,7 @@ namespace SciTech.Rpc.Lightweight.Client
             return Task.CompletedTask;
         }
 
-        internal override async Task<RpcPipelineClient> ConnectAsync()
+        internal override async Task<RpcPipelineClient> ConnectClientAsync()
         {
             Task<RpcPipelineClient>? activeConnectionTask = null;
             lock (this.syncRoot)
@@ -98,25 +110,109 @@ namespace SciTech.Rpc.Lightweight.Client
                 return await this.connectionTcs.Task.ContextFree();
             }
 
-
+            
             var endPoint = this.CreateNetEndPoint();
-            var connection = await SocketConnection.ConnectAsync(endPoint).ContextFree();
-
-            var connectedClient = new RpcPipelineClient(connection);
-
-            TaskCompletionSource<RpcPipelineClient> connectionTcs;
-            lock (this.syncRoot)
+            IDuplexPipe? connection = null;
+            SslStream? sslStream = null;
+            Stream? workStream = null;
+            
+            try
             {
-                this.connection = connection;
-                this.connectedClient = connectedClient;
-                connectionTcs = this.connectionTcs;
-                this.connectionTcs = null;
+                if (this.sslOptions != null)
+                {
+                    Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    try
+                    {
+                        SetRecommendedClientOptions(socket);
+
+                        string sslHost;
+                        switch (endPoint)
+                        {
+                            case IPEndPoint ipEndPoint:
+                                await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ContextFree();
+                                sslHost = ipEndPoint.ToString();
+                                break;
+                            case DnsEndPoint dnsEndPoint:
+                                await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port).ContextFree();
+                                sslHost = dnsEndPoint.Host;
+                                break;
+                            default:
+                                throw new NotSupportedException($"Unsupported end point '{endPoint}',");
+                        }
+                        workStream = new NetworkStream(socket, true);
+                        socket = null;  // Prevent closing, NetworkStream has taken ownership
+
+                        workStream = sslStream = new SslStream(workStream, false,
+                            this.sslOptions.RemoteCertificateValidationCallback,
+                            this.sslOptions.LocalCertificateSelectionCallback,
+                            this.sslOptions.EncryptionPolicy);
+
+                        await sslStream.AuthenticateAsClientAsync("localhost", this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
+                            this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+
+                        connection = StreamConnection.GetDuplex(sslStream);
+                    }
+                    finally
+                    {
+                        socket?.Dispose();
+                    }
+                }
+                else
+                {
+                    connection = await SocketConnection.ConnectAsync(endPoint).ContextFree();
+                }
+
+                var connectedClient = new RpcPipelineClient(connection);
+
+                TaskCompletionSource<RpcPipelineClient> connectionTcs;
+                lock (this.syncRoot)
+                {
+                    this.connection = connection;
+                    this.connectedClient = connectedClient;
+                    this.sslStream = sslStream;
+                    connectionTcs = this.connectionTcs;
+                    this.connectionTcs = null;
+                }
+
+                connectionTcs?.SetResult(connectedClient);
+
+                return connectedClient;
             }
+            catch( Exception e )
+            {
+                // Connection failed, do a little cleanup
+                // TODO: Try to add a unit test that cover this code (e.g. using AuthenticationException).
+                // TODO: Log.
 
-            connectionTcs?.SetResult(connectedClient);
+                TaskCompletionSource<RpcPipelineClient>? connectionTcs = null;
+                lock (this.syncRoot)
+                {
+                    if (this.connectionTcs != null)
+                    {
+                        Debug.Assert(this.connection == null);
+                        Debug.Assert(this.connectedClient == null);
+                        Debug.Assert(this.sslStream == null);
 
-            return connectedClient;
+                        connectionTcs = this.connectionTcs;
+                        this.connectionTcs = null;
+                    }
+                }
+
+                try { connectedClient?.Close(); } catch { }
+                try { workStream?.Close(); } catch { }
+
+                connectionTcs?.SetException(e);
+                throw;
+            }
         }
+
+        public override bool IsConnected => this.connection != null;
+
+        public override bool IsSigned => this.sslStream?.IsSigned ?? false;
+
+        public override bool IsEncrypted => this.sslStream?.IsEncrypted ?? false;
+
+        public override bool IsMutuallyAuthenticated => this.sslStream?.IsMutuallyAuthenticated ?? false;
 
         private EndPoint CreateNetEndPoint()
         {
@@ -147,6 +243,39 @@ namespace SciTech.Rpc.Lightweight.Client
             else
             {
                 throw new InvalidOperationException($"Invalid HostUrl '{this.ConnectionInfo.HostUrl}'.");
+            }
+        }
+
+        /// <summary>
+        /// Set recommended socket options for client sockets
+        /// </summary>
+        /// <param name="socket">The socket to set options against</param>
+        private static void SetRecommendedClientOptions(Socket socket)
+        {
+            if (socket.AddressFamily == AddressFamily.Unix) return;
+
+            try { socket.NoDelay = true; } catch { }
+
+            try { SetFastLoopbackOption(socket); } catch { }
+        }
+
+        private static void SetFastLoopbackOption(Socket socket)
+        {
+            // SIO_LOOPBACK_FAST_PATH (https://msdn.microsoft.com/en-us/library/windows/desktop/jj841212%28v=vs.85%29.aspx)
+            // Speeds up localhost operations significantly. OK to apply to a socket that will not be hooked up to localhost,
+            // or will be subject to WFP filtering.
+            const int SIO_LOOPBACK_FAST_PATH = -1744830448;
+
+            // windows only
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                // Win8/Server2012+ only
+                var osVersion = Environment.OSVersion.Version;
+                if (osVersion.Major > 6 || (osVersion.Major == 6 && osVersion.Minor >= 2))
+                {
+                    byte[] optionInValue = BitConverter.GetBytes(1);
+                    socket.IOControl(SIO_LOOPBACK_FAST_PATH, optionInValue, null);
+                }
             }
         }
     }

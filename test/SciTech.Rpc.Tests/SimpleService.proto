@@ -9,6 +9,13 @@ message StreamRequest
     int32 ClientId=2;
 }
 
+message ClassWithGenericField_SimpleClassArray {
+   repeated SimpleClass Value = 1;
+   repeated SimpleClass TestArray = 2;
+}
+message SimpleClass {
+}
+
 message StreamResponse
 {
     int32 Value=1;

@@ -31,6 +31,7 @@ namespace SciTech.Rpc.Tests
                 using (var publishScope = servicePublisher.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
+                    
                     var clientService = connection.GetServiceInstance<ISimpleServiceWithEvents>(objectId);
 
                     ValueChangedEventArgs detailedArgs = await TestMixedEventHandlers(clientService);
@@ -69,7 +70,6 @@ namespace SciTech.Rpc.Tests
                 using (var publishScope = servicePublisher.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-
 
                     var clientService = connection.GetServiceInstance<IBlockingServiceClient>(objectId);
 

@@ -35,6 +35,10 @@ namespace SciTech.Rpc.Lightweight.Client
 
         internal IRpcSerializer Serializer { get; }
 
-        internal abstract Task<RpcPipelineClient> ConnectAsync();
+        public override Task ConnectAsync() => this.ConnectClientAsync();
+
+        internal abstract Task<RpcPipelineClient> ConnectClientAsync();
+
+
     }
 }

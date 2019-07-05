@@ -9,7 +9,6 @@
 //
 #endregion
 
-using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using System;
 using System.Collections.Generic;
@@ -40,6 +39,21 @@ namespace SciTech.Rpc.Client
         /// </summary>
         public RpcServerConnectionInfo ConnectionInfo { get; }
 
+        public abstract bool IsConnected { get; }
+
+        public abstract bool IsEncrypted { get; }
+
+        public abstract bool IsMutuallyAuthenticated { get; }
+
+        public abstract bool IsSigned { get; }
+
+        /// <summary>
+        /// Establishes a connection with the configured RPC server. It is usually not necessary to call this method 
+        /// explicitly, since a connection will be established on the first RPC operation.
+        /// </summary>
+        /// <returns></returns>
+        public abstract Task ConnectAsync();
+
         public TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class
         {
             if (objectId == RpcObjectId.Empty)
@@ -57,6 +71,10 @@ namespace SciTech.Rpc.Client
             return GetServiceInstanceCore<TService>(RpcObjectId.Empty, syncContext);
         }
 
+        /// <summary>
+        /// Disconnects this connection and cleans up any used resources.
+        /// </summary>
+        /// <returns></returns>
         public abstract Task ShutdownAsync();
 
         private TService GetServiceInstanceCore<TService>(RpcObjectId refObjectId, SynchronizationContext? syncContext) where TService : class

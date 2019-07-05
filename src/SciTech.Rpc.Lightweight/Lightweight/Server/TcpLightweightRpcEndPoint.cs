@@ -10,26 +10,35 @@
 #endregion
 
 using Pipelines.Sockets.Unofficial;
+using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Server;
 using System;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
     public class TcpLightweightRpcEndPoint : ILightweightRpcEndPoint
     {
-        private RpcSocketServer? socketServer;
+        private IRpcSocketServer? socketServer;
 
         private object syncRoot = new object();
 
-        public TcpLightweightRpcEndPoint(string hostName, int port, bool bindToAllInterfaces)
+        private readonly SslServerOptions? sslOptions;
+
+        public TcpLightweightRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
         {
             this.BindToAllInterfaces = bindToAllInterfaces;
             this.HostName = hostName ?? throw new ArgumentNullException(nameof(hostName));
             this.DisplayName = hostName;
             this.Port = port;
+
+            this.sslOptions = sslOptions;
         }
 
         public bool BindToAllInterfaces { get; }
@@ -47,7 +56,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public void Start(Func<IDuplexPipe, Task> clientConnectedCallback)
         {
-            RpcSocketServer socketServer;
+            IRpcSocketServer socketServer;
 
             lock (this.syncRoot)
             {
@@ -56,7 +65,13 @@ namespace SciTech.Rpc.Lightweight.Server
                     throw new InvalidOperationException("TcpLightweightRpcEndPoint already started.");
                 }
 
-                this.socketServer = socketServer = new RpcSocketServer(clientConnectedCallback);
+                if (this.sslOptions != null)
+                {
+                    this.socketServer = socketServer = new RpcSslSocketServer(clientConnectedCallback, this.sslOptions);
+                } else
+                {
+                    this.socketServer = socketServer = new RpcSocketServer(clientConnectedCallback);
+                }
             }
 
             var endPoint = this.CreateNetEndPoint();
@@ -65,7 +80,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public Task StopAsync()
         {
-            RpcSocketServer? socketServer;
+            IRpcSocketServer? socketServer;
             lock (this.syncRoot)
             {
                 socketServer = this.socketServer;
@@ -105,7 +120,13 @@ namespace SciTech.Rpc.Lightweight.Server
             return endPoint;
         }
 
-        private class RpcSocketServer : SocketServer
+        private interface IRpcSocketServer
+        {
+            void Listen(EndPoint endPoint);
+            void Stop();
+        }
+
+        private class RpcSocketServer : SocketServer, IRpcSocketServer
         {
             private Func<IDuplexPipe, Task> clientConnectedCallback;
 
@@ -115,6 +136,45 @@ namespace SciTech.Rpc.Lightweight.Server
             internal RpcSocketServer(Func<IDuplexPipe, Task> clientConnectedCallback)
             {
                 this.clientConnectedCallback = clientConnectedCallback;
+            }
+
+            public void Listen(EndPoint endPoint)
+            {
+                base.Listen(endPoint);
+            }
+
+            protected override Task OnClientConnectedAsync(in ClientConnection client)
+            {
+                return this.clientConnectedCallback(client.Transport);
+            }
+
+            protected override void OnClientFaulted(in ClientConnection client, Exception exception)
+            {
+                base.OnClientFaulted(client, exception);
+            }
+
+            protected override void OnServerFaulted(Exception exception)
+            {
+                base.OnServerFaulted(exception);
+            }
+        }
+
+        private class RpcSslSocketServer : SslSocketServer, IRpcSocketServer
+        {
+            private Func<IDuplexPipe, Task> clientConnectedCallback;
+
+            /// <summary>
+            /// Create a new instance of a socket server
+            /// </summary>
+            internal RpcSslSocketServer(Func<IDuplexPipe, Task> clientConnectedCallback, SslServerOptions? sslOptions = null) 
+                : base( sslOptions)
+            {
+                this.clientConnectedCallback = clientConnectedCallback;
+            }
+
+            public void Listen(EndPoint endPoint)
+            {
+                base.Listen(endPoint);
             }
 
             protected override Task OnClientConnectedAsync(in ClientConnection client)

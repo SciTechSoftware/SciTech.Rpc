@@ -11,6 +11,11 @@
     <HasReflectionEmit>false</HasReflectionEmit>
     <HasTaskExtensions>false</HasTaskExtensions>
     <PlatformSpanOverloads>false</PlatformSpanOverloads>
+    <HasSystemSslProtocols>true</HasSystemSslProtocols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
+    <HasSystemSslProtocols>false</HasSystemSslProtocols>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
@@ -53,4 +58,7 @@
     <DefineConstants>$(DefineConstants);PLAT_ASYNC_ENUM</DefineConstants>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(HasSystemSslProtocols)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_SYSTEM_SSL_PROTOCOLS</DefineConstants>
+  </PropertyGroup>
 </Project>

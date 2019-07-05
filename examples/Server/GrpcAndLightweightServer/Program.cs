@@ -7,6 +7,7 @@ using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Server;
 using System;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -47,7 +48,10 @@ namespace GrpcAndLightweightServer
             grpcServer.AddEndPoint(CreateGrpcEndPoint(50051));
 
             var lightweightServer = new LightweightRpcServer(rpcPublisher, serviceProvider, options);
-            lightweightServer.AddEndPoint(new TcpLightweightRpcEndPoint("127.0.0.1", 50052, false));
+
+            var sslOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
+            lightweightServer.AddEndPoint(
+                new TcpLightweightRpcEndPoint("127.0.0.1", 50052, false, sslOptions));
 
             Console.WriteLine("Starting gRPC server and lightweight RPC server.");
 

@@ -134,7 +134,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected override IRpcSerializer CreateDefaultSerializer()
         {
-            return new DataContractGrpcSerializer();
+            return new DataContractRpcSerializer();
         }
 
         protected override void Dispose(bool disposing)

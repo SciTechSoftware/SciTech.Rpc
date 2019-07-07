@@ -7,16 +7,16 @@ using System.Xml;
 
 namespace SciTech.Rpc
 {
-    public class DataContractGrpcSerializer : IRpcSerializer
+    public class DataContractRpcSerializer : IRpcSerializer
     {
         DataContractSerializerSettings? settings;
 
-        public DataContractGrpcSerializer(DataContractSerializerSettings? settings)
+        public DataContractRpcSerializer(DataContractSerializerSettings? settings)
         {
             this.settings = settings;   
         }
 
-        public DataContractGrpcSerializer()
+        public DataContractRpcSerializer()
         {
         }
 

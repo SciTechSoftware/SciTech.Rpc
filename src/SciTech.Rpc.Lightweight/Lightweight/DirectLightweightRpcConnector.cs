@@ -32,7 +32,7 @@ namespace SciTech.Rpc.Lightweight
             var requestPipe = new Pipe();
             var responsePipe = new Pipe();
 
-            this.Serializer = serializer ?? new DataContractGrpcSerializer();
+            this.Serializer = serializer ?? new DataContractRpcSerializer();
             this.EndPoint = new DirectLightweightRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
 
             this.Connection = new DirectLightweightRpcConnection(

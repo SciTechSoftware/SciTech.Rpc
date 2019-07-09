@@ -12,6 +12,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Server;
@@ -36,9 +37,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private readonly Dictionary<string, LightweightMethodStub> methodDefinitions = new Dictionary<string, LightweightMethodStub>();
 
-        private List<ILightweightRpcEndPoint> endPoints = new List<ILightweightRpcEndPoint>();
+        private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
 
-        private List<ILightweightRpcEndPoint> startedEndpoints = new List<ILightweightRpcEndPoint>();
+        private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
 
         public LightweightRpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServiceOptions options)
             : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options)
@@ -50,8 +51,8 @@ namespace SciTech.Rpc.Lightweight.Server
         /// </summary>
         /// <param name="servicePublisher"></param>
         public LightweightRpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServiceOptions options)
-            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)), 
-                  servicePublisher, 
+            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
+                  servicePublisher,
                   servicePublisher.DefinitionsProvider, serviceProvider, options)
         {
         }
@@ -71,13 +72,19 @@ namespace SciTech.Rpc.Lightweight.Server
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
+            this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.ReceiveMaxMessageSize ?? LightweightRpcFrame.DefaultMaxFrameLength;
+            this.MaxResponseSize = options?.SendMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.SendMaxMessageSize ?? LightweightRpcFrame.DefaultMaxFrameLength;
         }
 
         public int ClientCount => this.clients.Count;
 
         protected override IServiceProvider? ServiceProvider { get; }
 
-        public void AddEndPoint(ILightweightRpcEndPoint endPoint)
+        private int MaxRequestSize { get; }
+
+        private int MaxResponseSize { get; }
+
+        public void AddEndPoint(LightweightRpcEndPoint endPoint)
         {
             if (endPoint == null)
             {
@@ -102,13 +109,13 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected override void AddEndPoint(IRpcServerEndPoint endPoint)
         {
-            if (endPoint is ILightweightRpcEndPoint lightweightEndPoint)
+            if (endPoint is LightweightRpcEndPoint lightweightEndPoint)
             {
                 this.AddEndPoint(lightweightEndPoint);
             }
             else
             {
-                throw new ArgumentException($"End point must implement {nameof(ILightweightRpcEndPoint)}.");
+                throw new ArgumentException($"End point must implement {nameof(LightweightRpcEndPoint)}.");
             }
         }
 
@@ -156,7 +163,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected Task RunClientAsync(IDuplexPipe pipe, CancellationToken cancellationToken = default)
         {
-            var client = new Client(pipe, this);
+            var client = new Client(pipe, this, this.MaxRequestSize, this.MaxResponseSize);
 
             // TODO: Add to clients list.
             return client.RunAsync(cancellationToken);
@@ -181,8 +188,10 @@ namespace SciTech.Rpc.Lightweight.Server
 
             foreach (var endPoint in this.endPoints)
             {
-                endPoint.Start(ConnectedCallback);
-                this.startedEndpoints.Add(endPoint);
+                var listener = endPoint.CreateListener(ConnectedCallback, this.MaxRequestSize, this.MaxResponseSize);
+                this.startedEndpoints.Add(listener);
+
+                listener.Listen();
             }
         }
 

@@ -9,9 +9,9 @@
 //
 #endregion
 
-using SciTech.Rpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -45,7 +45,16 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 ImmutableArray<KeyValuePair<string, string>>.Empty);
 
             var responseStream = await this.pipelineClient.BeginWriteAsync(responseHeader).ContextFree();
-            this.serializer.ToStream(responseStream, response!);
+            try
+            {
+                this.serializer.ToStream(responseStream, response!);
+            }
+            catch
+            {
+                this.pipelineClient.AbortWrite();
+                throw;
+            }
+
             await this.pipelineClient.EndWriteAsync().ContextFree();
         }
 
@@ -55,9 +64,21 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 RpcFrameType.StreamingEnd, this.messageNumber, this.rpcOperation,
                 ImmutableArray<KeyValuePair<string, string>>.Empty);
 
-            var responseStream = await this.pipelineClient.BeginWriteAsync(responseHeader).ContextFree();
-            this.serializer.ToStream(responseStream, new RpcResponse());
-            await this.pipelineClient.EndWriteAsync().ContextFree();
+            var responseStream = await this.pipelineClient.TryBeginWriteAsync(responseHeader).ContextFree();
+            if (responseStream != null)
+            {
+                try
+                {
+                    this.serializer.ToStream(responseStream, new RpcResponse());
+                }
+                catch
+                {
+                    this.pipelineClient.AbortWrite();
+                    throw;
+                }
+
+                await this.pipelineClient.EndWriteAsync().ContextFree();
+            }
         }
     }
 }

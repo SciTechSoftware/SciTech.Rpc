@@ -30,6 +30,6 @@ namespace SciTech.Rpc.Lightweight.Client
             this.ProxyGenerator = new LightweightProxyGenerator(proxyServicesProvider);
         }
 
-        protected override IRpcProxyGenerator ProxyGenerator { get; }
+        protected internal override IRpcProxyGenerator ProxyGenerator { get; }
     }
 }

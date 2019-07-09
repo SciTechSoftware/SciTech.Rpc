@@ -9,19 +9,14 @@
 //
 #endregion
 
-using SciTech.Rpc.Lightweight.Internal;
-using System;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
-    internal interface IRpcResponseWriter
+    public interface ILightweightRpcListener
     {
-        void AbortWrite(Exception? exception);
+        void Listen();
 
-        ValueTask<Stream> BeginWriteAsync(in LightweightRpcFrame responseHeader);
-
-        ValueTask EndWriteAsync();
+        Task StopAsync();
     }
 }

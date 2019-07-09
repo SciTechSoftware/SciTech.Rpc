@@ -4,6 +4,7 @@ using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
@@ -54,6 +55,9 @@ namespace SciTech.Rpc.Tests
 
         Task SetValueAsync(double value);
 
+        Task<int> SumAsync(int[] data);
+
+        Task<int[]> GetArrayAsync(int count);
     }
 
     [RpcService]
@@ -582,6 +586,32 @@ namespace SciTech.Rpc.Tests
 
             //return Task.CompletedTask;
         }
+
+        public async Task<int> SumAsync(int[] data)
+        {
+            return await Task.Run(() =>
+            {
+                if (data == null)
+                {
+                    throw new ArgumentNullException(nameof(data));
+                }
+
+                int sum = data.Sum();
+
+                return sum;
+            });
+        }
+
+        public Task<int[]> GetArrayAsync(int count)
+        {
+            int[] data = new int[count];
+            for (int i = 0; i < data.Length; i++)
+            {
+                data[i] = i;
+            }
+
+            return Task.FromResult(data);
+        }
     }
 
     public class TestSimpleServiceImpl : ISimpleService
@@ -605,6 +635,17 @@ namespace SciTech.Rpc.Tests
             throw new InvalidOperationException("Undeclared exception after await");
         }
 
+        public Task<int[]> GetArrayAsync(int count)
+        {
+            int[] data = new int[count];
+            for(int i=0; i < data.Length;i++)
+            {
+                data[i] = i;
+            }
+
+            return Task.FromResult(data);
+        }
+
         public Task<double> GetValueAsync()
         {
             return Task.FromResult(this.value);
@@ -614,6 +655,21 @@ namespace SciTech.Rpc.Tests
         {
             this.value = value;
             return Task.CompletedTask;
+        }
+
+        public async Task<int> SumAsync(int[] data)
+        {
+            return await Task.Run(() =>
+            {
+                if (data == null)
+                {
+                    throw new ArgumentNullException(nameof(data));
+                }
+
+                int sum = data.Sum();
+
+                return sum;
+            });
         }
     }
 

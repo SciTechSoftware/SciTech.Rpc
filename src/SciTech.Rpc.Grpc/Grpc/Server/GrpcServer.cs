@@ -42,9 +42,9 @@ namespace SciTech.Rpc.Grpc.Server
         }
 
         public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
-            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)), 
-                  servicePublisher, 
-                  servicePublisher.DefinitionsProvider, 
+            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
+                  servicePublisher,
+                  servicePublisher.DefinitionsProvider,
                   serviceProvider, options)
         {
         }
@@ -71,7 +71,20 @@ namespace SciTech.Rpc.Grpc.Server
         {
             this.ServiceProvider = serviceProvider;
 
-            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null;// TODO: Create from options
+            List<GrpcCore.ChannelOption> channelOptions = new List<GrpcCore.ChannelOption>();
+
+            var maxReceiveMessageSize = options?.ReceiveMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.ReceiveMaxMessageSize;
+            if (maxReceiveMessageSize != null)
+            {
+                channelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxReceiveMessageLength, maxReceiveMessageSize.Value));
+            }
+
+            var maxSendMessageSize = options?.SendMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.SendMaxMessageSize;
+            if (maxSendMessageSize != null)
+            {
+                channelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxSendMessageLength, maxSendMessageSize.Value));
+            }
+
             this.grpcServer = new GrpcCore.Server(channelOptions);
         }
 

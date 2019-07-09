@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO.Pipelines;
 using System.Threading.Tasks;
+using SciTech.Rpc.Lightweight.IO;
 
 namespace SciTech.Rpc.Tests.Lightweight
 {
@@ -52,20 +53,20 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 var requestFrame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, 1, "SciTech.Rpc.Tests.SimpleService.Add", ImmutableArray<KeyValuePair<string, string>>.Empty);
 
-                var writer = requestPipe.Writer;
-                var writeState = requestFrame.BeginWrite(writer);
-
-                var request = new RpcObjectRequest<int, int>(objectId, 5, 6);
-                int payloadLength;
-                using (var payloadStream = new CountedBufferWriterStream(writer))
+                using (var frameWriter = new BufferWriterStream())
                 {
-                    serializer.ToStream(payloadStream, request);
-                    payloadLength = checked((int)payloadStream.Length);
+                    var writeState = requestFrame.BeginWrite(frameWriter);
+
+                    var request = new RpcObjectRequest<int, int>(objectId, 5, 6);
+                    serializer.ToStream(frameWriter, request);
+                    int frameLength = checked((int)frameWriter.Length);
+
+                    LightweightRpcFrame.EndWrite(frameLength, writeState);
+
+                    frameWriter.CopyTo(requestPipe.Writer);
                 }
 
-                LightweightRpcFrame.EndWrite(payloadLength, writeState);
-
-                await writer.FlushAsync();
+                await requestPipe.Writer.FlushAsync();
 
                 RpcResponse<int> response = null;
                 while (response == null)

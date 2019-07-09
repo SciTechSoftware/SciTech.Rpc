@@ -51,7 +51,7 @@ namespace SciTech.Rpc.Server
 
         bool IsFrozen { get; }
 
-        IRpcSerializer? Serializer { get; }
+        ImmutableRpcServiceOptions Options { get; }
 
         void Freeze();
 

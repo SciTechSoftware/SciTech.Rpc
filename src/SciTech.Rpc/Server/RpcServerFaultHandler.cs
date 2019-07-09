@@ -23,10 +23,6 @@ namespace SciTech.Rpc.Server
 
         private readonly Dictionary<Type, List<IRpcServerExceptionConverter>>? faultGenerators;
 
-        internal RpcServerFaultHandler(params IEnumerable<IRpcServerExceptionConverter>?[] errorGenerators)
-        {
-        }
-
         internal RpcServerFaultHandler(IEnumerable<IRpcServerExceptionConverter> errorGenerators)//, IRpcSerializer serializer)
         {
             //this.Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
@@ -56,7 +52,6 @@ namespace SciTech.Rpc.Server
 
         private RpcServerFaultHandler()
         {
-
         }
 
         public bool IsFaultDeclared(string faultCode) => this.declaredFaults?.Contains(faultCode) == true;

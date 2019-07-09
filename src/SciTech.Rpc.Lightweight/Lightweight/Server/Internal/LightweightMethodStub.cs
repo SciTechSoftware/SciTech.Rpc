@@ -10,13 +10,14 @@
 #endregion
 
 using SciTech.IO;
+using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -81,8 +82,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <param name="fullName">Full name of unary operation.</param>
         /// <param name="handler">Delegate that will be invoked to handle the request.</param>
         public LightweightMethodStub(
-            string fullName, 
-            Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>> handler, 
+            string fullName,
+            Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>> handler,
             IRpcSerializer serializer, RpcServerFaultHandler? faultHandler)
             : base(fullName, serializer, faultHandler)
         {
@@ -95,13 +96,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <param name="fullName">Full name of unary operation.</param>
         /// <param name="streamHandler">Delegate that will be invoked to handle the request.</param>
         public LightweightMethodStub(
-            string fullName, 
-            Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TResponse>, LightweightCallContext, ValueTask> streamHandler, 
+            string fullName,
+            Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TResponse>, LightweightCallContext, ValueTask> streamHandler,
             IRpcSerializer serializer, RpcServerFaultHandler? faultHandler)
             : base(fullName, serializer, faultHandler)
         {
             this.StreamHandler = streamHandler;
         }
+
         public override Type RequestType => typeof(TRequest);
 
         public override Type ResponseType => typeof(TResponse);
@@ -109,13 +111,13 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <summary>
         /// Gets the handler for a unary request. Only one of <see cref="Handler"/> and <see cref="StreamHandler"/> will be non-<c>null</c>.
         /// </summary>
-        internal Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>>? Handler { get;}
+        internal Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>>? Handler { get; }
 
         /// <summary>
         /// Gets the handler for a streaming request. Only one of <see cref="Handler"/> and <see cref="StreamHandler"/> will be non-<c>null</c>.
         /// </summary>
         internal Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TResponse>, LightweightCallContext, ValueTask>? StreamHandler { get; }
-        
+
         public override ValueTask HandleMessage(RpcPipeline pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
             TRequest request;
@@ -123,7 +125,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             {
                 request = this.Serializer.FromStream<TRequest>(requestStream);
             }
-            
+
             if (this.Handler == null)
             {
                 throw new RpcFailureException($"Unary request handler is not initialized for '{frame.RpcOperation}'.");
@@ -155,6 +157,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             return this.HandleStreamResponse(responseTask, responseWriter);
         }
 
+#pragma warning disable CA1031 // Do not catch general exception types
         private ValueTask HandleResponse(in LightweightRpcFrame frame, RpcPipeline pipeline, ValueTask<TResponse> responseTask)
         {
             // Try to return response from synchronous methods directly.
@@ -164,13 +167,26 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
                 var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, frame.MessageNumber, frame.RpcOperation, headers);
 
-                var responseStreamTask = pipeline.BeginWriteAsync(responseHeader);
+                var responseStreamTask = pipeline.TryBeginWriteAsync(responseHeader);
                 if (responseStreamTask.IsCompletedSuccessfully)
                 {
-                    // Perfect, everything is synchronous.
-                    var responseStream = responseStreamTask.Result;
-                    this.Serializer.ToStream(responseStream, response);
-                    return pipeline.EndWriteAsync();
+                    if (responseStreamTask.Result is Stream responseStream)
+                    {
+                        // Perfect, everything is synchronous.
+                        try
+                        {
+                            this.Serializer.ToStream(responseStream, response);
+                        }
+                        catch (Exception ex)
+                        {
+                            pipeline.AbortWrite();
+                            throw;
+                        }
+
+                        return pipeline.EndWriteAsync();
+                    }
+
+                    return default;
                 }
                 else
                 {
@@ -178,7 +194,16 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     async ValueTask AwaitAndWriteResponse()
                     {
                         var responseStream = await responseStreamTask.ContextFree();
-                        this.Serializer.ToStream(responseStream, response);
+                        try
+                        {
+                            this.Serializer.ToStream(responseStream, response);
+                        }
+                        catch
+                        {
+                            pipeline.AbortWrite();
+                            throw;
+                        }
+
                         await pipeline.EndWriteAsync().ContextFree();
                     }
 
@@ -194,14 +219,28 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
                     var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
 
-                    var responseStream = await pipeline.BeginWriteAsync(responseHeader);
-                    this.Serializer.ToStream(responseStream, response);
-                    await pipeline.EndWriteAsync().ContextFree();
+                    var responseStream = await pipeline.TryBeginWriteAsync(responseHeader);
+                    if (responseStream != null)
+                    {
+                        try
+                        {
+                            this.Serializer.ToStream(responseStream, response);
+                        }
+                        catch
+                        {
+                            pipeline.AbortWrite();
+                            throw;
+                        }
+
+                        await pipeline.EndWriteAsync().ContextFree();
+                    }
                 }
 
                 return AwaitAndWriteResponse(frame.MessageNumber, frame.RpcOperation);
             }
         }
+
+#pragma warning restore CA1031 // Do not catch general exception types
 
         private async ValueTask HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TResponse> responseWriter)
         {

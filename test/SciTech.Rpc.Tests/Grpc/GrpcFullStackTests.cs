@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Grpc.Tests
     {
         private static object[] FixtureArgs = {
             new object[] { new ProtobufSerializer() },
-            new object[] { new DataContractGrpcSerializer(null) }
+            new object[] { new DataContractRpcSerializer(null) }
         };
 
         private RpcServiceOptions options;

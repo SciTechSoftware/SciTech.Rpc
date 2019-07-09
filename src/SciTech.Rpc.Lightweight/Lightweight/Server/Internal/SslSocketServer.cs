@@ -39,6 +39,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private Socket? listener;
 
+#pragma warning disable CA1031 // Do not catch general exception types
         protected SslSocketServer(SslServerOptions? sslOptions)
         {
             this.sslOptions = sslOptions;
@@ -66,8 +67,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     }
                 }
             };
-
         }
+#pragma warning restore CA1031 // Do not catch general exception types
+
 
         /// <summary>
         /// Start listening as a server
@@ -94,6 +96,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             this.OnStarted(endPoint);
         }
 
+#pragma warning disable CA1031 // Do not catch general exception types
         public void Stop()
         {
             var socket = this.listener;
@@ -102,8 +105,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             {
                 try { socket.Dispose(); } catch { }
             }
-
         }
+
+#pragma warning restore CA1031 // Do not catch general exception types
 
         /// <summary>
         /// Invoked when a new client connects
@@ -131,6 +135,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             (scheduler ?? PipeScheduler.ThreadPool).Schedule(callback, state);
         }
 
+#pragma warning disable CA1031 // Do not catch general exception types
+#pragma warning disable CA2000 // Dispose objects before losing scope
         private async Task ListenForConnectionsAsync(PipeOptions sendOptions, PipeOptions receiveOptions)
         {
             try
@@ -145,10 +151,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     if (this.sslOptions?.ServerCertificate != null)
                     {
                         var sslStream = new SslStream(socketStream);
-                        await sslStream.AuthenticateAsServerAsync(this.sslOptions.ServerCertificate, 
+                        await sslStream.AuthenticateAsServerAsync(this.sslOptions.ServerCertificate,
                             this.sslOptions.ClientCertificateRequired,
-                            this.sslOptions.EnabledSslProtocols, 
-                            sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+                            this.sslOptions.EnabledSslProtocols,
+                            this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
 
                         socketStream = sslStream;
                     }
@@ -164,6 +170,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             catch (ObjectDisposedException) { }
             catch (Exception ex) { this.OnServerFaulted(ex); }
         }
+#pragma warning restore CA1031 // Do not catch general exception types
+#pragma warning restore CA2000 // Dispose objects before losing scope
+
 
         /// <summary>
         /// The state of a client connection

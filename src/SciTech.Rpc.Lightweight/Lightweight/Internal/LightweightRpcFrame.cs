@@ -22,30 +22,6 @@ using System.Text;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
-#pragma warning disable CA1028 // Enum Storage should be Int32
-    internal enum RpcFrameType : short
-    {
-        UnaryRequest,
-        UnaryResponse,
-
-        StreamingRequest,
-        StreamingResponse,
-        StreamingEnd,
-
-        CancelRequest,
-        CancelResponse,
-
-        ErrorResponse
-    }
-
-    [Flags]
-    internal enum RpcOperationFlags
-    {
-        None = 0,
-        CanCancel = 0x0001
-    }
-#pragma warning restore CA1028 // Enum Storage should be Int32
-
 
     /// <summary>
     /// short RPCVersion: Currently always 1
@@ -75,17 +51,6 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         private const short CurrentVersion = 1;
 
-        public LightweightRpcFrame(RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout, IReadOnlyCollection<KeyValuePair<string, string>>? headers)
-        {
-            this.FrameType = frameType;
-            this.RpcOperation = rpcOperation;
-            this.MessageNumber = messageNumber;
-            this.OperationFlags = flags;
-            this.Timeout = timeout;
-            this.Payload = ReadOnlySequence<byte>.Empty;
-            this.Headers = headers;
-        }
-
         public LightweightRpcFrame(
             RpcFrameType frameType, int messageNumber, string rpcOperation,
             IReadOnlyCollection<KeyValuePair<string, string>>? headers)
@@ -98,6 +63,17 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             this.OperationFlags = 0;
             this.Timeout = 0;
+        }
+
+        public LightweightRpcFrame(RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout, IReadOnlyCollection<KeyValuePair<string, string>>? headers)
+        {
+            this.FrameType = frameType;
+            this.RpcOperation = rpcOperation;
+            this.MessageNumber = messageNumber;
+            this.OperationFlags = flags;
+            this.Timeout = timeout;
+            this.Payload = ReadOnlySequence<byte>.Empty;
+            this.Headers = headers;
         }
 
         public LightweightRpcFrame(
@@ -121,14 +97,14 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         public int MessageNumber { get; }
 
+        public RpcOperationFlags OperationFlags { get; }
+
         /// <summary>
         /// The payload data following the header. May be empty when building a request or response.
         /// </summary>
         public ReadOnlySequence<byte> Payload { get; }
 
         public string RpcOperation { get; }
-
-        public RpcOperationFlags OperationFlags { get; }
 
         public uint Timeout { get; }
 
@@ -215,7 +191,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         internal static void EndWrite(int frameLength, in WriteState state)
         {
-            int payloadLength = frameLength - state.HeaderLength; 
+            int payloadLength = frameLength - state.HeaderLength;
             BinaryPrimitives.WriteInt32LittleEndian(state.FrameLengthSpan.Span, frameLength);
             BinaryPrimitives.WriteInt32LittleEndian(state.PayloadLengthSpan.Span, payloadLength);
         }
@@ -236,7 +212,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             headerLength += WriteString(writer, this.RpcOperation);
 
             headerLength += WriteUInt32Varint(writer, (uint)this.OperationFlags);
-            headerLength += WriteUInt32Varint(writer, (uint)this.Timeout);
+            headerLength += WriteUInt32Varint(writer, this.Timeout);
 
             var headers = this.Headers;
             int nHeaders = headers?.Count ?? 0;
@@ -543,4 +519,29 @@ namespace SciTech.Rpc.Lightweight.Internal
         //    return false;
         //}
     }
+
+#pragma warning disable CA1028 // Enum Storage should be Int32
+    internal enum RpcFrameType : short
+    {
+        UnaryRequest,
+        UnaryResponse,
+
+        StreamingRequest,
+        StreamingResponse,
+        StreamingEnd,
+
+        CancelRequest,
+        CancelResponse,
+
+        ErrorResponse
+    }
+
+    [Flags]
+    internal enum RpcOperationFlags
+    {
+        None = 0,
+        CanCancel = 0x0001
+    }
+#pragma warning restore CA1028 // Enum Storage should be Int32
+
 }

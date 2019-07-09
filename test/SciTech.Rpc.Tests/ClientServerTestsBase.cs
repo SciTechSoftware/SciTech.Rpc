@@ -26,15 +26,17 @@ namespace SciTech.Rpc.Tests
     {
         internal const int TcpTestPort = 15959;
 
-        private RpcConnectionType connectionType;
+        private readonly IRpcSerializer serializer;
 
-        private RpcServiceOptions options;
 
         protected ClientServerTestsBase(IRpcSerializer serializer, RpcConnectionType connectionType)
         {
-            this.options = new RpcServiceOptions { Serializer = serializer };
-            this.connectionType = connectionType;
+            this.serializer = serializer;
+            this.ConnectionType = connectionType;
         }
+
+        protected RpcConnectionType ConnectionType { get; }
+
 
         [TearDown]
         public void Cleanup()
@@ -54,19 +56,22 @@ namespace SciTech.Rpc.Tests
         /// <param name="serviceDefinitionsBuilder"></param>
         /// <param name="proxyServicesProvider"></param>
         /// <returns></returns>
-        protected (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionBuilder serviceDefinitionsBuilder, IRpcProxyDefinitionsProvider proxyServicesProvider = null)
+        protected (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionBuilder serviceDefinitionsBuilder, Action<RpcServiceOptions> configOptions = null, IRpcProxyDefinitionsProvider proxyServicesProvider = null )
         {
             var rpcServerId = RpcServerId.NewId();
 
-            switch (this.connectionType)
+            var options = new RpcServiceOptions { Serializer = this.serializer };
+            configOptions?.Invoke(options);
+
+            switch (this.ConnectionType)
             {
                 case RpcConnectionType.LightweightTcp:
                 case RpcConnectionType.LightweightSslTcp:
                     {
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
 
                         SslServerOptions sslServerOptions = null;
-                        if ( this.connectionType == RpcConnectionType.LightweightSslTcp)
+                        if ( this.ConnectionType == RpcConnectionType.LightweightSslTcp)
                         {
                             sslServerOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
                         }
@@ -74,7 +79,7 @@ namespace SciTech.Rpc.Tests
                         host.AddEndPoint(new TcpLightweightRpcEndPoint("127.0.0.1", TcpTestPort, false, sslServerOptions));
 
                         SslClientOptions sslClientOptions = null;
-                        if(this.connectionType == RpcConnectionType.LightweightSslTcp)
+                        if(this.ConnectionType == RpcConnectionType.LightweightSslTcp)
                         {
                             sslClientOptions = new SslClientOptions { RemoteCertificateValidationCallback = ValidateTestCertificate };
 
@@ -82,7 +87,7 @@ namespace SciTech.Rpc.Tests
                         var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
                         var connection = new TcpLightweightRpcConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
-                            proxyGenerator, this.options.Serializer,
+                            proxyGenerator, options.Serializer,
                             sslClientOptions );
 
                         return (host, connection);
@@ -92,23 +97,23 @@ namespace SciTech.Rpc.Tests
                         Pipe requestPipe = new Pipe();
                         Pipe responsePipe = new Pipe();
 
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
                         host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                         var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
                         var connection = new DirectLightweightRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
-                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), proxyGenerator, this.options.Serializer);
+                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), proxyGenerator, options.Serializer);
                         return (host, connection);
                     }
                 case RpcConnectionType.Grpc:
                     {
-                        var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, this.options);
+                        var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
                         var proxyGenerator = new GrpcProxyProvider(proxyServicesProvider);
                         var connection = new GrpcServerConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.GrpcSslCredentials, proxyGenerator, this.options.Serializer );
+                            TestCertificates.GrpcSslCredentials, proxyGenerator, options.Serializer );
                         return (host, connection);
                     }
             }

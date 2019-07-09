@@ -106,7 +106,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     headers,
                     request,
                     actualSerializer,
-                    ct ).ContextFree();
+                    ct).ContextFree();
 
                 return streamingCall;
             }
@@ -117,7 +117,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request)
         {
             return CallUnaryMethodImplAsync<TRequest, TResponse>(methodDef, request, CancellationToken.None).AwaiterResult();
-
         }
 
         protected override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
@@ -129,7 +128,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
-                var responseTask = client.SendReceiveFrameAsync<TRequest, TResponse>(
+                var responseTask = client.SendReceiveFrameAsync2<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
                     headers,
@@ -143,12 +142,12 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             async Task<TResponse> AwaitConnectAndCall(ValueTask<RpcPipelineClient> pendingClientTask)
             {
                 var client = await pendingClientTask.ContextFree();
-                return await client.SendReceiveFrameAsync<TRequest, TResponse>(
+                return await client.SendReceiveFrameAsync2<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
                     headers,
                     request,
-                    actualSerializer, 
+                    actualSerializer,
                     cancellationToken).ContextFree();
             }
 
@@ -162,10 +161,12 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         protected override void HandleCallException(Exception e)
         {
-            if (!(e is RpcFailureException))
+            switch (e)
             {
-                if (e is SocketException socketException)
-                {
+                case RpcCommunicationException _:
+                case RpcFailureException _:
+                    break;
+                case SocketException socketException:
                     switch (socketException.SocketErrorCode)
                     {
                         case SocketError.ConnectionAborted:
@@ -178,15 +179,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         default:
                             throw new RpcCommunicationException(RpcCommunicationStatus.Unknown);
                     }
-                }
-
-                throw new RpcFailureException("Unexepected exception when calling RPC method", e);
+                default:
+                    throw new RpcFailureException("Unexepected exception when calling RPC method", e);
             }
-        }
-
-        protected override bool IsCommunicationException(Exception exception)
-        {
-            throw new NotImplementedException();
         }
 
         private ValueTask<RpcPipelineClient> ConnectCoreAsync()

@@ -16,19 +16,12 @@ using System;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
-using System.Net.Security;
-using System.Net.Sockets;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
-    public class TcpLightweightRpcEndPoint : ILightweightRpcEndPoint
+    public class TcpLightweightRpcEndPoint : LightweightRpcEndPoint
     {
-        private IRpcSocketServer? socketServer;
-
-        private object syncRoot = new object();
-
         private readonly SslServerOptions? sslOptions;
 
         public TcpLightweightRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
@@ -43,53 +36,33 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public bool BindToAllInterfaces { get; }
 
-        public string DisplayName { get; }
+        public override string DisplayName { get; }
 
-        public string HostName { get; }
+        public override string HostName { get; }
 
         public int Port { get; }
 
-        public RpcServerConnectionInfo GetConnectionInfo(RpcServerId hostId)
+        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId hostId)
         {
-            return new RpcServerConnectionInfo(this.DisplayName, new Uri( $"lightweight.tcp://{this.HostName}:{this.Port}" ), hostId);
+            return new RpcServerConnectionInfo(this.DisplayName, new Uri($"lightweight.tcp://{this.HostName}:{this.Port}"), hostId);
         }
 
-        public void Start(Func<IDuplexPipe, Task> clientConnectedCallback)
+        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
         {
-            IRpcSocketServer socketServer;
-
-            lock (this.syncRoot)
-            {
-                if (this.socketServer != null)
-                {
-                    throw new InvalidOperationException("TcpLightweightRpcEndPoint already started.");
-                }
-
-                if (this.sslOptions != null)
-                {
-                    this.socketServer = socketServer = new RpcSslSocketServer(clientConnectedCallback, this.sslOptions);
-                } else
-                {
-                    this.socketServer = socketServer = new RpcSocketServer(clientConnectedCallback);
-                }
-            }
+            ILightweightRpcListener socketServer;
 
             var endPoint = this.CreateNetEndPoint();
-            socketServer.Listen(endPoint);
-        }
 
-        public Task StopAsync()
-        {
-            IRpcSocketServer? socketServer;
-            lock (this.syncRoot)
+            if (this.sslOptions != null)
             {
-                socketServer = this.socketServer;
-                this.socketServer = null;
+                socketServer = new RpcSslSocketServer(endPoint, clientConnectedCallback, maxRequestSize, this.sslOptions);
+            }
+            else
+            {
+                socketServer = new RpcSocketServer(endPoint, clientConnectedCallback, maxRequestSize);
             }
 
-            socketServer?.Stop();
-
-            return Task.CompletedTask;
+            return socketServer;
         }
 
         private EndPoint CreateNetEndPoint()
@@ -106,12 +79,13 @@ namespace SciTech.Rpc.Lightweight.Server
             }
             else
             {
-                // TODO: This must be improved.
+                // TODO: This must be improved. Or it should not be allowed to provide a DNS host name?
                 var addresses = Dns.GetHostAddresses(this.HostName);
                 if (addresses?.Length > 0)
                 {
                     endPoint = new IPEndPoint(addresses[0], this.Port);
-                } else
+                }
+                else
                 {
                     throw new IOException($"Failed to lookup IP for '{this.HostName}'.");
                 }
@@ -120,27 +94,36 @@ namespace SciTech.Rpc.Lightweight.Server
             return endPoint;
         }
 
-        private interface IRpcSocketServer
+        private class RpcSocketServer : SocketServer, ILightweightRpcListener
         {
-            void Listen(EndPoint endPoint);
-            void Stop();
-        }
+            private readonly EndPoint endPoint;
 
-        private class RpcSocketServer : SocketServer, IRpcSocketServer
-        {
+            private readonly int maxRequestSize;
+
             private Func<IDuplexPipe, Task> clientConnectedCallback;
 
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSocketServer(Func<IDuplexPipe, Task> clientConnectedCallback)
+            internal RpcSocketServer(EndPoint endPoint, Func<IDuplexPipe, Task> clientConnectedCallback, int maxRequestSize)
             {
                 this.clientConnectedCallback = clientConnectedCallback;
+                this.endPoint = endPoint;
+                this.maxRequestSize = maxRequestSize;
             }
 
-            public void Listen(EndPoint endPoint)
+            public void Listen()
             {
-                base.Listen(endPoint);
+                int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
+                var receiveOptions = new PipeOptions(pauseWriterThreshold: receivePauseThreshold, resumeWriterThreshold: receivePauseThreshold / 2, useSynchronizationContext: false);
+                this.Listen(this.endPoint, receiveOptions: receiveOptions);
+            }
+
+            public Task StopAsync()
+            {
+                this.Stop();
+
+                return Task.CompletedTask;
             }
 
             protected override Task OnClientConnectedAsync(in ClientConnection client)
@@ -159,22 +142,37 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        private class RpcSslSocketServer : SslSocketServer, IRpcSocketServer
+        private class RpcSslSocketServer : SslSocketServer, ILightweightRpcListener
         {
-            private Func<IDuplexPipe, Task> clientConnectedCallback;
+            private readonly Func<IDuplexPipe, Task> clientConnectedCallback;
+
+            private readonly EndPoint endPoint;
+
+            private readonly int maxRequestSize;
 
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSslSocketServer(Func<IDuplexPipe, Task> clientConnectedCallback, SslServerOptions? sslOptions = null) 
-                : base( sslOptions)
+            internal RpcSslSocketServer(EndPoint endPoint, Func<IDuplexPipe, Task> clientConnectedCallback, int maxRequestSize, SslServerOptions? sslOptions = null)
+                : base(sslOptions)
             {
                 this.clientConnectedCallback = clientConnectedCallback;
+                this.endPoint = endPoint;
+                this.maxRequestSize = maxRequestSize;
             }
 
-            public void Listen(EndPoint endPoint)
+            public void Listen()
             {
-                base.Listen(endPoint);
+                int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
+                var receiveOptions = new PipeOptions(pauseWriterThreshold: receivePauseThreshold, resumeWriterThreshold: receivePauseThreshold / 2, useSynchronizationContext: false);
+                this.Listen(this.endPoint, receiveOptions: receiveOptions);
+            }
+
+            public Task StopAsync()
+            {
+                this.Stop();
+
+                return Task.CompletedTask;
             }
 
             protected override Task OnClientConnectedAsync(in ClientConnection client)

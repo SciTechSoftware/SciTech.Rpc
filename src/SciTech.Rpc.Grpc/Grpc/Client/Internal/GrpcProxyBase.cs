@@ -60,6 +60,109 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 #pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class GrpcProxyBase : RpcProxyBase<GrpcProxyMethod>
     {
+        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request)
+        {
+            var callOptions = new GrpcCore.CallOptions(cancellationToken: CancellationToken.None);
+            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
+
+            var response = this.grpcInvoker.BlockingUnaryCall(typedMethod, null, callOptions, request);
+            return response;
+        }
+
+        protected async override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
+        {
+            var callOptions = new GrpcCore.CallOptions(cancellationToken: cancellationToken);
+
+            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
+            using (var asyncCall = this.grpcInvoker.AsyncUnaryCall(typedMethod, null, callOptions, request))
+            {
+                var response = await asyncCall.ResponseAsync.ContextFree();
+                // TODO: Handle response.Status
+                return response;
+            }
+        }
+
+        protected override GrpcProxyMethod CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)
+        {
+            return CreateMethodDef<TRequest, TResponse>(RpcMethodType.Unary, serviceName, operationName, this.Serializer, null);
+        }
+
+        protected override void HandleCallException(Exception e)
+        {
+            if (e is GrpcCore.RpcException rpcException)
+            {
+                switch (rpcException.StatusCode)
+                {
+                    case GrpcCore.StatusCode.Unavailable:
+                        throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
+                    case GrpcCore.StatusCode.ResourceExhausted:
+                        // TODO: RpcFailureException is documented as "Thrown when an undeclared exception occurs within an operation handler.",
+                        // so it shouldn't be used for GrpcCore.RpcException
+                        throw new RpcFailureException(e.Message, e);
+                    default:
+                        // TODO: RpcFailureException is documented as "Thrown when an undeclared exception occurs within an operation handler.",
+                        // so it shouldn't be used for GrpcCore.RpcException
+                        throw new RpcFailureException(e.Message, e);
+                }
+            }
+        }
+
+        protected override bool IsCancellationException(Exception exception)
+        {
+            if (exception is GrpcCore.RpcException rpcException)
+            {
+                return rpcException.StatusCode == GrpcCore.StatusCode.Cancelled;
+            }
+
+            return base.IsCancellationException(exception);
+        }
+
+        private sealed class GrpcAsyncServerStreamingCall<TResponse> : IAsyncStreamingServerCall<TResponse>
+            where TResponse : class
+        {
+            private GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall;
+
+            internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall)
+            {
+                this.grpcCall = grpcCall;
+                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream);
+
+
+            }
+
+            public IAsyncStream<TResponse> ResponseStream { get; }
+
+            public void Dispose()
+            {
+                this.grpcCall.Dispose();
+            }
+
+            private class AsyncStreamWrapper : IAsyncStream<TResponse>
+            {
+                private GrpcCore.IAsyncStreamReader<TResponse> reader;
+
+                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader)
+                {
+                    this.reader = reader;
+                }
+
+                public TResponse Current => this.reader.Current;
+
+                public ValueTask<bool> MoveNextAsync()
+                {
+                    var task = this.reader.MoveNext();
+                    if (task.Status == TaskStatus.RanToCompletion)
+                    {
+                        return new ValueTask<bool>(task.Result);
+                    }
+
+                    async ValueTask<bool> AwaitNext() => await task.ContextFree();
+
+                    return AwaitNext();
+                }
+            }
+        }
+
         private readonly GrpcCore.CallInvoker grpcInvoker;
 
         private readonly GrpcMethodsCache grpcMethodsCache;
@@ -121,109 +224,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 new GrpcAsyncServerStreamingCall<TResponse>(this.grpcInvoker.AsyncServerStreamingCall(typedMethod, null, callOptions, request)));
 #pragma warning restore CA2000 // Dispose objects before losing scope
         }
-
-        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request)
-        {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: CancellationToken.None);
-            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
-
-            var response = this.grpcInvoker.BlockingUnaryCall(typedMethod, null, callOptions, request);
-            return response;
-        }
-
-        protected async override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
-        {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: cancellationToken);
-
-            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
-            using (var asyncCall = this.grpcInvoker.AsyncUnaryCall(typedMethod, null, callOptions, request))
-            {
-                var response = await asyncCall.ResponseAsync.ContextFree();
-                // TODO: Handle response.Status
-                return response;
-            }
-        }
-
-        protected override GrpcProxyMethod CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)
-        {
-            return CreateMethodDef<TRequest, TResponse>(RpcMethodType.Unary, serviceName, operationName, this.Serializer, null);
-        }
-
-        protected override void HandleCallException(Exception e)
-        {
-            if (e is GrpcCore.RpcException rpcException)
-            {
-                switch (rpcException.StatusCode)
-                {
-                    case GrpcCore.StatusCode.Unavailable:
-                        throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
-                    default:
-                        throw new RpcFailureException(e.Message, e);
-                }
-            }
-        }
-
-        protected override bool IsCancellationException(Exception exception)
-        {
-            if (exception is GrpcCore.RpcException rpcException)
-            {
-                return rpcException.StatusCode == GrpcCore.StatusCode.Cancelled;
-            }
-
-            return base.IsCancellationException(exception);
-        }
-
-        protected override bool IsCommunicationException(Exception exception)
-        {
-            return exception is GrpcCore.RpcException rpcException;
-        }
-
-        private sealed class GrpcAsyncServerStreamingCall<TResponse> : IAsyncStreamingServerCall<TResponse>
-            where TResponse : class
-        {
-            private GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall;
-
-            internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall)
-            {
-                this.grpcCall = grpcCall;
-                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream);
-
-
-            }
-
-            public IAsyncStream<TResponse> ResponseStream { get; }
-
-            public void Dispose()
-            {
-                this.grpcCall.Dispose();
-            }
-
-            private class AsyncStreamWrapper : IAsyncStream<TResponse>
-            {
-                private GrpcCore.IAsyncStreamReader<TResponse> reader;
-
-                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader)
-                {
-                    this.reader = reader;
-                }
-
-                public TResponse Current => this.reader.Current;
-
-                public ValueTask<bool> MoveNextAsync()
-                {
-                    var task = this.reader.MoveNext();
-                    if (task.Status == TaskStatus.RanToCompletion)
-                    {
-                        return new ValueTask<bool>(task.Result);
-                    }
-
-                    async ValueTask<bool> AwaitNext() => await task.ContextFree();
-
-                    return AwaitNext();
-                }
-            }
-        }
     }
+
 #pragma warning restore CA1062 // Validate arguments of public methods
 
     public class GrpcProxyMethod : RpcProxyMethod

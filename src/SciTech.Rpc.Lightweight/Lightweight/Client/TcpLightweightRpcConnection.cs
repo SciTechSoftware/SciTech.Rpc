@@ -28,6 +28,8 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     public class TcpLightweightRpcConnection : LightweightRpcConnection
     {
+        private readonly SslClientOptions? sslOptions;
+
         private readonly object syncRoot = new object();
 
         private RpcPipelineClient? connectedClient;
@@ -36,22 +38,28 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private TaskCompletionSource<RpcPipelineClient>? connectionTcs;
 
-        private readonly SslClientOptions? sslOptions;
+        private bool hasShutDown;
 
         private volatile SslStream? sslStream;
-
-        private bool hasShutDown;
 
         public TcpLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             LightweightProxyProvider proxyGenerator,
             IRpcSerializer serializer,
-            SslClientOptions? sslOptions=null,            
+            SslClientOptions? sslOptions = null,
             IReadOnlyList<RpcClientCallInterceptor>? callInterceptors = null)
             : base(connectionInfo, proxyGenerator, serializer, callInterceptors)
         {
             this.sslOptions = sslOptions;
         }
+
+        public override bool IsConnected => this.connection != null;
+
+        public override bool IsEncrypted => this.sslStream?.IsEncrypted ?? false;
+
+        public override bool IsMutuallyAuthenticated => this.sslStream?.IsMutuallyAuthenticated ?? false;
+
+        public override bool IsSigned => this.sslStream?.IsSigned ?? false;
 
         public override Task ShutdownAsync()
         {
@@ -81,6 +89,7 @@ namespace SciTech.Rpc.Lightweight.Client
             return Task.CompletedTask;
         }
 
+#pragma warning disable CA1031 // Do not catch general exception types
         internal override async Task<RpcPipelineClient> ConnectClientAsync()
         {
             Task<RpcPipelineClient>? activeConnectionTask = null;
@@ -110,12 +119,12 @@ namespace SciTech.Rpc.Lightweight.Client
                 return await this.connectionTcs.Task.ContextFree();
             }
 
-            
+
             var endPoint = this.CreateNetEndPoint();
             IDuplexPipe? connection = null;
             SslStream? sslStream = null;
             Stream? workStream = null;
-            
+
             try
             {
                 if (this.sslOptions != null)
@@ -130,7 +139,7 @@ namespace SciTech.Rpc.Lightweight.Client
                         {
                             case IPEndPoint ipEndPoint:
                                 await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ContextFree();
-                                sslHost = ipEndPoint.ToString();
+                                sslHost = ipEndPoint.Address.ToString();
                                 break;
                             case DnsEndPoint dnsEndPoint:
                                 await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port).ContextFree();
@@ -147,10 +156,11 @@ namespace SciTech.Rpc.Lightweight.Client
                             this.sslOptions.LocalCertificateSelectionCallback,
                             this.sslOptions.EncryptionPolicy);
 
-                        await sslStream.AuthenticateAsClientAsync("localhost", this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
+                        await sslStream.AuthenticateAsClientAsync(sslHost, this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
                             this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
 
-                        connection = StreamConnection.GetDuplex(sslStream);
+                        PipeOptions options = new PipeOptions(pauseWriterThreshold: 65536, resumeWriterThreshold: 32768, useSynchronizationContext: false);
+                        connection = StreamConnection.GetDuplex(sslStream, options);
                     }
                     finally
                     {
@@ -178,7 +188,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
                 return connectedClient;
             }
-            catch( Exception e )
+            catch (Exception e)
             {
                 // Connection failed, do a little cleanup
                 // TODO: Try to add a unit test that cover this code (e.g. using AuthenticationException).
@@ -198,21 +208,49 @@ namespace SciTech.Rpc.Lightweight.Client
                     }
                 }
 
-                try { connectedClient?.Close(); } catch { }
+                try { this.connectedClient?.Close(); } catch { }
                 try { workStream?.Close(); } catch { }
 
                 connectionTcs?.SetException(e);
                 throw;
             }
         }
+#pragma warning restore CA1031 // Do not catch general exception types
 
-        public override bool IsConnected => this.connection != null;
+        private static void SetFastLoopbackOption(Socket socket)
+        {
+            // SIO_LOOPBACK_FAST_PATH (https://msdn.microsoft.com/en-us/library/windows/desktop/jj841212%28v=vs.85%29.aspx)
+            // Speeds up localhost operations significantly. OK to apply to a socket that will not be hooked up to localhost,
+            // or will be subject to WFP filtering.
+            const int SIO_LOOPBACK_FAST_PATH = -1744830448;
 
-        public override bool IsSigned => this.sslStream?.IsSigned ?? false;
+            // windows only
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                // Win8/Server2012+ only
+                var osVersion = Environment.OSVersion.Version;
+                if (osVersion.Major > 6 || (osVersion.Major == 6 && osVersion.Minor >= 2))
+                {
+                    byte[] optionInValue = BitConverter.GetBytes(1);
+                    socket.IOControl(SIO_LOOPBACK_FAST_PATH, optionInValue, null);
+                }
+            }
+        }
 
-        public override bool IsEncrypted => this.sslStream?.IsEncrypted ?? false;
+        /// <summary>
+        /// Set recommended socket options for client sockets
+        /// </summary>
+        /// <param name="socket">The socket to set options against</param>
+#pragma warning disable CA1031 // Do not catch general exception types
+        private static void SetRecommendedClientOptions(Socket socket)
+        {
+            if (socket.AddressFamily == AddressFamily.Unix) return;
 
-        public override bool IsMutuallyAuthenticated => this.sslStream?.IsMutuallyAuthenticated ?? false;
+            try { socket.NoDelay = true; } catch { }
+
+            try { SetFastLoopbackOption(socket); } catch { }
+        }
+#pragma warning restore CA1031 // Do not catch general exception types
 
         private EndPoint CreateNetEndPoint()
         {
@@ -243,39 +281,6 @@ namespace SciTech.Rpc.Lightweight.Client
             else
             {
                 throw new InvalidOperationException($"Invalid HostUrl '{this.ConnectionInfo.HostUrl}'.");
-            }
-        }
-
-        /// <summary>
-        /// Set recommended socket options for client sockets
-        /// </summary>
-        /// <param name="socket">The socket to set options against</param>
-        private static void SetRecommendedClientOptions(Socket socket)
-        {
-            if (socket.AddressFamily == AddressFamily.Unix) return;
-
-            try { socket.NoDelay = true; } catch { }
-
-            try { SetFastLoopbackOption(socket); } catch { }
-        }
-
-        private static void SetFastLoopbackOption(Socket socket)
-        {
-            // SIO_LOOPBACK_FAST_PATH (https://msdn.microsoft.com/en-us/library/windows/desktop/jj841212%28v=vs.85%29.aspx)
-            // Speeds up localhost operations significantly. OK to apply to a socket that will not be hooked up to localhost,
-            // or will be subject to WFP filtering.
-            const int SIO_LOOPBACK_FAST_PATH = -1744830448;
-
-            // windows only
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-            {
-                // Win8/Server2012+ only
-                var osVersion = Environment.OSVersion.Version;
-                if (osVersion.Major > 6 || (osVersion.Major == 6 && osVersion.Minor >= 2))
-                {
-                    byte[] optionInValue = BitConverter.GetBytes(1);
-                    socket.IOControl(SIO_LOOPBACK_FAST_PATH, optionInValue, null);
-                }
             }
         }
     }

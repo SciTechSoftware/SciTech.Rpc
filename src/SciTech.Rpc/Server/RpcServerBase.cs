@@ -22,9 +22,9 @@ namespace SciTech.Rpc.Server
     public abstract class RpcServerBase : IRpcServerImpl
     {
         protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServiceOptions? options) :
-            this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)), 
-                servicePublisher, 
-                servicePublisher.DefinitionsProvider, 
+            this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
+                servicePublisher,
+                servicePublisher.DefinitionsProvider,
                 options)
         {
         }
@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Server
 
             this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
             this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;
-            this.Serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Serializer ?? this.CreateDefaultSerializer();
+            this.Serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Options.Serializer ?? this.CreateDefaultSerializer();
 
             if (options != null)
             {
@@ -332,26 +332,5 @@ namespace SciTech.Rpc.Server
             //    }
             //}
         }
-
-        private void InitOptions(RpcServiceOptions? options)
-        {
-        }
-        //TService IServiceImplProvider.GetServiceImpl<TService>(RpcObjectId id)
-        //{
-        //    return this.ServicePublisher.GetServiceImpl<TService>(id);
-        //    //var key = new ServiceImplKey(id, typeof(TService));
-        //    //lock (this.syncRoot)
-        //    //{
-        //    //    if (this.idToServiceImpl.TryGetValue(key, out object serviceImpl) && serviceImpl is TService service)
-        //    //    {
-        //    //        return service;
-        //    //    }
-        //    //}
-        //    //return null;
-        //}
-        //TService IServiceImplProvider.GetSingletonServiceImpl<TService>()
-        //{
-        //    return this.ServicePublisher.GetSingletonServiceImpl<TService>();
-        //}
     }
 }

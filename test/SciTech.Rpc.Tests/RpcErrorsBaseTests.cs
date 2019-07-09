@@ -2,6 +2,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Tests.Lightweight;
+using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -222,7 +223,7 @@ namespace SciTech.Rpc.Tests
             var proxyServicesProvider = new RpcProxyServicesBuilder();
             proxyServicesProvider.RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
 
-            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator, proxyServicesProvider);
+            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator, null, proxyServicesProvider);
             var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl());
 
             var faultService = connection.GetServiceInstance<IFaultService>(publishedInstanceScope.Value);
@@ -237,7 +238,6 @@ namespace SciTech.Rpc.Tests
             {
                 await host.ShutdownAsync();
             }
-
         }
 
         [TestCaseSource(nameof(OperationTypes))]
@@ -335,6 +335,83 @@ namespace SciTech.Rpc.Tests
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
 
             Assert.Throws<RpcDefinitionException>(() => connection.GetServiceInstance<IIncorrectServiceFaultServiceClient>(RpcObjectId.NewId()));
+        }
+
+
+        [Test]
+        public void TooLargeClientMessage_ShouldThrowException()
+        {
+            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            definitionBuilder.RegisterService<ISimpleService>();
+
+            var (host, connection) = this.CreateServerAndConnection(definitionBuilder, options =>
+                {
+                    options.ReceiveMaxMessageSize = 10000;
+                });
+            host.Start();
+            try
+            {
+                using (var publishedInstanceScope = host.ServicePublisher.PublishInstance<ISimpleService>(new TestSimpleServiceImpl()))
+                {
+                    var simpleService = connection.GetServiceInstance(publishedInstanceScope.Value);
+
+                    int[] data = new int[10000];
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        data[i] = i;
+                    }
+
+                    // TODO: Lightweight will throw RpcCommunicationException (due to disconnect) and 
+                    // gRPC will throw RpcFailureException. What's the correct exception?
+                    var sumTask = simpleService.SumAsync(data).DefaultTimeout();
+                    Assert.ThrowsAsync(Is.TypeOf<RpcFailureException>().Or.TypeOf<RpcCommunicationException>(), () => sumTask);
+
+                    // TODO: gRPC keeps the connection alive. Should the Lightweight connection
+                    // also be kept alive (far from trivial)?
+                    if (this.ConnectionType == RpcConnectionType.Grpc)
+                    {
+                        // Verify that service is still available.
+                        int res = simpleService.AddAsync(5, 6).AwaiterResult();
+                        Assert.AreEqual(5 + 6, res);
+                    }
+                }
+
+            }
+            finally
+            {
+                host.ShutdownAsync();
+            }
+        }
+
+        [Test]
+        public void TooLargeServerMessage_ShouldThrowException()
+        {
+            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            definitionBuilder.RegisterService<ISimpleService>();
+
+            var (host, connection) = this.CreateServerAndConnection(definitionBuilder, options =>
+            {
+                options.SendMaxMessageSize = 10000;
+            });
+            host.Start();
+            try
+            {
+                using (var publishedInstanceScope = host.ServicePublisher.PublishSingleton<ISimpleService>(new TestSimpleServiceImpl()))
+                {
+                    var simpleService = connection.GetServiceSingleton<ISimpleService>();
+                    // TODO: Shouldn't be RpcFailureException.
+                    Assert.ThrowsAsync<RpcFailureException>(() => simpleService.GetArrayAsync(10000).DefaultTimeout());
+
+                    // Verify that service is still available.
+                    int res = simpleService.AddAsync(5, 6).Result;
+                    Assert.AreEqual(5 + 6, res);
+                }
+
+            }
+            finally
+            {
+                host.ShutdownAsync();
+            }
         }
 
         //[Test]

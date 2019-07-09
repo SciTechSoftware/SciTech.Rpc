@@ -9,8 +9,6 @@
 //
 #endregion
 
-using SciTech.Collections.Generic;
-using SciTech.Diagnostics;
 using SciTech.Rpc.Internal;
 using SciTech.Threading;
 using System;
@@ -116,6 +114,7 @@ namespace SciTech.Rpc.Client.Internal
                 || (this.implementedServices != null && this.implementedServices.IsSupersetOf(otherServices));
         }
     }
+
 #pragma warning restore CA1062 // Validate arguments of public methods
 #pragma warning restore CA1051 // Do not declare visible instance fields
 
@@ -124,6 +123,27 @@ namespace SciTech.Rpc.Client.Internal
 #pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcProxyBase<TMethodDef> : RpcProxyBase, IRpcService where TMethodDef : RpcProxyMethod
     {
+        protected internal sealed class EventData<TEventHandler> : EventData where TEventHandler : class, Delegate
+        {
+            internal TEventHandler? eventHandler;
+
+            public EventData(int eventMethodIndex) : base(eventMethodIndex)
+            {
+
+            }
+
+            internal override bool Clear()
+            {
+                if (this.eventHandler != null)
+                {
+                    this.eventHandler = null;
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
         internal const string AddEventHandlerAsyncName = nameof(AddEventHandlerAsync);
 
         internal const string CallUnaryMethodAsyncName = nameof(CallUnaryMethodAsync);
@@ -357,7 +377,7 @@ namespace SciTech.Rpc.Client.Internal
         protected async Task<TReturnType> CallUnaryMethodAsync<TRequest, TResponseType, TReturnType>(
             TMethodDef methodDef,
             TRequest request,
-            Func<IRpcService, object?, object?> responseConverter, 
+            Func<IRpcService, object?, object?> responseConverter,
             CancellationToken ct)
             where TRequest : class
         {
@@ -394,7 +414,7 @@ namespace SciTech.Rpc.Client.Internal
             where TRequest : class
             where TResponse : class;
 
-        protected abstract Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken ct )
+        protected abstract Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken ct)
             where TRequest : class
             where TResponse : class;
 
@@ -418,7 +438,7 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken ct )
+        protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken ct)
             where TRequest : class
         {
             RpcResponse response;
@@ -446,8 +466,6 @@ namespace SciTech.Rpc.Client.Internal
         {
             return exception is OperationCanceledException;
         }
-
-        protected abstract bool IsCommunicationException(Exception exception);
 
         protected async Task RemoveEventHandlerAsync<TEventHandler, TEventArgs>(TEventHandler value, int eventMethodIndex)
             where TEventArgs : class
@@ -484,7 +502,8 @@ namespace SciTech.Rpc.Client.Internal
                 {
                     // TODO: Log
                 }
-            } else
+            }
+            else
             {
                 return;
             }
@@ -516,7 +535,7 @@ namespace SciTech.Rpc.Client.Internal
             //    this.activeEvents = null;
             //}
 
-            if (eventsCopy != null )
+            if (eventsCopy != null)
             {
                 foreach (var eventData in eventsCopy)
                 {
@@ -691,19 +710,19 @@ namespace SciTech.Rpc.Client.Internal
                     // allow the client (us) to know that the event handler has been properly added 
                     // on the server side.
                     // The empty EventArgs is just ignored.
-//#if PLAT_ASYNC_ENUM
-//                    await responseStream.MoveNext().ContextFree();
-//#else
+                    //#if PLAT_ASYNC_ENUM
+                    //                    await responseStream.MoveNext().ContextFree();
+                    //#else
                     await responseStream.MoveNextAsync().ContextFree();
-//#endif
+                    //#endif
                     // Mark the listener as completed once we have received the initial EventArgs
                     eventData.eventListenerStartedTcs.SetResult(true);
 
-//#if PLAT_ASYNC_ENUM
-//                    while (await responseStream.MoveNext().ContextFree())
-//#else
+                    //#if PLAT_ASYNC_ENUM
+                    //                    while (await responseStream.MoveNext().ContextFree())
+                    //#else
                     while (await responseStream.MoveNextAsync().ContextFree())
-//#endif
+                    //#endif
                     {
                         TEventHandler? eventHandler = null;
                         lock (this.SyncRoot)
@@ -769,8 +788,7 @@ namespace SciTech.Rpc.Client.Internal
         {
             this.Dispose(true);
         }
-
-
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable
         protected internal abstract class EventData
         {
             internal readonly CancellationTokenSource cancellationSource = new CancellationTokenSource();
@@ -788,27 +806,8 @@ namespace SciTech.Rpc.Client.Internal
 
             internal abstract bool Clear();
         }
+#pragma warning restore CA1001 // Types that own disposable fields should be disposable
 
-        protected internal sealed class EventData<TEventHandler> : EventData where TEventHandler : class, Delegate
-        {
-            internal TEventHandler? eventHandler;
-
-            public EventData(int eventMethodIndex) : base(eventMethodIndex)
-            {
-
-            }
-
-            internal override bool Clear()
-            {
-                if( this.eventHandler != null )
-                {
-                    this.eventHandler = null;
-                    return true;
-                }
-
-                return false;
-            }
-        }
     }
 
 #pragma warning restore CA1031 // Do not catch general exception types

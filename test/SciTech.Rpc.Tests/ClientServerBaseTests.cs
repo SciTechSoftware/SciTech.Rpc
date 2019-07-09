@@ -34,7 +34,7 @@ namespace SciTech.Rpc.Tests
                     
                     var clientService = connection.GetServiceInstance<ISimpleServiceWithEvents>(objectId);
 
-                    ValueChangedEventArgs detailedArgs = await TestMixedEventHandlers(clientService);
+                    ValueChangedEventArgs detailedArgs = await TestMixedEventHandlers(clientService).DefaultTimeout();
 
                     Assert.IsFalse(serviceImpl.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl.HasValueChangedHandler);

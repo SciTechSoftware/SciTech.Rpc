@@ -46,7 +46,7 @@ namespace SciTech.Rpc
         {
             if (input != null)
             {
-                using (var writer = XmlDictionaryWriter.CreateBinaryWriter(stream))
+                using (var writer = XmlDictionaryWriter.CreateBinaryWriter(stream, null, null, false ))
                 {
                     var type = input.GetType();
                     var serializer = settings != null ? new DataContractSerializer(type, settings) : new DataContractSerializer(type);

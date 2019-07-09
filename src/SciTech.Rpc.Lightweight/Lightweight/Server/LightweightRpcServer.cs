@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;

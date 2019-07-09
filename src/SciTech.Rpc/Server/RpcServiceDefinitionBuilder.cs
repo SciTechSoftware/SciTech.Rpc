@@ -11,6 +11,7 @@
 
 using SciTech.Collections;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -38,7 +39,7 @@ namespace SciTech.Rpc.Server
 
         public RpcServiceDefinitionBuilder(RpcServiceOptions? options = null, IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null, IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
         {
-            this.Serializer = options?.Serializer;
+            this.Options = new ImmutableRpcServiceOptions(options);
 
             if (serviceRegistrations != null)
             {
@@ -72,6 +73,8 @@ namespace SciTech.Rpc.Server
                 }
             }
         }
+
+        public ImmutableRpcServiceOptions Options {get;}
 
         public event EventHandler<RpcServicesEventArgs> ServicesRegistered;
 
@@ -111,7 +114,7 @@ namespace SciTech.Rpc.Server
 
         public bool IsFrozen => this.isFrozen;
 
-        public IRpcSerializer? Serializer { get; }
+        public IRpcSerializer? Serializer => this.Options.Serializer;
 
         public void Freeze()
         {

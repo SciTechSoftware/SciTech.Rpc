@@ -13,6 +13,7 @@
 #endregion
 
 using SciTech.IO;
+using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;
 using System.IO;
@@ -24,6 +25,9 @@ namespace SciTech.Rpc.Lightweight.Internal
 {
     internal abstract class RpcPipeline : IDisposable
     {
+        private static readonly ILog Logger = LogProvider.For<RpcPipeline>();
+
+        /// <summary>
         private readonly SemaphoreSlim singleWriter = new SemaphoreSlim(1);
 
         private CountedBufferWriterStream? activeWriteStream;

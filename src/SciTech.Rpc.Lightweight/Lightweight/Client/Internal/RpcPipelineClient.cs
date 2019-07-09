@@ -17,6 +17,7 @@ using SciTech.Collections;
 using SciTech.IO;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -29,6 +30,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 {
     internal class RpcPipelineClient : RpcPipeline
     {
+        private static readonly ILog Logger = LogProvider.For<RpcPipelineClient>();
+
         private readonly Dictionary<int, IResponseHandler> awaitingResponses
             = new Dictionary<int, IResponseHandler>();
 

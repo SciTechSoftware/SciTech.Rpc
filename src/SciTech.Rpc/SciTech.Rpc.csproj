@@ -45,6 +45,10 @@ Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="LibLog" Version="5.0.6">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

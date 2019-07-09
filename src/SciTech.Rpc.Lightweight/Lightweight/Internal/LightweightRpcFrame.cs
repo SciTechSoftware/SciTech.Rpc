@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Buffers;
+using SciTech.Rpc.Lightweight.IO;
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -132,7 +133,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         public uint Timeout { get; }
 
         /// <summary>
-        /// Tries to read a RPC frame
+        /// Tries to read an RPC frame
         /// </summary>
         /// <param name="input"></param>
         /// <param name="maxFrameLength"></param>
@@ -212,20 +213,22 @@ namespace SciTech.Rpc.Lightweight.Internal
             return true;
         }
 
-        internal static void EndWrite(int payloadLength, in WriteState state)
+        internal static void EndWrite(int frameLength, in WriteState state)
         {
-            BinaryPrimitives.WriteInt32LittleEndian(state.FrameLengthSpan.Span, payloadLength + state.HeaderLength);
+            int payloadLength = frameLength - state.HeaderLength; 
+            BinaryPrimitives.WriteInt32LittleEndian(state.FrameLengthSpan.Span, frameLength);
             BinaryPrimitives.WriteInt32LittleEndian(state.PayloadLengthSpan.Span, payloadLength);
         }
 
-        internal WriteState BeginWrite(IBufferWriter<byte> writer)
+        internal WriteState BeginWrite(BufferWriterStream writer)
         {
             var memory = writer.GetMemory(MinimumHeaderLength);
-            BinaryPrimitives.WriteInt16LittleEndian(memory.Span, CurrentVersion);
-            BinaryPrimitives.WriteInt16LittleEndian(memory.Span.Slice(2), (short)this.FrameType);
+            var span = memory.Span;
+            BinaryPrimitives.WriteInt16LittleEndian(span, CurrentVersion);
+            BinaryPrimitives.WriteInt16LittleEndian(span.Slice(2), (short)this.FrameType);
 
             var frameLengthSpan = memory.Slice(4, 4);
-            BinaryPrimitives.WriteInt32LittleEndian(memory.Span.Slice(8), this.MessageNumber);
+            BinaryPrimitives.WriteInt32LittleEndian(span.Slice(8), this.MessageNumber);
             var payloadLengthSpan = memory.Slice(12, 4);
             writer.Advance(MinimumHeaderLength);
 

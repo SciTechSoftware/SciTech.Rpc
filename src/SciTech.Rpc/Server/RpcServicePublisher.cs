@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Server
         /// <summary>
         /// Publishes an RPC service instance with the help of a service provider factory.
         /// </summary>
-        /// <typeparam name="TService">The </typeparam>
+        /// <typeparam name="TService">The type of the published instance.</typeparam>
         /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>
         /// with the help of the provided <see cref="IServiceProvider"/>.</param>
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instannce. The scoped object will unpublish 
@@ -235,56 +235,6 @@ namespace SciTech.Rpc.Server
                 this.idToPublishedServices.TryGetValue(objectId, out var servicesList);
                 return servicesList ?? Array.Empty<string>();
             }
-        }
-
-        /// <summary>
-        /// TODO: This should be an explicit interface member, but due to changes 
-        /// between Visual Studio 2019 and the upcoming preview of Visual Studio 2019 16.1 this
-        /// doesn't work. Should be made internal somehow.
-        /// </summary>
-        /// <typeparam name="TService"></typeparam>
-        /// <param name="serviceProvider"></param>
-        /// <param name="id"></param>
-        /// <returns></returns>
-        public TService? GetServiceImpl<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
-        {
-            var key = new ServiceImplKey(id, typeof(TService));
-            lock (this.syncRoot)
-            {
-                if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
-                {
-                    return service;
-                }
-
-                if (id != RpcObjectId.Empty)
-                {
-                    if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
-                    {
-                        if (serviceProvider == null)
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)serviceFactory(serviceProvider, id);
-                    }
-                }
-                else
-                {
-                    if (this.typeToSingletonServiceFactory.TryGetValue(typeof(TService), out var singletonfactory))
-                    {
-                        if (serviceProvider == null)
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)singletonfactory(serviceProvider);
-                    }
-                }
-            }
-
-            return null;
         }
 
         /// <summary>
@@ -504,6 +454,47 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        TService? IRpcServiceActivator.GetServiceImpl<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
+        {
+            var key = new ServiceImplKey(id, typeof(TService));
+            lock (this.syncRoot)
+            {
+                if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
+                {
+                    return service;
+                }
+
+                if (id != RpcObjectId.Empty)
+                {
+                    if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
+                    {
+                        if (serviceProvider == null)
+                        {
+                            // TODO: At least log, maybe throw?
+                            return null;
+                        }
+
+                        return (TService)serviceFactory(serviceProvider, id);
+                    }
+                }
+                else
+                {
+                    if (this.typeToSingletonServiceFactory.TryGetValue(typeof(TService), out var singletonfactory))
+                    {
+                        if (serviceProvider == null)
+                        {
+                            // TODO: At least log, maybe throw?
+                            return null;
+                        }
+
+                        return (TService)singletonfactory(serviceProvider);
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private void InitServerId()
         {
             if (this.serverId == RpcServerId.Empty)
@@ -716,11 +707,11 @@ namespace SciTech.Rpc.Server
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
 
-            if ( serviceInstances == null )
+            if (serviceInstances == null)
             {
                 return null!;
             }
-            
+
             var publishedServices = new List<RpcObjectRef<TService>?>();
             foreach (var s in serviceInstances)
             {

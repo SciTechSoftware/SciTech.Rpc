@@ -16,10 +16,8 @@ namespace SciTech.Rpc.Server
 {
     /// <summary>
     /// Contains options for the server side implementation of RPC services.
-    /// TODO: Service options are still being designed. This class and the way options
-    /// are configured will be changed in future releases.
     /// </summary>
-    public class RpcServiceOptions
+    public class RpcServerOptions
     {
         private List<IRpcServerExceptionConverter>? exceptionConverters;
 
@@ -30,8 +28,6 @@ namespace SciTech.Rpc.Server
         /// when returned from a service implementation method.
         /// </summary>
         public bool? AllowAutoPublish { get; set; }
-
-        public TimeSpan? CallTimeout { get; set; }
 
         public List<IRpcServerExceptionConverter> ExceptionConverters
         {
@@ -59,6 +55,16 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        public bool IsEmpty
+        {
+            get => (this.exceptionConverters == null || this.exceptionConverters.Count == 0)
+                && (this.interceptors == null || this.interceptors.Count == 0)
+                && this.AllowAutoPublish == null
+                && this.Serializer == null
+                && this.ReceiveMaxMessageSize == null
+                && this.SendMaxMessageSize == null;
+        }
+
         /// <summary>
         /// Gets or sets the maximum message size in bytes that can be received by the server.
         /// </summary>
@@ -70,11 +76,14 @@ namespace SciTech.Rpc.Server
         public int? SendMaxMessageSize { get; set; }
 
         public IRpcSerializer? Serializer { get; set; }
-
-        public TimeSpan? StreamingCallTimeout { get; set; }
     }
 
-    public class RpcServiceOptions<T> : RpcServiceOptions
+    /// <summary>
+    /// Specialization of <see cref="RpcServerOptions"/> than can be used to configure
+    /// service specific server options.
+    /// </summary>
+    /// <typeparam name="T">Type of the service inteface.</typeparam>
+    public class RpcServiceOptions<T> : RpcServerOptions
     {
     }
 }

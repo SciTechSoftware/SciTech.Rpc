@@ -24,9 +24,11 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// The ASP.NET Core gRPC implementation of <see cref="RpcServerBase"/>. Will not be directly used by client code, instead it is 
     /// registered using <see cref="NetGrpcEndpointRouteBuilderExtensions.MapNetGrpcServices"/>.
     /// </summary>
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
     internal sealed class NetGrpcServer : RpcServerBase
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
-        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServiceOptions> options)
+        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServerOptions> options)
             : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value)
         {
         }
@@ -36,12 +38,13 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             //ServiceMethodProviderContext<NetGrpcServiceActivator>? context,
-            RpcServiceOptions? options)
+            RpcServerOptions? options)
             : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
         }
 
-        internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request, GrpcCore.ServerCallContext callContext)
+        internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request,
+            GrpcCore.ServerCallContext callContext)
         {
             return Task.FromResult(server.QueryServices(request.Id));
         }

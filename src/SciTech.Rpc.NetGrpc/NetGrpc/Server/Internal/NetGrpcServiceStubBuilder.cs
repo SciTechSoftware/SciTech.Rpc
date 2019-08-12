@@ -14,6 +14,7 @@ using Grpc.Core;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -23,15 +24,19 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.NetGrpc.Server.Internal
 {
-#pragma warning disable CA1812
     /// <summary>
     /// Builds a type implementing server side stubs for a ASP.NET Core gRPC service defined by an RpcService
     /// interface. The service interface must be tagged with the <see cref="RpcServiceAttribute"/> attribute.
     /// Note, this class will only generate an implementation for the declared members of the service, nothing
     /// is generated for inherited members.
     /// </summary>
-    internal class NetGrpcServiceStubBuilder<TService> : RpcServiceStubBuilder<TService, NetGrpcServiceStubBuilder<TService>.Binder> where TService : class
+#pragma warning disable CA1812
+    internal class NetGrpcServiceStubBuilder<TService>
+        : RpcServiceStubBuilder<TService, NetGrpcServiceStubBuilder<TService>.Binder> where TService : class
+#pragma warning restore CA1812
     {
+        private static readonly ILog Logger = LogProvider.For<NetGrpcServiceStubBuilder<TService>>();
+
         private readonly NetGrpcServer server;
 
         public NetGrpcServiceStubBuilder(NetGrpcServer server, IOptions<RpcServiceOptions<TService>> options) :
@@ -44,7 +49,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         //{
         //}
 
-        public NetGrpcServiceStubBuilder(NetGrpcServer server, RpcServiceInfo serviceInfo, RpcServiceOptions<TService> options) : base(serviceInfo, options)
+        public NetGrpcServiceStubBuilder(NetGrpcServer server, RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
+            : base(serviceInfo, options)
         {
             this.server = server;
         }
@@ -87,6 +93,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             var serializer = serviceStub.Serializer;
             UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse<TResponseReturn>> handler = (activator, request, context) =>
             {
+                context.CancellationToken.Register(this.CallCancelled);
                 return serviceStub.CallAsyncMethod(
                     request,
                     activator.ServiceProvider,
@@ -116,10 +123,20 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             Binder binder)
         {
             var serializer = serviceStub.Serializer;
-            UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse<TResponseReturn>> handler = (activator, request, context) =>
-             {
-                 return serviceStub.CallBlockingMethod(request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, responseConverter, faultHandler, serializer).AsTask();
-             };
+            UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse<TResponseReturn>> handler =
+                (activator, request, context) =>
+                {
+                    context.CancellationToken.Register(this.CallCancelled);
+
+                    return serviceStub.CallBlockingMethod(
+                        request,
+                        activator.ServiceProvider,
+                        new GrpcCallContext(context),
+                        serviceCaller,
+                        responseConverter,
+                        faultHandler,
+                        serializer).AsTask();
+                };
 
             var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(
                 MethodType.Unary,
@@ -139,6 +156,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             var serializer = serviceStub.Serializer;
             UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse> handler = (activator, request, context) =>
              {
+                 context.CancellationToken.Register(this.CallCancelled);
+
                  return serviceStub.CallVoidAsyncMethod(request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
              };
 
@@ -160,6 +179,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             var serializer = serviceStub.Serializer;
             UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse> handler = (activator, request, context) =>
              {
+                 context.CancellationToken.Register(this.CallCancelled);
+
                  return serviceStub.CallVoidBlockingMethod(request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
              };
 
@@ -171,8 +192,27 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddUnaryMethod(methodStub, handler);
         }
 
+        protected override ImmutableRpcServerOptions CreateStubOptions(IRpcServerImpl server)
+        {
+            var o = this.Options;
+            var registeredOptions = server.ServiceDefinitionsProvider.GetServiceOptions(typeof(TService));
+            if ((registeredOptions?.ReceiveMaxMessageSize != null && registeredOptions?.ReceiveMaxMessageSize != o?.ReceiveMaxMessageSize)
+                || (registeredOptions?.SendMaxMessageSize != null && registeredOptions?.SendMaxMessageSize != o?.SendMaxMessageSize))
+            {
+                Logger.Warn("Message settings in registered options do not match provided options. Registered settings will be ignored.");
+            }
+
+            return ImmutableRpcServerOptions.Combine(this.Options, registeredOptions);
+        }
+
+        private void CallCancelled()
+        {
+
+        }
+
         /// <summary>
-        /// Small helper class, mainly just used to shorten the name ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> a little.
+        /// Small helper class, mainly just used to shorten the name 
+        /// ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> a little.
         /// </summary>
         /// <typeparam name="TService"></typeparam>
         internal class Binder
@@ -184,7 +224,9 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 this.context = context ?? throw new ArgumentNullException(nameof(context));
             }
 
-            public void AddServerStreamingMethod<TRequest, TResponse>(Method<TRequest, TResponse> create, ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+            public void AddServerStreamingMethod<TRequest, TResponse>(
+                Method<TRequest, TResponse> create,
+                ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
                 where TRequest : class
                 where TResponse : class
             {
@@ -214,5 +256,4 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             }
         }
     }
-#pragma warning restore CA1812
 }

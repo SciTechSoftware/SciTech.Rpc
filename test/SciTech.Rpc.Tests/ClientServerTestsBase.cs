@@ -56,11 +56,12 @@ namespace SciTech.Rpc.Tests
         /// <param name="serviceDefinitionsBuilder"></param>
         /// <param name="proxyServicesProvider"></param>
         /// <returns></returns>
-        protected (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionBuilder serviceDefinitionsBuilder, Action<RpcServiceOptions> configOptions = null, IRpcProxyDefinitionsProvider proxyServicesProvider = null )
+        protected (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionBuilder serviceDefinitionsBuilder, Action<RpcServerOptions> configOptions = null, IRpcProxyDefinitionsProvider proxyServicesProvider = null )
         {
             var rpcServerId = RpcServerId.NewId();
 
-            var options = new RpcServiceOptions { Serializer = this.serializer };
+            var options = new RpcServerOptions { Serializer = this.serializer };
+            var clientOptions = new RpcClientOptions { Serializer = this.serializer };
             configOptions?.Invoke(options);
 
             switch (this.ConnectionType)
@@ -87,8 +88,9 @@ namespace SciTech.Rpc.Tests
                         var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
                         var connection = new TcpLightweightRpcConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
-                            proxyGenerator, options.Serializer,
-                            sslClientOptions );
+                            sslClientOptions, 
+                            clientOptions.AsImmutable(),
+                            proxyGenerator);
 
                         return (host, connection);
                     }
@@ -102,7 +104,7 @@ namespace SciTech.Rpc.Tests
 
                         var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
                         var connection = new DirectLightweightRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
-                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), proxyGenerator, options.Serializer);
+                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), proxyGenerator);
                         return (host, connection);
                     }
                 case RpcConnectionType.Grpc:
@@ -113,7 +115,7 @@ namespace SciTech.Rpc.Tests
                         var proxyGenerator = new GrpcProxyProvider(proxyServicesProvider);
                         var connection = new GrpcServerConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.GrpcSslCredentials, proxyGenerator, options.Serializer );
+                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyGenerator );
                         return (host, connection);
                     }
             }

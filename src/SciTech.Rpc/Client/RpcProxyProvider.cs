@@ -21,7 +21,6 @@ namespace SciTech.Rpc.Client
         {
         }
 
-
         protected internal abstract IRpcProxyGenerator ProxyGenerator { get; }
     }
 }

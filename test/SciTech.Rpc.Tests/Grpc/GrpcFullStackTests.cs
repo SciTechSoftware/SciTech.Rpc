@@ -22,11 +22,13 @@ namespace SciTech.Rpc.Grpc.Tests
             new object[] { new DataContractRpcSerializer(null) }
         };
 
-        private RpcServiceOptions options;
+        private RpcServerOptions options;
+        private RpcClientOptions clientOptions;
 
         public GrpcFullStackTests(IRpcSerializer serializer)
         {
-            this.options = new RpcServiceOptions { Serializer = serializer };
+            this.options = new RpcServerOptions { Serializer = serializer };
+            this.clientOptions = new RpcClientOptions { Serializer = serializer };
         }
 
         [Test]
@@ -282,7 +284,7 @@ namespace SciTech.Rpc.Grpc.Tests
 
         private GrpcServerConnection CreateGrpcConnection(GrpcProxyProvider proxyGenerator)
         {
-            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, proxyGenerator, this.options.Serializer);
+            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, this.clientOptions.AsImmutable(), proxyGenerator );
         }
     }
 }

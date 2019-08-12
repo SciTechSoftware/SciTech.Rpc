@@ -22,9 +22,9 @@ namespace SciTech.Rpc.Server
 
         IRpcServiceDefinitionBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter);
 
-        IRpcServiceDefinitionBuilder RegisterService<TService>(RpcServiceOptions? options = null);
+        IRpcServiceDefinitionBuilder RegisterService<TService>(RpcServerOptions? options = null);
 
-        IRpcServiceDefinitionBuilder RegisterService(Type serviceType, RpcServiceOptions? options = null);
+        IRpcServiceDefinitionBuilder RegisterService(Type serviceType, RpcServerOptions? options = null);
     }
 
     public interface IRpcServiceDefinitionsProvider
@@ -51,22 +51,17 @@ namespace SciTech.Rpc.Server
 
         bool IsFrozen { get; }
 
-        ImmutableRpcServiceOptions Options { get; }
+        ImmutableRpcServerOptions Options { get; }
 
         void Freeze();
 
         IImmutableList<Type> GetRegisteredServiceTypes();
 
+        RpcServerOptions? GetServiceOptions(Type serviceType);
+
         bool IsServiceRegistered(Type serviceType);
     }
 
-    /// <summary>
-    /// TODO: No longer used, should probably be removed.
-    /// </summary>
-    public interface IRpcServiceRegistrator
-    {
-        void RegisterServices(IRpcServiceDefinitionBuilder builder);
-    }
 
     public class RpcServicesEventArgs : EventArgs
     {

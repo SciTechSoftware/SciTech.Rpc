@@ -14,7 +14,6 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Threading;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipelines;
@@ -44,11 +43,10 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public TcpLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            LightweightProxyProvider proxyGenerator,
-            IRpcSerializer serializer,
             SslClientOptions? sslOptions = null,
-            IReadOnlyList<RpcClientCallInterceptor>? callInterceptors = null)
-            : base(connectionInfo, proxyGenerator, serializer, callInterceptors)
+            ImmutableRpcClientOptions? options = null,
+            LightweightProxyProvider? proxyProvider = null)
+            : base(connectionInfo, options, proxyProvider)
         {
             this.sslOptions = sslOptions;
         }
@@ -64,11 +62,9 @@ namespace SciTech.Rpc.Lightweight.Client
         public override Task ShutdownAsync()
         {
             TaskCompletionSource<RpcPipelineClient>? connectionTcs;
-            IDuplexPipe? connection;
             RpcPipelineClient? connectedClient;
             lock (this.syncRoot)
             {
-                connection = this.connection;
                 this.connection = null;
                 connectedClient = this.connectedClient;
                 this.connectedClient = null;
@@ -215,6 +211,7 @@ namespace SciTech.Rpc.Lightweight.Client
                 throw;
             }
         }
+
 #pragma warning restore CA1031 // Do not catch general exception types
 
         private static void SetFastLoopbackOption(Socket socket)
@@ -250,6 +247,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
             try { SetFastLoopbackOption(socket); } catch { }
         }
+
 #pragma warning restore CA1031 // Do not catch general exception types
 
         private EndPoint CreateNetEndPoint()

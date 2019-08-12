@@ -20,7 +20,9 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// Helper class that forwards the ServiceProvider for the ASP.NET Core handler to the 
     /// NetGrpc implementation.
     /// </summary>
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
     internal class NetGrpcServiceActivator<TService> where TService : class
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
         internal readonly IServiceProvider ServiceProvider;
 
@@ -39,11 +41,13 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// An <see cref="IConfigureOptions{TOptions}"/> implementation that is used to forward suitable RpcServiceOptions options to the
     /// GrpcServiceOptions associated with <see cref="NetGrpcServiceActivator{TService}"/>.
     /// </summary>
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
     internal class NetGrpcServiceActivatorConfig<TService> : IConfigureOptions<GrpcServiceOptions<NetGrpcServiceActivator<TService>>> where TService : class
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
-        private RpcServiceOptions rpcOptions;
+        private RpcServerOptions rpcOptions;
 
-        public NetGrpcServiceActivatorConfig(IOptions<RpcServiceOptions> options)
+        public NetGrpcServiceActivatorConfig(IOptions<RpcServiceOptions<TService>> options)
         {
             this.rpcOptions = options.Value;
         }

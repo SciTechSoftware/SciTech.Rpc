@@ -11,8 +11,10 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client.Internal;
+using SciTech.Rpc.Logging;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -20,65 +22,72 @@ namespace SciTech.Rpc.Grpc.Client
 {
     public class GrpcServerConnection : RpcServerConnection
     {
+        private static readonly ILog Logger = LogProvider.For<GrpcServerConnection>();
+
         private bool isSecure;
 
-        public GrpcServerConnection(RpcServerConnectionInfo connectionInfo,
-            GrpcProxyProvider? proxyProvider = null,
-            IRpcSerializer? serializer = null,
-            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null,
-            IReadOnlyList<RpcClientCallInterceptor>? callInterceptors = null)
+        public GrpcServerConnection(
+            RpcServerConnectionInfo connectionInfo,
+            ImmutableRpcClientOptions? options = null,
+            GrpcProxyProvider? proxyProvider = null,            
+            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(connectionInfo,
                   GrpcCore.ChannelCredentials.Insecure,
-                  proxyProvider, serializer,
-                  channelOptions,
-                  callInterceptors)
+                  options,                 
+                  proxyProvider,
+                  channelOptions)
         {
         }
 
-        public GrpcServerConnection(RpcServerConnectionInfo connectionInfo,
-            GrpcCore.ChannelCredentials credentials,
-            GrpcProxyProvider? proxyProvider = null,
-            IRpcSerializer? serializer = null,
-            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null,
-            IReadOnlyList<RpcClientCallInterceptor>? callInterceptors = null)
-            : base(connectionInfo, proxyProvider ?? GrpcProxyProvider.Default)
+        public GrpcServerConnection(
+            RpcServerConnectionInfo connectionInfo,
+            GrpcCore.ChannelCredentials credentials, 
+            ImmutableRpcClientOptions? options = null,
+            GrpcProxyProvider? proxyProvider = null,            
+            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
+            : base(connectionInfo, proxyProvider ?? GrpcProxyProvider.Default, options)
         {
             if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl)
                 && (parsedUrl.Scheme == GrpcConnectionProvider.GrpcScheme))
             {
                 GrpcCore.ChannelCredentials actualCredentials = credentials;
 
-                if (callInterceptors != null)
+                if (options != null)
                 {
-                    int nInterceptors = callInterceptors.Count;
-                    if (nInterceptors > 0)
+                    var callInterceptors = options.Interceptors;
+                    if (callInterceptors != null)
                     {
-                        GrpcCore.CallCredentials callCredentials;
-                        if (nInterceptors > 1)
+                        int nInterceptors = callInterceptors.Length;
+                        if (nInterceptors > 0)
                         {
-                            GrpcCore.CallCredentials[] allCallCredentials = new GrpcCore.CallCredentials[nInterceptors];
-                            for (int index = 0; index < nInterceptors; index++)
+                            GrpcCore.CallCredentials callCredentials;
+                            if (nInterceptors > 1)
                             {
-                                var callInterceptor = callInterceptors[index];
-                                allCallCredentials[index] = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
+                                GrpcCore.CallCredentials[] allCallCredentials = new GrpcCore.CallCredentials[nInterceptors];
+                                for (int index = 0; index < nInterceptors; index++)
+                                {
+                                    var callInterceptor = callInterceptors[index];
+                                    allCallCredentials[index] = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
+                                }
+
+                                callCredentials = GrpcCore.CallCredentials.Compose(allCallCredentials);
+                            }
+                            else
+                            {
+                                var callInterceptor = callInterceptors[0];
+                                callCredentials = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
                             }
 
-                            callCredentials = GrpcCore.CallCredentials.Compose(allCallCredentials);
+                            actualCredentials = GrpcCore.ChannelCredentials.Create(actualCredentials, callCredentials);
                         }
-                        else
-                        {
-                            var callInterceptor = callInterceptors[0];
-                            callCredentials = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
-                        }
-
-                        actualCredentials = GrpcCore.ChannelCredentials.Create(actualCredentials, callCredentials);
                     }
                 }
 
-                this.Channel = new GrpcCore.Channel(parsedUrl.Host, parsedUrl.Port, actualCredentials, channelOptions);
+                var allOptions = ExtractOptions(options, channelOptions);
+
+                this.Channel = new GrpcCore.Channel(parsedUrl.Host, parsedUrl.Port, actualCredentials, allOptions);
 
                 this.CallInvoker = new GrpcCore.DefaultCallInvoker(this.Channel);
-                this.Serializer = serializer ?? new ProtobufSerializer();
 
                 this.isSecure = credentials != null && credentials != GrpcCore.ChannelCredentials.Insecure;
             }
@@ -87,7 +96,7 @@ namespace SciTech.Rpc.Grpc.Client
                 throw new NotImplementedException($"GrpcServerConnection is only implemented for the '{nameof(GrpcConnectionProvider.GrpcScheme)}' scheme.");
             }
         }
-
+        
         public GrpcCore.Channel? Channel { get; private set; }
 
         public override bool IsConnected => this.Channel?.State == GrpcCore.ChannelState.Ready;
@@ -112,7 +121,7 @@ namespace SciTech.Rpc.Grpc.Client
 
         internal GrpcCore.CallInvoker? CallInvoker { get; private set; }
 
-        internal IRpcSerializer Serializer { get; }
+        protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufSerializer();
 
         public override Task ConnectAsync()
         {
@@ -141,6 +150,46 @@ namespace SciTech.Rpc.Grpc.Client
             {
                 return Task.CompletedTask;
             }
+        }
+
+        private static IEnumerable<GrpcCore.ChannelOption>? ExtractOptions(ImmutableRpcClientOptions? options, IEnumerable<GrpcCore.ChannelOption>? channelOptions)
+        {
+            if (options == null)
+            {
+                return channelOptions;
+            }
+
+            List<GrpcCore.ChannelOption> allChannelOptions = new List<GrpcCore.ChannelOption>();
+            if (channelOptions != null)
+            {
+                allChannelOptions.AddRange(channelOptions);
+            }
+
+            if (options?.SendMaxMessageSize != null)
+            {
+                if (allChannelOptions.Find(o => o.Name == GrpcCore.ChannelOptions.MaxSendMessageLength) == null)
+                {
+                    allChannelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxSendMessageLength, options.SendMaxMessageSize.Value));
+                }
+                else
+                {
+                    Logger.Warn($"MaxSendMessageLength is already specified by ChannelOptions, ignoring {nameof(options.SendMaxMessageSize)} in {nameof(RpcClientOptions)}.");
+                }
+            }
+
+            if (options?.ReceiveMaxMessageSize != null)
+            {
+                if (allChannelOptions.Find(o => o.Name == GrpcCore.ChannelOptions.MaxReceiveMessageLength) == null)
+                {
+                    allChannelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxReceiveMessageLength, options.ReceiveMaxMessageSize.Value));
+                }
+                else
+                {
+                    Logger.Warn($"MaxReceiveMessageLength is already specified by ChannelOptions, ignoring {nameof(options.ReceiveMaxMessageSize)} in {nameof(RpcClientOptions)}.");
+                }
+            }
+
+            return allChannelOptions;
         }
     }
 }

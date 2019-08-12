@@ -19,25 +19,19 @@ namespace SciTech.Rpc.Client
     {
         bool CanCreateConnection(RpcServerConnectionInfo connectionInfo);
 
-        IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, IReadOnlyList<RpcClientCallInterceptor> callInterceptors);
+        IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options);
     }
 
     public interface IRpcServerConnectionManager
     {
-        void AddCallInterceptor(RpcClientCallInterceptor callInterceptor);
-
         void AddKnownConnection(IRpcServerConnection connection);
-
-        IReadOnlyList<RpcClientCallInterceptor> GetCallInterceptors();
 
         TService GetServiceInstance<TService>(RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class;
 
         TService GetServiceSingleton<TService>(RpcServerConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class;
 
         IRpcServerConnection GetServerConnection(RpcServerConnectionInfo connectionInfo);
-
-        void RemoveCallInterceptor(RpcClientCallInterceptor callInterceptor);
-
+        
         bool RemoveKnownConnection(IRpcServerConnection connection);
     }
 

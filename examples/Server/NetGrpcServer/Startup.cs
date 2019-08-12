@@ -18,7 +18,7 @@ namespace NetGrpcServer
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddNetGrpc()
-                .AddServiceOptions<IMailBoxManagerService>(options=>
+                .AddServiceOptions<IMailBoxManagerService>(options =>
                 {
                     options.AllowAutoPublish = true;
                 });

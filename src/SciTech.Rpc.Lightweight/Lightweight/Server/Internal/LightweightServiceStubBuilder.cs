@@ -58,7 +58,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
         }
 
-        public LightweightServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options) : base(serviceInfo, options)
+        public LightweightServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options) 
+            : base(serviceInfo, options)
         {
 
         }

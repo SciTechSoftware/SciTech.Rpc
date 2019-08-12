@@ -25,12 +25,12 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private volatile RpcPipelineClient? connectedClient;
 
-        public DirectLightweightRpcConnection(RpcServerConnectionInfo connectionInfo,
+        public DirectLightweightRpcConnection(
+            RpcServerConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
-            LightweightProxyProvider proxyGenerator,
-            IRpcSerializer serializer,
-            IReadOnlyList<RpcClientCallInterceptor>? callInterceptors = null)
-            : base(connectionInfo, proxyGenerator, serializer, callInterceptors)
+            ImmutableRpcClientOptions? options, 
+            LightweightProxyProvider proxyGenerator)
+            : base(connectionInfo, options, proxyGenerator)
         {
             this.clientPipe = clientPipe;
 

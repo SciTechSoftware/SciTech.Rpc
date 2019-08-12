@@ -18,8 +18,8 @@ namespace GrpcGreeter
                     new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
                     new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)
                 });
-            
-            var connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
+
+            RpcServerConnectionInfo connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
 
             var greeter = connectionManager.GetServiceSingleton<IGreeterServiceClient>(connectionInfo);
 

@@ -40,7 +40,7 @@ namespace SciTech.Rpc.Server.Internal
 #pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcStub
     {
-        protected RpcStub(IRpcServerImpl server, RpcServiceOptions? options)
+        protected RpcStub(IRpcServerImpl server, ImmutableRpcServerOptions options)
         {
             this.Server = server;
             this.ServicePublisher = this.Server.ServicePublisher;
@@ -48,7 +48,7 @@ namespace SciTech.Rpc.Server.Internal
             this.AllowAutoPublish = options?.AllowAutoPublish ?? this.Server.AllowAutoPublish;
             this.Serializer = options?.Serializer ?? this.Server.Serializer;
 
-            if (options?.ExceptionConverters?.Count > 0)
+            if (options != null && options.ExceptionConverters.Length > 0)
             {
                 this.CustomFaultHandler = new RpcServerFaultHandler(this.Server.ExceptionConverters.Concat(options.ExceptionConverters));
             }
@@ -146,7 +146,7 @@ namespace SciTech.Rpc.Server.Internal
 
         private readonly IRpcServiceActivator serviceImplProvider;
 
-        public RpcStub(IRpcServerImpl server, RpcServiceOptions? options) : base(server, options)
+        public RpcStub(IRpcServerImpl server, ImmutableRpcServerOptions options) : base(server, options)
         {
             this.serviceImplProvider = server.ServiceImplProvider;
         }
@@ -556,7 +556,7 @@ namespace SciTech.Rpc.Server.Internal
                     {
                         // Using the methodStub fault handler as the faultHandler argument, since 
                         // this faultHandler is used to check whether the fault is declared for the specific operation.
-                        rpcError = this.TryConvertToFault(e, customConverters!, declaredFaultHandler, serializer);
+                        rpcError = TryConvertToFault(e, customConverters!, declaredFaultHandler, serializer);
                     }
                 }
 
@@ -565,7 +565,7 @@ namespace SciTech.Rpc.Server.Internal
                     // Not handled by a custom converter, so let's try the declared converters. 
                     if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
                     {
-                        rpcError = this.TryConvertToFault(e, declaredConverters!, declaredFaultHandler, serializer);
+                        rpcError = TryConvertToFault(e, declaredConverters!, declaredFaultHandler, serializer);
                     }
                 }
             }
@@ -600,7 +600,7 @@ namespace SciTech.Rpc.Server.Internal
             return rpcError;
         }
 
-        private RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
+        private static RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
         {
             RpcError? rpcError = null;
             foreach (var converter in converters)

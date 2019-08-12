@@ -24,14 +24,19 @@ namespace SciTech.Rpc.Client
     {
         private readonly RpcProxyProvider proxyProvider;
 
-        private readonly Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>> serviceInstances = new Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>>();
+        private readonly Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>> serviceInstances
+            = new Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>>();
 
         private readonly object syncRoot = new object();
 
-        protected RpcServerConnection(RpcServerConnectionInfo connectionInfo, RpcProxyProvider proxyProvider)
+        private volatile IRpcSerializer serializer;
+
+        protected RpcServerConnection(RpcServerConnectionInfo connectionInfo, RpcProxyProvider proxyProvider,
+            ImmutableRpcClientOptions? options)
         {
             this.ConnectionInfo = connectionInfo;
             this.proxyProvider = proxyProvider;
+            this.Options = options ?? ImmutableRpcClientOptions.Empty;
         }
 
         /// <summary>
@@ -47,6 +52,21 @@ namespace SciTech.Rpc.Client
 
         public abstract bool IsSigned { get; }
 
+        public ImmutableRpcClientOptions Options { get; }
+
+        protected internal IRpcSerializer Serializer
+        {
+            get
+            {
+                if (this.serializer == null)
+                {
+                    this.serializer = this.Options.Serializer ?? this.CreateDefaultSerializer();
+                }
+
+                return this.serializer;
+            }
+        }
+
         /// <summary>
         /// Establishes a connection with the configured RPC server. It is usually not necessary to call this method 
         /// explicitly, since a connection will be established on the first RPC operation.
@@ -54,7 +74,8 @@ namespace SciTech.Rpc.Client
         /// <returns></returns>
         public abstract Task ConnectAsync();
 
-        public TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class
+        public TService GetServiceInstance<TService>(RpcObjectId objectId,
+            IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class
         {
             if (objectId == RpcObjectId.Empty)
             {
@@ -76,6 +97,8 @@ namespace SciTech.Rpc.Client
         /// </summary>
         /// <returns></returns>
         public abstract Task ShutdownAsync();
+
+        protected abstract IRpcSerializer CreateDefaultSerializer();
 
         private TService GetServiceInstanceCore<TService>(RpcObjectId refObjectId, SynchronizationContext? syncContext) where TService : class
         {

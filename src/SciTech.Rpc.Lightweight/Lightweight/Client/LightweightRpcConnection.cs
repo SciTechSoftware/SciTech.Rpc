@@ -12,8 +12,6 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
@@ -22,23 +20,19 @@ namespace SciTech.Rpc.Lightweight.Client
     {
         protected LightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            LightweightProxyProvider proxyProvider,
-            IRpcSerializer serializer,
-            IReadOnlyList<RpcClientCallInterceptor>? callInterceptors)
-            : base(connectionInfo, proxyProvider)
+            ImmutableRpcClientOptions? options = null,
+            LightweightProxyProvider? proxyProvider = null)
+            : base(connectionInfo, proxyProvider ?? LightweightProxyProvider.Default, options)
         {
-            this.Serializer = serializer;
-            this.CallInterceptors = callInterceptors?.ToImmutableArray() ?? ImmutableArray<RpcClientCallInterceptor>.Empty;
         }
-
-        public ImmutableArray<RpcClientCallInterceptor> CallInterceptors { get; }
-
-        internal IRpcSerializer Serializer { get; }
 
         public override Task ConnectAsync() => this.ConnectClientAsync();
 
         internal abstract Task<RpcPipelineClient> ConnectClientAsync();
 
-
+        protected override IRpcSerializer CreateDefaultSerializer()
+        {
+            return new DataContractRpcSerializer();
+        }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Greeter;
+using Greeter;
 using Mailer;
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc;
@@ -39,7 +40,7 @@ namespace GrpcAndLightweightServer
             RegisterServiceDefinitions(definitionsBuilder);
             PublishServices(rpcPublisher);
 
-            var options = new RpcServiceOptions
+            var options = new RpcServerOptions
             {
                 Serializer = new ProtobufSerializer(),
             };
@@ -95,7 +96,6 @@ namespace GrpcAndLightweightServer
             // The same instance of MailboxManager will be used 
             // for all remote calls.
             services.AddSingleton<MailBoxManager>();
-
         }
 
 
@@ -111,7 +111,6 @@ namespace GrpcAndLightweightServer
 
         private static void PublishServices(RpcServicePublisher publisher)
         {
-
             // Publishing RPC services will automatically register the service interfaces,
             // unless the gRPC server has already been started.
             // If the server has already been started and an unregistered interface is published,

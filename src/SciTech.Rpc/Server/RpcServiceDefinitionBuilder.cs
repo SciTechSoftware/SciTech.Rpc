@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Server
 
         private readonly Dictionary<string, Type> registeredServices = new Dictionary<string, Type>();
 
-        private readonly HashSet<Type> registeredServiceTypes = new HashSet<Type>();
+        private readonly Dictionary<Type, RpcServerOptions?> registeredServiceTypes = new Dictionary<Type, RpcServerOptions>();
 
         private readonly object syncRoot = new object();
 
@@ -37,9 +37,12 @@ namespace SciTech.Rpc.Server
 
         private IImmutableList<Type>? registeredServicesList;
 
-        public RpcServiceDefinitionBuilder(RpcServiceOptions? options = null, IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null, IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
+        public RpcServiceDefinitionBuilder(
+            RpcServerOptions? options = null, 
+            IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null, 
+            IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
         {
-            this.Options = new ImmutableRpcServiceOptions(options);
+            this.Options = new ImmutableRpcServerOptions(options);
 
             if (serviceRegistrations != null)
             {
@@ -74,7 +77,7 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        public ImmutableRpcServiceOptions Options {get;}
+        public ImmutableRpcServerOptions Options {get;}
 
         public event EventHandler<RpcServicesEventArgs> ServicesRegistered;
 
@@ -138,7 +141,7 @@ namespace SciTech.Rpc.Server
         {
             lock (this.syncRoot)
             {
-                return this.registeredServiceTypes.Contains(serviceType);
+                return this.registeredServiceTypes.ContainsKey(serviceType);
             }
         }
 
@@ -177,12 +180,12 @@ namespace SciTech.Rpc.Server
             return this;
         }
 
-        public IRpcServiceDefinitionBuilder RegisterService<TService>(RpcServiceOptions? options = null)
+        public IRpcServiceDefinitionBuilder RegisterService<TService>(RpcServerOptions? options = null)
         {
             return this.RegisterService(typeof(TService), options);
         }
 
-        public IRpcServiceDefinitionBuilder RegisterService(Type serviceType, RpcServiceOptions? options = null)
+        public IRpcServiceDefinitionBuilder RegisterService(Type serviceType, RpcServerOptions? options = null)
         {
             if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
 
@@ -196,8 +199,10 @@ namespace SciTech.Rpc.Server
             {
                 foreach (var service in allServices)
                 {
-                    if (this.registeredServiceTypes.Add(service.Type))
+                    if (!this.registeredServiceTypes.ContainsKey(service.Type))
                     {
+                        this.registeredServiceTypes.Add(service.Type, options);
+                        
                         if (this.registeredServices.TryGetValue(service.FullName, out var existingServiceType))
                         {
                             if (!service.Type.Equals(existingServiceType))
@@ -216,7 +221,12 @@ namespace SciTech.Rpc.Server
                     }
                     else
                     {
-                        // Type already registered
+                        // Type already registered, but let's update the service options if provided.
+                        if( options != null )
+                        {
+                            this.registeredServiceTypes[service.Type] = options;
+                        }
+                                                
                         continue;
                     }
                 }
@@ -246,6 +256,17 @@ namespace SciTech.Rpc.Server
             if (this.isFrozen)
             {
                 throw new InvalidOperationException("Cannot register services to a frozen service registrator.");
+            }
+        }
+
+        public RpcServerOptions? GetServiceOptions(Type serviceType)
+        {
+            if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
+
+            lock ( this.syncRoot )
+            {
+                this.registeredServiceTypes.TryGetValue(serviceType, out var options);
+                return options;
             }
         }
     }

@@ -555,7 +555,7 @@ namespace SciTech.Rpc.Internal
             return GetAllServices(serviceType, RpcServiceDefinitionSide.Both, ignoreUnknownInterfaces);
         }
 
-        internal static List<RpcServiceInfo> GetAllServices(Type serviceType, RpcServiceDefinitionSide serviceDefinitionType, bool ignoreUnknownInterfaces)
+        public static List<RpcServiceInfo> GetAllServices(Type serviceType, RpcServiceDefinitionSide serviceDefinitionType, bool ignoreUnknownInterfaces)
         {
             var allServices = new List<RpcServiceInfo>();
             var declaredServiceInfo = GetServiceInfoFromType(serviceType, !ignoreUnknownInterfaces);

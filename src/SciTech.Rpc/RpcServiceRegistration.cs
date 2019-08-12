@@ -18,21 +18,25 @@ namespace SciTech.Rpc
 {
     public interface IRpcServiceRegistration
     {
+        public RpcServerOptions? ServerOptions { get; }
+
         /// <summary>
         /// Gets a collection of interface types that implement RPC services.
         /// </summary>
         IEnumerable<RegisteredServiceType> GetServiceTypes(RpcServiceDefinitionSide definitionType);
     }
 
+#pragma warning disable CA1815 // Override equals and operator equals on value types
     public struct RegisteredServiceType
+#pragma warning restore CA1815 // Override equals and operator equals on value types
     {
-        internal RegisteredServiceType(Type serviceType, RpcServiceOptions? serverOptions)
+        internal RegisteredServiceType(Type serviceType, RpcServerOptions? serverOptions)
         {
             this.ServiceType = serviceType;
             this.ServerOptions = serverOptions;
         }
 
-        public RpcServiceOptions? ServerOptions { get; }
+        public RpcServerOptions? ServerOptions { get; }
 
         public Type ServiceType { get; }
     }
@@ -57,18 +61,18 @@ namespace SciTech.Rpc
 
     public class RpcServiceRegistration : IRpcServiceRegistration
     {
-        private readonly RpcServiceOptions? serverOptions;
-
         public RpcServiceRegistration(Type serviceType)
         {
             this.ServiceType = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
         }
 
-        public RpcServiceRegistration(Type serviceType, RpcServiceOptions? serverOptions)
+        public RpcServiceRegistration(Type serviceType, RpcServerOptions? serverOptions)
         {
             this.ServiceType = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
-            this.serverOptions = serverOptions;
+            this.ServerOptions = serverOptions;
         }
+
+        public RpcServerOptions? ServerOptions { get; }
 
         public Type ServiceType { get; }
 
@@ -80,20 +84,20 @@ namespace SciTech.Rpc
                 || rpcServiceAttribute.ServiceDefinitionSide == RpcServiceDefinitionSide.Both
                 || definitionType == rpcServiceAttribute.ServiceDefinitionSide))
             {
-                yield return new RegisteredServiceType(this.ServiceType, this.serverOptions);
+                yield return new RegisteredServiceType(this.ServiceType, this.ServerOptions);
             }
         }
     }
 
     public class RpcServicesAssemblyRegistration : IRpcServiceRegistration
     {
-        private readonly RpcServiceOptions? serverOptions;
-
-        public RpcServicesAssemblyRegistration(Assembly servicesAssembly, RpcServiceOptions? serverOptions = null)
+        public RpcServicesAssemblyRegistration(Assembly servicesAssembly, RpcServerOptions? serverOptions = null)
         {
             this.ServicesAssembly = servicesAssembly;
-            this.serverOptions = serverOptions;
+            this.ServerOptions = serverOptions;
         }
+
+        public RpcServerOptions? ServerOptions { get; }
 
         public Assembly ServicesAssembly { get; }
 
@@ -109,7 +113,7 @@ namespace SciTech.Rpc
                         || rpcServiceAttribute.ServiceDefinitionSide == RpcServiceDefinitionSide.Both
                         || definitionType == rpcServiceAttribute.ServiceDefinitionSide))
                     {
-                        yield return new RegisteredServiceType(type, this.serverOptions);
+                        yield return new RegisteredServiceType(type, this.ServerOptions);
                     }
                 }
             }

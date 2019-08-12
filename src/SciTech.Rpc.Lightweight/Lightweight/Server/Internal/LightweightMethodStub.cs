@@ -157,7 +157,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             return this.HandleStreamResponse(responseTask, responseWriter);
         }
 
-#pragma warning disable CA1031 // Do not catch general exception types
         private ValueTask HandleResponse(in LightweightRpcFrame frame, RpcPipeline pipeline, ValueTask<TResponse> responseTask)
         {
             // Try to return response from synchronous methods directly.
@@ -177,7 +176,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         {
                             this.Serializer.ToStream(responseStream, response);
                         }
-                        catch (Exception ex)
+                        catch
                         {
                             pipeline.AbortWrite();
                             throw;
@@ -239,8 +238,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 return AwaitAndWriteResponse(frame.MessageNumber, frame.RpcOperation);
             }
         }
-
-#pragma warning restore CA1031 // Do not catch general exception types
 
         private async ValueTask HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TResponse> responseWriter)
         {

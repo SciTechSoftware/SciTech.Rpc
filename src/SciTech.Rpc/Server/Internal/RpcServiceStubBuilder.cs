@@ -37,14 +37,10 @@ namespace SciTech.Rpc.Server.Internal
 
         private RpcStub<TService>? serviceStub;
 
-        protected RpcServiceStubBuilder(RpcServiceOptions<TService>? options) :
-            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options)
-        {
-        }
-
         protected RpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
         {
             this.ServiceInfo = serviceInfo;
+            
             this.Options = options;
 
             var faultAttributes = serviceInfo.Type.GetCustomAttributes(typeof(RpcFaultAttribute));
@@ -55,6 +51,14 @@ namespace SciTech.Rpc.Server.Internal
 
         protected RpcServiceInfo ServiceInfo { get; }
 
+        
+        protected virtual ImmutableRpcServerOptions CreateStubOptions( IRpcServerImpl server )
+        {
+            var registeredOptions = server.ServiceDefinitionsProvider.GetServiceOptions(typeof(TService));
+
+            return ImmutableRpcServerOptions.Combine(this.Options, registeredOptions);
+        }
+        
         /// <summary>
         /// Generates the RPC method definitions and stub handlers and adds them to the provided methodBinder.
         /// </summary>
@@ -531,7 +535,10 @@ namespace SciTech.Rpc.Server.Internal
 
         private RpcStub<TService> CreateServiceStub(IRpcServerImpl server)
         {
-            return new RpcStub<TService>(server, this.Options);
+            var registeredOptions = server.ServiceDefinitionsProvider.GetServiceOptions(typeof(TService));
+
+            var options = this.CreateStubOptions(server);
+            return new RpcStub<TService>(server, options);
         }
 
         private Func<TReturn, TResponseReturn>? GetResponseCreator<TReturn, TResponseReturn>(RpcOperationInfo opInfo)

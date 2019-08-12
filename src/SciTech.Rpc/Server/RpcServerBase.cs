@@ -21,7 +21,7 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerBase : IRpcServerImpl
     {
-        protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServiceOptions? options) :
+        protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServerOptions? options) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,
@@ -30,7 +30,7 @@ namespace SciTech.Rpc.Server
         }
         //private HashSet<string> registeredServices;
 
-        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, RpcServiceOptions? options) :
+        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, RpcServerOptions? options) :
             this(new RpcServicePublisher(definitionsProvider, serverId), options)
         {
         }
@@ -41,12 +41,13 @@ namespace SciTech.Rpc.Server
         /// <param name="servicePublisher"></param>
         /// <param name="serviceImplProvider"></param>
         /// <param name="definitionsProvider"></param>
-        protected RpcServerBase(IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider, IRpcServiceDefinitionsProvider definitionsProvider, RpcServiceOptions? options)
+        protected RpcServerBase(
+            IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
+            IRpcServiceDefinitionsProvider definitionsProvider, RpcServerOptions? options)
         {
             this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
             this.ServiceImplProvider = serviceImplProvider ?? throw new ArgumentNullException(nameof(serviceImplProvider));
             this.ServiceDefinitionsProvider = definitionsProvider ?? throw new ArgumentNullException(nameof(definitionsProvider));
-
 
             this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
             this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;

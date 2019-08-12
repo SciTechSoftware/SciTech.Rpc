@@ -11,27 +11,30 @@ namespace SciTech.Rpc.Grpc.Client
     {
         public const string GrpcScheme = "grpc";
 
-        private readonly GrpcProxyProvider proxyProvider;
-
-        private readonly IRpcSerializer serializer;
+        private readonly IImmutableList<GrpcCore.ChannelOption>? channelOptions;
 
         private readonly GrpcCore.ChannelCredentials credentials;
 
-        IImmutableList<GrpcCore.ChannelOption>? channelOptions;
+        private readonly RpcClientOptions? options;
 
-        public GrpcConnectionProvider(GrpcProxyProvider? proxyGenerator = null, IRpcSerializer? serializer = null) 
-            : this( GrpcCore.ChannelCredentials.Insecure, null, proxyGenerator, serializer )
+        private readonly GrpcProxyProvider proxyProvider;
+
+        public GrpcConnectionProvider(RpcClientOptions? options = null, GrpcProxyProvider? proxyProvider = null)
+            : this(GrpcCore.ChannelCredentials.Insecure, options, proxyProvider)
         {
         }
 
-        public GrpcConnectionProvider(GrpcCore.ChannelCredentials credentials, IEnumerable<GrpcCore.ChannelOption>? channelOptions=null,
-            GrpcProxyProvider? proxyGenerator = null, IRpcSerializer? serializer = null)
+        public GrpcConnectionProvider(
+            GrpcCore.ChannelCredentials credentials,
+            RpcClientOptions? options = null,
+            GrpcProxyProvider? proxyProvider = null,
+            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
         {
             this.credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
+            this.options = options;
             this.channelOptions = channelOptions?.AsImmutableArrayList();
 
-            this.proxyProvider = proxyGenerator ?? new GrpcProxyProvider();
-            this.serializer = serializer ?? new ProtobufSerializer();
+            this.proxyProvider = proxyProvider ?? new GrpcProxyProvider();
         }
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
@@ -47,16 +50,15 @@ namespace SciTech.Rpc.Grpc.Client
             return false;
         }
 
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, IReadOnlyList<RpcClientCallInterceptor> callInterceptors)
+        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options)
         {
             if (connectionInfo != null && Uri.TryCreate(connectionInfo.HostUrl, UriKind.Absolute, out var parsedUrl))
             {
                 if (parsedUrl.Scheme == GrpcScheme)
                 {
-                    return new GrpcServerConnection(connectionInfo, this.credentials, this.proxyProvider, this.serializer, this.channelOptions, callInterceptors);
+                    return new GrpcServerConnection(connectionInfo, this.credentials, options, this.proxyProvider, this.channelOptions);
                 }
             }
-
 
             throw new ArgumentException("Unsupported connection info. Use CanCreateConnection to check whether a connection can be created.");
         }

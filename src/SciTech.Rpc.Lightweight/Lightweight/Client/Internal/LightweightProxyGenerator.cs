@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     var args = new LightweightProxyArgs
                     (
                         objectId: objectId,
-                        callInterceptors: lightweightConnection.CallInterceptors,
+                        callInterceptors: lightweightConnection.Options.Interceptors,
                         connection: lightweightConnection,
                         serializer: lightweightConnection.Serializer,
                         implementedServices: implementedServices,

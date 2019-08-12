@@ -21,7 +21,7 @@ namespace SciTech.Rpc.Client
 {
     public class RpcServerConnectionManager : IRpcServerConnectionManager
     {
-        private readonly List<RpcClientCallInterceptor> callInterceptors = new List<RpcClientCallInterceptor>();
+        private readonly ImmutableRpcClientOptions? options;
 
         private readonly Dictionary<RpcServerId, IRpcServerConnection> idToKnownConnection
             = new Dictionary<RpcServerId, IRpcServerConnection>();
@@ -46,18 +46,13 @@ namespace SciTech.Rpc.Client
         //{           
         //}
 
-        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders)
+        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, 
+            RpcClientOptions? options=null)
         {
             this.connectionProviders = connectionProviders.ToImmutableArray();
+            this.options = new ImmutableRpcClientOptions(options);
         }
 
-        public void AddCallInterceptor(RpcClientCallInterceptor callInterceptor)
-        {
-            lock (this.syncRoot)
-            {
-                this.callInterceptors.Add(callInterceptor);
-            }
-        }
 
         public void AddKnownConnection(IRpcServerConnection connection)
         {
@@ -95,13 +90,6 @@ namespace SciTech.Rpc.Client
             }
         }
 
-        public IReadOnlyList<RpcClientCallInterceptor> GetCallInterceptors()
-        {
-            lock (this.syncRoot)
-            {
-                return this.callInterceptors.ToArray();
-            }
-        }
 
         public TService GetServiceInstance<TService>(RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class
         {
@@ -140,7 +128,7 @@ namespace SciTech.Rpc.Client
                 }
             }
 
-            var newConnection = this.CreateServerConnection(connectionInfo, this.callInterceptors);
+            var newConnection = this.CreateServerConnection(connectionInfo, this.options);
             lock (this.syncRoot)
             {
                 IRpcServerConnection? existingConnection = this.GetExistingConnection(connectionInfo);
@@ -167,14 +155,6 @@ namespace SciTech.Rpc.Client
                 }
 
                 return newConnection;
-            }
-        }
-
-        public void RemoveCallInterceptor(RpcClientCallInterceptor callInterceptor)
-        {
-            lock (this.syncRoot)
-            {
-                this.callInterceptors.Remove(callInterceptor);
             }
         }
 
@@ -242,13 +222,13 @@ namespace SciTech.Rpc.Client
             await Task.WhenAll(shutdownTasks).ContextFree();
         }
 
-        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo, IReadOnlyList<RpcClientCallInterceptor> callInterceptors)
+        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo, ImmutableRpcClientOptions options)
         {
             foreach (var connectionProvider in this.connectionProviders)
             {
                 if (connectionProvider.CanCreateConnection(serverConnectionInfo))
                 {
-                    return connectionProvider.CreateConnection(serverConnectionInfo, callInterceptors);
+                    return connectionProvider.CreateConnection(serverConnectionInfo, options);
                 }
             }
 

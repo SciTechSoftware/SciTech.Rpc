@@ -45,7 +45,9 @@ namespace SciTech.Rpc.NetGrpc.Server
         private static readonly MethodInfo MapGrpcServiceMethod =
             typeof(GrpcEndpointRouteBuilderExtensions).GetMethod(
                 nameof(GrpcEndpointRouteBuilderExtensions.MapGrpcService),
-                BindingFlags.Static | BindingFlags.Public);
+                BindingFlags.Static | BindingFlags.Public) 
+                ?? throw new NotImplementedException(
+                $"{nameof(GrpcEndpointRouteBuilderExtensions.MapGrpcService)} not implemented as expected on {nameof(GrpcEndpointRouteBuilderExtensions)}");
 
         /// <summary>
         /// Maps incoming requests to registered SciTech.Rpc gRPC services.
@@ -90,7 +92,7 @@ namespace SciTech.Rpc.NetGrpc.Server
             var activatorType = typeof(NetGrpcServiceActivator<>).MakeGenericType(serviceType);
             var typedMapGrpcServiceMethod = MapGrpcServiceMethod.MakeGenericMethod(activatorType);
 
-            var conventionBuilder = (IEndpointConventionBuilder)typedMapGrpcServiceMethod.Invoke(null, new object[] { builder });
+            var conventionBuilder = (IEndpointConventionBuilder)typedMapGrpcServiceMethod.Invoke(null, new object[] { builder })!;
             conventionBuilders.Add(conventionBuilder);
         }
     }

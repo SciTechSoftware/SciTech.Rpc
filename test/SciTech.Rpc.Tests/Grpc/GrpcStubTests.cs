@@ -195,7 +195,7 @@ namespace SciTech.Rpc.Grpc.Tests
             var objectId = RpcObjectId.NewId();
             var addResponseTask = addHandler.Invoke(new RpcObjectRequest<int, int>(objectId, 5, 6), callContext);
 
-            var response = await addResponseTask;
+            var response = await addResponseTask.DefaultTimeout();
             Assert.AreEqual(11, response.Result);
         }
 
@@ -279,16 +279,18 @@ namespace SciTech.Rpc.Grpc.Tests
 
         private static void CreateSimpleServiceStub<TService>(TService serviceImpl, IGrpcMethodBinder methodBinder) where TService : class
         {
-            var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufSerializer() });
+            var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufSerializer() } );
 
             var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
             var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
+            serviceDefinitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
+            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
+
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>(MockBehavior.Strict);
             serviceImplProviderMock.Setup(p => p.GetServiceImpl<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(serviceImpl);
 
-            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProviderMock.Object);

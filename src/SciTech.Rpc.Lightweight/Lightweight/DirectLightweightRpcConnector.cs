@@ -20,34 +20,29 @@ namespace SciTech.Rpc.Lightweight
 {
     public class DirectLightweightRpcConnector
     {
-        public DirectLightweightRpcConnector(IRpcSerializer? serializer = null, LightweightProxyProvider? proxyProvider = null)
-            : this(RpcServerId.Empty, serializer, proxyProvider)
+        public DirectLightweightRpcConnector(ImmutableRpcClientOptions? options=null, LightweightProxyProvider? proxyProvider = null)
+            : this(RpcServerId.Empty, options, proxyProvider)
         {
         }
 
-        public DirectLightweightRpcConnector(RpcServerId serverId, IRpcSerializer? serializer = null,
-            LightweightProxyProvider? proxyProvider = null,
-            IReadOnlyList<RpcClientCallInterceptor>? callInterceptors = null)
+        public DirectLightweightRpcConnector(RpcServerId serverId, ImmutableRpcClientOptions? options = null,
+            LightweightProxyProvider? proxyProvider = null)
         {
             var requestPipe = new Pipe();
             var responsePipe = new Pipe();
 
-            this.Serializer = serializer ?? new DataContractRpcSerializer();
             this.EndPoint = new DirectLightweightRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
 
             this.Connection = new DirectLightweightRpcConnection(
                 new RpcServerConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId),
                 new DuplexPipe(responsePipe.Reader, requestPipe.Writer),
-                proxyProvider ?? LightweightProxyProvider.Default,
-                this.Serializer,
-                callInterceptors);
+                options,
+                proxyProvider ?? LightweightProxyProvider.Default);
         }
 
         public LightweightRpcConnection Connection { get; }
 
         public DirectLightweightRpcEndPoint EndPoint { get; }
-
-        public IRpcSerializer Serializer { get; }
 
         private sealed class DuplexPipe : IDuplexPipe
         {

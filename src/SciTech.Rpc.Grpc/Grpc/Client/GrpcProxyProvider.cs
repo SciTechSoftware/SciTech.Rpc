@@ -18,6 +18,6 @@ namespace SciTech.Rpc.Grpc.Client
             this.ProxyGenerator = new GrpcProxyGenerator(proxyServicesProvider);
         }
 
-        protected override IRpcProxyGenerator ProxyGenerator { get; }
+        protected internal override IRpcProxyGenerator ProxyGenerator { get; }
     }
 }

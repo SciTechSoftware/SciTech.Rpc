@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Lightweight.Server
     {
         private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(LightweightRpcServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
 
-        private readonly ConcurrentDictionary<Client, Client> clients = new ConcurrentDictionary<Client, Client>();
+        private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients = new ConcurrentDictionary<ClientPipeline, ClientPipeline>();
 
         private readonly Dictionary<string, LightweightMethodStub> methodDefinitions = new Dictionary<string, LightweightMethodStub>();
 
@@ -41,7 +41,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
 
-        public LightweightRpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServiceOptions options)
+        public LightweightRpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServerOptions options)
             : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options)
         {
         }
@@ -50,14 +50,14 @@ namespace SciTech.Rpc.Lightweight.Server
         /// 
         /// </summary>
         /// <param name="servicePublisher"></param>
-        public LightweightRpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServiceOptions options)
+        public LightweightRpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServerOptions options)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
                   servicePublisher.DefinitionsProvider, serviceProvider, options)
         {
         }
 
-        public LightweightRpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServiceOptions options)
+        public LightweightRpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServerOptions options)
             : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
         {
         }
@@ -65,10 +65,10 @@ namespace SciTech.Rpc.Lightweight.Server
         /// <summary>
         /// Only intended for testing.
         /// </summary>
-        public LightweightRpcServer(
+        internal LightweightRpcServer(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider,
-            RpcServiceOptions options)
+            RpcServerOptions options)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
@@ -163,7 +163,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected Task RunClientAsync(IDuplexPipe pipe, CancellationToken cancellationToken = default)
         {
-            var client = new Client(pipe, this, this.MaxRequestSize, this.MaxResponseSize);
+            var client = new ClientPipeline(pipe, this, this.MaxRequestSize, this.MaxResponseSize);
 
             // TODO: Add to clients list.
             return client.RunAsync(cancellationToken);
@@ -195,7 +195,7 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        private void AddClient(Client client)
+        private void AddClient(ClientPipeline client)
         {
             if (this.IsDisposed)
             {
@@ -225,6 +225,6 @@ namespace SciTech.Rpc.Lightweight.Server
             return new LightweightServiceStubBuilder<TService>(options?.Value);
         }
 
-        private void RemoveClient(Client client) => this.clients.TryRemove(client, out _);
+        private void RemoveClient(ClientPipeline client) => this.clients.TryRemove(client, out _);
     }
 }

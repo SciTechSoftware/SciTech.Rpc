@@ -36,12 +36,12 @@ namespace SciTech.Rpc.Grpc.Server
 
         private GrpcCore.Server? grpcServer;
 
-        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
             : this(RpcServerId.Empty, definitionsProvider, serviceProvider, options)
         {
         }
 
-        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
                   servicePublisher.DefinitionsProvider,
@@ -49,7 +49,7 @@ namespace SciTech.Rpc.Grpc.Server
         {
         }
 
-        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
             : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
         {
         }
@@ -66,7 +66,7 @@ namespace SciTech.Rpc.Grpc.Server
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             IServiceProvider? serviceProvider,
-            RpcServiceOptions? options = null)
+            RpcServerOptions? options = null)
             : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
@@ -202,6 +202,7 @@ namespace SciTech.Rpc.Grpc.Server
         private IGrpcServiceStubBuilder CreateServiceStubBuilder<TService>() where TService : class
         {
             IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
+            
             return new GrpcServiceStubBuilder<TService>(options?.Value);
         }
     }

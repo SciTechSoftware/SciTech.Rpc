@@ -1,8 +1,5 @@
 ﻿using SciTech.Rpc.Client;
 using System;
-using System.Collections.Generic;
-using System.Net.Security;
-using System.Text;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
@@ -10,22 +7,23 @@ namespace SciTech.Rpc.Lightweight.Client
     {
         public const string LightweightTcpScheme = "lightweight.tcp";
 
-        private readonly LightweightProxyProvider proxyProvider;
+        private readonly ImmutableRpcClientOptions? options;
 
-        private readonly IRpcSerializer serializer;
+        private readonly LightweightProxyProvider proxyProvider;
 
         private readonly SslClientOptions? sslOptions;
 
-        public LightweightConnectionProvider(LightweightProxyProvider? proxyProvider = null, IRpcSerializer? serializer = null)
+        public LightweightConnectionProvider(ImmutableRpcClientOptions? options = null, LightweightProxyProvider? proxyProvider = null)
         {
-            this.proxyProvider = proxyProvider ?? new LightweightProxyProvider();
-            this.serializer = serializer ?? new ProtobufSerializer();
+            this.proxyProvider = proxyProvider ?? LightweightProxyProvider.Default;
+            this.options = options;
+
         }
-        public LightweightConnectionProvider(SslClientOptions sslOptions, LightweightProxyProvider? proxyProvider = null, IRpcSerializer? serializer = null)
+
+        public LightweightConnectionProvider(SslClientOptions sslOptions, ImmutableRpcClientOptions? options = null, LightweightProxyProvider ? proxyProvider = null)
         {
             this.sslOptions = sslOptions;
-            this.proxyProvider = proxyProvider ?? new LightweightProxyProvider();
-            this.serializer = serializer ?? new ProtobufSerializer();
+            this.proxyProvider = proxyProvider ?? LightweightProxyProvider.Default;
         }
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
@@ -41,13 +39,15 @@ namespace SciTech.Rpc.Lightweight.Client
             return false;
         }
 
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, IReadOnlyList<RpcClientCallInterceptor> callInterceptors)
+        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options)
         {
             if (connectionInfo != null && Uri.TryCreate(connectionInfo.HostUrl, UriKind.Absolute, out var parsedUrl))
             {
                 if (parsedUrl.Scheme == LightweightTcpScheme)
                 {
-                    return new TcpLightweightRpcConnection(connectionInfo, this.proxyProvider, this.serializer, this.sslOptions, callInterceptors );
+                    return new TcpLightweightRpcConnection(connectionInfo, this.sslOptions, 
+                        ImmutableRpcClientOptions.Combine( options, this.options ), 
+                        this.proxyProvider);
                 }
             }
 

@@ -28,6 +28,8 @@ namespace SciTech.Rpc.Tests.Lightweight
             var binder = new TestMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
+            definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
+            
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new AutoPublishServiceProviderServiceImpl();
 
@@ -53,6 +55,8 @@ namespace SciTech.Rpc.Tests.Lightweight
             var binder = new TestMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
+            definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
+            
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new AutoPublishServiceProviderServiceImpl();
 
@@ -96,6 +100,10 @@ namespace SciTech.Rpc.Tests.Lightweight
             var binder = new TestMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
+            definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
+
+            var o = definitionsProviderMock.Object.GetServiceOptions(typeof(IImplicitServiceProviderService)); 
+
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
 
@@ -126,6 +134,8 @@ namespace SciTech.Rpc.Tests.Lightweight
             var binder = new TestMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
+            definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
+            
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
 
@@ -204,13 +214,12 @@ namespace SciTech.Rpc.Tests.Lightweight
 
         }
 
-        private void CreateSimpleServiceStub<TService>(TService serviceImpl, ILightweightMethodBinder methodBinder) where TService : class
+        private void CreateSimpleServiceStub<TService>(TService serviceImpl, ILightweightMethodBinder methodBinder ) where TService : class
         {
             var builder = new LightweightServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = DefaultSerializer });
 
-            var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
-            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
-
+            IRpcServiceDefinitionsProvider serviceDefinitionsProvider = CreateDefinitionsProviderMock();
+            
             var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
@@ -219,7 +228,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
             hostMock.Setup(h => h.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
-            hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProviderMock.Object);
+            hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProvider);
             hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
@@ -232,13 +241,10 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             var builder = new LightweightServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = DefaultSerializer });
 
-            var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
-            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
-
             var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisher);
             hostMock.Setup(h => h.ServiceImplProvider).Returns(servicePublisher);
-            hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProviderMock.Object);
+            hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(servicePublisher.DefinitionsProvider);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(allowAutoPublish);
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
@@ -247,6 +253,14 @@ namespace SciTech.Rpc.Tests.Lightweight
 
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
+        }
+
+        private static IRpcServiceDefinitionsProvider CreateDefinitionsProviderMock()
+        {
+            var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
+            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
+            serviceDefinitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
+            return serviceDefinitionsProviderMock.Object;
         }
 
         private async Task<TResponse> SendReceiveAsync<TRequest, TResponse>(LightweightMethodStub methodStub, TRequest request)

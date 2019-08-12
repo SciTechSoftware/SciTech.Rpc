@@ -29,7 +29,7 @@ namespace SciTech.Rpc.Lightweight.Server
         /// <summary>
         /// Handles the communication with a connected client.
         /// </summary>
-        private class Client : RpcPipeline
+        private class ClientPipeline : RpcPipeline
         {
             private readonly Dictionary<int, ActiveOperation> activeOperations = new Dictionary<int, ActiveOperation>();
 
@@ -39,7 +39,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private IRpcSerializer serializer;
 
-            public Client(IDuplexPipe pipe, LightweightRpcServer server, int? maxRequestSize = null, int? maxResponseSize = null) : base(pipe, maxResponseSize, maxRequestSize)
+            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, int? maxRequestSize = null, int? maxResponseSize = null) 
+                : base(pipe, maxResponseSize, maxRequestSize)
             {
                 this.server = server;
                 this.serializer = server.Serializer;

@@ -6,6 +6,13 @@
 
   <Import Project="..\Package.props" />
   <Import Project="..\Platform.props" />
+
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <NullableContextOptions>enable</NullableContextOptions>
+  </PropertyGroup>
+  
   
   <ItemGroup>
     <None Include="..\..\LICENSE">
@@ -15,7 +22,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Grpc.Core.Api" Version="2.23.0-pre1" />
     <PackageReference Include="Grpc.Net.Client" Version="0.1.22-pre2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
 </Project>

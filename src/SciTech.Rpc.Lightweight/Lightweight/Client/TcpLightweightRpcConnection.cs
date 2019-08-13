@@ -12,6 +12,8 @@
 using Pipelines.Sockets.Unofficial;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
+using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;
 using System.Diagnostics;
@@ -27,17 +29,16 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     public class TcpLightweightRpcConnection : LightweightRpcConnection
     {
+        // TODO: Add logging.
+        //private static readonly ILog Logger = LogProvider.For<TcpLightweightRpcConnection>();
+
         private readonly SslClientOptions? sslOptions;
 
         private readonly object syncRoot = new object();
 
         private RpcPipelineClient? connectedClient;
 
-        private volatile IDuplexPipe? connection;
-
         private TaskCompletionSource<RpcPipelineClient>? connectionTcs;
-
-        private bool hasShutDown;
 
         private volatile SslStream? sslStream;
 
@@ -45,13 +46,14 @@ namespace SciTech.Rpc.Lightweight.Client
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions = null,
             ImmutableRpcClientOptions? options = null,
-            LightweightProxyProvider? proxyProvider = null)
-            : base(connectionInfo, options, proxyProvider)
+            LightweightProxyProvider? proxyProvider = null,
+            LightweightOptions? lightweightOptions = null)
+            : base(connectionInfo, options, proxyProvider, lightweightOptions)
         {
             this.sslOptions = sslOptions;
         }
 
-        public override bool IsConnected => this.connection != null;
+        public override bool IsConnected => this.connectedClient != null;
 
         public override bool IsEncrypted => this.sslStream?.IsEncrypted ?? false;
 
@@ -59,46 +61,33 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public override bool IsSigned => this.sslStream?.IsSigned ?? false;
 
-        public override Task ShutdownAsync()
+        public override async Task ShutdownAsync()
         {
-            TaskCompletionSource<RpcPipelineClient>? connectionTcs;
-            RpcPipelineClient? connectedClient;
-            lock (this.syncRoot)
+            var prevClient = this.ResetConnection(RpcConnectionState.Disconnected, null);
+
+            if (prevClient != null)
             {
-                this.connection = null;
-                connectedClient = this.connectedClient;
-                this.connectedClient = null;
-                connectionTcs = this.connectionTcs;
-                this.connectionTcs = null;
-                this.hasShutDown = true;
+                await prevClient.AwaitFinished().ContextFree();
             }
 
-            connectionTcs?.SetCanceled();
-
-            // TODO: wait for unfinished frames?
-            if (connectedClient != null)
-            {
-                connectedClient.Close();
-                return connectedClient.AwaitFinished();
-            }
-
-            return Task.CompletedTask;
+            this.NotifyDisconnected();
         }
 
-#pragma warning disable CA1031 // Do not catch general exception types
-        internal override async Task<RpcPipelineClient> ConnectClientAsync()
+        internal override ValueTask<RpcPipelineClient> ConnectClientAsync()
         {
             Task<RpcPipelineClient>? activeConnectionTask = null;
             lock (this.syncRoot)
             {
-                if (this.hasShutDown)
+                if (this.connectedClient != null)
+                {
+                    return new ValueTask<RpcPipelineClient>(this.connectedClient);
+                }
+
+                if (this.ConnectionState == RpcConnectionState.Disconnected)
                 {
                     throw new ObjectDisposedException(this.ToString());
                 }
-                if (this.connectedClient != null)
-                {
-                    return this.connectedClient;
-                }
+
 
                 if (this.connectionTcs != null)
                 {
@@ -112,107 +101,141 @@ namespace SciTech.Rpc.Lightweight.Client
 
             if (activeConnectionTask != null)
             {
-                return await this.connectionTcs.Task.ContextFree();
+                async ValueTask<RpcPipelineClient> AwaitConnection()
+                {
+                    return await activeConnectionTask.ContextFree();
+                }
+
+                return AwaitConnection();
             }
 
-
-            var endPoint = this.CreateNetEndPoint();
-            IDuplexPipe? connection = null;
-            SslStream? sslStream = null;
-            Stream? workStream = null;
-
-            try
+            async ValueTask<RpcPipelineClient> DoConnect()
             {
-                if (this.sslOptions != null)
-                {
-                    Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    try
-                    {
-                        SetRecommendedClientOptions(socket);
+                var endPoint = this.CreateNetEndPoint();
+                IDuplexPipe? connection = null;
+                SslStream? sslStream = null;
+                Stream? workStream = null;
 
-                        string sslHost;
-                        switch (endPoint)
+                int sendMaxMessageSize = this.Options?.SendMaxMessageSize ?? DefaultMaxRequestMessageSize;
+                int receiveMaxMessageSize = this.Options?.ReceiveMaxMessageSize ?? DefaultMaxResponseMessageSize;
+
+                var sendOptions = new PipeOptions(
+                    pauseWriterThreshold: sendMaxMessageSize * 2, resumeWriterThreshold: sendMaxMessageSize,
+                    useSynchronizationContext: false);
+                var receiveOptions = new PipeOptions(
+                    pauseWriterThreshold: receiveMaxMessageSize * 2, resumeWriterThreshold: receiveMaxMessageSize,
+                    useSynchronizationContext: false);
+
+                try
+                {
+                    if (this.sslOptions != null)
+                    {
+                        Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                        try
                         {
-                            case IPEndPoint ipEndPoint:
-                                await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ContextFree();
-                                sslHost = ipEndPoint.Address.ToString();
-                                break;
-                            case DnsEndPoint dnsEndPoint:
-                                await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port).ContextFree();
-                                sslHost = dnsEndPoint.Host;
-                                break;
-                            default:
-                                throw new NotSupportedException($"Unsupported end point '{endPoint}',");
+                            SetRecommendedClientOptions(socket);
+
+                            string sslHost;
+                            switch (endPoint)
+                            {
+                                case IPEndPoint ipEndPoint:
+                                    await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ContextFree();
+                                    sslHost = ipEndPoint.Address.ToString();
+                                    break;
+                                case DnsEndPoint dnsEndPoint:
+                                    await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port).ContextFree();
+                                    sslHost = dnsEndPoint.Host;
+                                    break;
+                                default:
+                                    throw new NotSupportedException($"Unsupported end point '{endPoint}',");
+                            }
+                            workStream = new NetworkStream(socket, true);
+                            socket = null;  // Prevent closing, NetworkStream has taken ownership
+
+                            workStream = sslStream = new SslStream(workStream, false,
+                                this.sslOptions.RemoteCertificateValidationCallback,
+                                this.sslOptions.LocalCertificateSelectionCallback,
+                                this.sslOptions.EncryptionPolicy);
+
+                            await sslStream.AuthenticateAsClientAsync(sslHost, this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
+                                this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+
+
+                            connection = StreamConnection.GetDuplex(sslStream, sendOptions, receiveOptions);
+                            if (!(connection is IDisposable))
+                            {
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                                // Rather dummy, we need to dispose the stream when pipe is disposed, but
+                                // this is not performed by the pipe returned by StreamConnection.
+                                connection = new OwnerDuplexPipe(connection, sslStream);
+#pragma warning restore CA2000 // Dispose objects before losing scope
+                            }
                         }
-                        workStream = new NetworkStream(socket, true);
-                        socket = null;  // Prevent closing, NetworkStream has taken ownership
-
-                        workStream = sslStream = new SslStream(workStream, false,
-                            this.sslOptions.RemoteCertificateValidationCallback,
-                            this.sslOptions.LocalCertificateSelectionCallback,
-                            this.sslOptions.EncryptionPolicy);
-
-                        await sslStream.AuthenticateAsClientAsync(sslHost, this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
-                            this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
-
-                        PipeOptions options = new PipeOptions(pauseWriterThreshold: 65536, resumeWriterThreshold: 32768, useSynchronizationContext: false);
-                        connection = StreamConnection.GetDuplex(sslStream, options);
+                        finally
+                        {
+                            socket?.Dispose();
+                        }
                     }
-                    finally
+                    else
                     {
-                        socket?.Dispose();
+                        connection = await SocketConnection.ConnectAsync(endPoint, sendOptions, receiveOptions).ContextFree();
+                        Debug.Assert(connection is IDisposable);
                     }
-                }
-                else
-                {
-                    connection = await SocketConnection.ConnectAsync(endPoint).ContextFree();
-                }
 
-                var connectedClient = new RpcPipelineClient(connection);
+                    var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
+                    connectedClient.ReceiveLoopFaulted += this.ConnectedClient_ReceiveLoopFaulted;
+                    connectedClient.RunAsyncCore();
 
-                TaskCompletionSource<RpcPipelineClient> connectionTcs;
-                lock (this.syncRoot)
-                {
-                    this.connection = connection;
-                    this.connectedClient = connectedClient;
-                    this.sslStream = sslStream;
-                    connectionTcs = this.connectionTcs;
-                    this.connectionTcs = null;
-                }
-
-                connectionTcs?.SetResult(connectedClient);
-
-                return connectedClient;
-            }
-            catch (Exception e)
-            {
-                // Connection failed, do a little cleanup
-                // TODO: Try to add a unit test that cover this code (e.g. using AuthenticationException).
-                // TODO: Log.
-
-                TaskCompletionSource<RpcPipelineClient>? connectionTcs = null;
-                lock (this.syncRoot)
-                {
-                    if (this.connectionTcs != null)
+                    TaskCompletionSource<RpcPipelineClient>? connectionTcs;
+                    lock (this.syncRoot)
                     {
-                        Debug.Assert(this.connection == null);
-                        Debug.Assert(this.connectedClient == null);
-                        Debug.Assert(this.sslStream == null);
-
+                        this.connectedClient = connectedClient;
+                        this.sslStream = sslStream;
                         connectionTcs = this.connectionTcs;
                         this.connectionTcs = null;
+                        workStream = null;
+                        this.SetConnectionState(RpcConnectionState.Connected);
                     }
+
+                    connectionTcs?.SetResult(connectedClient);
+
+                    this.NotifyConnected();
+
+                    return connectedClient;
                 }
+                catch (Exception e)
+                {
+                    // Connection failed, do a little cleanup
+                    // TODO: Try to add a unit test that cover this code (e.g. using AuthenticationException).
+                    // TODO: Log.
 
-                try { this.connectedClient?.Close(); } catch { }
-                try { workStream?.Close(); } catch { }
+                    TaskCompletionSource<RpcPipelineClient>? connectionTcs = null;
+                    lock (this.syncRoot)
+                    {
+                        if (this.connectionTcs != null)
+                        {
+                            Debug.Assert(this.connectedClient == null);
+                            Debug.Assert(this.sslStream == null);
 
-                connectionTcs?.SetException(e);
-                throw;
+                            connectionTcs = this.connectionTcs;
+                            this.connectionTcs = null;
+                        }
+
+                        this.SetConnectionState(RpcConnectionState.ConnectionFailed);
+                    }
+
+                    workStream?.Dispose();
+
+                    connectionTcs?.SetException(e);
+
+                    this.NotifyConnectionFailed();
+
+                    throw;
+                }
             }
-        }
 
-#pragma warning restore CA1031 // Do not catch general exception types
+            return DoConnect();
+        }
 
         private static void SetFastLoopbackOption(Socket socket)
         {
@@ -250,6 +273,16 @@ namespace SciTech.Rpc.Lightweight.Client
 
 #pragma warning restore CA1031 // Do not catch general exception types
 
+
+        private void ConnectedClient_ReceiveLoopFaulted(object sender, ExceptionEventArgs e)
+        {
+            this.ResetConnection(RpcConnectionState.ConnectionLost, e.Exception);
+
+            this.NotifyConnectionLost();
+        }
+
+#pragma warning restore CA1031 // Do not catch general exception types
+
         private EndPoint CreateNetEndPoint()
         {
             // TODO: The URL should be parsed in RpConnectionInfo constructor .
@@ -280,6 +313,40 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 throw new InvalidOperationException($"Invalid HostUrl '{this.ConnectionInfo.HostUrl}'.");
             }
+        }
+
+        private RpcPipelineClient? ResetConnection(RpcConnectionState state, Exception? ex)
+        {
+            TaskCompletionSource<RpcPipelineClient>? connectionTcs;
+            RpcPipelineClient? connectedClient;
+            lock (this.syncRoot)
+            {
+                if (this.ConnectionState == RpcConnectionState.Disconnected)
+                {
+                    // Already disconnected
+                    Debug.Assert(this.connectedClient == null);
+                    return null;
+                }
+
+                connectedClient = this.connectedClient;
+                this.connectedClient = null;
+                this.sslStream = null;
+                connectionTcs = this.connectionTcs;
+                this.connectionTcs = null;
+
+                this.SetConnectionState(state);
+            }
+
+            connectionTcs?.TrySetCanceled();
+
+            // TODO: wait for unfinished frames?
+            if (connectedClient != null)
+            {
+                connectedClient.ReceiveLoopFaulted -= this.ConnectedClient_ReceiveLoopFaulted;
+                connectedClient.Close(ex);
+            }
+
+            return connectedClient;
         }
     }
 }

@@ -18,17 +18,25 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     public abstract class LightweightRpcConnection : RpcServerConnection
     {
+        public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
+
+        public const int DefaultMaxResponseMessageSize = 4 * 1024 * 1024;
+
         protected LightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             ImmutableRpcClientOptions? options = null,
-            LightweightProxyProvider? proxyProvider = null)
-            : base(connectionInfo, proxyProvider ?? LightweightProxyProvider.Default, options)
+            LightweightProxyProvider? proxyProvider = null,
+            LightweightOptions? lightweightOptions = null)
+            : base(connectionInfo, options, proxyProvider ?? LightweightProxyProvider.Default)
         {
+            this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
         }
 
-        public override Task ConnectAsync() => this.ConnectClientAsync();
+        public bool KeepSizeLimitedConnectionAlive { get; }
 
-        internal abstract Task<RpcPipelineClient> ConnectClientAsync();
+        public override Task ConnectAsync() => this.ConnectClientAsync().AsTask();
+
+        internal abstract ValueTask<RpcPipelineClient> ConnectClientAsync();
 
         protected override IRpcSerializer CreateDefaultSerializer()
         {

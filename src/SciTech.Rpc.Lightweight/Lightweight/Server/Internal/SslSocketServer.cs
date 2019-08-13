@@ -15,6 +15,7 @@
 #endregion
 
 using Pipelines.Sockets.Unofficial;
+using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
@@ -88,10 +89,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             listener.Listen(listenBacklog);
 
             this.listener = listener;
-            Task.Run(() => this.ListenForConnectionsAsync(PipeOptions.Default, PipeOptions.Default)).Forget();
-
             StartOnScheduler(receiveOptions?.ReaderScheduler, _ => this.ListenForConnectionsAsync(
-                PipeOptions.Default, PipeOptions.Default).Forget(), null);
+                sendOptions ?? PipeOptions.Default, receiveOptions ?? PipeOptions.Default).Forget(), null);
 
             this.OnStarted(endPoint);
         }
@@ -159,10 +158,15 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         socketStream = sslStream;
                     }
 
+                    var pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);
+                    if (!(pipe is IDisposable))
+                    {
+                        // Rather dummy, we need to dispose the stream when pipe is disposed, but
+                        // this is not performed by the pipe returned by StreamConnection.
+                        pipe = new OwnerDuplexPipe(pipe, socketStream);
+                    }
 
-                    var pipe = StreamConnection.GetDuplex(socketStream);
-
-                    StartOnScheduler(receiveOptions.ReaderScheduler, this.RunClientAsync,
+                    StartOnScheduler((receiveOptions ?? PipeOptions.Default).ReaderScheduler, this.RunClientAsync,
                         new ClientConnection(pipe, clientSocket.RemoteEndPoint)); // boxed, but only once per client
                 }
             }

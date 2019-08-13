@@ -17,6 +17,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,16 +47,14 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 #pragma warning disable CA1062 // Validate arguments of public methods
     public class LightweightProxyBase : RpcProxyBase<LightweightMethodDef>
     {
-        private RpcPipelineClient? client;
+        private readonly int callTimeout;
 
-        private LightweightRpcConnection connection;
-
-        private TaskCompletionSource<RpcPipelineClient>? connectTcs;
+        private readonly LightweightRpcConnection connection;
 
         protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) : base(proxyArgs, proxyMethods)
         {
             this.connection = proxyArgs.Connection;
-
+            this.callTimeout = ((int?)this.connection.Options.CallTimeout?.TotalMilliseconds) ?? 0;
             this.CallInterceptors = proxyArgs.CallInterceptors.ToImmutableArray();
         }
 
@@ -134,6 +133,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     headers,
                     request,
                     actualSerializer,
+                    this.callTimeout,
                     cancellationToken);
 
                 return responseTask;
@@ -148,6 +148,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     headers,
                     request,
                     actualSerializer,
+                    this.callTimeout,
                     cancellationToken).ContextFree();
             }
 
@@ -166,6 +167,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 case RpcCommunicationException _:
                 case RpcFailureException _:
                     break;
+                case Pipelines.Sockets.Unofficial.ConnectionResetException _:
+                    throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, e.Message, e);
+                case Pipelines.Sockets.Unofficial.ConnectionAbortedException _:
+                    throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
                 case SocketException socketException:
                     switch (socketException.SocketErrorCode)
                     {
@@ -175,66 +180,20 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         case SocketError.HostDown:
                         case SocketError.HostNotFound:
                         case SocketError.HostUnreachable:
-                            throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable);
+                            throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
                         default:
                             throw new RpcCommunicationException(RpcCommunicationStatus.Unknown);
                     }
+                case IOException ioe:
+                    throw new RpcCommunicationException(RpcCommunicationStatus.Unknown, ioe.Message);
                 default:
-                    throw new RpcFailureException("Unexepected exception when calling RPC method", e);
+                    throw new RpcFailureException(RpcFailure.Unknown, $"Unexepected exception when calling RPC method. {e.Message}", e);
             }
         }
 
         private ValueTask<RpcPipelineClient> ConnectCoreAsync()
         {
-            Task<RpcPipelineClient>? currentConnectTask = null;
-            lock (this.SyncRoot)
-            {
-                if (this.client != null)
-                {
-                    return new ValueTask<RpcPipelineClient>(this.client);
-                }
-
-                if (this.connectTcs != null)
-                {
-                    currentConnectTask = this.connectTcs.Task;
-                }
-                else
-                {
-                    this.connectTcs = new TaskCompletionSource<RpcPipelineClient>();
-                }
-            }
-
-
-            if (currentConnectTask != null)
-            {
-                async ValueTask<RpcPipelineClient> AwaitConnectTask(Task<RpcPipelineClient> task)
-                {
-                    return await task.ContextFree();
-                }
-
-                return AwaitConnectTask(currentConnectTask);
-            }
-            else
-            {
-                async ValueTask<RpcPipelineClient> AwaitConnection()
-                {
-                    var connectedClient = await this.connection.ConnectClientAsync().ContextFree();
-
-                    var connectTcs = this.connectTcs!;
-                    lock (this.SyncRoot)
-                    {
-                        this.client = connectedClient;
-                        this.connectTcs = null;
-                    }
-
-                    connectTcs.SetResult(connectedClient);
-
-                    return connectedClient;
-                }
-
-                return AwaitConnection();
-            }
-
+            return this.connection.ConnectClientAsync();
         }
 
         private IReadOnlyDictionary<string, string>? CreateCallHeaders()

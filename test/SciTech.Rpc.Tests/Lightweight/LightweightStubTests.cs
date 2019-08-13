@@ -29,7 +29,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
-            
+
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new AutoPublishServiceProviderServiceImpl();
 
@@ -56,7 +56,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
-            
+
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new AutoPublishServiceProviderServiceImpl();
 
@@ -102,7 +102,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
 
-            var o = definitionsProviderMock.Object.GetServiceOptions(typeof(IImplicitServiceProviderService)); 
+            _ = definitionsProviderMock.Object.GetServiceOptions(typeof(IImplicitServiceProviderService));
 
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
@@ -135,7 +135,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
-            
+
             RpcServicePublisher servicePublisher = new RpcServicePublisher(definitionsProviderMock.Object);
             var serviceImpl = new ImplicitServiceProviderServiceImpl(servicePublisher);
 
@@ -214,12 +214,20 @@ namespace SciTech.Rpc.Tests.Lightweight
 
         }
 
-        private void CreateSimpleServiceStub<TService>(TService serviceImpl, ILightweightMethodBinder methodBinder ) where TService : class
+        private static IRpcServiceDefinitionsProvider CreateDefinitionsProviderMock()
+        {
+            var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
+            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
+            serviceDefinitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
+            return serviceDefinitionsProviderMock.Object;
+        }
+
+        private void CreateSimpleServiceStub<TService>(TService serviceImpl, ILightweightMethodBinder methodBinder) where TService : class
         {
             var builder = new LightweightServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = DefaultSerializer });
 
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider = CreateDefinitionsProviderMock();
-            
+
             var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
@@ -255,14 +263,6 @@ namespace SciTech.Rpc.Tests.Lightweight
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }
 
-        private static IRpcServiceDefinitionsProvider CreateDefinitionsProviderMock()
-        {
-            var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
-            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
-            serviceDefinitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
-            return serviceDefinitionsProviderMock.Object;
-        }
-
         private async Task<TResponse> SendReceiveAsync<TRequest, TResponse>(LightweightMethodStub methodStub, TRequest request)
             where TRequest : class
             where TResponse : class
@@ -278,13 +278,13 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 var payload = new ReadOnlySequence<byte>(DefaultSerializer.ToBytes(request));
 
-                var frame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, 1, methodStub.OperationName, RpcOperationFlags.None, 0, payload, null);
+                var frame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, null, 1, methodStub.OperationName, RpcOperationFlags.None, 0, payload, null);
 
                 await methodStub.HandleMessage(pipeline, frame, null, context);
 
                 var readResult = await responsePipe.Reader.ReadAsync();
                 var buffer = readResult.Buffer;
-                bool hasResponseFrame = LightweightRpcFrame.TryRead(ref buffer, 65536, out var responseFrame);
+                bool hasResponseFrame = LightweightRpcFrame.TryRead(ref buffer, 65536, out var responseFrame) == RpcFrameState.Full;
                 Assert.IsTrue(hasResponseFrame);
 
                 using (var responsePayloadStream = responseFrame.Payload.AsStream())
@@ -315,12 +315,17 @@ namespace SciTech.Rpc.Tests.Lightweight
 
         private class TestPipeline : RpcPipeline
         {
-            public TestPipeline(IDuplexPipe pipe) : base(pipe)
+            public TestPipeline(IDuplexPipe pipe) : base(pipe, 65536, 65536, true)
             {
 
             }
 
             protected override ValueTask OnReceiveAsync(in LightweightRpcFrame frame)
+            {
+                throw new NotImplementedException();
+            }
+
+            protected override Task OnReceiveLargeFrameAsync(LightweightRpcFrame frame)
             {
                 throw new NotImplementedException();
             }

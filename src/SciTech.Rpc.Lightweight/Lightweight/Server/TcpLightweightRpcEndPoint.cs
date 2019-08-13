@@ -115,7 +115,10 @@ namespace SciTech.Rpc.Lightweight.Server
             public void Listen()
             {
                 int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
-                var receiveOptions = new PipeOptions(pauseWriterThreshold: receivePauseThreshold, resumeWriterThreshold: receivePauseThreshold / 2, useSynchronizationContext: false);
+                var receiveOptions = new PipeOptions(
+                    pauseWriterThreshold: receivePauseThreshold,
+                    resumeWriterThreshold: receivePauseThreshold / 2,
+                    useSynchronizationContext: false);
                 this.Listen(this.endPoint, receiveOptions: receiveOptions);
             }
 

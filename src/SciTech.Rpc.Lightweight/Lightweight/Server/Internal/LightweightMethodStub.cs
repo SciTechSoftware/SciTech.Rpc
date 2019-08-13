@@ -128,7 +128,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             if (this.Handler == null)
             {
-                throw new RpcFailureException($"Unary request handler is not initialized for '{frame.RpcOperation}'.");
+                throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Unary request handler is not initialized for '{frame.RpcOperation}'.");
             }
 
             var responseTask = this.Handler(request, serviceProvider, context);
@@ -149,7 +149,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             if (this.StreamHandler == null)
             {
-                throw new RpcFailureException($"Server streaming request handler is not initialized for '{frame.RpcOperation}'.");
+                throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Server streaming request handler is not initialized for '{frame.RpcOperation}'.");
             }
 
             var responseTask = this.StreamHandler(request, serviceProvider, responseWriter, context);

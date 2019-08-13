@@ -607,12 +607,12 @@ namespace SciTech.Rpc.Client.Internal
                 case WellKnownRpcErrors.ServiceUnavailable:
                     throw new RpcServiceUnavailableException(error.Message);
                 case WellKnownRpcErrors.Failure:
-                    throw new RpcFailureException(error.Message);
+                    throw new RpcFailureException(RpcFailureException.GetFailureFromFaultCode(error.FaultCode), error.Message);
                 case WellKnownRpcErrors.Fault:
                     // Just leave switch and handle fault below.
                     break;
                 default:
-                    throw new RpcFailureException($"Operation returned an unknown error of type '{error.ErrorType}'. {error.Message}");
+                    throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {error.Message}");
             }
 
             if (methodDef.FaultHandler != null
@@ -652,6 +652,8 @@ namespace SciTech.Rpc.Client.Internal
             // If we get here, no one handled the fault. Let's just handle it by throwing a plain RpcFaultException.
             throw new RpcFaultException(error.FaultCode, error.Message);
         }
+
+
 
         private void InvokeDelegate<TEventHandler, TEventArgs>(TEventHandler eventHandler, TEventArgs eventArgs)
             where TEventHandler : Delegate
@@ -897,7 +899,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 var typedServiceRefs = new RpcObjectRef<TService>?[serviceRefs.Length];
 
-                var connection = proxy.Connection;
+                _ = proxy.Connection;
                 for (int i = 0; i < typedServiceRefs.Length; i++)
                 {
                     var serviceRef = serviceRefs[i];

@@ -1,4 +1,15 @@
-﻿using System;
+﻿#region Copyright notice and license
+// Copyright (c) 2019, SciTech Software AB
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License. 
+// You may obtain a copy of the License at:
+//
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+#endregion
+
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -22,19 +33,22 @@ namespace SciTech.Rpc.Client
         public TimeSpan? CallTimeout { get; private set; }
 
         public ImmutableArray<IRpcClientExceptionConverter> ExceptionConverters { get; private set; }
+            = ImmutableArray<IRpcClientExceptionConverter>.Empty;
 
         public ImmutableArray<RpcClientCallInterceptor> Interceptors { get; private set; }
+            = ImmutableArray<RpcClientCallInterceptor>.Empty;
 
         public bool IsEmpty
         {
             get
             {
-                return (this.ExceptionConverters.Length == 0)
-                    && (this.Interceptors.Length == 0)
+                return this.ExceptionConverters.Length == 0
+                    && this.Interceptors.Length == 0
                     && this.ReceiveMaxMessageSize == null
                     && this.SendMaxMessageSize == null
                     && this.CallTimeout == null
-                    && this.StreamingCallTimeout == null;
+                    && this.StreamingCallTimeout == null
+                    && this.Serializer == null;
             }
         }
 

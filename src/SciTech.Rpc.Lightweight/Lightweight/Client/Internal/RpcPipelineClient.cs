@@ -38,11 +38,11 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private int nextMessageId;
 
-        private Task receiveLoopTask;
+        private Task? receiveLoopTask;
 
-        public RpcPipelineClient(IDuplexPipe pipe, int? maxRequestSize = null, int? maxResponseSize = null) : base(pipe, maxRequestSize, maxResponseSize)
+        public RpcPipelineClient(IDuplexPipe pipe, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
+            : base(pipe, maxRequestSize, maxResponseSize, skipLargeFrames)
         {
-            this.receiveLoopTask = this.StartReceiveLoopAsync();
         }
 
         private interface IResponseHandler
@@ -56,7 +56,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         public Task AwaitFinished()
         {
-            return this.receiveLoopTask;
+            return this.receiveLoopTask ?? Task.CompletedTask;
         }
 
 #pragma warning disable CA2000 // Dispose objects before losing scope
@@ -98,6 +98,16 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
+
+        public void RunAsyncCore(CancellationToken cancellationToken = default)
+        {
+            if (this.receiveLoopTask != null)
+            {
+                throw new InvalidOperationException("Receive loop is already running.");
+            }
+
+            this.receiveLoopTask = this.StartReceiveLoopAsync(cancellationToken);
+        }
 
 #pragma warning disable CA2000 // Dispose objects before losing scope
         public Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
@@ -191,6 +201,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IReadOnlyCollection<KeyValuePair<string, string>>? headers,
             TRequest request,
             IRpcSerializer serializer,
+            int timeout,
             CancellationToken cancellationToken)
             where TRequest : class
         {
@@ -208,12 +219,27 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     flags |= RpcOperationFlags.CanCancel;
                 }
 
-                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, 0, headers);
+                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)timeout, headers);
 
                 var requestStream = await this.BeginWriteAsync(frame).ContextFree();
                 await this.WriteRequestAsync(request, serializer, requestStream).ContextFree();
 
-                return await tcs.Task.ContextFree();
+                if (timeout == 0)
+                {
+                    return await tcs.Task.ContextFree();
+                }
+                else
+                {
+                    var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(timeout)).ContextFree();
+                    if (completedTask == tcs.Task)
+                    {
+                        return tcs.Task.AwaiterResult();
+                    }
+                    else
+                    {
+                        throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -286,9 +312,34 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return default;
         }
 
-        protected override void OnReceiveLoopFaulted(Exception e)
+        protected override Task OnReceiveLargeFrameAsync(LightweightRpcFrame frame)
         {
-            this.Close(e);
+            int messageId = frame.MessageNumber;
+
+            if (messageId != 0)
+            {
+                // request/response
+                IResponseHandler? responseHandler;
+                lock (this.awaitingResponses)
+                {
+                    this.awaitingResponses.TryGetValue(messageId, out responseHandler);
+                }
+
+                if (responseHandler != null)
+                {
+                    string msg = $"Size of received response frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).";
+                    responseHandler.HandleError(new RpcFailureException(RpcFailure.SizeLimitExceeded, msg));
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        protected override void OnReceiveLoopFaulted(ExceptionEventArgs e)
+        {
+            base.OnReceiveLoopFaulted(e);
+
+            this.Close(e.Exception);
         }
 
         private int AddAwaitingResponse(IResponseHandler responseHandler)
@@ -427,7 +478,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         this.responseStream.Complete();
                         return true;
                     default:
-                        throw new RpcFailureException($"Unexpected frame type '{frame.FrameType}' in AsyncStreamingServerCall.HandleResponse");
+                        // This is a pretty serious error. If it occurs, I assume there will soon
+                        // be some sort of communication error.
+                        throw new RpcFailureException(RpcFailure.InvalidData, $"Unexpected frame type '{frame.FrameType}' in AsyncStreamingServerCall.HandleResponse");
                 }
             }
         }
@@ -473,16 +526,24 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                             this.TrySetResult(response);
                         }
                         break;
+                    case RpcFrameType.TimeoutResponse:
+                        // This is not very likely, since the operation should have 
+                        // already timed out on the client side.
+                        this.TrySetException(new TimeoutException($"Server side operation '{frame.RpcOperation}' didn't complete within the timeout ({frame.Timeout} ms)."));
+                        break;
                     case RpcFrameType.CancelResponse:
                         this.TrySetCanceled();
                         break;
                     case RpcFrameType.ErrorResponse:
-                        // TODO: Error message (exception details if enabled).
-                        this.TrySetException(new RpcFailureException($"Error occured in server handler of '{frame.RpcOperation}'"));
+                        // TODO: Exception details if enabled).
+                        string? message = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorMessageHeaderKey).Value;
+                        string? errorCode = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorCodeHeaderKey).Value;
+                        var failure = RpcFailureException.GetFailureFromFaultCode(errorCode);
+                        this.TrySetException(new RpcFailureException(failure, message ?? $"Error occured in server handler of '{frame.RpcOperation}'"));
                         break;
                     default:
-                        this.TrySetException(new RpcFailureException($"Unexpected frame type '{frame.FrameType}' in ResponseCompletionSource.HandleResponse"));
-                        // TODO: This is bad. Close connection
+                        this.TrySetException(new RpcFailureException(RpcFailure.Unknown, $"Unexpected frame type '{frame.FrameType}' in ResponseCompletionSource.HandleResponse"));
+                        // TODO: This is bad. Close connection?
                         break;
                 }
 

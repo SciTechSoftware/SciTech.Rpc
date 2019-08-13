@@ -15,18 +15,18 @@ namespace SciTech.Rpc.Grpc.Client
 
         private readonly GrpcCore.ChannelCredentials credentials;
 
-        private readonly RpcClientOptions? options;
+        private readonly ImmutableRpcClientOptions? options;
 
         private readonly GrpcProxyProvider proxyProvider;
 
-        public GrpcConnectionProvider(RpcClientOptions? options = null, GrpcProxyProvider? proxyProvider = null)
+        public GrpcConnectionProvider(ImmutableRpcClientOptions? options = null, GrpcProxyProvider? proxyProvider = null)
             : this(GrpcCore.ChannelCredentials.Insecure, options, proxyProvider)
         {
         }
 
         public GrpcConnectionProvider(
             GrpcCore.ChannelCredentials credentials,
-            RpcClientOptions? options = null,
+            ImmutableRpcClientOptions? options = null,
             GrpcProxyProvider? proxyProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
         {
@@ -56,7 +56,7 @@ namespace SciTech.Rpc.Grpc.Client
             {
                 if (parsedUrl.Scheme == GrpcScheme)
                 {
-                    return new GrpcServerConnection(connectionInfo, this.credentials, options, this.proxyProvider, this.channelOptions);
+                    return new GrpcServerConnection(connectionInfo, this.credentials, ImmutableRpcClientOptions.Combine(options, this.options), this.proxyProvider, this.channelOptions);
                 }
             }
 

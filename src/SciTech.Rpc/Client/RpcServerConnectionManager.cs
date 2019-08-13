@@ -222,7 +222,7 @@ namespace SciTech.Rpc.Client
             await Task.WhenAll(shutdownTasks).ContextFree();
         }
 
-        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo, ImmutableRpcClientOptions options)
+        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo, ImmutableRpcClientOptions? options)
         {
             foreach (var connectionProvider in this.connectionProviders)
             {

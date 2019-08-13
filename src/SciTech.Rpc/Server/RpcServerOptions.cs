@@ -62,7 +62,8 @@ namespace SciTech.Rpc.Server
                 && this.AllowAutoPublish == null
                 && this.Serializer == null
                 && this.ReceiveMaxMessageSize == null
-                && this.SendMaxMessageSize == null;
+                && this.SendMaxMessageSize == null
+                && this.Serializer != null;
         }
 
         /// <summary>

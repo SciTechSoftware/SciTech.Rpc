@@ -125,7 +125,7 @@ namespace SciTech.Rpc.Server.Internal
 
                 if (serviceRef == null)
                 {
-                    throw new RpcFailureException("Returned RPC service has not been published. To allow auto-publishing, set the AllowAutoPublish property to true.");
+                    throw new RpcFailureException(RpcFailure.ServiceNotPublished, "Returned RPC service has not been published. To allow auto-publishing, set the AllowAutoPublish property to true.");
                 }
 
                 return serviceRef;
@@ -398,7 +398,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 else
                 {
-                    throw new RpcFailureException("Response converter is required if response is not the same as result.");
+                    throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "Response converter is required if response is not the same as result.");
                 }
             }
             else
@@ -447,6 +447,30 @@ namespace SciTech.Rpc.Server.Internal
             }
 
             return null;
+        }
+
+        private static RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
+        {
+            RpcError? rpcError = null;
+            foreach (var converter in converters)
+            {
+                // We have at least one declared exception handlers
+                var convertedFault = converter.CreateFault(e);
+
+                if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
+                {
+                    byte[]? detailsData = null;
+                    if (convertedFault.Details != null)
+                    {
+                        detailsData = serializer.ToBytes(convertedFault.Details);
+                    }
+
+                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = converter.FaultCode, Message = convertedFault.Message, FaultDetails = detailsData };
+                    break;
+                }
+            }
+
+            return rpcError;
         }
 
         /// <summary>
@@ -594,30 +618,6 @@ namespace SciTech.Rpc.Server.Internal
                     //string message = "The server was unable to process the request due to an internal error. "
                     //    + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
                     //rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = "", Message = message };
-                }
-            }
-
-            return rpcError;
-        }
-
-        private static RpcError? TryConvertToFault(Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, RpcServerFaultHandler faultHandler, IRpcSerializer serializer)
-        {
-            RpcError? rpcError = null;
-            foreach (var converter in converters)
-            {
-                // We have at least one declared exception handlers
-                var convertedFault = converter.CreateFault(e);
-
-                if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
-                {
-                    byte[]? detailsData = null;
-                    if (convertedFault.Details != null)
-                    {
-                        detailsData = serializer.ToBytes(convertedFault.Details);
-                    }
-
-                    rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = converter.FaultCode, Message = convertedFault.Message, FaultDetails = detailsData };
-                    break;
                 }
             }
 

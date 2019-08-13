@@ -39,8 +39,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private IRpcSerializer serializer;
 
-            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, int? maxRequestSize = null, int? maxResponseSize = null) 
-                : base(pipe, maxResponseSize, maxRequestSize)
+            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
+                : base(pipe, maxResponseSize, maxRequestSize, skipLargeFrames)
             {
                 this.server = server;
                 this.serializer = server.Serializer;
@@ -97,10 +97,19 @@ namespace SciTech.Rpc.Lightweight.Server
                 return handleRequestTask;
             }
 
-            protected override void OnReceiveLoopFaulted(Exception e)
+            protected override Task OnReceiveLargeFrameAsync(LightweightRpcFrame frame)
             {
+                string msg = $"Size of received request frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).";
+
+                return this.WriteErrorResponseAsync(frame.MessageNumber, "", msg, RpcFailure.SizeLimitExceeded);
+            }
+
+            protected override void OnReceiveLoopFaulted(ExceptionEventArgs e)
+            {
+                base.OnReceiveLoopFaulted(e);
+
                 this.server.RemoveClient(this);
-                this.Close(e);
+                this.Close(e.Exception);
             }
 
             protected override ValueTask OnStartReceiveLoopAsync()
@@ -154,7 +163,7 @@ namespace SciTech.Rpc.Lightweight.Server
                             // write the response. Most likely we will not succeed now either (and the 
                             // pipe will be closed). Maybe the handler should close the pipe instead 
                             // and not propagate the error?
-                            await this.WriteErrorResponseAsync(messageId, operationName, t.Exception).ContextFree();
+                            await this.WriteErrorResponseAsync(messageId, operationName, t.Exception.InnerException ?? t.Exception).ContextFree();
                         }
                     }
                     catch (Exception e)
@@ -255,7 +264,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     }
                     else
                     {
-                        throw new RpcFailureException($"Unknown RPC operation '{frame.RpcOperation}'.");
+                        throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Unknown RPC operation '{frame.RpcOperation}'.");
                     }
                 }
                 catch (Exception e)
@@ -283,21 +292,11 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private async Task WriteCancelResponseAsync(int messageId, string operationName)
             {
-                // TODO: Should any headers be returned.
+                // TODO: Should any headers be returned?
                 ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
                 var cancelFrame = new LightweightRpcFrame(RpcFrameType.CancelResponse, messageId, operationName, headers);
 
                 await this.BeginWriteAsync(cancelFrame).ContextFree();
-                await this.EndWriteAsync().ContextFree();
-            }
-
-            private async Task WriteErrorResponseAsync(int messageId, string operationName, string message)
-            {
-                // TODO: Add exception message in header?
-                ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
-                var errorFrame = new LightweightRpcFrame(RpcFrameType.ErrorResponse, messageId, operationName, headers);
-
-                await this.BeginWriteAsync(errorFrame).ContextFree();
                 await this.EndWriteAsync().ContextFree();
             }
 
@@ -309,15 +308,30 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
                 else if (e is RpcFailureException rfe)
                 {
-                    return this.WriteErrorResponseAsync(messageId, operationName, rfe.Message);
+                    return this.WriteErrorResponseAsync(messageId, operationName, rfe.Message, rfe.Failure);
                 }
                 else
                 {
                     // TODO: Implement IncludeExceptionDetailInFaults
                     string message = "The server was unable to process the request due to an internal error. "
                         + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
-                    return this.WriteErrorResponseAsync(messageId, operationName, message);
+                    return this.WriteErrorResponseAsync(messageId, operationName, message, RpcFailure.Unknown);
                 }
+            }
+
+            private async Task WriteErrorResponseAsync(int messageId, string operationName, string message, RpcFailure failure)
+            {
+                // TODO: Should any additional headers be returned?
+                var headers = new KeyValuePair<string, string>[]
+                {
+                    new KeyValuePair<string, string>(LightweightRpcFrame.ErrorMessageHeaderKey, message),
+                    new KeyValuePair<string, string>(LightweightRpcFrame.ErrorCodeHeaderKey, failure.ToString())
+                };
+
+                var errorFrame = new LightweightRpcFrame(RpcFrameType.ErrorResponse, messageId, operationName, headers);
+
+                await this.BeginWriteAsync(errorFrame).ContextFree();
+                await this.EndWriteAsync().ContextFree();
             }
 
             private sealed class ActiveOperation

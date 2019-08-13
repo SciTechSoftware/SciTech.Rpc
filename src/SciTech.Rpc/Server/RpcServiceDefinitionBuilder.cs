@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Server
 
         private readonly Dictionary<string, Type> registeredServices = new Dictionary<string, Type>();
 
-        private readonly Dictionary<Type, RpcServerOptions?> registeredServiceTypes = new Dictionary<Type, RpcServerOptions>();
+        private readonly Dictionary<Type, RpcServerOptions?> registeredServiceTypes = new Dictionary<Type, RpcServerOptions?>();
 
         private readonly object syncRoot = new object();
 

@@ -29,20 +29,44 @@ namespace SciTech.Rpc.Client
 
         private readonly object syncRoot = new object();
 
-        private volatile IRpcSerializer serializer;
+        private RpcConnectionState connectionState;
 
-        protected RpcServerConnection(RpcServerConnectionInfo connectionInfo, RpcProxyProvider proxyProvider,
-            ImmutableRpcClientOptions? options)
+        private bool hasPendingStateChange;
+
+        private volatile IRpcSerializer? serializer;
+
+        protected RpcServerConnection(
+            RpcServerConnectionInfo connectionInfo,
+            ImmutableRpcClientOptions? options,
+            RpcProxyProvider proxyProvider)
         {
             this.ConnectionInfo = connectionInfo;
             this.proxyProvider = proxyProvider;
             this.Options = options ?? ImmutableRpcClientOptions.Empty;
         }
 
+        public event EventHandler Connected;
+
+        public event EventHandler ConnectionFailed;
+
+        public event EventHandler ConnectionLost;
+
+        public event EventHandler ConnectionStateChanged;
+
+        public event EventHandler Disconnected;
+
         /// <summary>
         /// Gets the connection info of this connection.
         /// </summary>
         public RpcServerConnectionInfo ConnectionInfo { get; }
+
+        public RpcConnectionState ConnectionState
+        {
+            get
+            {
+                lock (this.syncRoot) return this.connectionState;
+            }
+        }
 
         public abstract bool IsConnected { get; }
 
@@ -100,6 +124,50 @@ namespace SciTech.Rpc.Client
 
         protected abstract IRpcSerializer CreateDefaultSerializer();
 
+        protected void NotifyConnected()
+        {
+            this.Connected?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
+        }
+
+        protected void NotifyConnectionFailed()
+        {
+            this.ConnectionFailed?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
+        }
+
+        protected void NotifyConnectionLost()
+        {
+            this.ConnectionLost?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
+        }
+
+        protected void NotifyDisconnected()
+        {
+            this.Disconnected?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
+        }
+
+        /// <summary>
+        /// Should be called by derived classes, within a lock when the connection state has been changed.
+        /// The caller should also make a sub-sequent call to <see cref="NotifyConnectionLost"/>,
+        /// <see cref="NotifyConnectionFailed"/>,  <see cref="NotifyDisconnected"/>, or <see cref="NotifyConnected"/>
+        /// </summary>
+        /// <param name="state"></param>
+        /// <param name="ex"></param>
+        protected void SetConnectionState(RpcConnectionState state)
+        {
+            if (this.connectionState != state)
+            {
+                this.connectionState = state;
+                this.hasPendingStateChange = true;
+            }
+        }
+
         private TService GetServiceInstanceCore<TService>(RpcObjectId refObjectId, SynchronizationContext? syncContext) where TService : class
         {
             return GetServiceInstanceCore<TService>(refObjectId, default, syncContext);
@@ -155,6 +223,18 @@ namespace SciTech.Rpc.Client
                 servicesList.Add(new WeakReference<RpcProxyBase>(serviceInstance));
 
                 return (TService)(object)serviceInstance;
+            }
+        }
+
+        private void RaiseStateChangdIfNecessary()
+        {
+            bool stateChanged;
+            stateChanged = this.hasPendingStateChange;
+            this.hasPendingStateChange = false;
+
+            if (stateChanged)
+            {
+                this.ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }

@@ -96,13 +96,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     case GrpcCore.StatusCode.Unavailable:
                         throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
                     case GrpcCore.StatusCode.ResourceExhausted:
-                        // TODO: RpcFailureException is documented as "Thrown when an undeclared exception occurs within an operation handler.",
-                        // so it shouldn't be used for GrpcCore.RpcException
-                        throw new RpcFailureException(e.Message, e);
+                        throw new RpcFailureException(RpcFailure.SizeLimitExceeded, e.Message, e);
                     default:
-                        // TODO: RpcFailureException is documented as "Thrown when an undeclared exception occurs within an operation handler.",
-                        // so it shouldn't be used for GrpcCore.RpcException
-                        throw new RpcFailureException(e.Message, e);
+                        throw new RpcFailureException(RpcFailure.Unknown, e.Message, e);
                 }
             }
         }
@@ -116,7 +112,6 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
             return base.IsCancellationException(exception);
         }
-
         private sealed class GrpcAsyncServerStreamingCall<TResponse> : IAsyncStreamingServerCall<TResponse>
             where TResponse : class
         {

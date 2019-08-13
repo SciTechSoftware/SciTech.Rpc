@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests
 {
-    public abstract class ClientServerTests : ClientServerTestsBase
+    public abstract class ClientServerBaseTests : ClientServerTestsBase
     {
-        protected ClientServerTests(IRpcSerializer serializer, RpcConnectionType connectionType) :
+        protected ClientServerBaseTests(IRpcSerializer serializer, RpcConnectionType connectionType) :
             base(serializer, connectionType)
         {
         }
@@ -31,15 +31,15 @@ namespace SciTech.Rpc.Tests
                 using (var publishScope = servicePublisher.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    
+
                     var clientService = connection.GetServiceInstance<ISimpleServiceWithEvents>(objectId);
 
-                    ValueChangedEventArgs detailedArgs = await TestMixedEventHandlers(clientService).DefaultTimeout();
+                    _ = await TestMixedEventHandlers(clientService).DefaultTimeout();
 
                     Assert.IsFalse(serviceImpl.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl.HasValueChangedHandler);
 
-                    detailedArgs = await TestMixedEventHandlers(clientService);
+                    _ = await TestMixedEventHandlers(clientService);
 
                     Assert.IsFalse(serviceImpl.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl.HasValueChangedHandler);
@@ -94,7 +94,6 @@ namespace SciTech.Rpc.Tests
             }
         }
 
-
         [Test]
         public async Task DirectServiceProviderServiceCallTest()
         {
@@ -104,7 +103,7 @@ namespace SciTech.Rpc.Tests
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
             var servicePublisher = host.ServicePublisher;
-            var rpcServerId = servicePublisher.ServerId;
+            _ = servicePublisher.ServerId;
 
             host.Start();
 
@@ -112,7 +111,7 @@ namespace SciTech.Rpc.Tests
             {
                 var serviceImpl = new ServiceProviderServiceImpl(host.ServicePublisher);
 
-                using (var publishScope = servicePublisher.PublishSingleton<IServiceProviderService>(serviceImpl))
+                using (servicePublisher.PublishSingleton<IServiceProviderService>(serviceImpl))
                 {
                     var clientService = connection.GetServiceSingleton<IServiceProviderServiceClient>();
                     var serviceRef = await clientService.GetSimpleServiceAsync();
@@ -263,19 +262,21 @@ namespace SciTech.Rpc.Tests
             {
                 var simpleServiceImpl = new TestSimpleServiceImpl();
                 var blockingServiceImpl = new TestBlockingServiceImpl();
-                using (var publishScope = servicePublisher.PublishSingleton<ISimpleService>(simpleServiceImpl))
-                using (var publishScope2 = servicePublisher.PublishSingleton<IBlockingService>(blockingServiceImpl))
+                using (servicePublisher.PublishSingleton<ISimpleService>(simpleServiceImpl))
                 {
-                    var clientService = connection.GetServiceSingleton<ISimpleService>();
-                    var blockingClientService = connection.GetServiceSingleton<IBlockingService>();
-                    var clientService2 = connection.GetServiceSingleton<ISimpleService>();
-                    Assert.AreSame(clientService, clientService2);
+                    using (servicePublisher.PublishSingleton<IBlockingService>(blockingServiceImpl))
+                    {
+                        var clientService = connection.GetServiceSingleton<ISimpleService>();
+                        _ = connection.GetServiceSingleton<IBlockingService>();
+                        var clientService2 = connection.GetServiceSingleton<ISimpleService>();
+                        Assert.AreSame(clientService, clientService2);
 
-                    int res = await clientService.AddAsync(8, 9);
-                    Assert.AreEqual(8 + 9, res);
+                        int res = await clientService.AddAsync(8, 9);
+                        Assert.AreEqual(8 + 9, res);
 
-                    int res2 = await clientService.AddAsync(12, 13);
-                    Assert.AreEqual(12 + 13, res2);
+                        int res2 = await clientService.AddAsync(12, 13);
+                        Assert.AreEqual(12 + 13, res2);
+                    }
                 }
             }
             finally
@@ -369,7 +370,7 @@ namespace SciTech.Rpc.Tests
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
             var servicePublisher = host.ServicePublisher;
-            var rpcServerId = servicePublisher.ServerId;
+            _ = servicePublisher.ServerId;
 
             host.Start();
 
@@ -377,7 +378,7 @@ namespace SciTech.Rpc.Tests
             {
                 var serviceImpl = new ImplicitServiceProviderServiceImpl(host.ServicePublisher);
 
-                using (var publishScope = servicePublisher.PublishSingleton<IImplicitServiceProviderService>(serviceImpl))
+                using (servicePublisher.PublishSingleton<IImplicitServiceProviderService>(serviceImpl))
                 {
                     var clientService = connection.GetServiceSingleton<IImplicitServiceProviderServiceClient>();
                     var serviceRef = await clientService.GetBlockingServiceAsync(0);
@@ -410,7 +411,7 @@ namespace SciTech.Rpc.Tests
             try
             {
                 var serviceImpl = new TestSimpleServiceImpl();
-                using (var publishScope = servicePublisher.PublishSingleton<ISimpleService>(serviceImpl))
+                using (servicePublisher.PublishSingleton<ISimpleService>(serviceImpl))
                 {
                     var clientService = connection.GetServiceSingleton<ISimpleService>();
 

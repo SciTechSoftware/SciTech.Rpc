@@ -12,6 +12,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client.Internal;
 using SciTech.Rpc.Logging;
+using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,11 +30,11 @@ namespace SciTech.Rpc.Grpc.Client
         public GrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
             ImmutableRpcClientOptions? options = null,
-            GrpcProxyProvider? proxyProvider = null,            
+            GrpcProxyProvider? proxyProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(connectionInfo,
                   GrpcCore.ChannelCredentials.Insecure,
-                  options,                 
+                  options,
                   proxyProvider,
                   channelOptions)
         {
@@ -41,11 +42,11 @@ namespace SciTech.Rpc.Grpc.Client
 
         public GrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
-            GrpcCore.ChannelCredentials credentials, 
+            GrpcCore.ChannelCredentials credentials,
             ImmutableRpcClientOptions? options = null,
-            GrpcProxyProvider? proxyProvider = null,            
+            GrpcProxyProvider? proxyProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
-            : base(connectionInfo, proxyProvider ?? GrpcProxyProvider.Default, options)
+            : base(connectionInfo, options, proxyProvider ?? GrpcProxyProvider.Default)
         {
             if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl)
                 && (parsedUrl.Scheme == GrpcConnectionProvider.GrpcScheme))
@@ -96,7 +97,7 @@ namespace SciTech.Rpc.Grpc.Client
                 throw new NotImplementedException($"GrpcServerConnection is only implemented for the '{nameof(GrpcConnectionProvider.GrpcScheme)}' scheme.");
             }
         }
-        
+
         public GrpcCore.Channel? Channel { get; private set; }
 
         public override bool IsConnected => this.Channel?.State == GrpcCore.ChannelState.Ready;
@@ -120,8 +121,6 @@ namespace SciTech.Rpc.Grpc.Client
         public override bool IsSigned => this.IsConnected && this.isSecure;
 
         internal GrpcCore.CallInvoker? CallInvoker { get; private set; }
-
-        protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufSerializer();
 
         public override Task ConnectAsync()
         {
@@ -151,6 +150,8 @@ namespace SciTech.Rpc.Grpc.Client
                 return Task.CompletedTask;
             }
         }
+
+        protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufSerializer();
 
         private static IEnumerable<GrpcCore.ChannelOption>? ExtractOptions(ImmutableRpcClientOptions? options, IEnumerable<GrpcCore.ChannelOption>? channelOptions)
         {

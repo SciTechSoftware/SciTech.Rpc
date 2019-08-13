@@ -4,9 +4,9 @@ using System;
 namespace SciTech.Rpc.Tests.Lightweight
 {
     [TestFixtureSource(nameof(DefaultLightweightClientHostFixtureArgs))]
-    public class LightweightClientServerTests : ClientServerTests
+    public class LightweightClientServerTests : ClientServerBaseTests
     {
-        protected static readonly object[] DefaultLightweightClientHostFixtureArgs = {
+        protected internal static readonly object[] DefaultLightweightClientHostFixtureArgs = {
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightInproc},
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightTcp},
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightSslTcp},

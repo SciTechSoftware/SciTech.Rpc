@@ -1,22 +1,20 @@
 ﻿using Moq;
 using NUnit.Framework;
 using SciTech.IO;
+using SciTech.Rpc.Internal;
+using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Lightweight.IO;
+using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Internal;
-using SciTech.Rpc.Lightweight.Server;
-using SciTech.Rpc.Lightweight.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO.Pipelines;
 using System.Threading.Tasks;
-using SciTech.Rpc.Lightweight.IO;
 
 namespace SciTech.Rpc.Tests.Lightweight
 {
-
-
     [TestFixture]
     public class LightweightServerTests
     {
@@ -42,8 +40,8 @@ namespace SciTech.Rpc.Tests.Lightweight
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator.RegisterService<ISimpleService>();
 
-            var serverId = RpcServerId.NewId();
-            using (var host = new LightweightRpcServer(Mock.Of<IRpcServicePublisher>(), serviceImplProviderMock.Object, serviceRegistrator, null, new RpcServerOptions { Serializer = serializer } ))
+            _ = RpcServerId.NewId();
+            using (var host = new LightweightRpcServer(Mock.Of<IRpcServicePublisher>(), serviceImplProviderMock.Object, serviceRegistrator, null, new RpcServerOptions { Serializer = serializer }))
             {
                 host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
@@ -76,7 +74,7 @@ namespace SciTech.Rpc.Tests.Lightweight
                     if (!readResult.IsCanceled)
                     {
                         var buffer = readResult.Buffer;
-                        if (LightweightRpcFrame.TryRead(ref buffer, LightweightRpcFrame.DefaultMaxFrameLength, out var responseFrame))
+                        if (LightweightRpcFrame.TryRead(ref buffer, LightweightRpcFrame.DefaultMaxFrameLength, out var responseFrame) == RpcFrameState.Full)
                         {
                             Assert.AreEqual(requestFrame.RpcOperation, responseFrame.RpcOperation);
                             Assert.AreEqual(requestFrame.MessageNumber, responseFrame.MessageNumber);
@@ -90,10 +88,10 @@ namespace SciTech.Rpc.Tests.Lightweight
                         }
                         else
                         {
-                            if( readResult.IsCompleted)
+                            if (readResult.IsCompleted)
                             {
                                 break;
-                            } 
+                            }
 
                             responsePipe.Reader.AdvanceTo(buffer.Start, buffer.End);
                         }

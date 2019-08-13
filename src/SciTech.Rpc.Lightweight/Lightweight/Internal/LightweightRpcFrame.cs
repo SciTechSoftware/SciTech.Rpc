@@ -22,6 +22,23 @@ using System.Text;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
+    internal enum RpcFrameState
+    {
+        /// <summary>
+        /// Indiciates that no frame information is available.
+        /// </summary>
+        None,
+
+        /// <summary>
+        /// Indicates that only the frame header is available, including FrameType, FrameLength, and MessageNumber
+        /// </summary>
+        Header,
+
+        /// <summary>
+        /// Indiciates that full frame information is available.
+        /// </summary>
+        Full
+    }
 
     /// <summary>
     /// short RPCVersion: Currently always 1
@@ -31,7 +48,7 @@ namespace SciTech.Rpc.Lightweight.Internal
     /// int32 PayloadLength: Total length of serialized payload
     /// String Operation: Defines the RPC operation associated with the frame. May be empty if not needed.
     /// varint OperationFlags: Operation flags (from the <see cref="RpcOperationFlags"/> enum.
-    /// varint TimeOut: Operation timeout, in milliseconds (0 means no timeout)
+    /// varint Timeout: Operation timeout, in milliseconds (0 means no timeout)
     /// varint HeaderPairsCount: Number of header pairs (following this field)
     /// StringPair[] HeaderPairs: Array of header pairs. Length specified by HeaderPairsCount
     ///     String Key: UTF8 encoded header key
@@ -47,15 +64,37 @@ namespace SciTech.Rpc.Lightweight.Internal
     {
         public const int DefaultMaxFrameLength = 65536;
 
+        public const string ErrorCodeHeaderKey = "__lightweight.error_code";
+
+        public const string ErrorMessageHeaderKey = "__lightweight.error_message";
+
         public const int MinimumHeaderLength = 16;
 
         private const short CurrentVersion = 1;
 
         public LightweightRpcFrame(
-            RpcFrameType frameType, int messageNumber, string rpcOperation,
+            RpcFrameType frameType,
+            int frameLength,
+            int messageNumber)
+        {
+            this.FrameType = frameType;
+            this.FrameLength = frameLength;
+            this.RpcOperation = "";
+            this.MessageNumber = messageNumber;
+            this.Payload = ReadOnlySequence<byte>.Empty;
+            this.Headers = null;
+
+            this.OperationFlags = 0;
+            this.Timeout = 0;
+        }
+
+        public LightweightRpcFrame(
+            RpcFrameType frameType,
+            int messageNumber, string rpcOperation,
             IReadOnlyCollection<KeyValuePair<string, string>>? headers)
         {
             this.FrameType = frameType;
+            this.FrameLength = null;
             this.RpcOperation = rpcOperation;
             this.MessageNumber = messageNumber;
             this.Payload = ReadOnlySequence<byte>.Empty;
@@ -68,6 +107,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         public LightweightRpcFrame(RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout, IReadOnlyCollection<KeyValuePair<string, string>>? headers)
         {
             this.FrameType = frameType;
+            this.FrameLength = null;
             this.RpcOperation = rpcOperation;
             this.MessageNumber = messageNumber;
             this.OperationFlags = flags;
@@ -77,10 +117,13 @@ namespace SciTech.Rpc.Lightweight.Internal
         }
 
         public LightweightRpcFrame(
-            RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
+            RpcFrameType frameType,
+            int? frameLength,
+            int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
             in ReadOnlySequence<byte> payload, IReadOnlyCollection<KeyValuePair<string, string>> headers)
         {
             this.FrameType = frameType;
+            this.FrameLength = frameLength;
             this.RpcOperation = rpcOperation;
             this.MessageNumber = messageNumber;
             this.Payload = payload;
@@ -88,8 +131,9 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             this.OperationFlags = flags;
             this.Timeout = timeout;
-
         }
+
+        public int? FrameLength { get; }
 
         public RpcFrameType FrameType { get; }
 
@@ -111,19 +155,19 @@ namespace SciTech.Rpc.Lightweight.Internal
         /// <summary>
         /// Tries to read an RPC frame
         /// </summary>
-        /// <param name="input"></param>
+        /// <param name="input">Input sequence containing frame data. Will be updated to the end of the frame
+        /// if <see cref="RpcFrameState.Full"/> is returned.</param>
         /// <param name="maxFrameLength"></param>
         /// <param name="message"></param>
-        /// <returns><c>true</c> if data for the full frame is available in <paramref name="input"/>, <c>false</c> if 
-        /// not enough data is available.</returns>
+        /// <returns>An <see cref="RpcFrameState"/> indicating how much of the frame is available in <paramref name="input"/></returns>
         /// <exception cref="InvalidDataException">Thrown if the frame contains invalid data (not including the payload), or 
         /// if the frame is too big.</exception>
-        public static bool TryRead(ref ReadOnlySequence<byte> input, int maxFrameLength, out LightweightRpcFrame message)
+        public static RpcFrameState TryRead(ref ReadOnlySequence<byte> input, int maxFrameLength, out LightweightRpcFrame message)
         {
-            message = default;
             if (input.Length < MinimumHeaderLength)
             {
-                return false;
+                message = default;
+                return RpcFrameState.None;
             }
 
             var currInput = input;
@@ -135,20 +179,21 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             var frameType = (RpcFrameType)ReadInt16LittleEndian(ref currInput);
             int frameLength = ReadInt32LittleEndian(ref currInput);
-            if (frameLength < 0 || frameLength >= maxFrameLength)
+            if (frameLength < 0)
             {
                 throw new InvalidDataException($"Invalid RPC frame length: {frameLength}");
             }
 
-            // Check the frame length against the available input.
-            // Should really be input (and not currInput), since frameLength includes the header and payload.
-            if (frameLength > input.Length)
-            {
-                return false;
-            }
-
             var messageNumber = ReadInt32LittleEndian(ref currInput);
             var payloadLength = ReadInt32LittleEndian(ref currInput);
+
+            // Check the frame length against the available input.
+            // Should really be input (and not currInput), since frameLength includes the header and payload.
+            if (frameLength > input.Length || frameLength > maxFrameLength)
+            {
+                message = new LightweightRpcFrame(frameType, frameLength, messageNumber);
+                return RpcFrameState.Header;
+            }
 
             var operation = ReadString(ref currInput, frameLength);
 
@@ -185,8 +230,8 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             var payload = currInput.Slice(0, payloadLength);
             input = currInput.Slice(payloadLength);
-            message = new LightweightRpcFrame(frameType, messageNumber, operation, operationFlags, timeout, payload, headers);
-            return true;
+            message = new LightweightRpcFrame(frameType, frameLength, messageNumber, operation, operationFlags, timeout, payload, headers);
+            return RpcFrameState.Full;
         }
 
         internal static void EndWrite(int frameLength, in WriteState state)
@@ -532,6 +577,8 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         CancelRequest,
         CancelResponse,
+
+        TimeoutResponse,
 
         ErrorResponse
     }

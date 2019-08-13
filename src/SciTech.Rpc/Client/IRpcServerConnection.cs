@@ -16,6 +16,15 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
+    public enum RpcConnectionState
+    {
+        None,
+        Connected,
+        ConnectionFailed,
+        ConnectionLost,
+        Disconnected,
+    }
+
     /// <summary>
     /// Defines methods and properties for a server connection, e.g. for retrieving proxies to
     /// remote services. 
@@ -26,7 +35,11 @@ namespace SciTech.Rpc.Client
     /// </remarks>
     public interface IRpcServerConnection
     {
+        event EventHandler ConnectionStateChanged;
+
         RpcServerConnectionInfo ConnectionInfo { get; }
+
+        RpcConnectionState ConnectionState { get; }
 
         TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class;
 

@@ -85,7 +85,8 @@ namespace SciTech.Rpc.Client
                     && this.ReceiveMaxMessageSize == null
                     && this.SendMaxMessageSize == null
                     && this.CallTimeout == null
-                    && this.StreamingCallTimeout == null;
+                    && this.StreamingCallTimeout == null
+                    && this.Serializer == null;
 
             }
         }

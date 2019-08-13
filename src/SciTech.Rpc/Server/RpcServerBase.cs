@@ -21,6 +21,8 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerBase : IRpcServerImpl
     {
+        private volatile IRpcSerializer? serializer;
+
         protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServerOptions? options) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
@@ -51,7 +53,7 @@ namespace SciTech.Rpc.Server
 
             this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
             this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;
-            this.Serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Options.Serializer ?? this.CreateDefaultSerializer();
+            this.serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Options.Serializer;
 
             if (options != null)
             {
@@ -94,7 +96,18 @@ namespace SciTech.Rpc.Server
 
         public bool IsDisposed { get; private set; }
 
-        public IRpcSerializer Serializer { get; private set; }
+        public IRpcSerializer Serializer
+        {
+            get
+            {
+                if (this.serializer == null)
+                {
+                    this.serializer = this.CreateDefaultSerializer();
+                }
+
+                return this.serializer;
+            }
+        }
 
         public IRpcServiceDefinitionsProvider ServiceDefinitionsProvider { get; private set; }
 
@@ -109,21 +122,6 @@ namespace SciTech.Rpc.Server
         protected object syncRoot { get; } = new object();
 
         IServiceProvider? IRpcServerImpl.ServiceProvider => this.ServiceProvider;
-        //public void AddCallInterceptor(RpcServerCallInterceptor callInterceptor)
-        //{
-        //    if (callInterceptor == null)
-        //    {
-        //        throw new ArgumentNullException(nameof(callInterceptor));
-        //    }
-        //    lock (this.syncRoot)
-        //    {
-        //        if (this.state != ServerState.Initializing)
-        //        {
-        //            throw new InvalidOperationException("Call interceptor cannot be added after server has been started.");
-        //        }
-        //        this.callInterceptorsBuilder!.Add(callInterceptor);
-        //    }
-        //}
 
         public void Dispose()
         {

@@ -12,9 +12,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
-using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
-using SciTech.Rpc.Logging;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
@@ -31,18 +29,28 @@ namespace SciTech.Rpc.Lightweight.Server
 {
     public partial class LightweightRpcServer : RpcServerBase
     {
-        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(LightweightRpcServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+        public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
 
-        private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients = new ConcurrentDictionary<ClientPipeline, ClientPipeline>();
+        public const int DefaultMaxResponseMessageSize = 4 * 1024 * 1024;
 
-        private readonly Dictionary<string, LightweightMethodStub> methodDefinitions = new Dictionary<string, LightweightMethodStub>();
+        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(LightweightRpcServer)
+            .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+
+        private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients 
+            = new ConcurrentDictionary<ClientPipeline, ClientPipeline>();
+
+        private readonly Dictionary<string, LightweightMethodStub> methodDefinitions 
+            = new Dictionary<string, LightweightMethodStub>();
 
         private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
 
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
 
-        public LightweightRpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServerOptions options)
-            : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options)
+        public LightweightRpcServer(IRpcServiceDefinitionsProvider definitionsProvider,
+            IServiceProvider? serviceProvider,
+            RpcServerOptions options,
+            LightweightOptions? lightweightOptions = null)
+            : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options, lightweightOptions)
         {
         }
 
@@ -50,15 +58,18 @@ namespace SciTech.Rpc.Lightweight.Server
         /// 
         /// </summary>
         /// <param name="servicePublisher"></param>
-        public LightweightRpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServerOptions options)
+        public LightweightRpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServerOptions options,
+             LightweightOptions? lightweightOptions = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
-                  servicePublisher.DefinitionsProvider, serviceProvider, options)
+                  servicePublisher.DefinitionsProvider, serviceProvider, options, lightweightOptions)
         {
         }
 
-        public LightweightRpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider, RpcServerOptions options)
-            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
+        public LightweightRpcServer(
+            RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider,
+            RpcServerOptions options, LightweightOptions? lightweightOptions = null)
+            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options, lightweightOptions)
         {
         }
 
@@ -68,21 +79,25 @@ namespace SciTech.Rpc.Lightweight.Server
         internal LightweightRpcServer(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider,
-            RpcServerOptions options)
+            RpcServerOptions options, LightweightOptions? lightweightOptions = null)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
-            this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.ReceiveMaxMessageSize ?? LightweightRpcFrame.DefaultMaxFrameLength;
-            this.MaxResponseSize = options?.SendMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.SendMaxMessageSize ?? LightweightRpcFrame.DefaultMaxFrameLength;
+            this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.ReceiveMaxMessageSize ?? DefaultMaxRequestMessageSize;
+            this.MaxResponseSize = options?.SendMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.SendMaxMessageSize ?? DefaultMaxResponseMessageSize;
+
+            this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
         }
 
         public int ClientCount => this.clients.Count;
 
+        public bool KeepSizeLimitedConnectionAlive { get; }
+
+        public int MaxRequestSize { get; }
+
+        public int MaxResponseSize { get; }
+
         protected override IServiceProvider? ServiceProvider { get; }
-
-        private int MaxRequestSize { get; }
-
-        private int MaxResponseSize { get; }
 
         public void AddEndPoint(LightweightRpcEndPoint endPoint)
         {
@@ -163,7 +178,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected Task RunClientAsync(IDuplexPipe pipe, CancellationToken cancellationToken = default)
         {
-            var client = new ClientPipeline(pipe, this, this.MaxRequestSize, this.MaxResponseSize);
+            var client = new ClientPipeline(pipe, this, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive);
 
             // TODO: Add to clients list.
             return client.RunAsync(cancellationToken);

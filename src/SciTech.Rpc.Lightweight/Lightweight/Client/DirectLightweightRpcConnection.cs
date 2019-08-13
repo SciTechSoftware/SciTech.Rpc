@@ -8,10 +8,11 @@
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
 #endregion
+
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
+using SciTech.Threading;
 using System;
-using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Threading.Tasks;
 
@@ -28,9 +29,10 @@ namespace SciTech.Rpc.Lightweight.Client
         public DirectLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
-            ImmutableRpcClientOptions? options, 
-            LightweightProxyProvider proxyGenerator)
-            : base(connectionInfo, options, proxyGenerator)
+            ImmutableRpcClientOptions? options,
+            LightweightProxyProvider proxyGenerator,
+            LightweightOptions? lightweightOptions = null)
+            : base(connectionInfo, options, proxyGenerator, lightweightOptions)
         {
             this.clientPipe = clientPipe;
 
@@ -59,27 +61,22 @@ namespace SciTech.Rpc.Lightweight.Client
             }
         }
 
-        public override Task ShutdownAsync()
+        public override async Task ShutdownAsync()
         {
-            RpcPipelineClient? connectedClient;
-            lock (this.syncRoot)
+            RpcPipelineClient? prevClient = this.ResetConnection(RpcConnectionState.Disconnected);
+
+            if (prevClient != null)
             {
-                connectedClient = this.connectedClient;
-                this.connectedClient = null;
+                await prevClient.AwaitFinished().ContextFree();
             }
 
-            if (connectedClient != null)
-            {
-                connectedClient.Close();
-                return connectedClient.AwaitFinished();
-            }
-
-            return Task.CompletedTask;
+            this.NotifyDisconnected();
         }
-        
-        internal override Task<RpcPipelineClient> ConnectClientAsync()
+
+        internal override ValueTask<RpcPipelineClient> ConnectClientAsync()
         {
             RpcPipelineClient connectedClient;
+
             lock (this.syncRoot)
             {
                 if (this.clientPipe == null)
@@ -89,13 +86,43 @@ namespace SciTech.Rpc.Lightweight.Client
 
                 if (this.connectedClient == null)
                 {
-                    this.connectedClient = new RpcPipelineClient(this.clientPipe);
+                    int sendMaxMessageSize = this.Options?.SendMaxMessageSize ?? DefaultMaxRequestMessageSize;
+                    int receiveMaxMessageSize = this.Options?.ReceiveMaxMessageSize ?? DefaultMaxResponseMessageSize;
+
+                    this.connectedClient = new RpcPipelineClient(this.clientPipe, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
+                    this.connectedClient.ReceiveLoopFaulted += this.ConnectedClient_ReceiveLoopFaulted;
+                    this.connectedClient.RunAsyncCore();
                 }
 
                 connectedClient = this.connectedClient;
             }
 
-            return Task.FromResult(connectedClient);
+            return new ValueTask<RpcPipelineClient>(connectedClient);
+        }
+
+        private void ConnectedClient_ReceiveLoopFaulted(object sender, EventArgs e)
+        {
+            this.ResetConnection(RpcConnectionState.ConnectionLost);
+
+            this.NotifyConnectionLost();
+        }
+
+        private RpcPipelineClient? ResetConnection(RpcConnectionState state)
+        {
+            RpcPipelineClient? connectedClient;
+
+            lock (this.syncRoot)
+            {
+                connectedClient = this.connectedClient;
+
+                this.connectedClient = null;
+
+                this.SetConnectionState(state);
+            }
+
+            connectedClient?.Close(); 
+
+            return connectedClient;
         }
     }
 }

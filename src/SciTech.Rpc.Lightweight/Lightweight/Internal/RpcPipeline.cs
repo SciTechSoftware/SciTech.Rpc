@@ -23,6 +23,16 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
+    internal class ExceptionEventArgs : EventArgs
+    {
+        public ExceptionEventArgs(Exception exception)
+        {
+            this.Exception = exception;
+        }
+
+        public Exception Exception { get; }
+    }
+
     internal abstract class RpcPipeline : IDisposable
     {
         private static readonly ILog Logger = LogProvider.For<RpcPipeline>();
@@ -39,25 +49,26 @@ namespace SciTech.Rpc.Lightweight.Internal
 #pragma warning restore CA2213 // Disposable fields should be disposed
 
 
+        private readonly bool skipLargeFrames;
+
         private readonly object syncRoot = new object();
 
         private LightweightRpcFrame.WriteState currentWriteState;
 
         private BufferWriterStream? frameWriterStream;
 
-        private int maxReceiveFrameLength;
-
-        private int maxSendFrameLength;
-
         private IDuplexPipe? pipe;
 
-        protected RpcPipeline(IDuplexPipe pipe, int? maxSendFrameLength = null, int? maxReceiveFrameLength = null)
+        protected RpcPipeline(IDuplexPipe pipe, int? maxSendFrameLength, int? maxReceiveFrameLength, bool skipLargeFrames)
         {
             this.pipe = pipe;
-            this.maxSendFrameLength = maxSendFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
-            this.maxReceiveFrameLength = maxReceiveFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
+            this.MaxSendFrameLength = maxSendFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
+            this.MaxReceiveFrameLength = maxReceiveFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
+            this.skipLargeFrames = skipLargeFrames;
             this.frameWriterStream = new BufferWriterStream();
         }
+
+        public event EventHandler<ExceptionEventArgs> ReceiveLoopFaulted;
 
         public bool IsClosed
         {
@@ -69,6 +80,10 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
             }
         }
+
+        protected int MaxReceiveFrameLength { get; }
+
+        protected int MaxSendFrameLength { get; }
 
         public void AbortWrite()
         {
@@ -134,9 +149,9 @@ namespace SciTech.Rpc.Lightweight.Internal
                     int messageLength = checked((int)frameWriter.Length);
 
                     LightweightRpcFrame.EndWrite(messageLength, this.currentWriteState);
-                    if (messageLength > this.maxSendFrameLength)
+                    if (messageLength > this.MaxSendFrameLength)
                     {
-                        throw new RpcFailureException($"RPC message too large (messageSize={messageLength}, maxSize={this.maxSendFrameLength}.");
+                        throw new RpcFailureException(RpcFailure.SizeLimitExceeded, $"RPC send message too large (messageSize={messageLength}, maxSize={this.MaxSendFrameLength}.");
                     }
                 }
                 catch
@@ -153,6 +168,8 @@ namespace SciTech.Rpc.Lightweight.Internal
                 this.ReleaseWriteStream();
             }
         }
+        
+        // TODO: Make a non-async fast-path version of EndWriteAsync (this one is obsolete).
         //public ValueTask EndWriteAsyncFast()
         //{
         //    var pipeWriter = this.pipe?.Output;
@@ -239,7 +256,22 @@ namespace SciTech.Rpc.Lightweight.Internal
         /// <returns></returns>
         protected abstract ValueTask OnReceiveAsync(in LightweightRpcFrame frame);
 
-        protected virtual void OnReceiveLoopFaulted(Exception e) { }
+        /// <summary>
+        /// Called by receive loop when a large frame has arrived (i.e. a frame with 
+        /// size &gt; <see cref="MaxReceiveFrameLength"/>). The frame only includes 
+        /// <see cref="LightweightRpcFrame.MessageNumber"/>, <see cref="LightweightRpcFrame.FrameLength"/>,
+        /// and <see cref="LightweightRpcFrame.FrameType"/>
+        /// </summary>
+        /// <param name="frame"></param>
+        /// <exception cref="Exception">If any exception is thrown by this method, the receive
+        /// loop will be ended.</exception>
+        /// <returns></returns>
+        protected abstract Task OnReceiveLargeFrameAsync(LightweightRpcFrame frame);
+
+        protected virtual void OnReceiveLoopFaulted(ExceptionEventArgs e)
+        {
+            this.ReceiveLoopFaulted?.Invoke(this, e);
+        }
 
         protected virtual ValueTask OnStartReceiveLoopAsync() => default;
 
@@ -267,20 +299,47 @@ namespace SciTech.Rpc.Lightweight.Internal
 
                     makingProgress = false;
 
-                    if (LightweightRpcFrame.TryRead(ref buffer, this.maxReceiveFrameLength, out var frame))
+                    switch (LightweightRpcFrame.TryRead(ref buffer, this.MaxReceiveFrameLength, out var frame))
                     {
-                        makingProgress = true;
-                        await this.OnReceiveAsync(frame).ContextFree();
+                        case RpcFrameState.Full:
 
-                        // record that we consumed up to the (now updated) buffer.Start,
-                        // but we have not looked at anything after the updated start.
-                        reader.AdvanceTo(buffer.Start);
-                    }
-                    else
-                    {
-                        // record that we comsumed up to the (NOT updated) buffer.Start,
-                        // and tried to look at everything - hence buffer.End
-                        reader.AdvanceTo(buffer.Start, buffer.End);
+                            makingProgress = true;
+                            await this.OnReceiveAsync(frame).ContextFree();
+
+                            // record that we consumed up to the (now updated) buffer.Start,
+                            // but we have not looked at anything after the updated start.
+                            reader.AdvanceTo(buffer.Start);
+                            break;
+                        case RpcFrameState.Header:
+                            if (frame.FrameLength > this.MaxReceiveFrameLength)
+                            {
+                                if (this.skipLargeFrames)
+                                {
+                                    makingProgress = true; // There might be another frame after this one.
+                                    await this.OnReceiveLargeFrameAsync(frame).ContextFree();
+
+                                    int bytesToSkip = frame.FrameLength.Value;
+                                    var advanceBytes = (int)Math.Min(buffer.Length, bytesToSkip);
+                                    reader.AdvanceTo(buffer.Slice(advanceBytes).Start);
+                                    bytesToSkip -= advanceBytes;
+                                    if (bytesToSkip > 0)
+                                    {
+                                        await SkipSequenceBytes(reader, bytesToSkip, cancellationToken).ContextFree();
+                                    }
+                                }
+                                else
+                                {
+                                    throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable,//  RpcFailure.SizeLimitExceeded,
+                                        $"Size of received frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).");
+                                }
+                                break;
+                            }
+                            goto case RpcFrameState.None;
+                        case RpcFrameState.None:
+                            // record that we comsumed up to the (NOT updated) buffer.Start,
+                            // and tried to look at everything - hence buffer.End
+                            reader.AdvanceTo(buffer.Start, buffer.End);
+                            break;
                     }
 
                     // exit the loop electively, or because we've consumed everything
@@ -301,14 +360,37 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
             catch (Exception ex)
             {
+                Logger.Warn(ex, "RpcPipeline receive loop ended with error '{Error}'", ex.Message);
+
                 try { reader.Complete(ex); } catch { }
-                try { this.OnReceiveLoopFaulted(ex); } catch { }
+                try { this.OnReceiveLoopFaulted(new ExceptionEventArgs(ex)); } catch { }
             }
             finally
             {
                 try { await this.OnEndReceiveLoopAsync().ContextFree(); } catch { }
             }
 #pragma warning restore CA1031 // Do not catch general exception types
+        }
+
+        private static async Task SkipSequenceBytes(PipeReader reader, int bytesToSkip, CancellationToken cancellationToken)
+        {
+            while (bytesToSkip > 0)
+            {
+                var skipResult = await reader.ReadAsync(cancellationToken).ContextFree();
+                if (skipResult.IsCanceled || skipResult.IsCompleted)
+                {
+                    break;
+                }
+
+                var skipBuffer = skipResult.Buffer;
+                var advanceBytes = (int)Math.Min(skipBuffer.Length, bytesToSkip);
+                if (advanceBytes > 0)
+                {
+                    skipBuffer = skipBuffer.Slice(advanceBytes);
+                    reader.AdvanceTo(skipBuffer.Start);
+                    bytesToSkip -= advanceBytes;
+                }
+            }
         }
 
         /// <summary>

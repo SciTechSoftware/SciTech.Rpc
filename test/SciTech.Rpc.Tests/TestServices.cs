@@ -3,69 +3,20 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests
 {
     [RpcService]
-    public interface IEmptyDerivedService : ISimpleService, ISimpleService2
-    {
-    }
-
-    public interface INotRpcService
-    {
-        Task<int> AddAsync(int a, int b);
-    }
-
-    [RpcService]
-    public interface IServiceWithEvents
-    {
-        event EventHandler<ValueChangedEventArgs> DetailedValueChanged;
-
-        event EventHandler ValueChanged;
-    }
-
-    [RpcService]
-    public interface ISimpleServiceWithEvents : ISimpleService
-    {
-        event EventHandler<ValueChangedEventArgs> DetailedValueChanged;
-
-        event EventHandler ValueChanged;
-    }
-
-    [RpcService]
-    public interface IServiceWithUnserializableEvent
-    {
-        event EventHandler<UnserializableEventArgs> UnserializableValueChanged;
-
-    }
-
-    [RpcService]
-    public interface ISimpleService
-    {
-        Task<int> AddAsync(int a, int b);
-
-        Task<double> GetValueAsync();
-
-
-        Task SetValueAsync(double value);
-
-        Task<int> SumAsync(int[] data);
-
-        Task<int[]> GetArrayAsync(int count);
-    }
-
-    [RpcService]
     public interface IBlockingService
     {
-        int Add(int a, int b);
-
         double Value { get; set; }
+
+        [RpcOperation(AllowInlineExecution = true)]
+        int Add(int a, int b);
     }
 
     [RpcService(Name = "BlockingService")]
@@ -79,6 +30,23 @@ namespace SciTech.Rpc.Tests
     }
 
     [RpcService]
+    public interface IDeviceService
+    {
+        Guid DeviceAcoId { get; }
+    }
+
+    [RpcService(Name = "DeviceService")]
+    public interface IDeviceServiceClient : IDeviceService, IRpcService
+    {
+        Task<Guid> GetDeviceAcoIdAsync();
+    }
+
+    [RpcService]
+    public interface IEmptyDerivedService : ISimpleService, ISimpleService2
+    {
+    }
+
+    [RpcService]
     public interface IFaultService
     {
         /// <summary>
@@ -86,23 +54,23 @@ namespace SciTech.Rpc.Tests
         /// </summary>
         int Add(int a, int b);
 
-        [RpcFault(typeof(DeclaredFault))]
-        int GenerateDeclaredFault(int ignored);
-
-
-        [RpcFault(typeof(DeclaredFault))]
-        Task<int> GenerateAsyncDeclaredFaultAsync(bool direct);
-
         [RpcFault(typeof(AnotherDeclaredFault))]
         void GenerateAnotherDeclaredFault(int faultArg);
-
 
         [RpcFault(typeof(DeclaredFault))]
         [RpcFault(typeof(AnotherDeclaredFault))]
         Task GenerateAsyncAnotherDeclaredFaultAsync(bool direct);
 
-        void GenerateNoDetailsFault();
+        [RpcFault(typeof(DeclaredFault))]
+        Task<int> GenerateAsyncDeclaredFaultAsync(bool direct);
 
+        [RpcFault(typeof(DeclaredFault))]
+        void GenerateCustomDeclaredExceptionAsync();
+
+        [RpcFault(typeof(DeclaredFault))]
+        int GenerateDeclaredFault(int ignored);
+
+        void GenerateNoDetailsFault();
 
         [RpcFault(typeof(DeclaredFault))]
         Task GenerateUndeclaredAsyncExceptionAsync(bool direct);
@@ -116,28 +84,23 @@ namespace SciTech.Rpc.Tests
         [RpcFault(typeof(DeclaredFault))]
         int GenerateUndeclaredExceptionWithReturn();
 
-
         [RpcFault(typeof(DeclaredFault))]
         Task GenerateUndeclaredFaultExceptionAsync(bool direct);
-
-        [RpcFault(typeof(DeclaredFault))]
-        void GenerateCustomDeclaredExceptionAsync();
     }
 
     [RpcService(Name = "FaultService", ServerDefinitionType = typeof(IFaultService))]
     public interface IFaultServiceClient : IFaultService
     {
-        Task<int> GenerateDeclaredFaultAsync(int ignored);
-
         [RpcFault(typeof(AnotherDeclaredFault))]
         Task GenerateAnotherDeclaredFaultAsync(int faultArg);
-
-        int GenerateAsyncDeclaredFault(bool direct);
-
 
         [RpcFault(typeof(DeclaredFault))]
         [RpcFault(typeof(AnotherDeclaredFault))]
         void GenerateAsyncAnotherDeclaredFault(bool direct);
+
+        int GenerateAsyncDeclaredFault(bool direct);
+
+        Task<int> GenerateDeclaredFaultAsync(int ignored);
 
         [RpcFault(typeof(DeclaredFault))]
         void GenerateUndeclaredAsyncException(bool direct);
@@ -152,6 +115,34 @@ namespace SciTech.Rpc.Tests
         Task<int> GenerateUndeclaredExceptionWithReturnAsync();
     }
 
+    [RpcService]
+    public interface IImplicitServiceProviderService
+    {
+        ISimpleService FirstSimpleService { get; }
+
+        IBlockingService GetBlockingService(int index);
+
+        IBlockingService[] GetBlockingServices();
+
+        ISimpleService GetSimpleService(int index);
+
+        ISimpleService[] GetSimpleServices();
+    }
+
+    [RpcService(Name = "ImplicitServiceProviderService")]
+    public interface IImplicitServiceProviderServiceClient : IImplicitServiceProviderService
+    {
+        new IBlockingServiceClient GetBlockingService(int index);
+
+        Task<RpcObjectRef<IBlockingServiceClient>> GetBlockingServiceAsync(int index);
+
+        new IBlockingServiceClient[] GetBlockingServices();
+
+        [RpcOperation(Name = "GetBlockingServices")]
+        Task<RpcObjectRef<IBlockingServiceClient>[]> GetBlockingServices2Async();
+
+        Task<IBlockingServiceClient[]> GetBlockingServicesAsync();
+    }
 
     [RpcService]
     public interface IIncorrectFaultOpService
@@ -181,6 +172,11 @@ namespace SciTech.Rpc.Tests
         void IncorrectFaultDeclaration();
     }
 
+    public interface INotRpcService
+    {
+        Task<int> AddAsync(int a, int b);
+    }
+
     [RpcService]
     [RpcFault(typeof(ServiceDeclaredFault))]
     [RpcFault(typeof(AnotherServiceDeclaredFault))]
@@ -200,47 +196,213 @@ namespace SciTech.Rpc.Tests
     [RpcFault(typeof(AnotherServiceDeclaredFault))]
     public interface IServiceFaultServiceClient : IServiceFaultService
     {
-
         [RpcFault(typeof(DeclaredFault))]
         [RpcFault(typeof(AnotherDeclaredFault))]
         Task GenerateServiceFaultAsync(bool useAnotherFault, bool useServiceFault);
     }
 
-    public class ServiceFaultServiceImpl : IServiceFaultService
+    [RpcService]
+    public interface IServiceProviderService
     {
-        public int Add(int a, int b)
+        RpcObjectRef<ISimpleService> GetSimpleService();
+    }
+
+    [RpcService(Name = "ServiceProviderService")]
+    public interface IServiceProviderServiceClient : IServiceProviderService, IRpcService
+    {
+        Task<RpcObjectRef<ISimpleService>> GetSimpleServiceAsync();
+    }
+
+    [RpcService]
+    public interface IServiceWithEvents
+    {
+        event EventHandler<ValueChangedEventArgs> DetailedValueChanged;
+
+        event EventHandler ValueChanged;
+    }
+
+    [RpcService]
+    public interface IServiceWithUnserializableEvent
+    {
+        event EventHandler<UnserializableEventArgs> UnserializableValueChanged;
+    }
+
+    [RpcService]
+    public interface ISimpleService
+    {
+        Task<int> AddAsync(int a, int b);
+
+        Task<int[]> GetArrayAsync(int count);
+
+        Task<double> GetValueAsync();
+
+        Task SetValueAsync(double value);
+
+        Task<int> SumAsync(int[] data);
+    }
+
+    [RpcService]
+    public interface ISimpleService2
+    {
+        Task<int> SubAsync(int a, int b);
+    }
+
+    [RpcService]
+    public interface ISimpleServiceWithEvents : ISimpleService
+    {
+        event EventHandler<ValueChangedEventArgs> DetailedValueChanged;
+
+        event EventHandler ValueChanged;
+    }
+
+    [RpcService]
+    public interface IThermostatService : IDeviceService
+    {
+        void ScanTo(double temp);
+    }
+
+    [RpcService(Name = "ThermostatService")]
+    public interface IThermostatServiceClient : IThermostatService, IDeviceServiceClient, IRpcService
+    {
+        Task ScanToAsync(double temp);
+    }
+
+    [DataContract]
+    [ProtoContract(SkipConstructor = true)]
+    public class AnotherDeclaredFault
+    {
+        public AnotherDeclaredFault(string message, int argument)
         {
-            return a + b;
+            this.Message = message;
+            this.Argument = argument;
         }
 
-        public void GenerateServiceFault(bool useAnotherFault, bool useServiceFault)
-        {
-            if (useAnotherFault)
-            {
-                if (useServiceFault)
-                {
-                    throw new RpcFaultException<AnotherServiceDeclaredFault>("Another service fault", new AnotherServiceDeclaredFault("This is another service fault.", 124));
-                }
-                else
-                {
-                    throw new RpcFaultException<AnotherDeclaredFault>("Another fault", new AnotherDeclaredFault("This is another fault.", 124));
-                }
-            }
-            else
-            {
-                if (useServiceFault)
-                {
-                    throw new RpcFaultException<ServiceDeclaredFault>("Service fault", new ServiceDeclaredFault("This is a service fault."));
-                }
-                else
-                {
-                    throw new RpcFaultException<DeclaredFault>("Fault", new DeclaredFault("This is a fault."));
+        [DataMember(Order = 2)]
+        public int Argument { get; private set; }
 
-                }
-            }
+        [DataMember(Order = 1)]
+        public string Message { get; private set; }
+    }
+
+    [DataContract]
+    [ProtoContract(SkipConstructor = true)]
+    public class AnotherServiceDeclaredFault
+    {
+        public AnotherServiceDeclaredFault(string message, int argument)
+        {
+            this.Message = message;
+            this.Argument = argument;
+        }
+
+        [DataMember(Order = 2)]
+        public int Argument { get; private set; }
+
+        [DataMember(Order = 1)]
+        public string Message { get; private set; }
+    }
+
+    public class AutoPublishServiceProviderServiceImpl : IImplicitServiceProviderService
+    {
+        private IBlockingService[] blockingServiceImpls = new IBlockingService[] {
+            new TestBlockingSimpleServiceImpl(),
+            new TestBlockingSimpleServiceImpl()
+        };
+
+        private ISimpleService[] serviceImpls = new ISimpleService[] {
+            new TestSimpleServiceImpl(),
+            new TestSimpleServiceImpl()
+        };
+
+        public AutoPublishServiceProviderServiceImpl()
+        {
+        }
+
+        public ISimpleService FirstSimpleService => this.serviceImpls[0];
+
+        public IBlockingService GetBlockingService(int index)
+        {
+            return this.blockingServiceImpls[index];
+        }
+
+        public IBlockingService[] GetBlockingServices()
+        {
+            return this.blockingServiceImpls;
+        }
+
+        public ISimpleService GetSimpleService(int index)
+        {
+            return this.serviceImpls[index];
+        }
+
+        public ISimpleService[] GetSimpleServices()
+        {
+            return this.serviceImpls;
         }
     }
 
+    [DataContract]
+    [ProtoContract(SkipConstructor = true)]
+    public class DeclaredFault
+    {
+        public DeclaredFault(string message)
+        {
+            this.Message = message;
+        }
+
+        [DataMember(Order = 1)]
+        public string Message { get; private set; }
+    }
+
+    public class DeclaredFaultException : Exception
+    {
+        public DeclaredFaultException(string message, string detailedMessage) : base(message)
+        {
+            this.DetailedMessage = detailedMessage;
+        }
+
+        public string DetailedMessage { get; }
+    }
+
+    public class DeclaredFaultException2 : Exception
+    {
+        public DeclaredFaultException2(string message, string detailedMessage) : base(message)
+        {
+            this.DetailedMessage = detailedMessage;
+        }
+
+        public string DetailedMessage { get; }
+    }
+
+    public class DeclaredFaultExceptionConverter : RpcExceptionConverter<DeclaredFaultException, DeclaredFault>
+    {
+        public override DeclaredFaultException CreateException(string message, DeclaredFault details)
+        {
+            return new DeclaredFaultException(message, details.Message);
+        }
+
+        public override ConvertedFault CreateFault(DeclaredFaultException exception)
+        {
+            return new ConvertedFault(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
+        }
+    }
+
+    public class DeclaredFaultExceptionConverter2 : RpcExceptionConverter<DeclaredFaultException2, DeclaredFault>
+    {
+        public override DeclaredFaultException2 CreateException(string message, DeclaredFault details)
+        {
+            return new DeclaredFaultException2(message, details.Message);
+        }
+
+        public override ConvertedFault CreateFault(DeclaredFaultException2 exception)
+        {
+            return new ConvertedFault(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
+        }
+    }
+
+    public class DeviceServiceImpl : IDeviceService
+    {
+        public Guid DeviceAcoId { get; } = Guid.NewGuid();
+    }
 
     public class FaultServiceImpl : IFaultService
     {
@@ -293,7 +455,6 @@ namespace SciTech.Rpc.Tests
             throw new RpcFaultException("NoDetailsFault", "Fault with no details");
         }
 
-
         public async Task GenerateUndeclaredAsyncExceptionAsync(bool direct)
         {
             if (direct)
@@ -339,37 +500,66 @@ namespace SciTech.Rpc.Tests
 
             throw new RpcFaultException<AnotherDeclaredFault>(new AnotherDeclaredFault("Another fault, with arg,", 2));
         }
-
     }
 
-    [DataContract]
-    [ProtoContract(SkipConstructor = true)]
-    public class DeclaredFault
+    public class ImplicitServiceProviderServiceImpl : IImplicitServiceProviderService, IDisposable
     {
-        public DeclaredFault(string message)
+        private IBlockingService[] blockingServiceImpls = new IBlockingService[] {
+            new TestBlockingSimpleServiceImpl(),
+            new TestBlockingSimpleServiceImpl()
+        };
+
+        private ScopedObject<RpcObjectRef<IBlockingService>>[] blockingServiceScopes;
+
+        private ISimpleService[] serviceImpls = new ISimpleService[] {
+            new TestSimpleServiceImpl(),
+            new TestSimpleServiceImpl()
+        };
+
+        private ScopedObject<RpcObjectRef<ISimpleService>>[] simpleServiceScopes;
+
+        public ImplicitServiceProviderServiceImpl(IRpcServicePublisher publisher)
         {
-            this.Message = message;
+            this.simpleServiceScopes = Array.ConvertAll(this.serviceImpls,
+                s => publisher.PublishInstance<ISimpleService>(s));
+            this.blockingServiceScopes = Array.ConvertAll(this.blockingServiceImpls,
+                s => publisher.PublishInstance<IBlockingService>(s));
         }
 
-        [DataMember(Order = 1)]
-        public string Message { get; private set; }
-    }
+        public ISimpleService FirstSimpleService => this.serviceImpls[0];
 
-    [DataContract]
-    [ProtoContract(SkipConstructor = true)]
-    public class AnotherDeclaredFault
-    {
-        public AnotherDeclaredFault(string message, int argument)
+        public void Dispose()
         {
-            this.Message = message;
-            this.Argument = argument;
+            foreach (var scope in this.simpleServiceScopes)
+            {
+                scope.Dispose();
+            }
+
+            foreach (var scope in this.blockingServiceScopes)
+            {
+                scope.Dispose();
+            }
         }
 
-        [DataMember(Order = 1)]
-        public string Message { get; private set; }
+        public IBlockingService GetBlockingService(int index)
+        {
+            return this.blockingServiceImpls[index];
+        }
 
-        [DataMember(Order = 2)]
-        public int Argument { get; private set; }
+        public IBlockingService[] GetBlockingServices()
+        {
+            return this.blockingServiceImpls;
+        }
+
+        public ISimpleService GetSimpleService(int index)
+        {
+            return this.serviceImpls[index];
+        }
+
+        public ISimpleService[] GetSimpleServices()
+        {
+            return this.serviceImpls;
+        }
     }
 
     [DataContract]
@@ -385,157 +575,102 @@ namespace SciTech.Rpc.Tests
         public string Message { get; private set; }
     }
 
-    [DataContract]
-    [ProtoContract(SkipConstructor = true)]
-    public class AnotherServiceDeclaredFault
+    public class ServiceFaultServiceImpl : IServiceFaultService
     {
-        public AnotherServiceDeclaredFault(string message, int argument)
+        public int Add(int a, int b)
         {
-            this.Message = message;
-            this.Argument = argument;
+            return a + b;
         }
 
-        [DataMember(Order = 1)]
-        public string Message { get; private set; }
-
-        [DataMember(Order = 2)]
-        public int Argument { get; private set; }
-    }
-
-
-    [RpcService]
-    public interface ISimpleService2
-    {
-        Task<int> SubAsync(int a, int b);
-    }
-
-    [RpcService]
-    public interface IServiceProviderService
-    {
-        RpcObjectRef<ISimpleService> GetSimpleService();
-    }
-
-
-    [RpcService]
-    public interface IImplicitServiceProviderService
-    {
-        ISimpleService FirstSimpleService { get; }
-
-        ISimpleService GetSimpleService(int index);
-
-        ISimpleService[] GetSimpleServices();
-
-        IBlockingService GetBlockingService(int index);
-
-        IBlockingService[] GetBlockingServices();
-
-    }
-
-    [RpcService(Name = "ImplicitServiceProviderService")]
-    public interface IImplicitServiceProviderServiceClient : IImplicitServiceProviderService
-    {
-        new IBlockingServiceClient GetBlockingService(int index);
-
-
-        Task<RpcObjectRef<IBlockingServiceClient>> GetBlockingServiceAsync(int index);
-
-        new IBlockingServiceClient[] GetBlockingServices();
-
-        Task<IBlockingServiceClient[]> GetBlockingServicesAsync();
-
-        [RpcOperation(Name = "GetBlockingServices")]
-        Task<RpcObjectRef<IBlockingServiceClient>[]> GetBlockingServices2Async();
-    }
-
-
-    [RpcService(Name = "ServiceProviderService")]
-    public interface IServiceProviderServiceClient : IServiceProviderService, IRpcService
-    {
-        Task<RpcObjectRef<ISimpleService>> GetSimpleServiceAsync();
-    }
-    [RpcService]
-    public interface IDeviceService
-    {
-        Guid DeviceAcoId { get; }
-    }
-    [RpcService(Name = "DeviceService")]
-    public interface IDeviceServiceClient : IDeviceService, IRpcService
-    {
-        Task<Guid> GetDeviceAcoIdAsync();
-    }
-
-    public class DeviceServiceImpl : IDeviceService
-    {
-        public Guid DeviceAcoId { get; } = Guid.NewGuid();
-    }
-
-    [RpcService]
-    public interface IThermostatService : IDeviceService
-    {
-        void ScanTo(double temp);
-    }
-
-    [RpcService(Name = "ThermostatService")]
-    public interface IThermostatServiceClient : IThermostatService, IDeviceServiceClient, IRpcService
-    {
-        Task ScanToAsync(double temp);
-    }
-
-    public class ThermostatServiceImpl : DeviceServiceImpl, IThermostatService
-    {
-        public void ScanTo(double temp)
+        public void GenerateServiceFault(bool useAnotherFault, bool useServiceFault)
         {
-            Console.WriteLine("Scanning");
-            Thread.Sleep(10);
+            if (useAnotherFault)
+            {
+                if (useServiceFault)
+                {
+                    throw new RpcFaultException<AnotherServiceDeclaredFault>("Another service fault", new AnotherServiceDeclaredFault("This is another service fault.", 124));
+                }
+                else
+                {
+                    throw new RpcFaultException<AnotherDeclaredFault>("Another fault", new AnotherDeclaredFault("This is another fault.", 124));
+                }
+            }
+            else
+            {
+                if (useServiceFault)
+                {
+                    throw new RpcFaultException<ServiceDeclaredFault>("Service fault", new ServiceDeclaredFault("This is a service fault."));
+                }
+                else
+                {
+                    throw new RpcFaultException<DeclaredFault>("Fault", new DeclaredFault("This is a fault."));
+
+                }
+            }
         }
     }
 
-    public class DeclaredFaultException : Exception
+    public class ServiceProviderServiceImpl : IServiceProviderService, IDisposable
     {
-        public DeclaredFaultException(string message, string detailedMessage) : base(message)
+        private ScopedObject<RpcObjectRef<ISimpleService>> simpleServiceScope;
+
+        public ServiceProviderServiceImpl(IRpcServicePublisher publisher)
         {
-            this.DetailedMessage = detailedMessage;
+            this.simpleServiceScope = publisher.PublishInstance<ISimpleService>(new TestSimpleServiceImpl());
         }
 
-        public string DetailedMessage { get; }
-
-    }
-
-
-    public class DeclaredFaultException2 : Exception
-    {
-        public DeclaredFaultException2(string message, string detailedMessage) : base(message)
+        public void Dispose()
         {
-            this.DetailedMessage = detailedMessage;
+            this.simpleServiceScope.Dispose();
         }
 
-        public string DetailedMessage { get; }
-
-    }
-
-    public class DeclaredFaultExceptionConverter : RpcExceptionConverter<DeclaredFaultException, DeclaredFault>
-    {
-        public override DeclaredFaultException CreateException(string message, DeclaredFault details)
+        public RpcObjectRef<ISimpleService> GetSimpleService()
         {
-            return new DeclaredFaultException(message, details.Message);
-        }
-
-        public override ConvertedFault CreateFault(DeclaredFaultException exception)
-        {
-            return new ConvertedFault(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
+            return this.simpleServiceScope.Value;
         }
     }
 
-    public class DeclaredFaultExceptionConverter2 : RpcExceptionConverter<DeclaredFaultException2, DeclaredFault>
+    public class TestBlockingServiceImpl : IBlockingService
     {
-        public override DeclaredFaultException2 CreateException(string message, DeclaredFault details)
+        internal int nBlockingAdd;
+
+        internal int nBlockingGetValue;
+
+        internal int nBlockingSetValue;
+
+        protected double value;
+
+        public double Value
         {
-            return new DeclaredFaultException2(message, details.Message);
+            get { this.nBlockingGetValue++; return this.value; }
+            set { this.nBlockingSetValue++; this.value = value; }
         }
 
-        public override ConvertedFault CreateFault(DeclaredFaultException2 exception)
+        public int Add(int a, int b)
         {
-            return new ConvertedFault(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
+            this.nBlockingAdd++;
+            return a + b;
+        }
+    }
+
+    public class TestBlockingSimpleServiceImpl : TestSimpleServiceImpl, IBlockingService
+    {
+        internal int nBlockingAdd;
+
+        internal int nBlockingGetValue;
+
+        internal int nBlockingSetValue;
+
+        public double Value
+        {
+            get { this.nBlockingGetValue++; return this.value; }
+            set { this.nBlockingSetValue++; this.value = value; }
+        }
+
+        public int Add(int a, int b)
+        {
+            this.nBlockingAdd++;
+            return a + b;
         }
     }
 
@@ -570,11 +705,21 @@ namespace SciTech.Rpc.Tests
             return Task.FromResult(a + b);
         }
 
+        public Task<int[]> GetArrayAsync(int count)
+        {
+            int[] data = new int[count];
+            for (int i = 0; i < data.Length; i++)
+            {
+                data[i] = i;
+            }
+
+            return Task.FromResult(data);
+        }
+
         public Task<double> GetValueAsync()
         {
             return Task.FromResult(this.value);
         }
-
 
         public async Task SetValueAsync(double value)
         {
@@ -600,17 +745,6 @@ namespace SciTech.Rpc.Tests
 
                 return sum;
             });
-        }
-
-        public Task<int[]> GetArrayAsync(int count)
-        {
-            int[] data = new int[count];
-            for (int i = 0; i < data.Length; i++)
-            {
-                data[i] = i;
-            }
-
-            return Task.FromResult(data);
         }
     }
 
@@ -638,7 +772,7 @@ namespace SciTech.Rpc.Tests
         public Task<int[]> GetArrayAsync(int count)
         {
             int[] data = new int[count];
-            for(int i=0; i < data.Length;i++)
+            for (int i = 0; i < data.Length; i++)
             {
                 data[i] = i;
             }
@@ -673,171 +807,22 @@ namespace SciTech.Rpc.Tests
         }
     }
 
-
-    public class TestBlockingServiceImpl : IBlockingService
+    public static class TestTaskExtensions
     {
-        protected double value;
-
-        internal int nBlockingGetValue;
-        internal int nBlockingSetValue;
-        internal int nBlockingAdd;
-
-
-        public double Value
+        public static bool IsCompletedSuccessfully(this Task task)
         {
-            get { nBlockingGetValue++; return this.value; }
-            set { this.nBlockingSetValue++; this.value = value; }
-        }
-
-        public int Add(int a, int b)
-        {
-            this.nBlockingAdd++;
-            return a + b;
-        }
-
-    }
-
-    public class TestBlockingSimpleServiceImpl : TestSimpleServiceImpl, IBlockingService
-    {
-        internal int nBlockingGetValue;
-        internal int nBlockingSetValue;
-        internal int nBlockingAdd;
-
-
-        public double Value
-        {
-            get { nBlockingGetValue++; return this.value; }
-            set { this.nBlockingSetValue++; this.value = value; }
-        }
-
-        public int Add(int a, int b)
-        {
-            this.nBlockingAdd++;
-            return a + b;
-        }
-
-    }
-
-    public class ServiceProviderServiceImpl : IServiceProviderService, IDisposable
-    {
-        ScopedObject<RpcObjectRef<ISimpleService>> simpleServiceScope;
-
-        public ServiceProviderServiceImpl(IRpcServicePublisher publisher)
-        {
-            this.simpleServiceScope = publisher.PublishInstance<ISimpleService>(new TestSimpleServiceImpl());
-        }
-
-        public void Dispose()
-        {
-            this.simpleServiceScope.Dispose();
-        }
-
-        public RpcObjectRef<ISimpleService> GetSimpleService()
-        {
-            return simpleServiceScope.Value;
+            return task.Status == TaskStatus.RanToCompletion;
         }
     }
 
-    public class ImplicitServiceProviderServiceImpl : IImplicitServiceProviderService, IDisposable
+    public class ThermostatServiceImpl : DeviceServiceImpl, IThermostatService
     {
-        ScopedObject<RpcObjectRef<ISimpleService>>[] simpleServiceScopes;
-        ScopedObject<RpcObjectRef<IBlockingService>>[] blockingServiceScopes;
-
-        ISimpleService[] serviceImpls = new ISimpleService[] {
-            new TestSimpleServiceImpl(),
-            new TestSimpleServiceImpl()
-        };
-
-        IBlockingService[] blockingServiceImpls = new IBlockingService[] {
-            new TestBlockingSimpleServiceImpl(),
-            new TestBlockingSimpleServiceImpl()
-        };
-
-        public ImplicitServiceProviderServiceImpl(IRpcServicePublisher publisher)
+        public void ScanTo(double temp)
         {
-            this.simpleServiceScopes = Array.ConvertAll(serviceImpls,
-                s => publisher.PublishInstance<ISimpleService>(s));
-            this.blockingServiceScopes = Array.ConvertAll(blockingServiceImpls,
-                s => publisher.PublishInstance<IBlockingService>(s));
-        }
-
-        public void Dispose()
-        {
-            foreach (var scope in this.simpleServiceScopes)
-            {
-                scope.Dispose();
-            }
-
-            foreach (var scope in this.blockingServiceScopes)
-            {
-                scope.Dispose();
-            }
-        }
-
-        public ISimpleService FirstSimpleService => this.serviceImpls[0];
-
-        public ISimpleService GetSimpleService(int index)
-        {
-            return serviceImpls[index];
-        }
-
-        public ISimpleService[] GetSimpleServices()
-        {
-            return this.serviceImpls;
-        }
-
-        public IBlockingService GetBlockingService(int index)
-        {
-            return blockingServiceImpls[index];
-        }
-
-        public IBlockingService[] GetBlockingServices()
-        {
-            return this.blockingServiceImpls;
+            Console.WriteLine("Scanning");
+            Thread.Sleep(10);
         }
     }
-
-
-    public class AutoPublishServiceProviderServiceImpl : IImplicitServiceProviderService
-    {
-        ISimpleService[] serviceImpls = new ISimpleService[] {
-            new TestSimpleServiceImpl(),
-            new TestSimpleServiceImpl()
-        };
-
-        IBlockingService[] blockingServiceImpls = new IBlockingService[] {
-            new TestBlockingSimpleServiceImpl(),
-            new TestBlockingSimpleServiceImpl()
-        };
-
-        public AutoPublishServiceProviderServiceImpl()
-        {
-        }
-
-        public ISimpleService FirstSimpleService => this.serviceImpls[0];
-
-
-        public ISimpleService GetSimpleService(int index)
-        {
-            return serviceImpls[index];
-        }
-
-        public ISimpleService[] GetSimpleServices()
-        {
-            return serviceImpls;
-        }
-
-        public IBlockingService GetBlockingService(int index)
-        {
-            return blockingServiceImpls[index];
-        }
-
-        public IBlockingService[] GetBlockingServices()
-        {
-            return this.blockingServiceImpls;
-        }
-    }
-
 
     public class UnserializableEventArgs
     {
@@ -865,16 +850,4 @@ namespace SciTech.Rpc.Tests
         [DataMember(Order = 2)]
         public int OldValue { get; private set; }
     }
-
-
-    public static class TestTaskExtensions
-    {
-        public static bool IsCompletedSuccessfully(this Task task)
-        {
-            return task.Status == TaskStatus.RanToCompletion;
-        }
-
-
-    }
-
 }

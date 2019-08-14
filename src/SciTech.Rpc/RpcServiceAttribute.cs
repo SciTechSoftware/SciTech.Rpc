@@ -1,4 +1,15 @@
-﻿using System;
+﻿#region Copyright notice and license
+// Copyright (c) 2019, SciTech Software AB
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License. 
+// You may obtain a copy of the License at:
+//
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+#endregion
+
+using System;
 using System.Linq;
 
 namespace SciTech.Rpc
@@ -10,16 +21,29 @@ namespace SciTech.Rpc
         Server
     }
 
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Event | AttributeTargets.Property)]
-    public class RpcOperationAttribute : Attribute
-    {
-        public string Name { get; set; } = "";
-    }
-
     [AttributeUsage(AttributeTargets.Interface)]
     public class RpcServiceAttribute : Attribute
     {
         private RpcServiceDefinitionSide? serviceDefinitionType;
+
+        /// <summary>
+        /// Indicates that this service will always be published as a singleton. It cannot be associated 
+        /// with an object id.
+        /// </summary>
+        public bool IsSingleton { get; set; }
+
+        /// <summary>
+        /// Gets the name of this RPC service. If not specified, the name will be retrieved from the <see cref="ServerDefinitionType"/> if available. Otherwise, 
+        /// the name of the service interface with the initial 'I' removed will be used.
+        /// </summary>
+        public string Name { get; set; } = "";
+
+        /// <summary>
+        /// Gets the namespace of this service. This corresponds to the package name of a gRPC service. If not specified, the name 
+        /// will be retrieved from the <see cref="ServerDefinitionType"/> if available. Otherwise, 
+        /// the namespace of the service interface will be used.
+        /// </summary>
+        public string Namespace { get; set; } = "";
 
         /// <summary>
         /// Optional information about the server side definition type, used when <see cref="ServiceDefinitionSide"/> is 
@@ -39,26 +63,6 @@ namespace SciTech.Rpc
         /// type name is not used by the runtime code generator.
         /// </remarks>
         public string ServerDefinitionTypeName { get; set; } = "";
-
-        /// <summary>
-        /// Gets the name of this RPC service. If not specified, the name will be retrieved from the <see cref="ServerDefinitionType"/> if available. Otherwise, 
-        /// the name of the service interface with the initial 'I' removed will be used.
-        /// </summary>
-        public string Name { get; set; } = "";
-
-
-        /// <summary>
-        /// Gets the namespace of this service. This corresponds to the package name of a gRPC service. If not specified, the name 
-        /// will be retrieved from the <see cref="ServerDefinitionType"/> if available. Otherwise, 
-        /// the namespace of the service interface will be used.
-        /// </summary>
-        public string Namespace { get; set; } = "";
-        
-        /// <summary>
-        /// Indicates that this service will always be published as a singleton. It cannot be associated 
-        /// with an object id.
-        /// </summary>
-        public bool IsSingleton { get; set; }
 
         /// <summary>
         /// Indicates whether the service interface defines the server side, client side, or both sides of the RPC service. If <see cref="ServerDefinitionType"/>

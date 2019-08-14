@@ -118,6 +118,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 var receiveOptions = new PipeOptions(
                     pauseWriterThreshold: receivePauseThreshold,
                     resumeWriterThreshold: receivePauseThreshold / 2,
+                    readerScheduler: PipeScheduler.Inline,
                     useSynchronizationContext: false);
                 this.Listen(this.endPoint, receiveOptions: receiveOptions);
             }

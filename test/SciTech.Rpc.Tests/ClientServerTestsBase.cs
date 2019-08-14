@@ -121,8 +121,8 @@ namespace SciTech.Rpc.Tests
                     }
                 case RpcConnectionType.LightweightInproc:
                     {
-                        Pipe requestPipe = new Pipe();
-                        Pipe responsePipe = new Pipe();
+                        Pipe requestPipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
+                        Pipe responsePipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
 
                         var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
                         host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));

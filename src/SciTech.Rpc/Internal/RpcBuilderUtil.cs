@@ -145,11 +145,14 @@ namespace SciTech.Rpc.Internal
             {
                 var rpcPropertyInfo = RpcBuilderUtil.GetPropertyInfoFromProperty(serviceInfo, propertyInfo);
                 // this.CheckOperation(rpcPropertyInfo.FullName);
+                var propertyRpcAttribute = propertyInfo.GetCustomAttribute<RpcOperationAttribute>();
 
                 if (propertyInfo.GetMethod != null)
                 {
                     if (splitProperties)
                     {
+                        var getRpcAttribute = propertyInfo.GetMethod.GetCustomAttribute<RpcOperationAttribute>();
+
                         var getOp = new RpcOperationInfo(
                             service: rpcPropertyInfo.Service,
                             name: $"Get{propertyInfo.Name}",
@@ -163,7 +166,8 @@ namespace SciTech.Rpc.Internal
                             responseType: typeof(RpcResponse<>).MakeGenericType(rpcPropertyInfo.ResponseReturnType),
                             responseReturnType: rpcPropertyInfo.ResponseReturnType,
                             returnType: propertyInfo.PropertyType,
-                            returnKind: rpcPropertyInfo.PropertyTypeKind
+                            returnKind: rpcPropertyInfo.PropertyTypeKind,
+                            allowInlineExecution: getRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false
                             );
 
                         yield return getOp;
@@ -176,6 +180,8 @@ namespace SciTech.Rpc.Internal
                 {
                     if (splitProperties)
                     {
+                        var setRpcAttribute = propertyInfo.SetMethod.GetCustomAttribute<RpcOperationAttribute>();
+
                         var setOp = new RpcOperationInfo(
                             service: rpcPropertyInfo.Service,
                             name: $"Set{propertyInfo.Name}",
@@ -190,7 +196,8 @@ namespace SciTech.Rpc.Internal
                             responseType: typeof(RpcResponse),
                             returnType: typeof(void),
                             responseReturnType: typeof(void),
-                            returnKind: ServiceOperationReturnKind.Standard
+                            returnKind: ServiceOperationReturnKind.Standard,
+                            allowInlineExecution: setRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false
                         );
 
                         yield return setOp;
@@ -371,7 +378,8 @@ namespace SciTech.Rpc.Internal
                 returnType: actualReturnType,
                 responseType: responseType,
                 responseReturnType: responseReturnType,
-                returnKind: returnKind
+                returnKind: returnKind,
+                allowInlineExecution: rpcAttribute?.AllowInlineExecution ?? false
             );
         }
 
@@ -708,7 +716,8 @@ namespace SciTech.Rpc.Internal
             Type responseReturnType,
             Type requestType,
             Type responseType,
-            ServiceOperationReturnKind returnKind) :
+            ServiceOperationReturnKind returnKind,
+            bool allowInlineExecution) :
             base(name, service, declaringMember)
         {
             this.Method = method ?? throw new ArgumentNullException(nameof(method));
@@ -721,7 +730,10 @@ namespace SciTech.Rpc.Internal
             this.RequestType = requestType ?? throw new ArgumentNullException(nameof(requestType));
             this.ResponseType = responseType ?? throw new ArgumentNullException(nameof(responseType));
             this.ReturnKind = returnKind;
+            this.AllowInlineExecution = allowInlineExecution;
         }
+        
+        public bool AllowInlineExecution { get; }
 
         public bool IsAsync { get; }
 

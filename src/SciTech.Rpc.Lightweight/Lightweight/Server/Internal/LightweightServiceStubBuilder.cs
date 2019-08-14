@@ -100,7 +100,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
                 => serviceStub.CallAsyncMethod(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                operationInfo.AllowInlineExecution);
 
             binder.AddMethod(methodStub);
         }
@@ -117,7 +118,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
                 => serviceStub.CallBlockingMethod(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                operationInfo.AllowInlineExecution);
             binder.AddMethod(methodStub);
         }
 
@@ -132,7 +134,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
                 => serviceStub.CallVoidAsyncMethod(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                operationInfo.AllowInlineExecution);
             binder.AddMethod(methodStub);
         }
 
@@ -148,7 +151,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
                 => serviceStub.CallVoidBlockingMethod(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                operationInfo.AllowInlineExecution);
             binder.AddMethod(methodStub);
         }
 

@@ -77,20 +77,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         where TResponse : class
     {
         /// <summary>
-        /// Creates a method stub that will handle unary requests.
-        /// </summary>
-        /// <param name="fullName">Full name of unary operation.</param>
-        /// <param name="handler">Delegate that will be invoked to handle the request.</param>
-        public LightweightMethodStub(
-            string fullName,
-            Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>> handler,
-            IRpcSerializer serializer, RpcServerFaultHandler? faultHandler)
-            : base(fullName, serializer, faultHandler)
-        {
-            this.Handler = handler;
-        }
-
-        /// <summary>
         /// Creates a method stub that will handle streaming requests.
         /// </summary>
         /// <param name="fullName">Full name of unary operation.</param>
@@ -104,11 +90,27 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             this.StreamHandler = streamHandler;
         }
 
+        /// <summary>
+        /// Creates a method stub that will handle unary requests.
+        /// </summary>
+        /// <param name="fullName">Full name of unary operation.</param>
+        /// <param name="handler">Delegate that will be invoked to handle the request.</param>
+        public LightweightMethodStub(
+            string fullName,
+            Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>> handler,
+            IRpcSerializer serializer, RpcServerFaultHandler? faultHandler,
+            bool allowInlineExecution)
+            : base(fullName, serializer, faultHandler)
+        {
+            this.Handler = handler;
+            this.AllowInlineExecution = allowInlineExecution;
+        }
+
         public override Type RequestType => typeof(TRequest);
 
         public override Type ResponseType => typeof(TResponse);
 
-        internal static bool AllowInlineExecution => false;
+        internal bool AllowInlineExecution { get; }
 
         /// <summary>
         /// Gets the handler for a unary request. Only one of <see cref="Handler"/> and <see cref="StreamHandler"/> will be non-<c>null</c>.
@@ -157,7 +159,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             }
 
 
-            if (AllowInlineExecution)
+            if (this.AllowInlineExecution)
             {
                 return ExecuteOperation(pipeline, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
             }

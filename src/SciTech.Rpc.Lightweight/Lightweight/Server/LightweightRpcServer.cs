@@ -36,10 +36,10 @@ namespace SciTech.Rpc.Lightweight.Server
         private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(LightweightRpcServer)
             .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
 
-        private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients 
+        private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients
             = new ConcurrentDictionary<ClientPipeline, ClientPipeline>();
 
-        private readonly Dictionary<string, LightweightMethodStub> methodDefinitions 
+        private readonly Dictionary<string, LightweightMethodStub> methodDefinitions
             = new Dictionary<string, LightweightMethodStub>();
 
         private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
@@ -148,7 +148,7 @@ namespace SciTech.Rpc.Lightweight.Server
             var methodStub = new LightweightMethodStub<RpcObjectRequest, RpcServicesQueryResponse>(
                 "SciTech.Rpc.RpcService.QueryServices",
                 (request, _, context) => new ValueTask<RpcServicesQueryResponse>(this.QueryServices(request.Id)),
-            this.Serializer, null);
+            this.Serializer, null, false);
 
             this.methodDefinitions.Add("SciTech.Rpc.RpcService.QueryServices", methodStub);
 

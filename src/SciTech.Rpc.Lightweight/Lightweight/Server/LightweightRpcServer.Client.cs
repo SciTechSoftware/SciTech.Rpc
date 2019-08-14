@@ -237,7 +237,7 @@ namespace SciTech.Rpc.Lightweight.Server
                             this.AddActiveOperation(activeOperation);
                         }
 
-                        ValueTask messageTask;
+                        Task messageTask;
 
                         var context = new LightweightCallContext(frame.Headers, cancellationSource?.Token ?? default);
                         scope = this.server.ServiceProvider?.CreateScope();
@@ -254,12 +254,12 @@ namespace SciTech.Rpc.Lightweight.Server
                                 throw new NotImplementedException();
                         }
 
-                        if (!messageTask.IsCompletedSuccessfully)
+                        if (messageTask.Status != TaskStatus.RanToCompletion)
                         {
                             var activeScope = scope;
                             // Make sure that the scope is not disposed until the operation is finished.
                             scope = null;
-                            return this.HandleAsyncOperation(frame, activeOperation, activeScope, messageTask.AsTask());
+                            return this.HandleAsyncOperation(frame, activeOperation, activeScope, messageTask);
                         }
                     }
                     else

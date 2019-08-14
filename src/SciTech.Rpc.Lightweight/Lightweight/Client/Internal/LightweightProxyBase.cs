@@ -113,9 +113,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return AwaitConnectAndCall(clientTask);
         }
 
-        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request)
+        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            return CallUnaryMethodImplAsync<TRequest, TResponse>(methodDef, request, CancellationToken.None).AwaiterResult();
+            return CallUnaryMethodImplAsync<TRequest, TResponse>(methodDef, request, cancellationToken).AwaiterResult();
         }
 
         protected override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
@@ -164,9 +164,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         {
             switch (e)
             {
-                case RpcCommunicationException _:
-                case RpcFailureException _:
-                    break;
                 case Pipelines.Sockets.Unofficial.ConnectionResetException _:
                     throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, e.Message, e);
                 case Pipelines.Sockets.Unofficial.ConnectionAbortedException _:
@@ -186,6 +183,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     }
                 case IOException ioe:
                     throw new RpcCommunicationException(RpcCommunicationStatus.Unknown, ioe.Message);
+                case RpcCommunicationException _:
+                case RpcFailureException _:
+                case OperationCanceledException _:
+                    break;
                 default:
                     throw new RpcFailureException(RpcFailure.Unknown, $"Unexepected exception when calling RPC method. {e.Message}", e);
             }

@@ -244,10 +244,10 @@ namespace SciTech.Rpc.NetGrpc.Server
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <param name="type">The known type.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IServiceCollection RegisterKnownType(this IServiceCollection builder, Type type)
+        public static IServiceCollection RegisterKnownType(this IServiceCollection services, Type type)
         {
-            builder.AddSingleton(new KnownSerializationType(type));
-            return builder;
+            services.AddSingleton(new KnownSerializationType(type));
+            return services;
         }
 
         /// <summary>

@@ -341,13 +341,14 @@ namespace SciTech.Rpc.Client.Internal
         protected TReturnType CallUnaryMethod<TRequest, TResponseType, TReturnType>(
             TMethodDef methodDef,
             TRequest request,
-            Func<IRpcService, object?, object?> responseConverter)
+            Func<IRpcService, object?, object?> responseConverter,
+            CancellationToken cancellationToken)
             where TRequest : class
         {
             RpcResponse<TResponseType> response;
             try
             {
-                response = this.CallUnaryMethodImpl<TRequest, RpcResponse<TResponseType>>(methodDef, request);
+                response = this.CallUnaryMethodImpl<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
@@ -410,21 +411,21 @@ namespace SciTech.Rpc.Client.Internal
             return default!;
         }
 
-        protected abstract TResponse CallUnaryMethodImpl<TRequest, TResponse>(TMethodDef methodDef, TRequest request)
+        protected abstract TResponse CallUnaryMethodImpl<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
-        protected abstract Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken ct)
+        protected abstract Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
-        protected void CallUnaryVoidMethod<TRequest>(TMethodDef methodDef, TRequest request)
+        protected void CallUnaryVoidMethod<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
         {
             RpcResponse response;
             try
             {
-                response = this.CallUnaryMethodImpl<TRequest, RpcResponse>(methodDef, request);
+                response = this.CallUnaryMethodImpl<TRequest, RpcResponse>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
@@ -749,10 +750,11 @@ namespace SciTech.Rpc.Client.Internal
                             }
                             else
                             {
-                                // TODO: This will prevent strict ordering of events, but
-                                // without this there will be a dead-lock if the handler calls back into 
-                                // the proxy (why?). Maybe invoke through a queue?
-                                Task.Run(() => this.InvokeDelegate(eventHandler, eventArgs)).Forget();
+                                //// TODO: This will prevent strict ordering of events, but
+                                //// without this there will be a dead-lock if the handler calls back into 
+                                //// the proxy (why?). Maybe invoke through a queue?
+                                //Task.Run(() => this.InvokeDelegate(eventHandler, eventArgs)).Forget();
+                                this.InvokeDelegate(eventHandler, eventArgs);
                             }
                         }
                     }
@@ -797,7 +799,7 @@ namespace SciTech.Rpc.Client.Internal
 
             internal readonly TaskCompletionSource<bool> eventListenerFinishedTcs = new TaskCompletionSource<bool>();
 
-            internal readonly TaskCompletionSource<bool> eventListenerStartedTcs = new TaskCompletionSource<bool>();
+            internal readonly TaskCompletionSource<bool> eventListenerStartedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             internal readonly int eventMethodIndex;
 
@@ -844,6 +846,19 @@ namespace SciTech.Rpc.Client.Internal
                 return proxyMethods;
             }
         }
+    }
+
+    /// <summary>
+    /// Contains global proxy options, mainly intended for testing.
+    /// </summary>
+    internal static class RpcProxyOptions
+    {
+        /// <summary>
+        /// Indicates that cancellations and timeouts should round-trip to the server
+        /// before being completed.
+        /// Should only be set to true when running tests.
+        /// </summary>
+        internal static bool RoundTripCancellationsAndTimeouts = false;
     }
 
     public static class ServiceConverter<TService> where TService : class

@@ -60,7 +60,6 @@ namespace SciTech.Rpc.Grpc.Server
         /// <param name="servicePublisher"></param>
         /// <param name="serviceImplProvider"></param>
         /// <param name="serviceDefinitionsProvider"></param>
-        /// <param name="serializer"></param>
         public GrpcServer(
             IRpcServicePublisher servicePublisher,
             IRpcServiceActivator serviceImplProvider,

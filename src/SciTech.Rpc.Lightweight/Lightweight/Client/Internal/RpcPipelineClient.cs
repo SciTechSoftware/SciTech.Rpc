@@ -360,16 +360,25 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private async void CancelCall(int messageId, string operation)
         {
-            bool canCancel;
+            IResponseHandler? responseHandler;
             lock (this.awaitingResponses)
             {
-                canCancel = this.awaitingResponses.ContainsKey(messageId);
+                if (this.awaitingResponses.TryGetValue(messageId, out responseHandler))
+                {
+                    if (!RpcProxyOptions.RoundTripCancellationsAndTimeouts)
+                    {
+                        this.awaitingResponses.Remove(messageId);
+                    }
+                }
             }
 
-            // TODO: Doesn't it make sense to cancel the response immediately. Is
-            // there a need to round-trip the cancellation to the server? 
-            if (canCancel)
+            if (responseHandler != null )
             {
+                if (!RpcProxyOptions.RoundTripCancellationsAndTimeouts)
+                {
+                    responseHandler.HandleCancellation();
+                }
+                
                 var frame = new LightweightRpcFrame(RpcFrameType.CancelRequest, messageId, operation, RpcOperationFlags.None, 0, null);
                 var payloadStream = await this.BeginWriteAsync(frame).ContextFree();
                 if (payloadStream != null)
@@ -617,7 +626,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         return new ValueTask<bool>(false);
                     }
 
-                    this.responseTcs = new TaskCompletionSource<bool>();
+                    this.responseTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                     nextTask = this.responseTcs.Task;
                 }
 

@@ -15,6 +15,7 @@ using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
@@ -44,8 +45,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     }
 
     /// <summary>
-    /// The <see cref="LightweightServiceStubBuilder"/> builds a type implementing server side stubs for an RPC service defined by an RpcService
-    /// interface. The service interface must be tagged with the <see cref="RpcServiceAttribute"/> attribute.
+    /// The <see cref="LightweightServiceStubBuilder{TService}"/> builds a type implementing server side stubs for an RPC service 
+    /// defined by an RpcService interface. 
+    /// The service interface must be tagged with the <see cref="RpcServiceAttribute"/> attribute.
     /// Note, this class will only generate an implementation for the declared members of the service, nothing
     /// is generated for inherited members.
     /// </summary>
@@ -58,7 +60,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
         }
 
-        public LightweightServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options) 
+        public LightweightServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
             : base(serviceInfo, options)
         {
 
@@ -86,7 +88,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 
         protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, Task<TReturn>> serviceCaller,
+            Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -104,7 +106,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 
         protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, TReturn> serviceCaller,
+            Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -120,7 +122,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 
         protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
-            Func<TService, TRequest, Task> serviceCaller,
+            Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
@@ -135,7 +137,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 
         protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
-            Action<TService, TRequest> serviceCaller,
+            Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,

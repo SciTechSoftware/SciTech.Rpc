@@ -133,7 +133,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.Dispose(true);
         }
 
-        public async ValueTask EndWriteAsync()
+        public async Task EndWriteAsync()
         {
             var pipeWriter = this.pipe?.Output;
             var frameWriter = this.frameWriterStream;

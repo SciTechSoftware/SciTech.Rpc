@@ -200,7 +200,7 @@ namespace SciTech.Rpc.Server.Internal
             TRequest request,
             IServiceProvider? serviceProvider,
             IRpcCallContext context,
-            Func<TService, TRequest, Task<TResult>> implCaller,
+            Func<TService, TRequest, CancellationToken, Task<TResult>> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer) where TRequest : IObjectRequest
@@ -212,7 +212,7 @@ namespace SciTech.Rpc.Server.Internal
                 try
                 {
                     // Call the actual implementation method.
-                    var result = await implCaller(service, request).ContextFree();
+                    var result = await implCaller(service, request, context.CancellationToken).ContextFree();
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return CreateResponse(responseConverter, result);
@@ -246,7 +246,7 @@ namespace SciTech.Rpc.Server.Internal
             TRequest request,
             IServiceProvider? serviceProvider,
             IRpcCallContext context,
-            Func<TService, TRequest, TResult> implCaller,
+            Func<TService, TRequest, CancellationToken, TResult> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer) where TRequest : IObjectRequest
@@ -258,7 +258,7 @@ namespace SciTech.Rpc.Server.Internal
                 try
                 {
                     // Call the actual implementation method.
-                    var result = implCaller(service, request);
+                    var result = implCaller(service, request, context.CancellationToken);
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return CreateResponse(responseConverter, result);
@@ -292,7 +292,7 @@ namespace SciTech.Rpc.Server.Internal
             TRequest request,
             IServiceProvider? serviceProvider,
             IRpcCallContext context,
-            Func<TService, TRequest, Task> implCaller,
+            Func<TService, TRequest, CancellationToken, Task> implCaller,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer) where TRequest : IObjectRequest
         {
@@ -303,7 +303,7 @@ namespace SciTech.Rpc.Server.Internal
                 try
                 {
                     // Call the actual implementation method.
-                    await implCaller(service, request).ContextFree();
+                    await implCaller(service, request, context.CancellationToken).ContextFree();
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return new RpcResponse();
@@ -337,7 +337,7 @@ namespace SciTech.Rpc.Server.Internal
             TRequest request,
             IServiceProvider? serviceProvider,
             IRpcCallContext context,
-            Action<TService, TRequest> implCaller,
+            Action<TService, TRequest, CancellationToken> implCaller,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer)
             where TRequest : IObjectRequest
@@ -349,7 +349,7 @@ namespace SciTech.Rpc.Server.Internal
                 try
                 {
                     // Call the actual implementation method.
-                    implCaller(service, request);
+                    implCaller(service, request, context.CancellationToken);
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return new RpcResponse();
@@ -628,6 +628,9 @@ namespace SciTech.Rpc.Server.Internal
 #pragma warning restore CA1062 // Validate arguments of public methods
 #pragma warning restore CA1031 // Do not catch general exception types
 
+    /// <summary>
+    /// Contains global stub options, mainly intended for testing.
+    /// </summary>
     internal static class RpcStubOptions
     {
         /// <summary>

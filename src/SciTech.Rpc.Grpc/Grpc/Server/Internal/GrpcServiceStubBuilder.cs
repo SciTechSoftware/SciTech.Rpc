@@ -14,6 +14,7 @@ using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -22,14 +23,6 @@ namespace SciTech.Rpc.Grpc.Server.Internal
     internal interface IGrpcServiceStubBuilder
     {
         GrpcCore.ServerServiceDefinition Build(IRpcServerImpl server);
-    }
-
-    public class GrpcMethodStub : RpcMethodStub
-    {
-        public GrpcMethodStub(IRpcSerializer serializer, RpcServerFaultHandler faultHandler)
-            : base(serializer, faultHandler)
-        {
-        }
     }
 
     /// <summary>
@@ -89,7 +82,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
         }
 
         protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, Task<TReturn>> serviceCaller,
+            Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -97,7 +90,6 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
             {
                 using (var callScope = serviceStub.ServiceProvider?.CreateScope())
@@ -113,7 +105,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
         }
 
         protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, TReturn> serviceCaller,
+            Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -121,7 +113,6 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
             {
                 using (var serviceScope = CreateServiceScope(serviceStub))
@@ -139,14 +130,13 @@ namespace SciTech.Rpc.Grpc.Server.Internal
         }
 
         protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
-            Func<TService, TRequest, Task> serviceCaller,
+            Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
             {
                 using (var serviceScope = CreateServiceScope(serviceStub))
@@ -164,14 +154,13 @@ namespace SciTech.Rpc.Grpc.Server.Internal
         }
 
         protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
-            Action<TService, TRequest> serviceCaller,
+            Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
             {
                 using (var serviceScope = CreateServiceScope(serviceStub))

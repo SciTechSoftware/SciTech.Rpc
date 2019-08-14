@@ -158,7 +158,6 @@ namespace SciTech.Rpc.Client
         /// <see cref="NotifyConnectionFailed"/>,  <see cref="NotifyDisconnected"/>, or <see cref="NotifyConnected"/>
         /// </summary>
         /// <param name="state"></param>
-        /// <param name="ex"></param>
         protected void SetConnectionState(RpcConnectionState state)
         {
             if (this.connectionState != state)

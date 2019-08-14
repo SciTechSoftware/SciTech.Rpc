@@ -61,7 +61,7 @@ namespace SciTech.Rpc
         public bool IsSingleton { get; set; }
 
         /// <summary>
-        /// Indicates whether the service interface defines the server side, client side, or both sides of the RPC service. If <see cref="ServiceDefinitionType"/>
+        /// Indicates whether the service interface defines the server side, client side, or both sides of the RPC service. If <see cref="ServerDefinitionType"/>
         /// is specified, this property will be <see cref="RpcServiceDefinitionSide.Client"/> by default; otherwise it will be <see cref="RpcServiceDefinitionSide.Both"/>.
         /// </summary>
         public RpcServiceDefinitionSide ServiceDefinitionSide

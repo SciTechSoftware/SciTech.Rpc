@@ -17,9 +17,7 @@ using SciTech.Rpc.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
-
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -60,9 +58,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 #pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class GrpcProxyBase : RpcProxyBase<GrpcProxyMethod>
     {
-        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request)
+        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: CancellationToken.None);
+            var callOptions = new GrpcCore.CallOptions(cancellationToken: cancellationToken);
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
 
             var response = this.grpcInvoker.BlockingUnaryCall(typedMethod, null, callOptions, request);
@@ -97,6 +95,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                         throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
                     case GrpcCore.StatusCode.ResourceExhausted:
                         throw new RpcFailureException(RpcFailure.SizeLimitExceeded, e.Message, e);
+                    case GrpcCore.StatusCode.Cancelled:
+                        throw new OperationCanceledException(e.Message, e);
                     default:
                         throw new RpcFailureException(RpcFailure.Unknown, e.Message, e);
                 }

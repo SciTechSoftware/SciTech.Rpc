@@ -19,6 +19,7 @@ using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -83,7 +84,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         }
 
         protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, Task<TReturn>> serviceCaller,
+            Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -115,7 +116,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         }
 
         protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, TReturn> serviceCaller,
+            Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -147,7 +148,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         }
 
         protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
-            Func<TService, TRequest, Task> serviceCaller,
+            Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
@@ -170,7 +171,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         }
 
         protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
-            Action<TService, TRequest> serviceCaller,
+            Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
@@ -212,9 +213,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         /// <summary>
         /// Small helper class, mainly just used to shorten the name 
-        /// ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> a little.
+        /// ServiceMethodProviderContext{NetGrpcServiceActivator{TService}} a little.
         /// </summary>
-        /// <typeparam name="TService"></typeparam>
         internal class Binder
         {
             private ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> context;

@@ -166,8 +166,17 @@ namespace SciTech.Rpc.Tests
                     };
                     clientService2.DetailedValueChanged += detailedHandler2;
 
+                    //var delayTask = Task.Delay(5000);
+
+                    //Task t = await Task.WhenAny( ((IRpcService)clientService1).WaitForPendingEventHandlers(), delayTask);
+                    //if (t == delayTask)
 
                     await ((IRpcService)clientService1).WaitForPendingEventHandlers().DefaultTimeout();
+                    //var delayTask2 = Task.Delay(5000);
+
+                    //Task t2 = await Task.WhenAny(((IRpcService)clientService2).WaitForPendingEventHandlers(), delayTask);
+                    //if (t2 == delayTask)
+
                     await ((IRpcService)clientService2).WaitForPendingEventHandlers().DefaultTimeout();
 
                     clientService1.SetValueAsync(12).Forget();
@@ -330,7 +339,14 @@ namespace SciTech.Rpc.Tests
                     clientService1.SetValueAsync(12).Forget();
                     clientService2.SetValueAsync(24).Forget();
 
-                    await Task.WhenAll(valueChangedTcs1.Task, valueChangedTcs2.Task).DefaultTimeout();
+                    try
+                    {
+                        await Task.WhenAll(valueChangedTcs1.Task, valueChangedTcs2.Task).DefaultTimeout();
+                    }
+                    catch (TimeoutException)
+                    {
+                        System.Threading.Thread.Sleep(1);
+                    }
                     Assert.IsTrue(valueChangedTcs1.Task.IsCompletedSuccessfully());
                     Assert.IsTrue(valueChangedTcs2.Task.IsCompletedSuccessfully());
 

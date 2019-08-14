@@ -95,7 +95,7 @@ namespace SciTech.Rpc.Client.Internal
         /// Note that this is really a private implementation method which is made internal to allow testing. <see cref="BuildObjectProxyFactory"/>
         /// should be used by other code.
         /// </summary>
-        /// <param name="proxyType">Proxy type created by <see cref=" BuildObjectProxyType"/>.</param>
+        /// <param name="proxyType">Proxy type created by <see cref="BuildObjectProxyType"/>.</param>
         /// <returns></returns>
         internal static Func<TProxyArgs, TMethodDef[], RpcProxyBase> CreateObjectProxyFactory<TProxyArgs>(Type proxyType) where TProxyArgs : RpcProxyArgs
         {
@@ -195,7 +195,7 @@ namespace SciTech.Rpc.Client.Internal
         {
             if (!string.IsNullOrWhiteSpace(faultAttribute.FaultCode))
             {
-                string faultCode = faultAttribute.FaultCode;
+                _ = faultAttribute.FaultCode;
 
                 if (faultAttribute.FaultType != null)
                 {
@@ -405,8 +405,6 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         private void AddServiceProxyMembers(RpcServiceInfo serviceInfo)
         {
-            var handledMembers = new HashSet<MemberInfo>();
-
             IEnumerable<Attribute> faultAttributes = RetrieveServiceFaultAttributes(serviceInfo);
             var serviceFaultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
 
@@ -508,14 +506,13 @@ namespace SciTech.Rpc.Client.Internal
                 throw new InvalidOperationException();
             }
 
-            Type taskReturnType;
             if (operationInfo.ReturnType != typeof(void))
             {
-                taskReturnType = typeof(Task<>).MakeGenericType(operationInfo.ReturnType);
+                _ = typeof(Task<>).MakeGenericType(operationInfo.ReturnType);
             }
             else
             {
-                taskReturnType = typeof(Task);
+                _ = typeof(Task);
             }
 
             var implMethodBuilder = this.typeBuilder.DefineMethod($"{operationInfo.Service.Name}.{operationInfo.Method.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
@@ -537,21 +534,21 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ldc_I4, methodDefIndex);
             il.Emit(OpCodes.Ldelem, typeof(TMethodDef)); // load method def (this.proxyMethods[methodDefIndex])
 
+            int argIndex = 0;
+            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + 1];
+
             il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
             il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
-
-            if (operationInfo.ParametersCount != operationInfo.Method.GetParameters().Length)
-            {
-                throw new NotImplementedException("Special parameters such as CancellationToken not yet implemented.");
-            }
+            reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
 
             // Load parameters
-            for (int parameterIndex = 0; parameterIndex < operationInfo.ParametersCount; parameterIndex++)
+            foreach (var requestParameter in operationInfo.RequestParameters)
             {
-                RpcIlHelper.EmitLdArg(il, parameterIndex + 1);
+                RpcIlHelper.EmitLdArg(il, requestParameter.Index + 1);
+                reqestTypeCtorArgs[argIndex++] = requestParameter.Type;
             }
 
-            var ctorInfo = operationInfo.RequestType.GetConstructor(operationInfo.RequestTypeCtorArgTypes.ToArray());
+            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs);
             il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
 
             MethodInfo callUnaryMethodInfo;
@@ -570,12 +567,19 @@ namespace SciTech.Rpc.Client.Internal
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType);
             }
 
-            // TODO: Cancellation token. Currently always CancellationToken.None
-            var ctLocal = il.DeclareLocal(typeof(CancellationToken));
-            il.Emit(OpCodes.Ldloca_S, ctLocal);
-            il.Emit(OpCodes.Initobj, typeof(CancellationToken));
-            Debug.Assert(ctLocal.LocalIndex == 0);
-            il.Emit(OpCodes.Ldloc_0);//, ctLocal.LocalIndex);
+            if (operationInfo.CancellationTokenIndex != null)
+            {
+                RpcIlHelper.EmitLdArg(il, operationInfo.CancellationTokenIndex.Value + 1);
+            }
+            else
+            {
+                // Load CancellationToken.None
+                var ctLocal = il.DeclareLocal(typeof(CancellationToken));
+                il.Emit(OpCodes.Ldloca_S, ctLocal);
+                il.Emit(OpCodes.Initobj, typeof(CancellationToken));
+                Debug.Assert(ctLocal.LocalIndex == 0);
+                il.Emit(OpCodes.Ldloc_0);//, ctLocal.LocalIndex);
+            }
 
 
             il.Emit(OpCodes.Call, callUnaryMethodInfo);
@@ -635,23 +639,22 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ldc_I4, methodDefIndex);
             il.Emit(OpCodes.Ldelem, typeof(TMethodDef)); // load method def (this.proxyMethods[methodDefIndex])
 
+            int argIndex = 0;
+            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + 1];
+
             il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
             il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
-
-            if (operationInfo.ParametersCount != operationInfo.Method.GetParameters().Length)
-            {
-                throw new NotImplementedException("Special parameters such as CancellationToken not yet implemented.");
-            }
+            reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
 
             // Load parameters
-            for (int parameterIndex = 0; parameterIndex < operationInfo.ParametersCount; parameterIndex++)
+            foreach (var requestParameter in operationInfo.RequestParameters)
             {
-                RpcIlHelper.EmitLdArg(il, parameterIndex + 1);
+                RpcIlHelper.EmitLdArg(il, requestParameter.Index + 1);
+                reqestTypeCtorArgs[argIndex++] = requestParameter.Type;
             }
 
-            var ctorInfo = operationInfo.RequestType.GetConstructor(operationInfo.RequestTypeCtorArgTypes.ToArray());
+            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs);
             il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
-
 
             MethodInfo callUnaryMethodInfo;
             if (operationInfo.ReturnType != typeof(void))
@@ -667,8 +670,22 @@ namespace SciTech.Rpc.Client.Internal
             {
                 var callUnaryMethodDefInfo = typeof(TRpcProxyBase).GetMethod(RpcProxyBase<TMethodDef>.CallUnaryVoidMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType);
-
             }
+
+            if (operationInfo.CancellationTokenIndex != null)
+            {
+                RpcIlHelper.EmitLdArg(il, operationInfo.CancellationTokenIndex.Value + 1);
+            }
+            else
+            {
+                // Load CancellationToken.None
+                var ctLocal = il.DeclareLocal(typeof(CancellationToken));
+                il.Emit(OpCodes.Ldloca_S, ctLocal);
+                il.Emit(OpCodes.Initobj, typeof(CancellationToken));
+                Debug.Assert(ctLocal.LocalIndex == 0);
+                il.Emit(OpCodes.Ldloc_0);//, ctLocal.LocalIndex);
+            }
+
 
             il.Emit(OpCodes.Call, callUnaryMethodInfo);
             il.Emit(OpCodes.Ret); //return 
@@ -734,7 +751,7 @@ namespace SciTech.Rpc.Client.Internal
                 return methodDefField.Index;
             }
 
-            var eventDataType = typeof(RpcProxyBase<>.EventData<>).MakeGenericType(typeof(TMethodDef), eventInfo.Event.EventHandlerType);
+            _ = typeof(RpcProxyBase<>.EventData<>).MakeGenericType(typeof(TMethodDef), eventInfo.Event.EventHandlerType);
 
             int eventMethodDefIndex = this.AddCreateMethodDefExpression(
                 eventInfo,

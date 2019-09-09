@@ -84,7 +84,7 @@ namespace SciTech.Rpc
         }
 
         public RpcFaultException(string? message, TFault fault)
-            : base(!string.IsNullOrWhiteSpace(message) ? message : "RPC fault without a message.")
+            : base(!string.IsNullOrWhiteSpace(message) ? message! : "RPC fault without a message.")
         {
             this.Fault = fault;
         }

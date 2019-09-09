@@ -32,6 +32,7 @@ namespace SciTech.Rpc.Server.Internal
 #pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcServiceStubBuilder<TService, TMethodBinder> where TService : class
     {
+
         private HashSet<string> addedOperations = new HashSet<string>();
 
         private IReadOnlyList<IRpcServerExceptionConverter> serviceErrorGenerators;
@@ -89,14 +90,15 @@ namespace SciTech.Rpc.Server.Internal
 
         internal void AddEventHandler(RpcStub<TService> serviceStub, RpcEventInfo eventInfo, TMethodBinder binder)
         {
-            if (eventInfo.Event.EventHandlerType.Equals(typeof(EventHandler)))
+            if (typeof(EventHandler).Equals(eventInfo.Event.EventHandlerType))
             {
                 this.AddPlainEventHandler(serviceStub, eventInfo, binder);
                 return;
             }
+
             // TODO: Cache.
-            var addEventHandlerDelegate = (Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>)this.GetType()
-                .GetMethod(nameof(this.AddGenericEventHandler), BindingFlags.Instance | BindingFlags.NonPublic)
+            var addEventHandlerDelegate = (Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>)
+                GetBuilderMethod(nameof(this.AddGenericEventHandler))
                 .MakeGenericMethod(eventInfo.EventArgsType)
                 .CreateDelegate(typeof(Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>), this);
 
@@ -334,6 +336,14 @@ namespace SciTech.Rpc.Server.Internal
             return func;
         }
 
+
+        private static MethodInfo GetBuilderMethod(string name, BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance)
+        {
+            return typeof(RpcServiceStubBuilder<TService, TMethodBinder>)
+                .GetMethod(name, bindingFlags)
+                ?? throw new NotImplementedException($"Method {name} not found on type '{typeof(RpcServiceStubBuilder<TService, TMethodBinder>)}'.");
+        }
+
         private static List<Expression> GetParameterExpressions<TRequest>(RpcOperationInfo operationInfo, ParameterExpression requestParameter, ParameterExpression cancellationTokenParameter)
         {
             var parameterExpressions = new List<Expression>();
@@ -374,6 +384,12 @@ namespace SciTech.Rpc.Server.Internal
             return -1;
         }
 
+        private static MethodInfo GetStubMethod(string name, BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+        {
+            return typeof(RpcStub).GetMethod(name, bindingFlags)
+                ?? throw new NotImplementedException($"Method {name} not found on type '{nameof(RpcStub)}'.");
+        }
+
         private static List<IRpcServerExceptionConverter> RetrieveErrorGenerators(IEnumerable<Attribute> faultAttributes)
         {
             var errorGenerators = new List<IRpcServerExceptionConverter>();
@@ -382,10 +398,10 @@ namespace SciTech.Rpc.Server.Internal
 
                 if (faultAttribute.FaultType != null)
                 {
-                    var rpcErrorGenerator = (IRpcServerExceptionConverter)typeof(RpcFaultExceptionConverter<>)
+                    var rpcErrorGenerator = (IRpcServerExceptionConverter?)typeof(RpcFaultExceptionConverter<>)
                         .MakeGenericType(faultAttribute.FaultType)
-                        .GetField(nameof(RpcFaultExceptionConverter<object>.Default), BindingFlags.Static | BindingFlags.Public)
-                        .GetValue(null);
+                        .GetField(nameof(RpcFaultExceptionConverter<object>.Default), BindingFlags.Static | BindingFlags.Public)?
+                        .GetValue(null) ?? throw new NotImplementedException("RpcFaultExceptionConverter Default field not found.");
                     errorGenerators.Add(rpcErrorGenerator);
                 }
                 else
@@ -489,8 +505,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 // TODO: Cache.                
                 var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
-                    typeof(RpcServiceStubBuilder<TService, TMethodBinder>)
-                    .GetMethod(nameof(this.AddGenericBlockingMethod), BindingFlags.Instance | BindingFlags.NonPublic)
+                    GetBuilderMethod(nameof(this.AddGenericBlockingMethod))
                     .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
                     .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
 
@@ -500,8 +515,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 // TODO: Cache.
                 var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
-                    typeof(RpcServiceStubBuilder<TService, TMethodBinder>)
-                    .GetMethod(nameof(this.AddGenericVoidUnaryMethod), BindingFlags.Instance | BindingFlags.NonPublic)
+                    GetBuilderMethod(nameof(this.AddGenericVoidUnaryMethod))
                     .MakeGenericMethod(opInfo.RequestType)
                     .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
 
@@ -561,6 +575,12 @@ namespace SciTech.Rpc.Server.Internal
             return new RpcStub<TService>(server, options);
         }
 
+        private FieldInfo GetBuilderField(string name, BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance)
+        {
+            return this.GetType().GetField(name, bindingFlags)
+                ?? throw new NotImplementedException($"Field {name} not found on type '{this.GetType()}'.");
+        }
+
         private Func<TReturn, TResponseReturn>? GetResponseCreator<TReturn, TResponseReturn>(RpcOperationInfo opInfo)
         {
             Func<TReturn, TResponseReturn>? responseCreator = null;
@@ -568,8 +588,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 case ServiceOperationReturnKind.Service:
                     {
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceResponse))
+                        var method = GetStubMethod(nameof(RpcStub.ConvertServiceResponse))
                             .MakeGenericMethod(typeof(TReturn));
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>), this.serviceStub);
@@ -581,9 +600,9 @@ namespace SciTech.Rpc.Server.Internal
 
                 case ServiceOperationReturnKind.ServiceArray:
                     {
-                        var elementType = typeof(TReturn).GetElementType();
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceArrayResponse))
+                        var elementType = typeof(TReturn).GetElementType()
+                            ?? throw new InvalidOperationException($"Return type '{typeof(TReturn)}' should be an array");
+                        var method = GetStubMethod(nameof(RpcStub.ConvertServiceArrayResponse))
                             .MakeGenericMethod(elementType);
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>), this.serviceStub);
@@ -594,8 +613,8 @@ namespace SciTech.Rpc.Server.Internal
                     }
                 case ServiceOperationReturnKind.ServiceRef:
                     {
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceRefResponse))
+                        var method =
+                            GetStubMethod(nameof(RpcStub.ConvertServiceRefResponse))
                             .MakeGenericMethod(typeof(TReturn));
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>));
@@ -606,10 +625,11 @@ namespace SciTech.Rpc.Server.Internal
                     }
                 case ServiceOperationReturnKind.ServiceRefArray:
                     {
-                        var elementType = typeof(TReturn).GetElementType();
+                        var elementType = typeof(TReturn).GetElementType()
+                            ?? throw new InvalidOperationException($"Return type '{typeof(TReturn)}' should be an array");
 
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceRefArrayResponse))
+                        var method =
+                            GetStubMethod(nameof(RpcStub.ConvertServiceRefArrayResponse))
                             .MakeGenericMethod(elementType);
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>));
@@ -626,8 +646,9 @@ namespace SciTech.Rpc.Server.Internal
             return responseCreator;
         }
 
-        private class GenericEventHandlerProducer<TEventArgs> : EventProducer<TService, TEventArgs> where TEventArgs : class
+        class GenericEventHandlerProducer<TEventArgs> : EventProducer<TService, TEventArgs> where TEventArgs : class
         {
+
             private Action<TService, EventHandler<TEventArgs>> addHandlerAction;
 
             private Action<TService, EventHandler<TEventArgs>> removeHandlerAction;
@@ -662,14 +683,16 @@ namespace SciTech.Rpc.Server.Internal
                 }
             }
 
-            private void Handler(object s, TEventArgs e)
+            private void Handler(object? s, TEventArgs e)
             {
                 this.HandleEvent(e);
             }
+
         }
 
-        private class PlainEventHandlerProducer : EventProducer<TService, EventArgs>
+        class PlainEventHandlerProducer : EventProducer<TService, EventArgs>
         {
+
             private Action<TService, EventHandler> addHandlerAction;
 
             private Action<TService, EventHandler> removeHandlerAction;
@@ -704,11 +727,13 @@ namespace SciTech.Rpc.Server.Internal
                 }
             }
 
-            private void Handler(object s, EventArgs e)
+            private void Handler(object? s, EventArgs e)
             {
                 this.HandleEvent(e);
             }
+
         }
+
     }
 #pragma warning restore CA1062 // Validate arguments of public methods
 }

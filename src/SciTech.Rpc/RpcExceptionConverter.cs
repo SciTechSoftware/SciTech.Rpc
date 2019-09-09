@@ -29,11 +29,8 @@ namespace SciTech.Rpc
         /// <param name="faultCode"></param>
         public RpcExceptionConverter(string faultCode) : base(faultCode)
         {
-            this.exceptionCtor = typeof(TException).GetConstructor(new Type[] { typeof(string) });
-            if (this.exceptionCtor == null)
-            {
-                throw new InvalidOperationException("Exception type must have a constructor accepting a message argument.");
-            }
+            this.exceptionCtor = typeof(TException).GetConstructor(new Type[] { typeof(string) }) 
+                ?? throw new InvalidOperationException("Exception type must have a constructor accepting a message argument.");
         }
 
         public override TException CreateException(string message)

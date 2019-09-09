@@ -68,7 +68,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.frameWriterStream = new BufferWriterStream();
         }
 
-        public event EventHandler<ExceptionEventArgs> ReceiveLoopFaulted;
+        public event EventHandler<ExceptionEventArgs>? ReceiveLoopFaulted;
 
         public bool IsClosed
         {

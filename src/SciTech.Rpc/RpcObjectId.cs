@@ -44,7 +44,7 @@ namespace SciTech.Rpc
             return new RpcObjectId(Guid.NewGuid());
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is RpcObjectId other && this.Equals(other);
         }

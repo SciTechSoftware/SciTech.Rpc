@@ -196,7 +196,7 @@ namespace SciTech.Rpc.Client.Internal
             return other != null && other.ObjectId == this.objectId;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is IRpcService other && this.Equals(other);
         }
@@ -478,7 +478,7 @@ namespace SciTech.Rpc.Client.Internal
                 var eventData = GetEventDataSynchronized<TEventHandler>(eventMethodIndex);
                 if (eventData?.eventHandler != null)
                 {
-                    eventData.eventHandler = (TEventHandler)Delegate.Remove(eventData.eventHandler, value);
+                    eventData.eventHandler = (TEventHandler?)Delegate.Remove(eventData.eventHandler, value);
                     if (eventData.eventHandler == null)
                     {
                         this.RemoveEventDataSynchronized(eventData);
@@ -668,7 +668,7 @@ namespace SciTech.Rpc.Client.Internal
                 }
                 else if (eventHandler is EventHandler plainHandler)
                 {
-                    plainHandler.Invoke(this, eventArgs as EventArgs);
+                    plainHandler.Invoke(this, (eventArgs as EventArgs)!);
                 }
                 else
                 {

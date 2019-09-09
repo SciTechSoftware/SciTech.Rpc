@@ -12,6 +12,23 @@
     <Nullable>enable</Nullable>
     <NullableContextOptions>enable</NullableContextOptions>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);FEATURE_NET_GRPC</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="NetGrpc\Client\Internal\NetGrpcProxyBase.cs" />
+    <Compile Remove="NetGrpc\Client\Internal\NetGrpcProxyGenerator.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcMethodsCache.cs" Link="NetGrpc\Client\Internal\GrpcMethodsCache.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyBase.cs" Link="NetGrpc\Client\Internal\GrpcProxyBase.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyGenerator.cs" Link="NetGrpc\Client\Internal\GrpcProxyGenerator.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\IGrpcServerConnection.cs" Link="NetGrpc\Client\Internal\IGrpcServerConnection.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Internal\GrpcMethodDefinition.cs" />
+  </ItemGroup>
   
   
   <ItemGroup>
@@ -19,15 +36,21 @@
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
+    <None Include="NetGrpc\Client\Internal\NetGrpcProxyBase.cs" />
+    <None Include="NetGrpc\Client\Internal\NetGrpcProxyGenerator.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.Core.Api" Version="2.23.0-pre1" />
-    <PackageReference Include="Grpc.Net.Client" Version="1.0.0" />
+    <PackageReference Include="Grpc.Core.Api" Version="2.23.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="0.2.23-pre2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Grpc\Internal\" />
   </ItemGroup>
 
 </Project>

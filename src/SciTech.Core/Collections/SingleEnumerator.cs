@@ -26,7 +26,7 @@ namespace SciTech.Collections
             }
         }
 
-        object IEnumerator.Current
+        object? IEnumerator.Current
         {
             get { return this.Current; }
         }

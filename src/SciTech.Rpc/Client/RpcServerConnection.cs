@@ -45,15 +45,15 @@ namespace SciTech.Rpc.Client
             this.Options = options ?? ImmutableRpcClientOptions.Empty;
         }
 
-        public event EventHandler Connected;
+        public event EventHandler? Connected;
 
-        public event EventHandler ConnectionFailed;
+        public event EventHandler? ConnectionFailed;
 
-        public event EventHandler ConnectionLost;
+        public event EventHandler? ConnectionLost;
 
-        public event EventHandler ConnectionStateChanged;
+        public event EventHandler? ConnectionStateChanged;
 
-        public event EventHandler Disconnected;
+        public event EventHandler? Disconnected;
 
         /// <summary>
         /// Gets the connection info of this connection.

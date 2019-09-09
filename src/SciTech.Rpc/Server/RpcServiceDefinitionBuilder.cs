@@ -79,7 +79,7 @@ namespace SciTech.Rpc.Server
 
         public ImmutableRpcServerOptions Options {get;}
 
-        public event EventHandler<RpcServicesEventArgs> ServicesRegistered;
+        public event EventHandler<RpcServicesEventArgs>? ServicesRegistered;
 
         public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
 

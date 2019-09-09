@@ -42,7 +42,7 @@ namespace SciTech.Rpc
             return new RpcServerId(Guid.NewGuid());
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is RpcServerId other && this.Equals(other);
         }
@@ -138,7 +138,7 @@ namespace SciTech.Rpc
         [DataMember(Order = 3)]
         public RpcServerId ServerId { get; private set; }
 
-        public sealed override bool Equals(object obj)
+        public sealed override bool Equals(object? obj)
         {
             return obj is RpcServerConnectionInfo other && this.Equals(other);
         }

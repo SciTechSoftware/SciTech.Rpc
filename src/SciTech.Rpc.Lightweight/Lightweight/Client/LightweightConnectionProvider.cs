@@ -26,12 +26,15 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly SslClientOptions? sslOptions;
 
-        public LightweightConnectionProvider(ImmutableRpcClientOptions? options = null, LightweightOptions? lightweightOpions = null, LightweightProxyProvider? proxyProvider = null)
+        public LightweightConnectionProvider(
+            ImmutableRpcClientOptions? options = null, LightweightOptions? lightweightOpions = null,
+            LightweightProxyProvider? proxyProvider = null)
             : this(null, options, lightweightOpions, proxyProvider)
         {
         }
 
-        public LightweightConnectionProvider(SslClientOptions? sslOptions,
+        public LightweightConnectionProvider(
+            SslClientOptions? sslOptions,
             ImmutableRpcClientOptions? options = null,
             LightweightOptions? lightweightOpions = null,
             LightweightProxyProvider? proxyProvider = null)

@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net461;net472;netcoreapp2.1</TargetFrameworks>
+    <!--<TargetFrameworks>netcoreapp3.0</TargetFrameworks>-->
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472</TargetFrameworks>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -19,6 +20,18 @@ package is currently not intended for other use.</Description>
 
   <PropertyGroup>
     <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(HasNullableAttributes)' == 'true'">
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(HasNullableAttributes)' != 'true'">
+    <Nullable>annotations</Nullable>
   </PropertyGroup>
 
   <ItemGroup>

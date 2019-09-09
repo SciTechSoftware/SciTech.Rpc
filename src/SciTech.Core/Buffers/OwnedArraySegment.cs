@@ -29,7 +29,7 @@ namespace SciTech.Buffers
         }
 
 #pragma warning disable CA1819 // Properties should not return arrays
-        public T[] Array => this.Segment.Array;
+        public T[]? Array => this.Segment.Array;
 
 #pragma warning restore CA1819 // Properties should not return arrays
 
@@ -45,11 +45,11 @@ namespace SciTech.Buffers
         {
             if (this.IsRented)
             {
-                ArrayPool<T>.Shared.Return(this.Segment.Array);
+                ArrayPool<T>.Shared.Return(this.Segment.Array!);
             }
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is OwnedArraySegment<T> other && this.Equals(other);
         }

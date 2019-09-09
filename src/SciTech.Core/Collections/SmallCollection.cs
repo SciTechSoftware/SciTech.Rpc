@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
@@ -34,7 +35,7 @@ namespace SciTech.Collections
 
         public abstract int IndexOf(T item);
 
-        internal static object Create(int size)
+        internal static object? Create(int size)
         {
             switch (size)
             {
@@ -53,7 +54,7 @@ namespace SciTech.Collections
             throw new ArgumentOutOfRangeException(nameof(size));
         }
 
-        internal static object Create(ICollection<T> collection)
+        internal static object? Create(ICollection<T> collection)
         {
             if (collection is IList<T> list)
             {
@@ -114,7 +115,7 @@ namespace SciTech.Collections
             //return new SixItemCollection(value_0, value_1, value_2, value_3, value_4, value_5);
         }
 
-        internal static object Create(IList<T> list)
+        internal static object? Create(IList<T> list)
         {
             int count = list.Count;
             Debug.Assert(count <= MaxSize);
@@ -183,7 +184,7 @@ namespace SciTech.Collections
 
         internal abstract object Insert(int index, T item, CollectionCreator<IList<T>> fullSetCreator);
 
-        internal virtual bool Remove(T item, out object newSet)
+        internal virtual bool Remove(T item, out object? newSet)
         {
             int index = this.IndexOf(item);
             if (index >= 0)
@@ -201,7 +202,7 @@ namespace SciTech.Collections
         /// <param name="index"></param>
         /// <exception cref="ArgumentOutOfRangeException"/>
         /// <returns></returns>
-        internal abstract object RemoveAt(int index);
+        internal abstract object? RemoveAt(int index);
 
         internal abstract object SetAt(int index, T item);
 
@@ -233,10 +234,13 @@ namespace SciTech.Collections
             private T value_2;
 
             private T value_3;
+
+#nullable disable
             internal FourItemCollection()
             {
 
             }
+#nullable restore
 
             internal FourItemCollection(T value_0, T value_1, T value_2, T value_3)
             {
@@ -369,7 +373,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override object RemoveAt(int index)
+            internal override object? RemoveAt(int index)
             {
                 switch (index)
                 {
@@ -435,7 +439,7 @@ namespace SciTech.Collections
                     return true;
                 }
 
-                existingItem = default;
+                existingItem = default!;
                 return false;
             }
 
@@ -463,7 +467,7 @@ namespace SciTech.Collections
                 {
                     if (index == 0)
                     {
-                        return default;
+                        return default!;
                     }
 
                     throw new ArgumentOutOfRangeException(nameof(index));
@@ -479,12 +483,12 @@ namespace SciTech.Collections
 
             public override void CopyTo(T[] array, int arrayIndex)
             {
-                array[arrayIndex] = default;
+                array[arrayIndex] = default!;
             }
 
             public override IEnumerator<T> GetEnumerator()
             {
-                return new SingleEnumerator<T>(default);
+                return new SingleEnumerator<T>(default!);
             }
 
             public override int IndexOf(T item)
@@ -494,14 +498,14 @@ namespace SciTech.Collections
 
             internal override object Add(T item, CollectionCreator<ICollection<T>> fullSetCreator)
             {
-                return new TwoItemCollection(default, item);
+                return new TwoItemCollection(default!, item);
             }
 
             internal override bool AddToSet(T item, CollectionCreator<ICollection<T>> fullSetCreator, out object newSet)
             {
                 if (item != null)
                 {
-                    newSet = new TwoItemCollection(default, item);
+                    newSet = new TwoItemCollection(default!, item);
                     return true;
                 }
 
@@ -514,15 +518,15 @@ namespace SciTech.Collections
                 switch (index)
                 {
                     case 0:
-                        return new TwoItemCollection(item, default);
+                        return new TwoItemCollection(item, default!);
                     case 1:
-                        return new TwoItemCollection(default, item);
+                        return new TwoItemCollection(default!, item);
                 }
 
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override bool Remove(T item, out object newSet)
+            internal override bool Remove(T item, out object? newSet)
             {
                 if (item == null)
                 {
@@ -534,7 +538,7 @@ namespace SciTech.Collections
                 return false;
             }
 
-            internal override object RemoveAt(int index)
+            internal override object? RemoveAt(int index)
             {
                 if (index == 0)
                 {
@@ -564,7 +568,7 @@ namespace SciTech.Collections
 
             internal override bool TryGet(T item, out T existingItem)
             {
-                existingItem = default;
+                existingItem = default!;
                 return item == null;
             }
         }
@@ -900,9 +904,11 @@ namespace SciTech.Collections
 
             private T value_2;
 
+#nullable disable
             internal ThreeItemCollection()
             {
             }
+#nullable restore
 
             internal ThreeItemCollection(T value_0, T value_1, T value_2)
             {
@@ -995,7 +1001,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override object RemoveAt(int index)
+            internal override object? RemoveAt(int index)
             {
                 switch (index)
                 {
@@ -1050,22 +1056,26 @@ namespace SciTech.Collections
                     return true;
                 }
 
-                existingItem = default;
+                existingItem = default!;
                 return false;
             }
         }
 
         private sealed class TwoItemCollection : SmallCollection<T>
         {
+            [MaybeNull]
             private T value_0;
 
+            [MaybeNull]
             private T value_1;
 
+#nullable disable
             internal TwoItemCollection()
             {
             }
+#nullable restore
 
-            internal TwoItemCollection(T value_0, T value_1)
+            internal TwoItemCollection([MaybeNull]T value_0, [MaybeNull]T value_1)
             {
                 this.value_0 = value_0;
                 this.value_1 = value_1;
@@ -1182,7 +1192,7 @@ namespace SciTech.Collections
                 return false;
             }
 
-            internal override object RemoveAt(int index)
+            internal override object? RemoveAt(int index)
             {
                 if (index == 0)
                 {
@@ -1227,7 +1237,7 @@ namespace SciTech.Collections
                     return true;
                 }
 
-                existingItem = default;
+                existingItem = default!;
                 return false;
             }
         }

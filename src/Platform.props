@@ -12,6 +12,7 @@
     <HasTaskExtensions>false</HasTaskExtensions>
     <PlatformSpanOverloads>false</PlatformSpanOverloads>
     <HasSystemSslProtocols>true</HasSystemSslProtocols>
+    <HasNullableAttributes>false</HasNullableAttributes>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
@@ -20,6 +21,11 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <HasNullableAttributes>true</HasNullableAttributes>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.0'">
@@ -46,6 +52,7 @@
     <!--<HasAsyncEnum>true</HasAsyncEnum>-->
     <HasTaskExtensions>true</HasTaskExtensions>
     <HasReflectionEmit>true</HasReflectionEmit>
+    <HasNullableAttributes>true</HasNullableAttributes>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(PlatformSpans)' == 'true'">
@@ -57,7 +64,9 @@
   <PropertyGroup Condition="'$(HasAsyncEnum)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_ASYNC_ENUM</DefineConstants>
   </PropertyGroup>
-
+  <PropertyGroup Condition="'$(HasNullableAttributes)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_NULLABLE_ATTRIBUTES</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(HasSystemSslProtocols)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_SYSTEM_SSL_PROTOCOLS</DefineConstants>
   </PropertyGroup>

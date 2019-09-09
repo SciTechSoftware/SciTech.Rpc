@@ -48,7 +48,7 @@ namespace SciTech.Rpc.Client
 
         }
 
-        public IRpcClientExceptionConverter GetExceptionConverter(string faultCode)
+        public IRpcClientExceptionConverter? GetExceptionConverter(string faultCode)
         {
             this.exceptionConverters.TryGetValue(faultCode, out var converter);
             return converter;

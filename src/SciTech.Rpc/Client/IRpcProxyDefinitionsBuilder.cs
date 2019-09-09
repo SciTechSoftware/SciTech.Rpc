@@ -23,7 +23,7 @@ namespace SciTech.Rpc.Client
         /// <returns>A list of known types that implement the specified RPC service.</returns>
         IReadOnlyList<Type> GetServicesTypes(string serviceName);
 
-        IRpcClientExceptionConverter GetExceptionConverter(string faultCode);
+        IRpcClientExceptionConverter? GetExceptionConverter(string faultCode);
     }
 
     public interface IRpcProxyDefinitionsBuilder : IRpcProxyDefinitionsProvider

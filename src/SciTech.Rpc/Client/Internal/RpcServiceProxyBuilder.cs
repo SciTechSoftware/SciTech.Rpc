@@ -137,6 +137,7 @@ namespace SciTech.Rpc.Client.Internal
 
             this.EndStaticCtorILGenerator();
             var proxyType = this.typeBuilder.CreateTypeInfo();
+            if (proxyType == null) throw new NotSupportedException("Failed to create proxy type.");
 
             var createProxyMethodsExpression =
                 Expression.Lambda(
@@ -166,7 +167,7 @@ namespace SciTech.Rpc.Client.Internal
             Expression serializerParameter,
             Expression faultHandlerExpression)
         {
-            var createMethodDefMethodDef = typeof(TRpcProxyBase).GetMethod(RpcProxyBase<TMethodDef>.CreateMethodDefName, BindingFlags.Static | BindingFlags.Public);
+            var createMethodDefMethodDef = GetProxyMethod(RpcProxyBase<TMethodDef>.CreateMethodDefName, BindingFlags.Static | BindingFlags.Public);
             var createMethodDefMethod = createMethodDefMethodDef.MakeGenericMethod(requestType, responseType);
 
             return Expression.Call(createMethodDefMethod,
@@ -220,6 +221,19 @@ namespace SciTech.Rpc.Client.Internal
             throw new RpcDefinitionException("FaultCode must be specified in RpcFaultAttribute.");
         }
 
+        private static FieldInfo GetProxyField(string name, BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance)
+        {
+            return typeof(TRpcProxyBase).GetField(name, bindingFlags)
+                ?? throw new NotImplementedException($"Field {name} not found on type '{typeof(TRpcProxyBase)}'.");
+        }
+
+
+        private static MethodInfo GetProxyMethod(string name, BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance)
+        {
+            return typeof(TRpcProxyBase).GetMethod(name, bindingFlags)
+                ?? throw new NotImplementedException($"Method {name} not found on type '{typeof(TRpcProxyBase)}'.");
+        }
+
         private static FieldInfo? GetResponseConverterField(RpcOperationInfo operationInfo)
         {
             if (!Equals(operationInfo.ResponseReturnType, operationInfo.ReturnType))
@@ -234,7 +248,8 @@ namespace SciTech.Rpc.Client.Internal
                         break;
                     case ServiceOperationReturnKind.ServiceArray:
                         {
-                            var elementType = operationInfo.ReturnType.GetElementType();
+                            var elementType = operationInfo.ReturnType.GetElementType()
+                                ?? throw new InvalidOperationException("Expected an element type.");
                             converterField = typeof(ServiceConverter<>).MakeGenericType(elementType)
                                 .GetField(nameof(ServiceConverter<object>.DefaultArray), BindingFlags.Public | BindingFlags.Static);
                         }
@@ -245,7 +260,8 @@ namespace SciTech.Rpc.Client.Internal
                         break;
                     case ServiceOperationReturnKind.ServiceRefArray:
                         {
-                            var elementType = operationInfo.ReturnType.GetElementType().GenericTypeArguments[0];
+                            var elementType = operationInfo.ReturnType.GetElementType()?.GenericTypeArguments[0]
+                                ?? throw new InvalidOperationException("Expected a generic element type."); ;
                             converterField = typeof(ServiceRefConverter<>).MakeGenericType(elementType)
                                 .GetField(nameof(ServiceRefConverter<object>.DefaultArray), BindingFlags.Public | BindingFlags.Static);
                         }
@@ -523,8 +539,8 @@ namespace SciTech.Rpc.Client.Internal
 
             var il = implMethodBuilder.GetILGenerator();
 
-            var objectIdField = typeof(TRpcProxyBase).GetField(RpcProxyBase<TMethodDef>.ObjectIdFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-            var proxyMethodsField = typeof(TRpcProxyBase).GetField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            var objectIdField = GetProxyField(RpcProxyBase<TMethodDef>.ObjectIdFieldName);
+            var proxyMethodsField = GetProxyField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName);
             il.Emit(OpCodes.Ldarg_0);// Load this
 
             int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMethodInfo);
@@ -548,7 +564,8 @@ namespace SciTech.Rpc.Client.Internal
                 reqestTypeCtorArgs[argIndex++] = requestParameter.Type;
             }
 
-            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs);
+            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs)
+                ?? throw new NotImplementedException($"Request type constructor not found");
             il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
 
             MethodInfo callUnaryMethodInfo;
@@ -556,14 +573,14 @@ namespace SciTech.Rpc.Client.Internal
             {
                 string callerMethodName = RpcProxyBase<TMethodDef>.CallUnaryMethodAsyncName;
 
-                var callUnaryMethodDefInfo = typeof(TRpcProxyBase).GetMethod(callerMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
+                var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType, operationInfo.ResponseReturnType, operationInfo.ReturnType);
 
                 EmitResponseConverter(il, operationInfo);
             }
             else
             {
-                var callUnaryMethodDefInfo = typeof(TRpcProxyBase).GetMethod(RpcProxyBase<TMethodDef>.CallUnaryVoidMethodAsyncName, BindingFlags.NonPublic | BindingFlags.Instance);
+                var callUnaryMethodDefInfo = GetProxyMethod(RpcProxyBase<TMethodDef>.CallUnaryVoidMethodAsyncName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType);
             }
 
@@ -585,6 +602,7 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Call, callUnaryMethodInfo);
             il.Emit(OpCodes.Ret); //return 
         }
+
 
         /// <summary>
         /// Creates a 
@@ -629,8 +647,8 @@ namespace SciTech.Rpc.Client.Internal
 
             var il = implMethodBuilder.GetILGenerator();
 
-            var objectIdField = typeof(TRpcProxyBase).GetField(RpcProxyBase<TMethodDef>.ObjectIdFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
-            var proxyMethodsField = typeof(TRpcProxyBase).GetField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            var objectIdField = GetProxyField(RpcProxyBase<TMethodDef>.ObjectIdFieldName);
+            var proxyMethodsField = GetProxyField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName);
             int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
 
             il.Emit(OpCodes.Ldarg_0);// Load this
@@ -653,7 +671,8 @@ namespace SciTech.Rpc.Client.Internal
                 reqestTypeCtorArgs[argIndex++] = requestParameter.Type;
             }
 
-            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs);
+            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs)
+                ?? throw new NotImplementedException($"Request type constructor not found");
             il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
 
             MethodInfo callUnaryMethodInfo;
@@ -661,14 +680,14 @@ namespace SciTech.Rpc.Client.Internal
             {
                 string callerMethodName = RpcProxyBase<TMethodDef>.CallUnaryMethodName;
 
-                var callUnaryMethodDefInfo = typeof(TRpcProxyBase).GetMethod(callerMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
+                var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType, operationInfo.ResponseReturnType, operationInfo.ReturnType);
 
                 EmitResponseConverter(il, operationInfo);
             }
             else
             {
-                var callUnaryMethodDefInfo = typeof(TRpcProxyBase).GetMethod(RpcProxyBase<TMethodDef>.CallUnaryVoidMethodName, BindingFlags.NonPublic | BindingFlags.Instance);
+                var callUnaryMethodDefInfo = GetProxyMethod(RpcProxyBase<TMethodDef>.CallUnaryVoidMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType);
             }
 
@@ -698,19 +717,21 @@ namespace SciTech.Rpc.Client.Internal
                 throw new InvalidOperationException();
             }
 
+            var eventHandlerType = eventInfo.Event.EventHandlerType ?? throw new InvalidOperationException("EventHandlerType not defined.");
             var addImplMethodBuilder = this.typeBuilder.DefineMethod($"{eventInfo.Service.FullName}.add_{eventInfo.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
                 returnType: typeof(void),
-                parameterTypes: new Type[] { eventInfo.Event.EventHandlerType });
+                parameterTypes: new Type[] { eventHandlerType });
 
-            this.typeBuilder.DefineMethodOverride(addImplMethodBuilder, eventInfo.Event.AddMethod);
+            var addMethod = eventInfo.Event.AddMethod ?? throw new InvalidOperationException("Event Add method not defined.");
+            this.typeBuilder.DefineMethodOverride(addImplMethodBuilder, addMethod);
             var il = addImplMethodBuilder.GetILGenerator();
 
             il.Emit(OpCodes.Ldarg_0);   // Load this (for AddEventHandlerAsync arg)
             il.Emit(OpCodes.Ldarg_1);   // Load EventHandler
             RpcIlHelper.EmitLdc_I4(il, eventMethodIndex);    // 
 
-            var addHandlerMethodDef = typeof(TRpcProxyBase).GetMethod(RpcProxyBase<TMethodDef>.AddEventHandlerAsyncName, BindingFlags.Instance | BindingFlags.NonPublic);
-            var addHandlerMethod = addHandlerMethodDef.MakeGenericMethod(eventInfo.Event.EventHandlerType, eventInfo.EventArgsType);
+            var addHandlerMethodDef = GetProxyMethod(RpcProxyBase<TMethodDef>.AddEventHandlerAsyncName);
+            var addHandlerMethod = addHandlerMethodDef.MakeGenericMethod(eventHandlerType, eventInfo.EventArgsType);
             il.Emit(OpCodes.Call, addHandlerMethod); // Call AddEventHandlerAsync(eventHandler, eventMethodIndex)
             il.Emit(OpCodes.Pop);   // Pop return (ignore returned Task)
             il.Emit(OpCodes.Ret);
@@ -751,7 +772,7 @@ namespace SciTech.Rpc.Client.Internal
                 return methodDefField.Index;
             }
 
-            _ = typeof(RpcProxyBase<>.EventData<>).MakeGenericType(typeof(TMethodDef), eventInfo.Event.EventHandlerType);
+            var eventHandlerType = eventInfo.Event.EventHandlerType ?? throw new InvalidOperationException("EventHandlerType not defined.");
 
             int eventMethodDefIndex = this.AddCreateMethodDefExpression(
                 eventInfo,
@@ -762,7 +783,7 @@ namespace SciTech.Rpc.Client.Internal
                 NullSerializerExpression,
                 NullFaultHandlerExpression);
 
-            this.eventDataFields.Add(eventInfo.FullName, new MethodDefIndex(eventMethodDefIndex, eventInfo.Event.EventHandlerType, eventInfo.EventArgsType));
+            this.eventDataFields.Add(eventInfo.FullName, new MethodDefIndex(eventMethodDefIndex, eventHandlerType, eventInfo.EventArgsType));
             return eventMethodDefIndex;
         }
 
@@ -773,19 +794,21 @@ namespace SciTech.Rpc.Client.Internal
                 throw new InvalidOperationException();
             }
 
+            var eventHandlerType = eventInfo.Event.EventHandlerType ?? throw new InvalidOperationException("EventHandlerType not defined.");
             var removeImplMethodBuilder = this.typeBuilder.DefineMethod($"{eventInfo.Service.FullName}.remove_{eventInfo.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
                 returnType: typeof(void),
-                parameterTypes: new Type[] { eventInfo.Event.EventHandlerType });
+                parameterTypes: new Type[] { eventHandlerType });
 
-            this.typeBuilder.DefineMethodOverride(removeImplMethodBuilder, eventInfo.Event.RemoveMethod);
+            var removeMethod = eventInfo.Event.RemoveMethod ?? throw new InvalidOperationException("Event Add method not defined.");
+            this.typeBuilder.DefineMethodOverride(removeImplMethodBuilder, removeMethod);
             var il = removeImplMethodBuilder.GetILGenerator();
 
             il.Emit(OpCodes.Ldarg_0);   // Load this (for RemoveEventHandler arg)
             il.Emit(OpCodes.Ldarg_1);   // Load EventHandler
             RpcIlHelper.EmitLdc_I4(il, eventMethodIndex);
 
-            var openRemoveHandlerMethod = typeof(TRpcProxyBase).GetMethod(RpcProxyBase<TMethodDef>.RemoveEventHandlerAsyncName, BindingFlags.Instance | BindingFlags.NonPublic);
-            var removeHandlerMethod = openRemoveHandlerMethod.MakeGenericMethod(eventInfo.Event.EventHandlerType, eventInfo.EventArgsType);
+            var openRemoveHandlerMethod = GetProxyMethod(RpcProxyBase<TMethodDef>.RemoveEventHandlerAsyncName);
+            var removeHandlerMethod = openRemoveHandlerMethod.MakeGenericMethod(eventHandlerType, eventInfo.EventArgsType);
             il.Emit(OpCodes.Call, removeHandlerMethod); // Call RemoveEventHandlerAsync(eventHandler, eventData)
             il.Emit(OpCodes.Pop);   // Pop return (ignore returned Task)
             il.Emit(OpCodes.Ret);
@@ -902,7 +925,8 @@ namespace SciTech.Rpc.Client.Internal
             RpcIlHelper.EmitLdArg(ctorIL, 1);    // Load TRpcProxyArgs
             RpcIlHelper.EmitLdArg(ctorIL, 2);    // Load proxyMethodsCreator
 
-            var baseCtor = typeof(TRpcProxyBase).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, proxyCtorArgs, null);
+            var baseCtor = typeof(TRpcProxyBase).GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, proxyCtorArgs, null)
+                ?? throw new NotImplementedException("Proxy ctor not found");
             ctorIL.Emit(OpCodes.Call, baseCtor);
             ctorIL.Emit(OpCodes.Ret);
 

@@ -83,7 +83,7 @@ namespace SciTech.Rpc.Server
     /// Specialization of <see cref="RpcServerOptions"/> than can be used to configure
     /// service specific server options.
     /// </summary>
-    /// <typeparam name="T">Type of the service inteface.</typeparam>
+    /// <typeparam name="T">Type of the service interface.</typeparam>
     public class RpcServiceOptions<T> : RpcServerOptions
     {
     }

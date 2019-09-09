@@ -125,7 +125,7 @@ namespace SciTech.Rpc.Server
 
         public void Dispose()
         {
-            // Do not change this code. Put cleanup code in Dispose(bool disposing) above.
+            // Do not change this code. Put cleanup code in Dispose(bool disposing).
             this.Dispose(true);
             GC.SuppressFinalize(this);
         }

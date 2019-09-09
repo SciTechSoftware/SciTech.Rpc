@@ -174,7 +174,7 @@ namespace SciTech.Rpc
 
     public static class AnonymousProxyExpressionsClass
     {
-        public static readonly Func<IRpcSerializer, GrpcProxyMethod[]> BlockingServiceProxyMethodsCreator =
+        internal static readonly Func<IRpcSerializer, GrpcProxyMethod[]> BlockingServiceProxyMethodsCreator =
             (serializer) =>
             {
                 GrpcProxyMethod[] proxyMethods = new GrpcProxyMethod[] {

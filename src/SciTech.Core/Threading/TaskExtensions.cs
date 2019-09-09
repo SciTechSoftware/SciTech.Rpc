@@ -10,9 +10,9 @@ namespace SciTech.Threading
 #pragma warning disable CA1062 // Validate arguments of public methods
     public static class TaskExtensions
     {
-        private static volatile Action<Exception> defaultExceptionHandler;
+        private static volatile Action<Exception>? defaultExceptionHandler;
 
-        public static Action<Exception> DefaultExceptionHandler
+        public static Action<Exception>? DefaultExceptionHandler
         {
             get
             {
@@ -108,11 +108,11 @@ namespace SciTech.Threading
 
 #pragma warning restore IDE0060 // Remove unused parameter
 
-        public static void Forget(this Task task, Action<Exception> exceptionHandler)
+        public static void Forget(this Task task, Action<Exception>? exceptionHandler)
         {
             if (exceptionHandler != null)
             {
-                task.ContinueWith(t => exceptionHandler(t.Exception), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                task.ContinueWith(t => exceptionHandler(t.Exception!), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }
         }
 
@@ -120,7 +120,7 @@ namespace SciTech.Threading
         {
             if (exceptionHandler != null)
             {
-                task.ContinueWith(t => exceptionHandler.HandleException(t.Exception, UnexpectedExceptionAction.Handle), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                task.ContinueWith(t => exceptionHandler.HandleException(t.Exception!, UnexpectedExceptionAction.Handle), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }
         }
 

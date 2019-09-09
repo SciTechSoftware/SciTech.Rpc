@@ -85,7 +85,7 @@ namespace SciTech.Rpc
             return other != null && this.ObjectId == other.ObjectId;
         }
 
-        public sealed override bool Equals(object obj)
+        public sealed override bool Equals(object? obj)
         {
             return obj is RpcObjectRef other && this.Equals(other);
         }

@@ -48,7 +48,7 @@ namespace SciTech.Collections
 
         private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
 
-        private object data;
+        private object? data;
 
         public CompactList(IEnumerable<T> collection) : this()
         {
@@ -123,7 +123,9 @@ namespace SciTech.Collections
                     return singleItem;
                 }
 
+#pragma warning disable CA1065 // Do not raise exceptions in unexpected locations
                 throw new ArgumentOutOfRangeException(nameof(index));
+#pragma warning restore CA1065 // Do not raise exceptions in unexpected locations
             }
             set
             {
@@ -195,7 +197,7 @@ namespace SciTech.Collections
             var list = new List<T>(size);
             for(int i=0; i < size; i++)
             {
-                list.Add(default);
+                list.Add(default!);
             }
         }
 
@@ -251,7 +253,7 @@ namespace SciTech.Collections
             }
         }
 
-        public object Box()
+        public object? Box()
         {
             return this.data;
         }
@@ -390,7 +392,7 @@ namespace SciTech.Collections
 
             if (this.data is SmallCollection<T> shortList)
             {
-                if (shortList.Remove(item, out object newSet))
+                if (shortList.Remove(item, out object? newSet))
                 {
                     this.data = newSet;
                     return true;

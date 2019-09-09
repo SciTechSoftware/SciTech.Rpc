@@ -629,7 +629,7 @@ namespace SciTech.Rpc.Server
                 this.serviceType = serviceType;
             }
 
-            public override bool Equals(object obj)
+            public override bool Equals(object? obj)
             {
                 return obj is ServiceImplKey other && this.Equals(other);
             }
@@ -681,14 +681,14 @@ namespace SciTech.Rpc.Server
                     || (other != null && this.hashCode == other.hashCode && this.GetInstance() == other.GetInstance());
             }
 
-            public override bool Equals(object obj)
+            public override bool Equals(object? obj)
             {
                 return obj is InstanceKey other && this.Equals(other);
             }
 
             public override int GetHashCode() => this.hashCode;
 
-            internal object GetInstance()
+            internal object? GetInstance()
             {
                 if (this.instance is WeakReference wrInstance)
                 {

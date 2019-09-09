@@ -6,11 +6,11 @@ namespace SciTech.Diagnostics
 {
     public static class ExceptionManager
     {
-        private static volatile SciTech.Diagnostics.ILogger exceptionLogger;
+        private static volatile SciTech.Diagnostics.ILogger? exceptionLogger;
 
-        public static event ThreadExceptionEventHandler UnhandledException;
+        public static event ThreadExceptionEventHandler? UnhandledException;
 
-        public static SciTech.Diagnostics.ILogger ExceptionLogger
+        public static SciTech.Diagnostics.ILogger? ExceptionLogger
         {
             get { return exceptionLogger; }
             set
@@ -48,7 +48,7 @@ namespace SciTech.Diagnostics
 
             if (!(e is ThreadAbortException))
             {
-                UnhandledException?.Invoke(null, new ThreadExceptionEventArgs(e));
+                UnhandledException?.Invoke(null!, new ThreadExceptionEventArgs(e));
             }
 
             return !safeToResume;

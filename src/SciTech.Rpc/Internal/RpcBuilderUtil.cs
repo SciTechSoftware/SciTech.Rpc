@@ -77,7 +77,7 @@ namespace SciTech.Rpc.Internal
         /// Enumerates all declared RPC members in the service interface specified by <paramref name="serviceInfo"/>.
         /// </summary>
         /// <param name="serviceInfo"></param>
-        /// <param name="splitProperties">Indicates that seperate <see cref="RpcOperationInfo"/>s should be returned for property get/set 
+        /// <param name="splitProperties">Indicates that separate <see cref="RpcOperationInfo"/>s should be returned for property get/set 
         /// methods, instead of a single <see cref="RpcPropertyInfo"/>.</param>
         /// <returns></returns>
         // TODO: This method should maybe be moved to RpcServiceInfo, or at least be an RpcServiceInfo extension method.
@@ -88,54 +88,22 @@ namespace SciTech.Rpc.Internal
             var events = serviceInfo.Type.GetEvents(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
             foreach (var eventInfo in events)
             {
-                var rpcEventInfo = RpcBuilderUtil.GetEventInfoFromEvent(serviceInfo, eventInfo);
-                // this.CheckEvent(rpcEventInfo);
-
-                if (rpcEventInfo.Event.AddMethod != null)
+                if( eventInfo.EventHandlerType == null )
                 {
-                    //var addOp = new RpcOperationInfo(
-                    //    service: rpcEventInfo.Service,
-                    //    name: $"{eventInfo.Name}",
-                    //    declaringMember: eventInfo,
-                    //    method: eventInfo.AddMethod,
-                    //    requestType: typeof(RpcObjectRequest),
-                    //    requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
-                    //    methodType: RpcMethodType.EventAdd,
-                    //    isAsync: false,
-                    //    parametersCount: 0,
-                    //    responseType: rpcEventInfo.EventArgsType,
-                    //    responseReturnType: rpcEventInfo.EventArgsType,
-                    //    returnType: rpcEventInfo.EventArgsType,
-                    //    returnKind:  ServiceOperationReturnKind.Standard
-                    //    );
-
-                    //yield return addOp;
-
-                    handledMembers.Add(rpcEventInfo.Event.AddMethod);
+                    // How could this happen?
+                    throw new NotSupportedException($"{eventInfo.Name} has no EventHandlerType");
                 }
 
-                if (rpcEventInfo.Event.RemoveMethod != null)
+                if( eventInfo.AddMethod == null || eventInfo.RemoveMethod == null )
                 {
-                    //var removeOp = new RpcOperationInfo(
-                    //    service: rpcEventInfo.Service,
-                    //    name: $"{eventInfo.Name}",
-                    //    declaringMember: eventInfo,
-                    //    method: eventInfo.RemoveMethod,
-                    //    requestType: typeof(RpcObjectRequest),
-                    //    requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
-                    //    methodType: RpcMethodType.EventRemove,
-                    //    isAsync: false,
-                    //    parametersCount: 0,
-                    //    responseType: rpcEventInfo.EventArgsType,
-                    //    responseReturnType: rpcEventInfo.EventArgsType,
-                    //    returnType: rpcEventInfo.EventArgsType,
-                    //    returnKind: ServiceOperationReturnKind.Standard
-                    //    );
-
-                    //yield return removeOp;
-
-                    handledMembers.Add(rpcEventInfo.Event.RemoveMethod);
+                    // How could this happen?
+                    throw new NotSupportedException($"{eventInfo.Name} is missing an Add or Remove method.");
                 }
+
+                var rpcEventInfo = GetEventInfoFromEvent(serviceInfo, eventInfo);
+
+                handledMembers.Add(eventInfo.AddMethod);
+                handledMembers.Add(eventInfo.RemoveMethod);
 
                 yield return rpcEventInfo;
             }
@@ -144,7 +112,6 @@ namespace SciTech.Rpc.Internal
             foreach (var propertyInfo in properties)
             {
                 var rpcPropertyInfo = RpcBuilderUtil.GetPropertyInfoFromProperty(serviceInfo, propertyInfo);
-                // this.CheckOperation(rpcPropertyInfo.FullName);
                 var propertyRpcAttribute = propertyInfo.GetCustomAttribute<RpcOperationAttribute>();
 
                 if (propertyInfo.GetMethod != null)
@@ -279,7 +246,7 @@ namespace SciTech.Rpc.Internal
 
         public static RpcEventInfo GetEventInfoFromEvent(RpcServiceInfo serviceInfo, EventInfo eventInfo)
         {
-            var eventHandlerType = eventInfo.EventHandlerType;
+            var eventHandlerType = eventInfo.EventHandlerType ?? throw new NotSupportedException($"{eventInfo.Name} has no EventHandlerType"); ;
             Type eventArgsType;
             if (eventHandlerType.IsGenericType)
             {
@@ -371,7 +338,7 @@ namespace SciTech.Rpc.Internal
                 declaringMember: method,
                 methodType: RpcMethodType.Unary,
                 isAsync: isAsync,
-                name: operationName,
+                name: operationName!,
                 requestParameters: requestTypeInfo.Parameters,                
                 cancellationTokenIndex: requestTypeInfo.CancellationTokenIndex,
                 requestType: requestTypeInfo.Type,
@@ -548,7 +515,7 @@ namespace SciTech.Rpc.Internal
             var detailsAttribute = faultType.GetCustomAttribute<RpcFaultDetailsAttribute>();
             if (!string.IsNullOrEmpty(detailsAttribute?.FaultCode))
             {
-                return detailsAttribute.FaultCode;
+                return detailsAttribute!.FaultCode!;
             }
 
             return faultType.Name;
@@ -652,7 +619,7 @@ namespace SciTech.Rpc.Internal
                 }
             }
 
-            return serviceName;
+            return serviceName!;
         }
 
         private static string GetServiceNamespace(Type serviceType, RpcServiceAttribute? rpcAttribute)
@@ -660,10 +627,10 @@ namespace SciTech.Rpc.Internal
             var serviceNamespace = rpcAttribute?.Namespace;
             if (string.IsNullOrEmpty(serviceNamespace))
             {
-                serviceNamespace = serviceType.Namespace;
+                serviceNamespace = serviceType.Namespace ?? "";
             }
 
-            return serviceNamespace;
+            return serviceNamespace!;
         }
     }
 

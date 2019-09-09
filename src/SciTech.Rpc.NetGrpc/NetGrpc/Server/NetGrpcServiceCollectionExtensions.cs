@@ -3,6 +3,7 @@ using Grpc.AspNetCore.Server.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.NetGrpc.Server.Internal;
@@ -52,8 +53,15 @@ namespace SciTech.Rpc.NetGrpc.Server
             services.TryAddSingleton<NetGrpcServer>();
 
             services.TryAddTransient<IServiceMethodProvider<NetGrpcServer>, RpcCoreServiceMethodProvider>();
+            
+            // Use reflection to get NetGrpcServiceMethodProvider<> type. For some reason using typeof(NetGrpcServiceMethodProvider<>)
+            // causes a BadImageFormatException in .NET Core 3.0 Preview 9. Hopefully this hack can be removed soon.
+            var providerType = typeof(NetGrpcServiceCollectionExtensions).Assembly.GetType("SciTech.Rpc.NetGrpc.Server.NetGrpcServiceMethodProvider`1");
+            //var providerType = typeof(NetGrpcServiceMethodProvider<>);
 
-            services.TryAddEnumerable(ServiceDescriptor.Transient(typeof(IServiceMethodProvider<>), typeof(NetGrpcServiceMethodProvider<>)));
+            services.TryAddEnumerable(ServiceDescriptor.Transient(typeof(IServiceMethodProvider<>), providerType));
+
+            //RegisterActivator(services);
             services.TryAdd(ServiceDescriptor.Scoped(typeof(NetGrpcServiceActivator<>), typeof(NetGrpcServiceActivator<>)));
             services.AddTransient(typeof(NetGrpcServiceStubBuilder<>));
 
@@ -61,12 +69,15 @@ namespace SciTech.Rpc.NetGrpc.Server
             services.TryAddSingleton<IRpcServiceDefinitionBuilder>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>());
             services.TryAddSingleton<IRpcServiceDefinitionsProvider>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>());
 
-            services.TryAddSingleton(s => new RpcServicePublisher(s.GetRequiredService<IRpcServiceDefinitionsProvider>()));
+            services.TryAddSingleton(
+                s => new RpcServicePublisher(s.GetRequiredService<IRpcServiceDefinitionsProvider>(), 
+                s.GetService<IOptions<RpcServicePublisherOptions>>()?.Value?.ServerId ?? default ));
             services.TryAddSingleton<IRpcServicePublisher>(s => s.GetRequiredService<RpcServicePublisher>());
             services.TryAddSingleton<IRpcServiceActivator>(s => s.GetRequiredService<RpcServicePublisher>());
 
             return new RpcServerBuilder(services);
         }
+
 
         /// <summary>
         /// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
@@ -93,7 +104,7 @@ namespace SciTech.Rpc.NetGrpc.Server
     }
 
 #pragma warning disable CA1812 // Internal class is apparently never instantiated.
-    internal class NetGrpcServiceMethodProvider<TActivator> : IServiceMethodProvider<TActivator> where TActivator : class
+    public class NetGrpcServiceMethodProvider<TActivator> : IServiceMethodProvider<TActivator> where TActivator : class
 #pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
         private static MethodInfo BuildServiceStubMethod =
@@ -121,6 +132,9 @@ namespace SciTech.Rpc.NetGrpc.Server
                 activatorType.GetGenericTypeDefinition().Equals(typeof(NetGrpcServiceActivator<>)))
             {
                 var serviceType = activatorType.GetGenericArguments()[0];
+
+                //MethodInfo buildServiceStubMethod = typeof(NetGrpcServiceMethodProvider<TActivator>)
+                //    .GetMethod(nameof(BuildServiceStub), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
                 var typedBuildServiceStubMethod = BuildServiceStubMethod.MakeGenericMethod(serviceType);
                 typedBuildServiceStubMethod.Invoke(this, new object[] { context });
@@ -224,7 +238,7 @@ namespace SciTech.Rpc.NetGrpc.Server
         /// RPC server implementations to propagate suitable options to the underlying
         /// communication layer.
         /// </summary>
-        public static event EventHandler<ServiceRegistrationEventArgs> ServiceRegistered;
+        public static event EventHandler<ServiceRegistrationEventArgs>? ServiceRegistered;
 
         /// <summary>
         /// Registers a known serializable type that should be available for RPC serializers.

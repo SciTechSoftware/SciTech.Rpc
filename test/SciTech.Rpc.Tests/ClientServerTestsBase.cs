@@ -12,6 +12,20 @@ using System;
 using System.IO.Pipelines;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using System.Collections.Immutable;
+using System.Threading.Tasks;
+using SciTech.Rpc.NetGrpc.Server.Internal;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+
+#if NETCOREAPP3_0
+using SciTech.Rpc.NetGrpc.Client;
+using SciTech.Rpc.NetGrpc.Server;
+using GrpcNet = Grpc.Net;
+#endif
 
 namespace SciTech.Rpc.Tests
 {
@@ -20,7 +34,8 @@ namespace SciTech.Rpc.Tests
         LightweightInproc,
         LightweightTcp,
         LightweightSslTcp,
-        Grpc
+        Grpc,
+        NetGrpc
     }
 
     public interface ITestConnectionCreator
@@ -71,12 +86,12 @@ namespace SciTech.Rpc.Tests
         }
 
         /// <summary>
-        /// TODO: Make this virtual instead of using this.connnectioType.
+        /// TODO: Make this virtual instead of using this.connnectionType.
         /// </summary>
-        /// <param name="serviceDefinitionsBuilder"></param>
+        /// <param name="serviceDefinitionsProvider"></param>
         /// <param name="proxyServicesProvider"></param>
         /// <returns></returns>
-        protected (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionBuilder serviceDefinitionsBuilder,
+        protected (IRpcServer, RpcServerConnection) CreateServerAndConnection(IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null,
             IRpcProxyDefinitionsProvider proxyServicesProvider = null)
@@ -93,7 +108,7 @@ namespace SciTech.Rpc.Tests
                 case RpcConnectionType.LightweightTcp:
                 case RpcConnectionType.LightweightSslTcp:
                     {
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, options, this.LightweightOptions);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options, this.LightweightOptions);
 
                         SslServerOptions sslServerOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)
@@ -124,7 +139,7 @@ namespace SciTech.Rpc.Tests
                         Pipe requestPipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
                         Pipe responsePipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
 
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options);
                         host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                         var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
@@ -134,7 +149,7 @@ namespace SciTech.Rpc.Tests
                     }
                 case RpcConnectionType.Grpc:
                     {
-                        var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
+                        var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, null, options);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
                         var proxyGenerator = new GrpcProxyProvider(proxyServicesProvider);
@@ -143,15 +158,131 @@ namespace SciTech.Rpc.Tests
                             TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyGenerator);
                         return (host, connection);
                     }
+#if NETCOREAPP3_0
+                case RpcConnectionType.NetGrpc:
+                    {
+                        var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId);
+                        //var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
+                        //host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
+
+                        var handler = new System.Net.Http.HttpClientHandler();
+                        handler.ServerCertificateCustomValidationCallback =
+                            (httpRequestMessage, cert, cetChain, policyErrors) =>
+                            {
+                                return true;
+                            };
+                        var channelOptions = new GrpcNet.Client.GrpcChannelOptions()
+                        {
+                            HttpClient = new System.Net.Http.HttpClient(handler),
+                            DisposeHttpClient = true
+                        };
+
+                            
+                        var proxyGenerator = new NetGrpcProxyProvider(proxyServicesProvider);
+                        var connection = new NetGrpcServerConnection(
+                            new RpcServerConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
+                            clientOptions.AsImmutable(), channelOptions, proxyGenerator);
+                        return (server, connection);
+                    }
+#endif
             }
 
             throw new NotSupportedException();
         }
 
+
+#if NETCOREAPP3_0
+        private static IRpcServer CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId)
+        {
+            var hostBuilder = WebHost.CreateDefaultBuilder()
+                .ConfigureKestrel(options =>
+                {
+                    options.ListenLocalhost(GrpcCoreFullStackTestsBase.GrpcTestPort, listenOptions =>
+                    {
+                        listenOptions.UseHttps(TestCertificates.ServerPFXPath, "1111");
+                        //listenOptions.UseHttps(certPath, "1111", o =>
+                        //{
+                        //    o.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
+                        //});
+                        listenOptions.Protocols = HttpProtocols.Http2;
+                    });
+                })
+                .ConfigureServices(s=>
+                {
+                    s.AddSingleton(serviceDefinitionsProvider);
+                    s.Configure<RpcServicePublisherOptions>(o => o.ServerId = serverId);
+                })
+                .UseStartup<NetStartup>();
+
+            var host = hostBuilder.Build();
+
+            var rpcServer = (NetGrpcServer)host.Services.GetService(typeof(NetGrpcServer));
+
+            return new NetGrpcTestServer(host, rpcServer);
+        }
+
+        public class NetStartup 
+        {
+            public void Configure(IApplicationBuilder app)
+            {
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapNetGrpcServices();
+                });
+            }
+
+            public void ConfigureServices(IServiceCollection services)
+            {
+                services.AddNetGrpc();
+            }
+        }
+#endif
+
         private bool ValidateTestCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
         {
             return true;
 
+        }
+    }
+
+    internal class NetGrpcTestServer : IRpcServer
+    {
+        private IWebHost webHost;
+        NetGrpcServer server;
+
+        internal NetGrpcTestServer(IWebHost webHost, NetGrpcServer server )
+        {
+            this.webHost = webHost;
+            this.server = server;
+
+        }
+        public bool AllowAutoPublish => this.server.AllowAutoPublish;
+
+        public ImmutableArray<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
+
+        public IRpcServicePublisher ServicePublisher => this.server.ServicePublisher;
+
+        public void AddEndPoint(IRpcServerEndPoint endPoint)
+        {
+            
+        }
+
+        public void Dispose()
+        {
+            this.server.Dispose();
+            this.webHost.Dispose();
+        }
+
+        public async Task ShutdownAsync()
+        {
+            await this.server.ShutdownAsync().ConfigureAwait(false);
+            await this.webHost.StopAsync().ConfigureAwait(false);
+        }
+
+        public void Start()
+        {
+            this.webHost.Start();
         }
     }
 

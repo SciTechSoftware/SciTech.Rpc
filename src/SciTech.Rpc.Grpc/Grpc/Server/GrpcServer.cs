@@ -12,6 +12,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;

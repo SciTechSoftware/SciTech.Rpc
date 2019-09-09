@@ -1,16 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;net472;netcoreapp2.0;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>
+    <!--<TargetFrameworks>net461;net472;netcoreapp2.0;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>-->
+    <TargetFramework>netcoreapp3.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup>
     <CodeAnalysisRuleSet>SciTech.Rpc.Tests.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="SimpleService.proto" />
-  </ItemGroup>
 
   <ItemGroup>
     <Compile Include="..\..\Certs\TestCertificates.Client.cs" Link="TestCertificates.Client.cs" />
@@ -43,26 +40,35 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.9.1" />
-    <PackageReference Include="Grpc.Core.Testing" Version="1.22.0" />
-    <PackageReference Include="Grpc.Tools" Version="1.22.0">
+    <PackageReference Include="Grpc.Core.Testing" Version="2.23.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.23.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Moq" Version="4.12.0" />
+    <PackageReference Include="Moq" Version="4.13.0" />
     <PackageReference Include="nunit" Version="3.12.0" />
-    <PackageReference Include="NUnit3TestAdapter" Version="3.13.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
-    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.22" />
+    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.25" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup >
     <ProjectReference Include="..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)'=='netcoreapp3.0'">
+    <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc\SciTech.Rpc.NetGrpc.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProtoBuf Include="SimpleService.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="SimpleService.proto" />
   </ItemGroup>
 
 </Project>

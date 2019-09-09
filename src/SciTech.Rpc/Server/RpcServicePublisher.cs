@@ -112,6 +112,12 @@ namespace SciTech.Rpc.Server
         void UnpublishSingleton<TService>() where TService : class;
     }
 
+
+    public class RpcServicePublisherOptions
+    {
+        public RpcServerId ServerId { get; set; }
+    }
+
     public sealed class RpcServicePublisher : IRpcServicePublisher, IRpcServiceActivator
     {
         private readonly Dictionary<RpcObjectId, IReadOnlyList<string>> idToPublishedServices = new Dictionary<RpcObjectId, IReadOnlyList<string>>();
@@ -139,6 +145,7 @@ namespace SciTech.Rpc.Server
             this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
             this.serverId = serverId;
         }
+        
 
         public RpcServicePublisher(RpcServerConnectionInfo connectionInfo, IRpcServiceDefinitionsProvider serviceDefinitionsProvider)
         {

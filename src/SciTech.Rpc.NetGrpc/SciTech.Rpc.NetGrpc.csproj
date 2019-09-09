@@ -25,6 +25,9 @@ This package contains the communication layer for the fully managed ASP.NET Core
     <LangVersion>8.0</LangVersion>
     <Nullable>enable</Nullable>
     <NullableContextOptions>enable</NullableContextOptions>
+    <ApplicationIcon />
+    <OutputType>Library</OutputType>
+    <StartupObject />
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,12 +44,11 @@ This package contains the communication layer for the fully managed ASP.NET Core
   
   <ItemGroup>
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Server\Internal\GrpcCallContext.cs" Link="Grpc\Server\Internal\GrpcCallContext.cs" />
-    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Server\Internal\GrpcMethodDefinition.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Internal\GrpcMethodDefinition.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Grpc.AspNetCore.Server" Version="0.1.22-pre2" />
+    <PackageReference Include="Grpc.AspNetCore.Server" Version="2.23.0" />
     
     <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.4">
       <PrivateAssets>all</PrivateAssets>
@@ -62,6 +64,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Grpc\Internal\" />
     <Folder Include="Grpc\Server\Internal\" />
   </ItemGroup>
 

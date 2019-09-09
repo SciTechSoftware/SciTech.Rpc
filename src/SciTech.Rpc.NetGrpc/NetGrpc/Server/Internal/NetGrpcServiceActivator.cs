@@ -10,6 +10,7 @@
 #endregion
 
 using Grpc.AspNetCore.Server;
+using Grpc.AspNetCore.Server.Model;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Server;
 using System;
@@ -30,11 +31,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         {
             this.ServiceProvider = serviceProvider;
         }
-        //void Build( IRpcSerializer serializer )
-        //{
-        //    var stubBuilder = new NetGrpcServiceStubBuilder<TService>(serializer);
-        //    stubBuilder.Bind()
-        //}
     }
 
     /// <summary>
@@ -54,8 +50,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         public void Configure(GrpcServiceOptions<NetGrpcServiceActivator<TService>> options)
         {
-            options.ReceiveMaxMessageSize = this.rpcOptions.ReceiveMaxMessageSize ?? options.ReceiveMaxMessageSize;
-            options.SendMaxMessageSize = this.rpcOptions.SendMaxMessageSize ?? options.SendMaxMessageSize;
+            options.MaxReceiveMessageSize = this.rpcOptions.ReceiveMaxMessageSize ?? options.MaxReceiveMessageSize;
+            options.MaxSendMessageSize = this.rpcOptions.SendMaxMessageSize ?? options.MaxSendMessageSize;
         }
     }
 }

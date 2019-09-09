@@ -22,7 +22,7 @@ namespace SciTech.Rpc.NetGrpc.Server
     public static class NetGrpcApplicationBuilderExtensions
     {
         /// <summary>
-        /// Publishes a singleton service that will be contructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
+        /// Publishes a singleton service that will be constructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
         /// This method expects that an implementation class has been registered for the RPC service interface type <typeparamref name="TService"/>
         /// </summary>
         /// <typeparam name="TService">The interface type defining the RPC service.</typeparam>

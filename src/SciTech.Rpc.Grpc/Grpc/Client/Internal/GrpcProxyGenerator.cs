@@ -17,7 +17,11 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using GrpcCore = Grpc.Core;
 
+#if FEATURE_NET_GRPC
+namespace SciTech.Rpc.NetGrpc.Client.Internal
+#else
 namespace SciTech.Rpc.Grpc.Client.Internal
+#endif
 {
     public class GrpcProxyArgs : RpcProxyArgs
     {
@@ -40,7 +44,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
         internal GrpcMethodsCache MethodsCache { get; }
     }
 
-    public class GrpcProxyGenerator : RpcProxyGenerator<GrpcProxyBase, GrpcProxyArgs, GrpcProxyMethod>
+    internal class GrpcProxyGenerator : RpcProxyGenerator<GrpcProxyBase, GrpcProxyArgs, GrpcProxyMethod>
     {
         private readonly ConditionalWeakTable<IRpcSerializer, GrpcMethodsCache> serializerToMethodsCache = new ConditionalWeakTable<IRpcSerializer, GrpcMethodsCache>();
 
@@ -63,7 +67,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             var proxyServicesProvider = this.ProxyServicesProvider;
             return (RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? syncContext) =>
             {
-                if (connection is GrpcServerConnection grpcConnection)
+                if (connection is IGrpcServerConnection grpcConnection)
                 {
                     var callInvoker = grpcConnection.CallInvoker;
                     if (callInvoker == null)
@@ -76,7 +80,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     var args = new GrpcProxyArgs
                     (
                         objectId: objectId,
-                        connection: grpcConnection,
+                        connection: connection,
                         callInvoker: callInvoker,
                         methodsCache: methodsCache,
                         serializer: grpcConnection.Serializer,

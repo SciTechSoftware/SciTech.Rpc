@@ -10,6 +10,7 @@
 #endregion
 
 using Microsoft.Extensions.DependencyInjection;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;

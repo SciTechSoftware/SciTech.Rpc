@@ -12,6 +12,7 @@
 using Grpc.AspNetCore.Server.Model;
 using Grpc.Core;
 using Microsoft.Extensions.Options;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Logging;

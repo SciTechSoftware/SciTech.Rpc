@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.NetGrpc.Client;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -19,9 +20,9 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.Grpc.Client.Internal
 {
-    public class GrpcProxyArgs : RpcProxyArgs
+    public class NetGrpcProxyArgs : RpcProxyArgs
     {
-        internal GrpcProxyArgs(IRpcServerConnection connection,
+        internal NetGrpcProxyArgs(IRpcServerConnection connection,
                                GrpcCore.CallInvoker callInvoker,
                                RpcObjectId objectId,
                                GrpcMethodsCache methodsCache,
@@ -40,30 +41,30 @@ namespace SciTech.Rpc.Grpc.Client.Internal
         internal GrpcMethodsCache MethodsCache { get; }
     }
 
-    public class GrpcProxyGenerator : RpcProxyGenerator<GrpcProxyBase, GrpcProxyArgs, GrpcProxyMethod>
+    public class NetGrpcProxyGenerator : RpcProxyGenerator<NetGrpcProxyBase, NetGrpcProxyArgs, NetGrpcProxyMethod>
     {
         private readonly ConditionalWeakTable<IRpcSerializer, GrpcMethodsCache> serializerToMethodsCache = new ConditionalWeakTable<IRpcSerializer, GrpcMethodsCache>();
 
         private readonly object syncRoot = new object();
 
-        public GrpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider) 
+        public NetGrpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider) 
             : base( proxyServicesProvider )
         {
         }
 
-        public GrpcProxyGenerator() : base(null)
+        public NetGrpcProxyGenerator() : base(null)
         {
         }
 
         protected override RpcObjectProxyFactory CreateProxyFactory(
-            Func<GrpcProxyArgs, GrpcProxyMethod[], RpcProxyBase> proxyCreator,
+            Func<NetGrpcProxyArgs, NetGrpcProxyMethod[], RpcProxyBase> proxyCreator,
             IReadOnlyCollection<string>? implementedServices,
-            GrpcProxyMethod[] proxyMethods)
+            NetGrpcProxyMethod[] proxyMethods)
         {
             var proxyServicesProvider = this.ProxyServicesProvider;
             return (RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? syncContext) =>
             {
-                if (connection is GrpcServerConnection grpcConnection)
+                if (connection is NetGrpcServerConnection grpcConnection)
                 {
                     var callInvoker = grpcConnection.CallInvoker;
                     if (callInvoker == null)
@@ -73,7 +74,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
                     var methodsCache = this.GetMethodCache(grpcConnection.Serializer);
 
-                    var args = new GrpcProxyArgs
+                    var args = new NetGrpcProxyArgs
                     (
                         objectId: objectId,
                         connection: grpcConnection,

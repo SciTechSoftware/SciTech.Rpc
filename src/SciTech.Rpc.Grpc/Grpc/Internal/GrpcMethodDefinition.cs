@@ -1,7 +1,7 @@
 ﻿using System;
 using GrpcCore = Grpc.Core;
 
-namespace SciTech.Rpc.Grpc.Server.Internal
+namespace SciTech.Rpc.Grpc.Internal
 {
     internal static class GrpcMethodDefinition
     {

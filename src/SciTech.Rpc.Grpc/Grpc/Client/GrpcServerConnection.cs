@@ -12,7 +12,6 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client.Internal;
 using SciTech.Rpc.Logging;
-using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,8 +20,9 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.Grpc.Client
 {
-    public class GrpcServerConnection : RpcServerConnection
+    public class GrpcServerConnection : RpcServerConnection, IGrpcServerConnection
     {
+
         private static readonly ILog Logger = LogProvider.For<GrpcServerConnection>();
 
         private bool isSecure;
@@ -122,6 +122,10 @@ namespace SciTech.Rpc.Grpc.Client
 
         internal GrpcCore.CallInvoker? CallInvoker { get; private set; }
 
+        GrpcCore.CallInvoker? IGrpcServerConnection.CallInvoker => this.CallInvoker;
+
+        IRpcSerializer IGrpcServerConnection.Serializer => this.Serializer;
+
         public override Task ConnectAsync()
         {
             var channel = this.Channel;
@@ -192,5 +196,6 @@ namespace SciTech.Rpc.Grpc.Client
 
             return allChannelOptions;
         }
+
     }
 }

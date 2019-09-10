@@ -187,6 +187,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 case RpcFailureException _:
                 case OperationCanceledException _:
                     break;
+                case TimeoutException _:
+                    break;
                 default:
                     throw new RpcFailureException(RpcFailure.Unknown, $"Unexepected exception when calling RPC method. {e.Message}", e);
             }

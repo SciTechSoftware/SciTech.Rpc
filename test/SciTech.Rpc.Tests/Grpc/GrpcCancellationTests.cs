@@ -7,7 +7,7 @@ namespace SciTech.Rpc.Tests.Grpc
     [TestFixture]
     public class GrpcCancellationTests : CancellationTests
     {
-        public GrpcCancellationTests() : base(RpcConnectionType.Grpc, false)
+        public GrpcCancellationTests() : base(RpcConnectionType.Grpc)
         {
         }
     }

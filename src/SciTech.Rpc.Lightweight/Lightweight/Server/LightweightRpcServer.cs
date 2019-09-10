@@ -24,11 +24,14 @@ using System.IO.Pipelines;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using SciTech.Rpc.Logging;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
     public partial class LightweightRpcServer : RpcServerBase
     {
+        private static ILog Logger = LogProvider.For<LightweightRpcServer>();
+
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
 
         public const int DefaultMaxResponseMessageSize = 4 * 1024 * 1024;
@@ -166,7 +169,9 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 foreach (var client in this.clients)
                 {
-                    client.Key.Dispose();
+#pragma warning disable CA1031 // Do not catch general exception types
+                    try { client.Key.Dispose(); } catch(Exception x ) { Logger.Warn(x, "Error when disposing client." ); }
+#pragma warning restore CA1031 // Do not catch general exception types
                 }
                 this.clients.Clear();
             }
@@ -176,12 +181,21 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected virtual ValueTask OnReceiveAsync(IMemoryOwner<byte> message) => default;
 
-        protected Task RunClientAsync(IDuplexPipe pipe, CancellationToken cancellationToken = default)
+        protected async Task RunClientAsync(IDuplexPipe pipe, CancellationToken cancellationToken = default)
         {
-            var client = new ClientPipeline(pipe, this, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive);
+            using (var client = new ClientPipeline(pipe, this, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive))
+            {
+                try
+                {
+                    this.AddClient(client);
 
-            // TODO: Add to clients list.
-            return client.RunAsync(cancellationToken);
+                    await client.RunAsync(cancellationToken).ContextFree();
+                }
+                finally
+                {
+                    this.RemoveClient(client);
+                }
+            }
         }
 
         protected async override Task ShutdownCoreAsync()

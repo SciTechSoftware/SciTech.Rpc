@@ -224,7 +224,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var requestStream = await this.BeginWriteAsync(frame).ContextFree();
                 await this.WriteRequestAsync(request, serializer, requestStream).ContextFree();
 
-                if (timeout == 0)
+                if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts )
                 {
                     return await tcs.Task.ContextFree();
                 }
@@ -538,7 +538,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     case RpcFrameType.TimeoutResponse:
                         // This is not very likely, since the operation should have 
                         // already timed out on the client side.
-                        this.TrySetException(new TimeoutException($"Server side operation '{frame.RpcOperation}' didn't complete within the timeout ({frame.Timeout} ms)."));
+                        this.TrySetException(new TimeoutException($"Server side operation '{frame.RpcOperation}' didn't complete within the timeout."));
                         break;
                     case RpcFrameType.CancelResponse:
                         this.TrySetCanceled();

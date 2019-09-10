@@ -1,7 +1,10 @@
 ﻿using NUnit.Framework;
+using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Server;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests.Lightweight
 {
@@ -10,19 +13,19 @@ namespace SciTech.Rpc.Tests.Lightweight
     [TestFixture(RpcConnectionType.LightweightSslTcp, false)]
     [TestFixture(RpcConnectionType.LightweightInproc, true)]
     [TestFixture(RpcConnectionType.LightweightInproc, false)]
-    public class LightweightCancellationTests : CancellationTests
+    public class LightweightTimeoutTests : TimeoutTests
     {
-        public bool RoundTripCancellation { get; }
-
-        public LightweightCancellationTests(RpcConnectionType connectionType, bool roundTripCancellation) : base(connectionType)
+        public LightweightTimeoutTests(RpcConnectionType connectionType, bool roundTripTimeout) : base(connectionType)//, roundTripTimeout)
         {
-            this.RoundTripCancellation = roundTripCancellation;
+            this.RoundTripTimeout = roundTripTimeout;
         }
+
+        public bool RoundTripTimeout { get; }
 
         [SetUp]
         public void SetupTest()
         {
-            RpcProxyOptions.RoundTripCancellationsAndTimeouts = this.RoundTripCancellation;
+            RpcProxyOptions.RoundTripCancellationsAndTimeouts = this.RoundTripTimeout;
 
         }
 

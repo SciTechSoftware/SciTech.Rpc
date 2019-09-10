@@ -17,6 +17,7 @@
 #endregion
 
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,7 +46,7 @@ namespace SciTech.Rpc.Tests
         {
             // Don't create a timer if the task is already completed
             // or the debugger is attached
-            if (task.IsCompleted)// || Debugger.IsAttached)
+            if (task.IsCompleted || Debugger.IsAttached)
             {
                 return await task;
             }

@@ -31,12 +31,10 @@ namespace SciTech.Rpc.Tests
 
     public abstract class CancellationTests : ClientServerTestsBase
     {
-        protected CancellationTests(RpcConnectionType connectionType, bool roundTripCancellation) : base(new ProtobufSerializer(), connectionType)
+        protected CancellationTests(RpcConnectionType connectionType) : base(new ProtobufSerializer(), connectionType)
         {
-            this.RoundTripCancellation = roundTripCancellation;
         }
 
-        public bool RoundTripCancellation { get; }
 
         [Test]
         public Task CancelledBlockingCall_Should_ThrowCancellationException()
@@ -105,18 +103,7 @@ namespace SciTech.Rpc.Tests
             });
         }
 
-        [SetUp]
-        public void SetupTest()
-        {
-            RpcProxyOptions.RoundTripCancellationsAndTimeouts = this.RoundTripCancellation;
 
-        }
-
-        [TearDown]
-        public void TearDownTest()
-        {
-            RpcProxyOptions.RoundTripCancellationsAndTimeouts = false;
-        }
 
         private async Task CancellationTest(Action<ICancellationTestServiceClient> testAction)
         {

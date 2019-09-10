@@ -256,6 +256,23 @@ namespace SciTech.Rpc.Tests
     }
 
     [RpcService]
+    public interface ITimeoutTestService
+    {
+        int AddWithDelay(int a, int b, TimeSpan delay);
+
+        Task<int> AsyncAddWithDelayAsync(int a, int b, TimeSpan delay, CancellationToken cancellationToken);
+    }
+
+    [RpcService(ServerDefinitionType = typeof(ITimeoutTestService))]
+    public interface ITimeoutTestServiceClient : ITimeoutTestService
+    {
+        Task<int> AddWithDelayAsync(int a, int b, TimeSpan delay);
+
+        int AsyncAddWithDelay(int a, int b, TimeSpan delay);
+    }
+
+
+    [RpcService]
     public interface IThermostatService : IDeviceService
     {
         void ScanTo(double temp);
@@ -804,6 +821,21 @@ namespace SciTech.Rpc.Tests
 
                 return sum;
             });
+        }
+    }
+
+    public class TestTimeoutServiceImpl : ITimeoutTestService
+    {
+        public int AddWithDelay(int a, int b, TimeSpan delay)
+        {
+            Thread.Sleep(delay);
+            return a + b;
+        }
+
+        public async Task<int> AsyncAddWithDelayAsync(int a, int b, TimeSpan delay, CancellationToken cancellationToken)
+        {
+            await Task.Delay(delay, cancellationToken);
+            return a + b;
         }
     }
 

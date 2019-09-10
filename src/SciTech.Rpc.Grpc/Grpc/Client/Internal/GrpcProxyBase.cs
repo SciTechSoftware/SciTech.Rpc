@@ -31,7 +31,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
     {
         protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: cancellationToken);
+            DateTime? deadline = GetCallDeadline();
+
+            var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
 
 
@@ -42,7 +44,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         protected override async Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: cancellationToken);
+            DateTime? deadline = GetCallDeadline();
+
+            var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
 
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
             using (var asyncCall = this.grpcInvoker.AsyncUnaryCall(typedMethod, null, callOptions, request))
@@ -51,6 +55,17 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 // TODO: Handle response.Status
                 return response;
             }
+        }
+
+        private DateTime? GetCallDeadline()
+        {
+            var callTimeOut = this.Connection.Options.CallTimeout;
+            if (callTimeOut != null)
+            {
+                return DateTime.UtcNow + callTimeOut;
+            }
+
+            return null;
         }
 
         protected override GrpcProxyMethod CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)
@@ -70,6 +85,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                         throw new RpcFailureException(RpcFailure.SizeLimitExceeded, e.Message, e);
                     case GrpcCore.StatusCode.Cancelled:
                         throw new OperationCanceledException(e.Message, e);
+                    case GrpcCore.StatusCode.DeadlineExceeded:
+                        throw new TimeoutException(e.Message, e);
                     default:
                         throw new RpcFailureException(RpcFailure.Unknown, e.Message, e);
                 }

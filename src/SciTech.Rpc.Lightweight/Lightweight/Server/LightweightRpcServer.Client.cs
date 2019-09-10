@@ -64,18 +64,11 @@ namespace SciTech.Rpc.Lightweight.Server
                 // there's a cancellation token).
                 foreach (var activeOp in activeOps)
                 {
-                    activeOp.CancellationSource?.Cancel();
+                    activeOp.Cancel();
                 }
             }
 
-            protected override ValueTask OnEndReceiveLoopAsync()
-            {
-                this.server.RemoveClient(this);
-                this.Close();
-                return default;
-            }
-
-            protected sealed override ValueTask OnReceiveAsync(in LightweightRpcFrame frame)
+            protected override sealed ValueTask OnReceiveAsync(in LightweightRpcFrame frame)
             {
                 ValueTask handleRequestTask;
                 switch (frame.FrameType)
@@ -110,12 +103,6 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 this.server.RemoveClient(this);
                 this.Close(e.Exception);
-            }
-
-            protected override ValueTask OnStartReceiveLoopAsync()
-            {
-                this.server.AddClient(this);
-                return default;
             }
 
             private void AddActiveOperation(ActiveOperation activeOperation)
@@ -155,7 +142,16 @@ namespace SciTech.Rpc.Lightweight.Server
 
                         if (t.IsCanceled)
                         {
-                            await this.WriteCancelResponseAsync(messageId, operationName).ContextFree();
+                            if (activeOperation?.IsCancellationRequested == true)
+                            {
+                                await this.WriteCancelResponseAsync(messageId, operationName).ContextFree();
+                            }
+                            else
+                            {
+                                // If the operation is cancelled, but cancellation has not been requested, then
+                                // it's actually a timeout.
+                                await this.WriteTimeoutResponseAsync(messageId, operationName).ContextFree();
+                            }
                         }
                         else if (t.IsFaulted)
                         {
@@ -196,7 +192,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     this.activeOperations.TryGetValue(frame.MessageNumber, out activeOperation);
                 }
 
-                activeOperation?.CancellationSource?.Cancel();
+                activeOperation?.Cancel();
 
                 return default;
             }
@@ -229,19 +225,27 @@ namespace SciTech.Rpc.Lightweight.Server
                         bool canCancel = (frame.OperationFlags & RpcOperationFlags.CanCancel) != 0;
                         CancellationTokenSource? cancellationSource = null;
 
-                        if (canCancel)
+                        if (canCancel || frame.Timeout > 0)
                         {
                             cancellationSource = new CancellationTokenSource();
-                            activeOperation = new ActiveOperation(frame.MessageNumber, cancellationSource);
+                            if (canCancel)
+                            {
+                                activeOperation = new ActiveOperation(frame.MessageNumber, cancellationSource);
 
-                            this.AddActiveOperation(activeOperation);
+                                this.AddActiveOperation(activeOperation);
+                            }
+
+                            if (frame.Timeout > 0)
+                            {
+                                cancellationSource.CancelAfter((int)frame.Timeout);
+                            }
                         }
 
                         Task messageTask;
 
                         var context = new LightweightCallContext(frame.Headers, cancellationSource?.Token ?? default);
                         scope = this.server.ServiceProvider?.CreateScope();
-                        // TODO: HandleMessage should be a virtual method and not based on FrameType switch.
+
                         switch (frame.FrameType)
                         {
                             case RpcFrameType.UnaryRequest:
@@ -334,6 +338,16 @@ namespace SciTech.Rpc.Lightweight.Server
                 await this.EndWriteAsync().ContextFree();
             }
 
+            private async Task WriteTimeoutResponseAsync(int messageId, string operationName)
+            {
+                // TODO: Should any headers be returned?
+                ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
+                var cancelFrame = new LightweightRpcFrame(RpcFrameType.TimeoutResponse, messageId, operationName, headers);
+
+                await this.BeginWriteAsync(cancelFrame).ContextFree();
+                await this.EndWriteAsync().ContextFree();
+            }
+
             private sealed class ActiveOperation
             {
                 internal ActiveOperation(int messageId, CancellationTokenSource? cancellationSource)
@@ -342,9 +356,17 @@ namespace SciTech.Rpc.Lightweight.Server
                     this.CancellationSource = cancellationSource;
                 }
 
-                internal CancellationTokenSource? CancellationSource { get; }
+                internal bool IsCancellationRequested { get; private set; }
 
                 internal int MessageId { get; }
+
+                private CancellationTokenSource? CancellationSource { get; }
+
+                internal void Cancel()
+                {
+                    this.IsCancellationRequested = true;
+                    this.CancellationSource?.Cancel();
+                }
             }
         }
 #pragma warning restore CA1031 // Do not catch general exception types

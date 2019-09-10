@@ -251,13 +251,14 @@ namespace SciTech.Rpc.Grpc.Tests
             var factory = RpcServiceProxyBuilder<GrpcProxyBase, GrpcProxyMethod>.CreateObjectProxyFactory<GrpcProxyArgs>(proxyType);
 
             var callInvokerMock = new Mock<TestCallInvoker>(MockBehavior.Strict);
-            var connectionMock = Mock.Of<IRpcServerConnection>();
+            var connectionMock = new Mock<IRpcServerConnection>(MockBehavior.Strict);
+            connectionMock.Setup(m => m.Options).Returns(ImmutableRpcClientOptions.Empty);
             var serializer = new ProtobufSerializer();
 
             var args = new GrpcProxyArgs
             (
                 objectId: RpcObjectId.NewId(),
-                connection: connectionMock,
+                connection: connectionMock.Object,
                 callInvoker: callInvokerMock.Object,
                 serializer: serializer,
                 methodsCache: new GrpcMethodsCache(serializer),

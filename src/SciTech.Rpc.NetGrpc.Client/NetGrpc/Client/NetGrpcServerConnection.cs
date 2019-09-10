@@ -46,9 +46,19 @@ namespace SciTech.Rpc.NetGrpc.Client
         public NetGrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
             ImmutableRpcClientOptions? options = null,
-            GrpcNet.Client.GrpcChannelOptions? channelOptions = null,
-            NetGrpcProxyProvider? proxyProvider = null)
-            : base(connectionInfo, options, proxyProvider ?? NetGrpcProxyProvider.Default)
+            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
+            : this(connectionInfo, options, GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                channelOptions)
+        {
+        }
+
+        internal NetGrpcServerConnection(
+            RpcServerConnectionInfo connectionInfo,
+            ImmutableRpcClientOptions? options,
+            GrpcProxyGenerator proxyGenerator,
+            GrpcNet.Client.GrpcChannelOptions? channelOptions)
+            : base(connectionInfo, options, proxyGenerator)
         {
             if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl)
                 && (parsedUrl.Scheme == NetGrpcConnectionProvider.GrpcScheme))

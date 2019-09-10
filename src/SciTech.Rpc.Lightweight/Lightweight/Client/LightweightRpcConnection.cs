@@ -21,13 +21,22 @@ namespace SciTech.Rpc.Lightweight.Client
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
 
         public const int DefaultMaxResponseMessageSize = 4 * 1024 * 1024;
-
+        
         protected LightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            ImmutableRpcClientOptions? options = null,
-            LightweightProxyProvider? proxyProvider = null,
-            LightweightOptions? lightweightOptions = null)
-            : base(connectionInfo, options, proxyProvider ?? LightweightProxyProvider.Default)
+            ImmutableRpcClientOptions? options,
+            IRpcProxyDefinitionsProvider? definitionsProvider,
+            LightweightOptions? lightweightOptions)
+            : this(connectionInfo, options, LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider), lightweightOptions )
+        {
+        }
+
+        private protected LightweightRpcConnection(
+            RpcServerConnectionInfo connectionInfo,
+            ImmutableRpcClientOptions? options,
+            LightweightProxyGenerator proxyGenerator,
+            LightweightOptions? lightweightOptions)
+            : base(connectionInfo, options, proxyGenerator)
         {
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
         }

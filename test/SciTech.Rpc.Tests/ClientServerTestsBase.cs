@@ -12,19 +12,19 @@ using System;
 using System.IO.Pipelines;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
-using SciTech.Rpc.NetGrpc.Server.Internal;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 
 #if NETCOREAPP3_0
+using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.NetGrpc.Client;
 using SciTech.Rpc.NetGrpc.Server;
 using GrpcNet = Grpc.Net;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 #endif
 
 namespace SciTech.Rpc.Tests
@@ -124,12 +124,11 @@ namespace SciTech.Rpc.Tests
                             sslClientOptions = new SslClientOptions { RemoteCertificateValidationCallback = this.ValidateTestCertificate };
 
                         }
-                        var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
                         var connection = new TcpLightweightRpcConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
                             sslClientOptions,
                             clientOptions.AsImmutable(),
-                            proxyGenerator,
+                            proxyServicesProvider,
                             this.LightweightOptions);
 
                         return (host, connection);
@@ -142,9 +141,8 @@ namespace SciTech.Rpc.Tests
                         var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options);
                         host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
-                        var proxyGenerator = new LightweightProxyProvider(proxyServicesProvider);
                         var connection = new DirectLightweightRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
-                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), proxyGenerator);
+                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), proxyServicesProvider);
                         return (host, connection);
                     }
                 case RpcConnectionType.Grpc:
@@ -152,10 +150,9 @@ namespace SciTech.Rpc.Tests
                         var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, null, options);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
-                        var proxyGenerator = new GrpcProxyProvider(proxyServicesProvider);
                         var connection = new GrpcServerConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyGenerator);
+                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyServicesProvider);
                         return (host, connection);
                     }
 #if NETCOREAPP3_0
@@ -178,10 +175,9 @@ namespace SciTech.Rpc.Tests
                         };
 
                             
-                        var proxyGenerator = new NetGrpcProxyProvider(proxyServicesProvider);
                         var connection = new NetGrpcServerConnection(
                             new RpcServerConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            clientOptions.AsImmutable(), channelOptions, proxyGenerator);
+                            clientOptions.AsImmutable(), proxyServicesProvider, channelOptions);
                         return (server, connection);
                     }
 #endif
@@ -246,6 +242,7 @@ namespace SciTech.Rpc.Tests
         }
     }
 
+#if NETCOREAPP3_0
     internal class NetGrpcTestServer : IRpcServer
     {
         private IWebHost webHost;
@@ -286,6 +283,7 @@ namespace SciTech.Rpc.Tests
         }
     }
 
+#endif
     public sealed class DirectDuplexPipe : IDuplexPipe, IDisposable
     {
         public DirectDuplexPipe(PipeReader input, PipeWriter output)

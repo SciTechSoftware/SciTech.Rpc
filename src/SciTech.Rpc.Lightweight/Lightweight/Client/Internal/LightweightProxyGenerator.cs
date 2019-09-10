@@ -14,13 +14,14 @@ using SciTech.Rpc.Client.Internal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace SciTech.Rpc.Lightweight.Client.Internal
 {
-    public class LightweightProxyGenerator : RpcProxyGenerator<LightweightProxyBase, LightweightProxyArgs, LightweightMethodDef>
+    internal class LightweightProxyGenerator : RpcProxyGenerator<LightweightProxyBase, LightweightProxyArgs, LightweightMethodDef>
     {
-        public LightweightProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider = null) : base(proxyServicesProvider)
+        internal LightweightProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider = null) : base(proxyServicesProvider)
         {
         }
 
@@ -53,5 +54,36 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 }
             };
         }
+
+        internal static class Factory
+        {
+            private static readonly LightweightProxyGenerator DefaultGenerator = new LightweightProxyGenerator(null);
+
+            private static readonly ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator> proxyGenerators
+                 = new ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator>();
+
+            private static readonly object syncRoot = new object();
+
+
+            internal static LightweightProxyGenerator CreateProxyGenerator(IRpcProxyDefinitionsProvider? definitionsProvider)
+            {
+                if (definitionsProvider == null)
+                {
+                    return DefaultGenerator;
+                }
+
+                lock (syncRoot)
+                {
+                    if (!proxyGenerators.TryGetValue(definitionsProvider, out var generator))
+                    {
+                        generator = new LightweightProxyGenerator(definitionsProvider);
+                        proxyGenerators.Add(definitionsProvider, generator);
+                    }
+
+                    return generator;
+                }
+            }
+        }
+
     }
 }

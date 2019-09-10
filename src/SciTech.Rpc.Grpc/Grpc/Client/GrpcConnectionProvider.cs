@@ -1,5 +1,6 @@
 ﻿using SciTech.Collections;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Grpc.Client.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -11,30 +12,32 @@ namespace SciTech.Rpc.Grpc.Client
     {
         public const string GrpcScheme = "grpc";
 
+        private readonly GrpcProxyGenerator proxyGenerator;
+
         private readonly IImmutableList<GrpcCore.ChannelOption>? channelOptions;
 
         private readonly GrpcCore.ChannelCredentials credentials;
 
         private readonly ImmutableRpcClientOptions? options;
 
-        private readonly GrpcProxyProvider proxyProvider;
-
-        public GrpcConnectionProvider(ImmutableRpcClientOptions? options = null, GrpcProxyProvider? proxyProvider = null)
-            : this(GrpcCore.ChannelCredentials.Insecure, options, proxyProvider)
+        public GrpcConnectionProvider(
+            ImmutableRpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
+            : this(GrpcCore.ChannelCredentials.Insecure, options, definitionsProvider, channelOptions )
         {
         }
 
         public GrpcConnectionProvider(
             GrpcCore.ChannelCredentials credentials,
             ImmutableRpcClientOptions? options = null,
-            GrpcProxyProvider? proxyProvider = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
         {
             this.credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
             this.options = options;
             this.channelOptions = channelOptions?.AsImmutableArrayList();
 
-            this.proxyProvider = proxyProvider ?? new GrpcProxyProvider();
+            this.proxyGenerator = GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider);
         }
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
@@ -56,7 +59,8 @@ namespace SciTech.Rpc.Grpc.Client
             {
                 if (parsedUrl.Scheme == GrpcScheme)
                 {
-                    return new GrpcServerConnection(connectionInfo, this.credentials, ImmutableRpcClientOptions.Combine(options, this.options), this.proxyProvider, this.channelOptions);
+                    return new GrpcServerConnection(connectionInfo, this.credentials, 
+                        ImmutableRpcClientOptions.Combine(options, this.options), this.proxyGenerator, this.channelOptions);
                 }
             }
 

@@ -4,6 +4,7 @@ using System;
 
 namespace SciTech.Rpc.NetGrpc.Tests
 {
+#if NETCOREAPP3_0
     [TestFixtureSource(nameof(DefaultGrpcClientHostFixtureArgs))]
     public class NetGrpcClientServerTests : ClientServerBaseTests
     {
@@ -16,4 +17,5 @@ namespace SciTech.Rpc.NetGrpc.Tests
         {
         }
     }
+#endif
 }

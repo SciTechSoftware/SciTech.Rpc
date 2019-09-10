@@ -46,9 +46,23 @@ namespace SciTech.Rpc.Lightweight.Client
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions = null,
             ImmutableRpcClientOptions? options = null,
-            LightweightProxyProvider? proxyProvider = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null,
             LightweightOptions? lightweightOptions = null)
-            : base(connectionInfo, options, proxyProvider, lightweightOptions)
+            : base(connectionInfo, options,
+                  LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                  lightweightOptions)
+        {
+            this.sslOptions = sslOptions;
+        }
+        internal TcpLightweightRpcConnection(
+            RpcServerConnectionInfo connectionInfo,
+            SslClientOptions? sslOptions,
+            ImmutableRpcClientOptions? options,
+            LightweightProxyGenerator proxyGenerator,
+            LightweightOptions? lightweightOptions)
+            : base(connectionInfo, options,
+                  proxyGenerator,
+                  lightweightOptions)
         {
             this.sslOptions = sslOptions;
         }

@@ -244,7 +244,7 @@ namespace SciTech.Rpc.Tests
         }
 
         [Test]
-        public void TooLargeClientMessage_ShouldThrowException()
+        public async Task TooLargeClientMessage_ShouldThrowException()
         {
             var definitionBuilder = new RpcServiceDefinitionBuilder();
             definitionBuilder.RegisterService<ISimpleService>();
@@ -284,7 +284,7 @@ namespace SciTech.Rpc.Tests
             }
             finally
             {
-                host.ShutdownAsync();
+                await host.ShutdownAsync();
             }
         }
 

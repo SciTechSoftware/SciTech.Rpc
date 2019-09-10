@@ -336,7 +336,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                             }
                             goto case RpcFrameState.None;
                         case RpcFrameState.None:
-                            // record that we comsumed up to the (NOT updated) buffer.Start,
+                            // record that we consumed up to the (NOT updated) buffer.Start,
                             // and tried to look at everything - hence buffer.End
                             reader.AdvanceTo(buffer.Start, buffer.End);
                             break;

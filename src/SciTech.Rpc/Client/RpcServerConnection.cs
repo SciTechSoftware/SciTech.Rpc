@@ -22,7 +22,7 @@ namespace SciTech.Rpc.Client
     /// </summary>
     public abstract class RpcServerConnection : IRpcServerConnection
     {
-        private readonly RpcProxyProvider proxyProvider;
+        private readonly IRpcProxyGenerator proxyGenerator;
 
         private readonly Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>> serviceInstances
             = new Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>>();
@@ -38,10 +38,10 @@ namespace SciTech.Rpc.Client
         protected RpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
             ImmutableRpcClientOptions? options,
-            RpcProxyProvider proxyProvider)
+            IRpcProxyGenerator proxyGenerator)
         {
             this.ConnectionInfo = connectionInfo;
-            this.proxyProvider = proxyProvider;
+            this.proxyGenerator = proxyGenerator;
             this.Options = options ?? ImmutableRpcClientOptions.Empty;
         }
 
@@ -195,7 +195,7 @@ namespace SciTech.Rpc.Client
             }
 
             RpcObjectProxyFactory serviceProxyCreator
-                = this.proxyProvider.ProxyGenerator.GenerateObjectProxyFactory<TService>(implementedServices);
+                = this.proxyGenerator.GenerateObjectProxyFactory<TService>(implementedServices);
 
             lock (this.syncRoot)
             {

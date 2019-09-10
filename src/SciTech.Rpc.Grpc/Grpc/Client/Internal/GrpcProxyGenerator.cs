@@ -32,7 +32,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                                IRpcSerializer serializer,
                                IReadOnlyCollection<string>? implementedServices,
                                IRpcProxyDefinitionsProvider proxyServicesProvider,
-                               SynchronizationContext? syncContext) 
+                               SynchronizationContext? syncContext)
             : base(connection, objectId, serializer, implementedServices, proxyServicesProvider, syncContext)
         {
             this.CallInvoker = callInvoker;
@@ -50,12 +50,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         private readonly object syncRoot = new object();
 
-        public GrpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider) 
-            : base( proxyServicesProvider )
-        {
-        }
-
-        public GrpcProxyGenerator() : base(null)
+        internal GrpcProxyGenerator(IRpcProxyDefinitionsProvider? definitionsProvider)
+            : base(definitionsProvider)
         {
         }
 
@@ -89,7 +85,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                         syncContext: syncContext
                     );
 
-                    
+
                     return proxyCreator(args, proxyMethods);
                 }
                 else
@@ -112,6 +108,36 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 this.serializerToMethodsCache.Add(serializer, methodsCache);
 
                 return methodsCache;
+            }
+        }
+        internal static class Factory
+        {
+            private static readonly GrpcProxyGenerator DefaultGenerator = new GrpcProxyGenerator(null);
+
+            private static readonly ConditionalWeakTable<IRpcProxyDefinitionsProvider, GrpcProxyGenerator> proxyGenerators
+                 = new ConditionalWeakTable<IRpcProxyDefinitionsProvider, GrpcProxyGenerator>();
+
+            private static readonly object syncRoot = new object();
+
+
+            internal static GrpcProxyGenerator CreateProxyGenerator(IRpcProxyDefinitionsProvider? definitionsProvider)
+            {
+                if (definitionsProvider == null)
+                {
+                    return DefaultGenerator;
+                }
+
+                lock (syncRoot)
+                {
+                    if (!proxyGenerators.TryGetValue(definitionsProvider, out var generator))
+                    {
+                        generator = new GrpcProxyGenerator(definitionsProvider);
+                        proxyGenerators.Add(definitionsProvider, generator);
+
+                    }
+
+                    return generator;
+                }
             }
         }
     }

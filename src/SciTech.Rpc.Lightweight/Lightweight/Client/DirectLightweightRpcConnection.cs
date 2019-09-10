@@ -29,10 +29,12 @@ namespace SciTech.Rpc.Lightweight.Client
         public DirectLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
-            ImmutableRpcClientOptions? options,
-            LightweightProxyProvider proxyGenerator,
+            ImmutableRpcClientOptions? options=null,
+            IRpcProxyDefinitionsProvider? definitionsProvider=null,
             LightweightOptions? lightweightOptions = null)
-            : base(connectionInfo, options, proxyGenerator, lightweightOptions)
+            : base(connectionInfo, options, 
+                  LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider), 
+                  lightweightOptions)
         {
             this.clientPipe = clientPipe;
 

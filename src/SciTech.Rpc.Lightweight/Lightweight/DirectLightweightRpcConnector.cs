@@ -20,13 +20,13 @@ namespace SciTech.Rpc.Lightweight
 {
     public class DirectLightweightRpcConnector
     {
-        public DirectLightweightRpcConnector(ImmutableRpcClientOptions? options=null, LightweightProxyProvider? proxyProvider = null)
-            : this(RpcServerId.Empty, options, proxyProvider)
+        public DirectLightweightRpcConnector(ImmutableRpcClientOptions? options=null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
+            : this(RpcServerId.Empty, options, definitionsProvider)
         {
         }
 
         public DirectLightweightRpcConnector(RpcServerId serverId, ImmutableRpcClientOptions? options = null,
-            LightweightProxyProvider? proxyProvider = null)
+            IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
             var requestPipe = new Pipe();
             var responsePipe = new Pipe();
@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Lightweight
                 new RpcServerConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId),
                 new DuplexPipe(responsePipe.Reader, requestPipe.Writer),
                 options,
-                proxyProvider ?? LightweightProxyProvider.Default);
+                definitionsProvider);
         }
 
         public LightweightRpcConnection Connection { get; }

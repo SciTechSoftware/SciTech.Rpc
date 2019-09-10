@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Lightweight.Client.Internal;
 using System;
 
 namespace SciTech.Rpc.Lightweight.Client
@@ -22,14 +23,14 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly ImmutableRpcClientOptions? options;
 
-        private readonly LightweightProxyProvider proxyProvider;
+        private readonly LightweightProxyGenerator proxyGenerator;
 
         private readonly SslClientOptions? sslOptions;
 
         public LightweightConnectionProvider(
             ImmutableRpcClientOptions? options = null, LightweightOptions? lightweightOpions = null,
-            LightweightProxyProvider? proxyProvider = null)
-            : this(null, options, lightweightOpions, proxyProvider)
+            IRpcProxyDefinitionsProvider? definitionsProvider = null)
+            : this(null, options, lightweightOpions, definitionsProvider)
         {
         }
 
@@ -37,10 +38,10 @@ namespace SciTech.Rpc.Lightweight.Client
             SslClientOptions? sslOptions,
             ImmutableRpcClientOptions? options = null,
             LightweightOptions? lightweightOpions = null,
-            LightweightProxyProvider? proxyProvider = null)
+            IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
             this.sslOptions = sslOptions;
-            this.proxyProvider = proxyProvider ?? LightweightProxyProvider.Default;
+            this.proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider);
             this.options = options;
             this.lightweightOpions = lightweightOpions;
         }
@@ -64,9 +65,10 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 if (parsedUrl.Scheme == LightweightTcpScheme)
                 {
-                    return new TcpLightweightRpcConnection(connectionInfo, this.sslOptions,
+                    return new TcpLightweightRpcConnection(
+                        connectionInfo, this.sslOptions,
                         ImmutableRpcClientOptions.Combine(options, this.options),
-                        this.proxyProvider,
+                        this.proxyGenerator,
                         this.lightweightOpions);
                 }
             }

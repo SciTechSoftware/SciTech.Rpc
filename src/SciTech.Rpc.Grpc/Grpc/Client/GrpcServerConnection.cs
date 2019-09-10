@@ -30,12 +30,12 @@ namespace SciTech.Rpc.Grpc.Client
         public GrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
             ImmutableRpcClientOptions? options = null,
-            GrpcProxyProvider? proxyProvider = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(connectionInfo,
                   GrpcCore.ChannelCredentials.Insecure,
                   options,
-                  proxyProvider,
+                  definitionsProvider,
                   channelOptions)
         {
         }
@@ -44,9 +44,22 @@ namespace SciTech.Rpc.Grpc.Client
             RpcServerConnectionInfo connectionInfo,
             GrpcCore.ChannelCredentials credentials,
             ImmutableRpcClientOptions? options = null,
-            GrpcProxyProvider? proxyProvider = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
-            : base(connectionInfo, options, proxyProvider ?? GrpcProxyProvider.Default)
+            :this( 
+                 connectionInfo, credentials, options, 
+                 GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                 channelOptions )
+        {
+        }
+
+        internal GrpcServerConnection(
+            RpcServerConnectionInfo connectionInfo,
+            GrpcCore.ChannelCredentials credentials,
+            ImmutableRpcClientOptions? options,
+            GrpcProxyGenerator proxyGenerator,
+            IEnumerable<GrpcCore.ChannelOption>? channelOptions)
+            : base(connectionInfo, options, proxyGenerator)
         {
             if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl)
                 && (parsedUrl.Scheme == GrpcConnectionProvider.GrpcScheme))

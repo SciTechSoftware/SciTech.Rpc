@@ -1,14 +1,22 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;net472;netcoreapp2.0;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>
-    <!--<TargetFramework>netcoreapp3.0</TargetFramework>-->
+    <!--<TargetFrameworks>net461;net472;netcoreapp2.0;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>-->
+    <TargetFramework>netcoreapp3.0</TargetFramework>
 
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+  
+  <PropertyGroup>
     <CodeAnalysisRuleSet>SciTech.Rpc.Tests.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -52,6 +60,11 @@
     <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
     <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.25" />
+  </ItemGroup>
+
+
+  <ItemGroup Condition="'$(HasAsyncEnum)' == 'false'">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.0.0-preview9.19421.4" />
   </ItemGroup>
 
   <ItemGroup>

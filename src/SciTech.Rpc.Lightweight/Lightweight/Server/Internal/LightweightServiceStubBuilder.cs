@@ -156,6 +156,25 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             binder.AddMethod(methodStub);
         }
 
+
+        protected override void AddServerStreamingMethodImpl<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            ILightweightMethodBinder binder)
+        {
+            var serializer = operationInfo.Serializer ?? serviceStub.Serializer ;
+
+            ValueTask HandleRequest(TRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TResponseReturn> responseWriter, LightweightCallContext context)
+                => serviceStub.CallServerStreamingMethod(request, serviceProvider, context, responseWriter, serviceCaller, responseConverter, faultHandler, serializer);
+            
+            var methodStub = new LightweightMethodStub<TRequest, TResponseReturn>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            binder.AddMethod(methodStub);
+        }
+
+
         private class Binder : ILightweightMethodBinder
         {
             private List<LightweightMethodStub> methodStubs = new List<LightweightMethodStub>();

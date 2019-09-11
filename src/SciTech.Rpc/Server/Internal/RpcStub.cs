@@ -12,6 +12,7 @@
 using SciTech.Collections;
 using SciTech.Diagnostics;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -142,7 +143,7 @@ namespace SciTech.Rpc.Server.Internal
 
     public sealed class RpcStub<TService> : RpcStub where TService : class
     {
-        private static readonly ILogger DbgLogger = NullLogger.Instance; // LoggerManager.GetLogger(typeof(RpcStub<>));
+        private static readonly ILog Logger = LogProvider.GetLogger(typeof(RpcStub<>));
 
         private readonly IRpcServiceActivator serviceImplProvider;
 
@@ -168,20 +169,82 @@ namespace SciTech.Rpc.Server.Internal
             try
             {
                 await eventProducer.Run(service).ContextFree();
-                DbgLogger.Info("EventProducer.Run returned successfully.");
+                Logger.Trace("EventProducer.Run returned successfully.");
             }
             catch (OperationCanceledException oce)
             {
-                DbgLogger.Info("EventProducer.Run cancelled.", oce);
+                Logger.Trace("EventProducer.Run cancelled.", oce);
                 throw;
             }
             catch (Exception e)
             {
-                DbgLogger.Error("EventProducer.Run error.", e);
+                Logger.Trace("EventProducer.Run error.", e);
                 throw;
             }
             finally
             {
+            }
+        }
+
+        public async ValueTask CallServerStreamingMethod<TRequest, TResult, TResponse>(
+            TRequest request,
+            IServiceProvider? serviceProvider,
+            IRpcCallContext context,
+            IRpcAsyncStreamWriter<TResponse> responseWriter,
+            Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TResult>> implCaller,
+            Func<TResult, TResponse>? responseConverter,
+            RpcServerFaultHandler? faultHandler,
+            IRpcSerializer serializer) where TRequest : IObjectRequest
+        {
+            try
+            {
+                var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+
+                try
+                {
+                    // Call the actual implementation method.
+                    var result = implCaller(service, request, context.CancellationToken);
+                    await foreach( var ret in result.ConfigureAwait(false))
+                    {
+                        context.CancellationToken.ThrowIfCancellationRequested();
+                        var response = CreateResponse(responseConverter, ret);
+
+                        if (response.Error == null)
+                        {
+                            await responseWriter.WriteAsync(response.Result).ContextFree();
+                        } else
+                        {
+                            // TODO: Implement
+                            throw new RpcFailureException(RpcFailure.Unknown);
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    if (this.HandleRpcError(e, faultHandler, serializer) is RpcError rpcError)
+                    {
+                        // TODO: Implement (should write RpcResponse<> if allowed).
+                        throw new RpcFailureException(RpcFailure.Unknown);
+                        //return new RpcResponse<TResponse>(rpcError);
+                    }
+
+                    throw;
+                }
+                finally
+                {
+                    this.EndCall(interceptDisposables);
+                }
+            }
+            catch (Exception e)
+            {
+                if (CreateRpcErrorResponse<TResponse>(e) is RpcResponse<TResponse> errorResponse)
+                {
+                    // TODO: Implement (should maybe write RpcResponse<> if allowed?).
+                    throw new RpcFailureException(RpcFailure.Unknown);
+                    //return new RpcResponse<TResponse>(rpcError);
+                }
+
+                throw;
             }
         }
 

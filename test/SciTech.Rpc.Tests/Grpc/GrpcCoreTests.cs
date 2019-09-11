@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     public class GrpcCoreFullStackTestsBase
     {

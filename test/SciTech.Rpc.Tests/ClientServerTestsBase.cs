@@ -2,7 +2,6 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client;
 using SciTech.Rpc.Grpc.Server;
-using SciTech.Rpc.Grpc.Tests;
 using SciTech.Rpc.Lightweight;
 using SciTech.Rpc.Lightweight.Client;
 using SciTech.Rpc.Lightweight.Server;
@@ -14,6 +13,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
+using SciTech.Rpc.Tests.Grpc;
 
 #if NETCOREAPP3_0
 using SciTech.Rpc.NetGrpc.Server.Internal;

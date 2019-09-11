@@ -15,6 +15,7 @@ using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
@@ -183,6 +184,41 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             // TODO: Maybe RpcStub should have the server as a type
             // parameter to avoid this cast?
             return stub.Server.ServiceProvider?.CreateScope();
+        }
+
+        protected override void AddServerStreamingMethodImpl<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter, 
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub, 
+            RpcOperationInfo operationInfo, 
+            IGrpcMethodBinder binder)
+        {
+            var serializer = serviceStub.Serializer;
+
+            GrpcCore.ServerStreamingServerMethod<TRequest, TResponseReturn> handler = (request, responseStream, context) =>
+            {
+                using (var serviceScope = CreateServiceScope(serviceStub))
+                {
+                    return serviceStub.CallServerStreamingMethod(
+                        request,
+                        serviceScope?.ServiceProvider,
+                        new GrpcCallContext(context),
+                        new GrpcAsyncStreamWriter<TResponseReturn>(responseStream),
+                        serviceCaller,
+                        responseConverter,
+                        faultHandler,
+                        serializer).AsTask();
+                }
+            };
+
+            binder.AddMethod(
+                GrpcMethodDefinition.Create<TRequest, TResponseReturn>(
+                    GrpcCore.MethodType.ServerStreaming,
+                    operationInfo.FullServiceName,
+                     operationInfo.Name,
+                    serviceStub.Serializer),
+                handler);
         }
 
         private sealed class GrpcAsyncStreamWriter<T> : IRpcAsyncStreamWriter<T>

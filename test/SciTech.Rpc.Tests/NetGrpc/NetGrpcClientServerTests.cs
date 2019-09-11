@@ -2,7 +2,7 @@
 using SciTech.Rpc.Tests;
 using System;
 
-namespace SciTech.Rpc.NetGrpc.Tests
+namespace SciTech.Rpc.Tests.NetGrpc
 {
 #if NETCOREAPP3_0
     [TestFixtureSource(nameof(DefaultGrpcClientHostFixtureArgs))]

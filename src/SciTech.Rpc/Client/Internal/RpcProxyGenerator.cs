@@ -58,7 +58,7 @@ namespace SciTech.Rpc.Client.Internal
                 var key = new HashSetKey<string>(serviceInterfaces.Select(s => s.FullName));
 
                 // If a proxy with the same set of service interfaces has been generated before
-                // let's resuse that one.
+                // let's reuse that one.
                 if (this.generatedFactories.TryGetValue(key, out var currFactory))
                 {
                     // TODO: Should maybe look for a factory which has a superset of implemented interfaces?

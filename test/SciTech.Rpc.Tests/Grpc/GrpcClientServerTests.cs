@@ -2,7 +2,7 @@
 using SciTech.Rpc.Tests;
 using System;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     [TestFixtureSource(nameof(DefaultGrpsClientHostFixtureArgs))]
     public class GrpcClientServerTests : ClientServerBaseTests

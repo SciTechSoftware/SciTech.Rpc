@@ -113,6 +113,17 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
             }
 
+            private ActiveOperation CreateActiveOperation(int messageId, ActiveOperation? activeOperation, CancellationTokenSource? cancellationSource)
+            {
+                if (activeOperation == null)
+                {
+                    activeOperation = new ActiveOperation(messageId, cancellationSource);
+                    this.AddActiveOperation(activeOperation);
+                }
+
+                return activeOperation;
+            }
+
             /// <summary>
             /// Handles an operation that could not be completed synchronously. Called when an operation handler has returned an unfinished task,
             /// or an error occurred.
@@ -122,27 +133,20 @@ namespace SciTech.Rpc.Lightweight.Server
             /// <param name="messageTask"></param>
             /// <returns>A task that should be awaited before the next frame is handled. Normally 
             /// just the default ValueTask, unless active operations have been throttled.</returns>
-            private ValueTask HandleAsyncOperation(in LightweightRpcFrame frame, ActiveOperation? activeOperation, IServiceScope? scope, Task messageTask)
+            private ValueTask HandleAsyncOperation(in LightweightRpcFrame frame, ActiveOperation activeOperation, IServiceScope? scope, Task messageTask)
             {
                 // TODO: Throttle the number of active operations.
 
                 int messageId = frame.MessageNumber;
                 string operationName = frame.RpcOperation;
 
-                if (activeOperation == null)
-                {
-                    activeOperation = new ActiveOperation(messageId, null);
-                    this.AddActiveOperation(activeOperation);
-                }
-
                 async void HandleCompletedAsyncOperation(Task t)
                 {
                     try
                     {
-
                         if (t.IsCanceled)
                         {
-                            if (activeOperation?.IsCancellationRequested == true)
+                            if (activeOperation.IsCancellationRequested )
                             {
                                 await this.WriteCancelResponseAsync(messageId, operationName).ContextFree();
                             }
@@ -196,43 +200,25 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 return default;
             }
-            //private ValueTask HandleStreamingRequestAsync(in LightweightRpcFrame frame)
-            //{
-            //    var methodStub = this._server.GetMethodDefinition(frame.RpcOperation);
-            //    if (methodStub != null)
-            //    {
-            //        var context = new LightweightCallContext(frame.Headers, CancellationToken.None);
-            //        var streamingTask = methodStub.HandleStreamingMessage(this, frame, context);
-            //        // TODO: Throttle streaming tasks?
-            //        return default;
-            //    }
-            //    else
-            //    {
-            //        // TODO: Create error response (unknown operation)
-            //        throw new NotImplementedException();
-            //    }
-            //}
 
             private ValueTask HandleRequestAsync(in LightweightRpcFrame frame)
             {
                 IServiceScope? scope = null;
                 ActiveOperation? activeOperation = null;
+                CancellationTokenSource? cancellationSource = null;
                 try
                 {
                     var methodStub = this.server.GetMethodDefinition(frame.RpcOperation);
                     if (methodStub != null)
                     {
                         bool canCancel = (frame.OperationFlags & RpcOperationFlags.CanCancel) != 0;
-                        CancellationTokenSource? cancellationSource = null;
 
                         if (canCancel || frame.Timeout > 0)
                         {
                             cancellationSource = new CancellationTokenSource();
                             if (canCancel)
                             {
-                                activeOperation = new ActiveOperation(frame.MessageNumber, cancellationSource);
-
-                                this.AddActiveOperation(activeOperation);
+                                activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
                             }
 
                             if (frame.Timeout > 0)
@@ -261,8 +247,12 @@ namespace SciTech.Rpc.Lightweight.Server
                         if (messageTask.Status != TaskStatus.RanToCompletion)
                         {
                             var activeScope = scope;
-                            // Make sure that the scope is not disposed until the operation is finished.
+                            var activeCs = cancellationSource;
+                            activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
+
+                            // Make sure that the scope and cancellationSource are not disposed until the operation is finished.
                             scope = null;
+                            cancellationSource = null;
                             return this.HandleAsyncOperation(frame, activeOperation, activeScope, messageTask);
                         }
                     }
@@ -275,11 +265,13 @@ namespace SciTech.Rpc.Lightweight.Server
                 {
                     // If it gets here, then a synchronous exception has been thrown,
                     // Let's handle it as if an incomplete task was returned.
-                    return this.HandleAsyncOperation(frame, null, null, Task.FromException(e));
+                    activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
+                    return this.HandleAsyncOperation(frame, activeOperation, null, Task.FromException(e));
                 }
                 finally
                 {
                     scope?.Dispose();
+                    cancellationSource?.Dispose();
                 }
 
                 // Return default task to allow receive loop to continue.

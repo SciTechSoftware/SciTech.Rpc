@@ -48,6 +48,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
     public class LightweightProxyBase : RpcProxyBase<LightweightMethodDef>
     {
         private readonly int callTimeout;
+        
+        private readonly int streamingCallTimeout;
 
         private readonly LightweightRpcConnection connection;
 
@@ -55,6 +57,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         {
             this.connection = proxyArgs.Connection;
             this.callTimeout = ((int?)this.connection.Options.CallTimeout?.TotalMilliseconds) ?? 0;
+            this.streamingCallTimeout = ((int?)this.connection.Options.StreamingCallTimeout?.TotalMilliseconds) ?? 0;
             this.CallInterceptors = proxyArgs.CallInterceptors.ToImmutableArray();
         }
 
@@ -91,6 +94,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     headers,
                     request,
                     actualSerializer,
+                    this.streamingCallTimeout,
                     ct);
 
                 return streamingCallTask;
@@ -105,6 +109,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     headers,
                     request,
                     actualSerializer,
+                    this.streamingCallTimeout,
                     ct).ContextFree();
 
                 return streamingCall;

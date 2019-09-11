@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -18,8 +19,6 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-
-using ExceptionManager = SciTech.Diagnostics.ExceptionManager;
 
 namespace SciTech.Rpc.Client.Internal
 {
@@ -59,10 +58,10 @@ namespace SciTech.Rpc.Client.Internal
         public SynchronizationContext? SyncContext { get; }
     }
 
-#pragma warning disable CA1051 // Do not declare visible instance fields
-#pragma warning disable CA1062 // Validate arguments of public methods
+    //#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcProxyBase
     {
+        #pragma warning disable CA1051 // Do not declare visible instance fields
         /// <summary>
         /// Protected to make it easier to use by dynamically generated code.
         /// </summary>
@@ -71,9 +70,12 @@ namespace SciTech.Rpc.Client.Internal
         protected readonly IRpcSerializer serializer;
 
         private HashSet<string>? implementedServices;
+        #pragma warning restore CA1051 // Do not declare visible instance fields
 
         protected RpcProxyBase(RpcProxyArgs proxyArgs)
         {
+            if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
+
             this.objectId = proxyArgs.ObjectId;
             this.Connection = proxyArgs.Connection;
             this.serializer = proxyArgs.Serializer;
@@ -115,36 +117,26 @@ namespace SciTech.Rpc.Client.Internal
         }
     }
 
-#pragma warning restore CA1062 // Validate arguments of public methods
-#pragma warning restore CA1051 // Do not declare visible instance fields
+    //#pragma warning restore CA1062 // Validate arguments of public methods
+    //#pragma warning restore CA1051 // Do not declare visible instance fields
 
-#pragma warning disable CA1031 // Do not catch general exception types
-#pragma warning disable CA1051 // Do not declare visible instance fields
-#pragma warning disable CA1062 // Validate arguments of public methods
+    //#pragma warning disable CA1031 // Do not catch general exception types
+    //#pragma warning disable CA1051 // Do not declare visible instance fields
+    //#pragma warning disable CA1062 // Validate arguments of public methods
+    /// <summary>
+    /// Base implementation of an RPC proxy. Derived classes must, in addition to implementing the abstract methods, also 
+    /// include a static method named "CreateMethodDef", with the signature 
+    /// TMethodDef CreateMethodDef{TRequest, TResponse}(RpcMethodType,string,string,IRpcSerializer?,RpcClientFaultHandler?).
+    /// TODO: Try to implement the "CreateMethodDef" functionality using a virtual method in <see cref="RpcProxyGenerator{TRpcProxy, TProxyArgs, TMethodDef}"/>
+    /// instead.
+    /// </summary>
+    /// <typeparam name="TMethodDef"></typeparam>
     public abstract class RpcProxyBase<TMethodDef> : RpcProxyBase, IRpcService where TMethodDef : RpcProxyMethod
     {
-        protected internal sealed class EventData<TEventHandler> : EventData where TEventHandler : class, Delegate
-        {
-            internal TEventHandler? eventHandler;
-
-            public EventData(int eventMethodIndex) : base(eventMethodIndex)
-            {
-
-            }
-
-            internal override bool Clear()
-            {
-                if (this.eventHandler != null)
-                {
-                    this.eventHandler = null;
-                    return true;
-                }
-
-                return false;
-            }
-        }
 
         internal const string AddEventHandlerAsyncName = nameof(AddEventHandlerAsync);
+
+        internal const string CallAsyncEnumerableMethodName = nameof(CallAsyncEnumerableMethod);
 
         internal const string CallUnaryMethodAsyncName = nameof(CallUnaryMethodAsync);
 
@@ -164,7 +156,11 @@ namespace SciTech.Rpc.Client.Internal
 
         internal const string RemoveEventHandlerAsyncName = nameof(RemoveEventHandlerAsync);
 
+#pragma warning disable CA1051 // Do not declare visible instance fields
         protected readonly TMethodDef[] proxyMethods;
+#pragma warning restore CA1051 // Do not declare visible instance fields
+
+        private static readonly ILog Logger = LogProvider.For<RpcProxyBase<TMethodDef>>();
 
         private readonly List<Task> pendingEventTasks = new List<Task>();
 
@@ -189,6 +185,11 @@ namespace SciTech.Rpc.Client.Internal
         public TService Cast<TService>() where TService : class
         {
             return this.Connection.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
+        }
+
+        public void Dispose()
+        {
+            this.Dispose(true);
         }
 
         public bool Equals(IRpcService other)
@@ -334,6 +335,53 @@ namespace SciTech.Rpc.Client.Internal
             return addTask;
         }
 
+        protected async IAsyncEnumerable<TReturn> CallAsyncEnumerableMethod<TRequest, TResponseReturn, TReturn>(
+            TMethodDef method,
+            TRequest request,
+            Func<IRpcService, object?, object?> responseConverter,
+            [EnumeratorCancellation]CancellationToken ct)
+            where TRequest : class
+            where TResponseReturn : class
+        {
+            using var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, ct).ContextFree();
+
+            var sequence = streamingCall.ResponseStream;
+            while (true)
+            {
+                TReturn retVal;
+
+                try
+                {
+                    if (await sequence.MoveNextAsync().ContextFree())
+                    {
+                        if (responseConverter != null)
+                        {
+                            retVal = (TReturn)responseConverter(this, sequence.Current)!;
+                        }
+                        else if (sequence.Current is TReturn rv)
+                        {
+                            retVal = rv;
+                        }
+                        else
+                        {
+                            retVal = default!;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    this.HandleCallException(e);
+                    throw;
+                }
+
+                yield return retVal;
+            }
+        }
+
         protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken ct)
             where TRequest : class
             where TResponse : class;
@@ -345,6 +393,8 @@ namespace SciTech.Rpc.Client.Internal
             CancellationToken cancellationToken)
             where TRequest : class
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             RpcResponse<TResponseType> response;
             try
             {
@@ -382,6 +432,8 @@ namespace SciTech.Rpc.Client.Internal
             CancellationToken ct)
             where TRequest : class
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             RpcResponse<TResponseType> response;
             try
             {
@@ -422,6 +474,8 @@ namespace SciTech.Rpc.Client.Internal
         protected void CallUnaryVoidMethod<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             RpcResponse response;
             try
             {
@@ -442,6 +496,8 @@ namespace SciTech.Rpc.Client.Internal
         protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken ct)
             where TRequest : class
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             RpcResponse response;
             try
             {
@@ -460,6 +516,14 @@ namespace SciTech.Rpc.Client.Internal
         }
 
         protected abstract TMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName);
+
+        protected virtual void Dispose(bool disposing)
+        {
+            this.ClearEventHandlers();
+            // TODO: Use IAsyncDisposable when available.
+            this.WaitForPendingEventHandlers().AwaiterResult();
+            // TODO: Dispose (and end) owning RPC call.
+        }
 
         protected abstract void HandleCallException(Exception e);
 
@@ -496,58 +560,19 @@ namespace SciTech.Rpc.Client.Internal
                     this.AddPendingEventTask(finishedTask);
                     await finishedTask.ContextFree();
                 }
-                catch (Exception e) when (this.IsCancellationException(e))
+                catch (Exception x1) when (this.IsCancellationException(x1))
                 {
                 }
-                catch (Exception)
+#pragma warning disable CA1031 // Do not catch general exception types
+                catch (Exception x2)
                 {
-                    // TODO: Log
+                    Logger.Warn(x2, "Error when removing event handler.");
                 }
+#pragma warning restore CA1031 // Do not catch general exception types
             }
             else
             {
                 return;
-            }
-        }
-
-        private void ClearEventHandlers()
-        {
-            List<EventData>? eventsCopy = null;
-            lock (this.SyncRoot)
-            {
-                if (this.activeEvents != null)
-                {
-                    eventsCopy = this.activeEvents.Values.ToList();
-                    this.activeEvents = null;
-
-                }
-            }
-            //        foreach (var eventData in this.activeEvents.Values.ToList())
-            //        {
-            //            this.RemoveEventDataSynchronized(eventData);
-            //            if (eventData != null && eventData.Clear())
-            //            {
-            //                removedEventDatas.Add(eventData);
-            //            }
-
-            //        }
-            //    }
-
-            //    this.activeEvents = null;
-            //}
-
-            if (eventsCopy != null)
-            {
-                foreach (var eventData in eventsCopy)
-                {
-                    if (eventData != null && eventData.Clear())
-                    {
-                        eventData.cancellationSource.Cancel();
-
-                        var finishedTask = eventData.eventListenerFinishedTcs.Task;
-                        this.AddPendingEventTask(finishedTask);
-                    }
-                }
             }
         }
 
@@ -572,6 +597,34 @@ namespace SciTech.Rpc.Client.Internal
                     this.pendingEventTasks.Remove(t);
                 }
             }, TaskScheduler.Default);
+        }
+
+        private void ClearEventHandlers()
+        {
+            List<EventData>? eventsCopy = null;
+            lock (this.SyncRoot)
+            {
+                if (this.activeEvents != null)
+                {
+                    eventsCopy = this.activeEvents.Values.ToList();
+                    this.activeEvents = null;
+
+                }
+            }
+
+            if (eventsCopy != null)
+            {
+                foreach (var eventData in eventsCopy)
+                {
+                    if (eventData != null && eventData.Clear())
+                    {
+                        eventData.cancellationSource.Cancel();
+
+                        var finishedTask = eventData.eventListenerFinishedTcs.Task;
+                        this.AddPendingEventTask(finishedTask);
+                    }
+                }
+            }
         }
 
         private EventData<TEventHandler> CreateEventDataSynchronized<TEventHandler>(int methodIndex) where TEventHandler : class, Delegate
@@ -675,10 +728,13 @@ namespace SciTech.Rpc.Client.Internal
                     Debug.Fail("RPC events only support EventHandler and EventHandler<>.");
                 }
             }
+#pragma warning disable CA1031 // Do not catch general exception types
             catch (Exception e)
             {
-                ExceptionManager.UnexpectedException(e);
+                // Why is this exception swallowed? Shouldn't it just be forwarded?
+                Logger.Warn(e, "Failed to invoke event delegate.");
             }
+#pragma warning restore CA1031 // Do not catch general exception types
         }
 
         private bool IsEventActiveSynchronized(EventData eventData)
@@ -713,19 +769,12 @@ namespace SciTech.Rpc.Client.Internal
                     // allow the client (us) to know that the event handler has been properly added 
                     // on the server side.
                     // The empty EventArgs is just ignored.
-                    //#if PLAT_ASYNC_ENUM
-                    //                    await responseStream.MoveNext().ContextFree();
-                    //#else
                     await responseStream.MoveNextAsync().ContextFree();
-                    //#endif
+
                     // Mark the listener as completed once we have received the initial EventArgs
                     eventData.eventListenerStartedTcs.SetResult(true);
 
-                    //#if PLAT_ASYNC_ENUM
-                    //                    while (await responseStream.MoveNext().ContextFree())
-                    //#else
                     while (await responseStream.MoveNextAsync().ContextFree())
-                    //#endif
                     {
                         TEventHandler? eventHandler = null;
                         lock (this.SyncRoot)
@@ -765,33 +814,44 @@ namespace SciTech.Rpc.Client.Internal
             catch (Exception ce) when (this.IsCancellationException(ce))
             {
                 // Try to set exception on started task as well, in case
-                // the exception occcured while starting.
+                // the exception occurred while starting.
                 eventData.eventListenerStartedTcs.TrySetResult(true);
 
                 eventData.eventListenerFinishedTcs.SetResult(true);
             }
+#pragma warning disable CA1031 // Do not catch general exception types
             catch (Exception e)
             {
                 // Try to set exception on started task as well, in case 
-                // the exception occcured while starting.
+                // the exception occurred while starting.
                 eventData.eventListenerStartedTcs.TrySetException(e);
 
                 eventData.eventListenerFinishedTcs.SetException(e);
             }
+#pragma warning restore CA1031 // Do not catch general exception types
         }
 
-        protected virtual void Dispose(bool disposing)
+        protected internal sealed class EventData<TEventHandler> : EventData where TEventHandler : class, Delegate
         {
-            this.ClearEventHandlers();
-            // TODO: Use IAsyncDisposable when available.
-            this.WaitForPendingEventHandlers().AwaiterResult();
-            // TODO: Dispose (and end) owning RPC call.
+            internal TEventHandler? eventHandler;
+
+            public EventData(int eventMethodIndex) : base(eventMethodIndex)
+            {
+
+            }
+
+            internal override bool Clear()
+            {
+                if (this.eventHandler != null)
+                {
+                    this.eventHandler = null;
+                    return true;
+                }
+
+                return false;
+            }
         }
 
-        public void Dispose()
-        {
-            this.Dispose(true);
-        }
 #pragma warning disable CA1001 // Types that own disposable fields should be disposable
         protected internal abstract class EventData
         {
@@ -814,9 +874,9 @@ namespace SciTech.Rpc.Client.Internal
 
     }
 
-#pragma warning restore CA1031 // Do not catch general exception types
-#pragma warning restore CA1051 // Do not declare visible instance fields
-#pragma warning restore CA1062 // Validate arguments of public methods
+    //#pragma warning restore CA1031 // Do not catch general exception types
+    //#pragma warning restore CA1051 // Do not declare visible instance fields
+    //#pragma warning restore CA1062 // Validate arguments of public methods
 
     public class RpcProxyMethodsCache<TMethodDef>
     {

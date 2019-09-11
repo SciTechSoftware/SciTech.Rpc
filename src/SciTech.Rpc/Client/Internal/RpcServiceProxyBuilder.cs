@@ -24,7 +24,7 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc.Client.Internal
 {
     /// <summary>
-    /// Helper class for <see cref="RpcProxyProvider"/> which is used to create the actual proxy factories.
+    /// Helper class for <see cref="RpcProxyGenerator"/> which is used to create the actual proxy factories.
     /// </summary>
     internal class RpcServiceProxyBuilder<TRpcProxyBase, TMethodDef>
         where TRpcProxyBase : RpcProxyBase<TMethodDef>
@@ -158,7 +158,8 @@ namespace SciTech.Rpc.Client.Internal
 
         }
 
-        private static Expression CreateMethodDefExpression(
+
+        private Expression CreateMethodDefExpression(
             RpcMemberInfo memberInfo,
             string methodName,
             RpcMethodType methodType,
@@ -475,6 +476,9 @@ namespace SciTech.Rpc.Client.Internal
                                 this.CreateBlockingMethodImpl(rpcMethodInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
                             }
                             break;
+                        case RpcMethodType.ServerStreaming:
+                            this.CreateServerStreamingMethodImpl(rpcMethodInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+                            break;
                         //case RpcMethodType.EventAdd:
                         //    CreateEventAddHandler(rpcMethodInfo);
                         //    break;
@@ -611,7 +615,7 @@ namespace SciTech.Rpc.Client.Internal
         /// Assuming the service interface:
         /// <code><![CDATA[
         /// [RpcService]
-        /// namespace TestSrvices
+        /// namespace TestServices
         /// {
         ///     public interface IBlockingService
         ///     {
@@ -619,15 +623,18 @@ namespace SciTech.Rpc.Client.Internal
         ///     }
         /// }
         /// ]]></code>
-        /// This method will generate the method for the AddAsync operation (explicitly implemented):
+        /// This method will generate the method for the Add operation (explicitly implemented):
         /// <code><![CDATA[
-        /// private static readonly GrpcCore.Method<RpcObjectRequest<int, int>,RpcResponse<int>> __Method_TestServices_SimpleService_Add;
         /// int IBlockingService.Add(int a, int b)
         /// {
+        ///     TMethodDef methodDef = this.proxyMethods[<Index_IBlockingService_Add>];
+        ///     
         ///     return CallUnaryMethod<RpcObjectRequest<int, int>>(
-        ///         __Method_TestServices_SimpleService_Add, 
+        ///         methodDef, 
         ///         new RpcObjectRequest<int, int>( this.objectId, a, b ), 
-        ///         "TestServices.SimpleService", "Add");
+        ///         null,   // response converter
+        ///         default // cancellation token
+        ///         );
         /// }
         /// ]]></code>
         /// </remarks>
@@ -690,6 +697,106 @@ namespace SciTech.Rpc.Client.Internal
                 var callUnaryMethodDefInfo = GetProxyMethod(RpcProxyBase<TMethodDef>.CallUnaryVoidMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType);
             }
+
+            if (operationInfo.CancellationTokenIndex != null)
+            {
+                RpcIlHelper.EmitLdArg(il, operationInfo.CancellationTokenIndex.Value + 1);
+            }
+            else
+            {
+                // Load CancellationToken.None
+                var ctLocal = il.DeclareLocal(typeof(CancellationToken));
+                il.Emit(OpCodes.Ldloca_S, ctLocal);
+                il.Emit(OpCodes.Initobj, typeof(CancellationToken));
+                Debug.Assert(ctLocal.LocalIndex == 0);
+                il.Emit(OpCodes.Ldloc_0);//, ctLocal.LocalIndex);
+            }
+
+
+            il.Emit(OpCodes.Call, callUnaryMethodInfo);
+            il.Emit(OpCodes.Ret); //return 
+        }
+
+        /// <summary>
+        /// Creates a 
+        /// </summary>
+        /// <remarks>
+        /// Assuming the service interface:
+        /// <code><![CDATA[
+        /// [RpcService]
+        /// namespace TestServices
+        /// {
+        ///     public interface ISequenceService
+        ///     {
+        ///         IAsyncEnumerable<SequenceData> GetSequenceAsEnumerable(int count, CancellationToken cancellationToken);
+        ///     }
+        /// }
+        /// ]]></code>
+        /// This method will generate the method for the Add operation (explicitly implemented):
+        /// <code><![CDATA[
+        /// IAsyncEnumerable<SequenceData> ISequenceService.GetSequenceAsEnumerable(int count, CancellationToken cancellationToken )
+        /// {
+        ///     TMethodDef methodDef = this.proxyMethods[<Index_ISequenceService.GetSequenceAsEnumerable>];
+        ///     
+        ///     return CallAsyncEnumerableMethod<RpcObjectRequest<int>,SequenceData,SequenceData>(
+        ///         methodDef, 
+        ///         new RpcObjectRequest<int>( this.objectId, count ), 
+        ///         null,   // response converter
+        ///         default // cancellation token
+        ///         );
+        /// }
+        /// ]]></code>
+        /// </remarks>
+        /// <returns></returns>
+        private void CreateServerStreamingMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
+        {
+            if (this.typeBuilder == null)
+            {
+                throw new InvalidOperationException();
+            }
+
+            var implMethodBuilder = this.typeBuilder.DefineMethod($"{operationInfo.Service.Name}.{operationInfo.Method.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
+                returnType: operationInfo.Method.ReturnType,
+                parameterTypes: operationInfo.Method.GetParameters().Select(p => p.ParameterType).ToArray());
+
+            this.typeBuilder.DefineMethodOverride(implMethodBuilder, operationInfo.Method);
+
+            var il = implMethodBuilder.GetILGenerator();
+
+            var objectIdField = GetProxyField(RpcProxyBase<TMethodDef>.ObjectIdFieldName);
+            var proxyMethodsField = GetProxyField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName);
+            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+
+            il.Emit(OpCodes.Ldarg_0);// Load this
+            il.Emit(OpCodes.Ldarg_0);// Load this (for proxyMethods field )
+            il.Emit(OpCodes.Ldfld, proxyMethodsField); //Load method def field
+            il.Emit(OpCodes.Ldc_I4, methodDefIndex);
+            il.Emit(OpCodes.Ldelem, typeof(TMethodDef)); // load method def (this.proxyMethods[methodDefIndex])
+
+            int argIndex = 0;
+            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + 1];
+
+            il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
+            il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
+            reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+
+            // Load parameters
+            foreach (var requestParameter in operationInfo.RequestParameters)
+            {
+                RpcIlHelper.EmitLdArg(il, requestParameter.Index + 1);
+                reqestTypeCtorArgs[argIndex++] = requestParameter.Type;
+            }
+
+            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs)
+                ?? throw new NotImplementedException($"Request type constructor not found");
+            il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
+
+            MethodInfo callUnaryMethodInfo;
+            string callerMethodName = RpcProxyBase<TMethodDef>.CallAsyncEnumerableMethodName;
+            var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
+            callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType, operationInfo.ResponseReturnType, operationInfo.ReturnType);
+
+            EmitResponseConverter(il, operationInfo);
 
             if (operationInfo.CancellationTokenIndex != null)
             {

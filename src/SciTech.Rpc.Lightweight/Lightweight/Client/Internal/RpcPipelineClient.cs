@@ -13,7 +13,6 @@
 //
 #endregion
 
-using SciTech.Collections;
 using SciTech.IO;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
@@ -66,6 +65,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IReadOnlyCollection<KeyValuePair<string, string>>? headers,
             TRequest request,
             IRpcSerializer serializer,
+            int callTimeout,
             CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class
@@ -82,10 +82,16 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     flags |= RpcOperationFlags.CanCancel;
                 }
 
-                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, 0, headers);
+                if (callTimeout > 0 && !RpcProxyOptions.RoundTripCancellationsAndTimeouts)
+                {
+                    Task.Delay(callTimeout)
+                        .ContinueWith(t => this.TimeoutCall(messageId, operation, callTimeout),cancellationToken, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default).Forget();
+                }
+
+                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)callTimeout, headers);
 
                 var payloadStream = await this.BeginWriteAsync(frame).ContextFree();
-                WriteRequest<TRequest>(request, serializer, payloadStream);
+                WriteRequest(request, serializer, payloadStream);
 
                 return streamingCall;
             }
@@ -224,7 +230,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var requestStream = await this.BeginWriteAsync(frame).ContextFree();
                 await this.WriteRequestAsync(request, serializer, requestStream).ContextFree();
 
-                if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts )
+                if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
                 {
                     return await tcs.Task.ContextFree();
                 }
@@ -372,19 +378,36 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 }
             }
 
-            if (responseHandler != null )
+            if (responseHandler != null)
             {
                 if (!RpcProxyOptions.RoundTripCancellationsAndTimeouts)
                 {
                     responseHandler.HandleCancellation();
                 }
-                
+
                 var frame = new LightweightRpcFrame(RpcFrameType.CancelRequest, messageId, operation, RpcOperationFlags.None, 0, null);
                 var payloadStream = await this.BeginWriteAsync(frame).ContextFree();
                 if (payloadStream != null)
                 {
                     this.EndWriteAsync().Forget();
                 }
+            }
+        }
+
+        private void TimeoutCall(int messageId, string operation, int timeout)
+        {
+            IResponseHandler? responseHandler;
+            lock (this.awaitingResponses)
+            {
+                if (this.awaitingResponses.TryGetValue(messageId, out responseHandler))
+                {
+                    this.awaitingResponses.Remove(messageId);
+                }
+            }
+
+            if (responseHandler != null)
+            {
+                responseHandler.HandleError(new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).") );
             }
         }
 
@@ -453,7 +476,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 this.responseStream = new StreamingResponseStream<TResponse>();
             }
 
-            public IAsyncStream<TResponse> ResponseStream => this.responseStream;
+            public IAsyncEnumerator<TResponse> ResponseStream => this.responseStream;
 
             public void Dispose()
             {
@@ -461,12 +484,12 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
             public void HandleCancellation()
             {
-                this.responseStream.Complete();
+                this.responseStream.Cancel();
             }
 
             public void HandleError(Exception ex)
             {
-                this.responseStream.Complete();
+                this.responseStream.Complete(ex);
             }
 
             public bool HandleResponse(LightweightRpcFrame frame)
@@ -485,6 +508,12 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     case RpcFrameType.StreamingEnd:
                         // TODO Handle exceptions.
                         this.responseStream.Complete();
+                        return true;
+                    case RpcFrameType.CancelResponse:
+                        this.responseStream.Cancel();
+                        return true;
+                    case RpcFrameType.TimeoutResponse:
+                        this.responseStream.Complete(new TimeoutException($"Server side operation '{frame.RpcOperation}' didn't complete within the timeout."));
                         return true;
                     default:
                         // This is a pretty serious error. If it occurs, I assume there will soon
@@ -560,20 +589,25 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
         }
 
-#nullable disable   // Should only be disabled around TResponse current, but that does not seem to work currently.
-        private class StreamingResponseStream<TResponse> : IAsyncStream<TResponse>
+        private class StreamingResponseStream<TResponse> : IAsyncEnumerator<TResponse>
         {
             public Queue<TResponse> responseQueue = new Queue<TResponse>();
 
             private readonly object syncRoot = new object();
 
+            private Task<bool>? completedTask;
+
+#nullable disable   // Should only be disabled around TResponse current, but that does not seem to work currently.
             private TResponse current;
+
+#nullable restore
 
             private bool hasCurrent;
 
-            private bool isEnded;
+            // TODO: Should probably have a CancellationToken instead?
+            private bool isCancelled;
 
-            private TaskCompletionSource<bool> responseTcs;
+            private TaskCompletionSource<bool>? responseTcs;
 
             public TResponse Current
             {
@@ -591,14 +625,14 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 }
             }
 
-            public void Dispose()
+            public ValueTask DisposeAsync()
             {
                 // Not implemented. What should we do?
+                return default;
             }
 
             public ValueTask<bool> MoveNextAsync()
             {
-                //TaskCompletionSource<bool> responseTcs;
                 Task<bool> nextTask;
 
                 lock (this.syncRoot)
@@ -608,58 +642,123 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         throw new NotSupportedException("Cannot MoveNext concurrently.");
                     }
 
-                    if (this.responseQueue.Count > 0)
+                    if (this.isCancelled)
                     {
-                        this.current = this.responseQueue.Dequeue();
-                        this.hasCurrent = true;
-                        return new ValueTask<bool>(true);
+                        nextTask = this.completedTask!;
                     }
                     else
                     {
-                        this.hasCurrent = false;
-                        this.current = default;
-                    }
 
-                    if (this.isEnded)
-                    {
-                        // TODO: Handles exceptions.
-                        return new ValueTask<bool>(false);
-                    }
+                        if (this.responseQueue.Count > 0)
+                        {
+                            this.current = this.responseQueue.Dequeue();
+                            this.hasCurrent = true;
+                            return new ValueTask<bool>(true);
+                        }
+                        else
+                        {
+                            this.hasCurrent = false;
+                            this.current = default;
+                        }
 
-                    this.responseTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                    nextTask = this.responseTcs.Task;
+                        if (this.completedTask != null)
+                        {
+                            nextTask = this.completedTask;
+                        }
+                        else
+                        {
+                            this.responseTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                            nextTask = this.responseTcs.Task;
+                        }
+                    }
                 }
 
-                async ValueTask<bool> AwaitNext() => await nextTask.ContextFree();
+                async ValueTask<bool> AwaitNext(Task<bool> t) => await t.ContextFree();
 
-                return AwaitNext();
+                return AwaitNext(nextTask);
             }
 
-            internal void Complete()
+            internal void Cancel()
             {
-                TaskCompletionSource<bool> responseTcs = null;
+                TaskCompletionSource<bool>? responseTcs = null;
 
                 lock (this.syncRoot)
                 {
-                    this.isEnded = true;
+                    responseTcs = this.responseTcs;
+                    this.responseTcs = null;
+                    this.isCancelled = true;
+
+                    if (responseTcs != null)
+                    {
+                        if (this.responseQueue.Count > 0)
+                        {
+                            throw new InvalidOperationException("Response queue should be empty if someone is awaiting a response.");
+                        }
+
+                        this.completedTask = responseTcs.Task;
+                    }
+                    else
+                    {
+                        this.completedTask = Task.FromCanceled<bool>(new CancellationToken(true));
+                    }
+                }
+
+                responseTcs?.SetCanceled();
+            }
+
+
+            /// <summary>
+            /// Completes the response stream, with an optional error. If there's any queue responses, they will be delivered by <see cref="MoveNextAsync"/>, before
+            /// it returns <c>false</c> or throws the specified error.
+            /// </summary>
+            /// <param name="error"></param>
+            internal void Complete(Exception? error = null)
+            {
+                TaskCompletionSource<bool>? responseTcs = null;
+
+                lock (this.syncRoot)
+                {
                     responseTcs = this.responseTcs;
                     this.responseTcs = null;
 
-                    if (responseTcs != null && this.responseQueue.Count > 0)
+                    if (responseTcs != null)
                     {
-                        throw new InvalidOperationException("Response queue should be empty if someone is awaiting a response.");
+                        if (this.responseQueue.Count > 0)
+                        {
+                            throw new InvalidOperationException("Response queue should be empty if someone is awaiting a response.");
+                        }
+
+                        if (this.completedTask == null)
+                        {
+                            this.completedTask = responseTcs.Task;
+                        }
+                    }
+                    else if (this.completedTask == null)
+                    {
+                        this.completedTask = error == null ? Task.FromResult(false) : Task.FromException<bool>(error);
                     }
                 }
 
-                responseTcs?.SetResult(false);
+                if (responseTcs != null)
+                {
+                    if (error == null)
+                    {
+                        responseTcs?.SetResult(false);
+                    }
+                    else
+                    {
+                        responseTcs.SetException(error);
+                    }
+                }
             }
+
 
             internal void Enqueue(TResponse response)
             {
-                TaskCompletionSource<bool> responseTcs = null;
+                TaskCompletionSource<bool>? responseTcs = null;
                 lock (this.syncRoot)
                 {
-                    if (this.isEnded)
+                    if (this.completedTask != null)
                     {
                         throw new InvalidOperationException("Cannot Enqueue new responses to a completed response stream.");
                     }
@@ -683,6 +782,5 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 responseTcs?.SetResult(true);
             }
         }
-#nullable restore
     }
 }

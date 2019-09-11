@@ -275,18 +275,19 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private async Task HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TResponse> responseWriter)
         {
-            try
-            {
+            //try
+            //{
                 await responseTask.ContextFree();
                 await responseWriter.EndAsync().ContextFree();
-            }
-#pragma warning disable CA1031 // Do not catch general exception types
-            catch (Exception)
-            {
-                throw new NotImplementedException();
+//            }
+//#pragma warning disable CA1031 // Do not catch general exception types
+//            catch (Exception x)
+//            {
+//                HandleResponse
+//                throw new NotImplementedException();
 
-            }
-#pragma warning restore CA1031 // Do not catch general exception types
+//            }
+//#pragma warning restore CA1031 // Do not catch general exception types
 
         }
     }

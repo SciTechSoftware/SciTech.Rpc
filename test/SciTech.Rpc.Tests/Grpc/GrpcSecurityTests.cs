@@ -9,7 +9,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     [TestFixture]
     public class GrpcSecurityTests : GrpcCoreFullStackTestsBase

@@ -9,7 +9,7 @@ using SciTech.Threading;
 using System;
 using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     /// <summary>
     /// These are old initial tests. Should probably be moved/merged with GrpcClientServerTests

@@ -8,6 +8,10 @@
   <Import Project="..\Platform.props" />
 
   <PropertyGroup>
+    <DefineConstants>$(DefineConstants);FEATURE_NET_GRPC</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <Copyright>Copyright 2019. SciTech Software AB</Copyright>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.

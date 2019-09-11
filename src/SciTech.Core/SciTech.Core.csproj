@@ -35,14 +35,18 @@ package is currently not intended for other use.</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Diagnostics\LoggerManager.cs" />
+    <Compile Remove="Diagnostics\ExceptionManager.cs" />
+    <Compile Remove="Diagnostics\ILogger.cs" />
+    <Compile Remove="Diagnostics\NullLogger.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\LICENSE">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-    <None Include="Diagnostics\LoggerManager.cs" />
+    <None Include="Diagnostics\ExceptionManager.cs" />
+    <None Include="Diagnostics\ILogger.cs" />
+    <None Include="Diagnostics\NullLogger.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -23,9 +23,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             string operationName,
             Type requestType,
             Type responseType,
-            IRpcSerializer? serializer,
+            IRpcSerializer? serializerOverride,
             RpcClientFaultHandler? faultHandler)
-            : base(serializer, faultHandler)
+            : base(serializerOverride, faultHandler)
         {
             this.MethodType = methodType;
             this.OperationName = operationName;

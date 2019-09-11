@@ -65,8 +65,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         protected override void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?,
-                IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             Binder binder)
         {
@@ -84,6 +83,36 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 handler);
         }
 
+        protected override void AddServerStreamingMethodImpl<TRequest, TReturn,TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            Binder binder) 
+        {
+            var serializer = serviceStub.Serializer;
+            ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponseReturn> handler = (activator, request, responseStream, context) =>
+            {
+                return serviceStub.CallServerStreamingMethod(
+                    request,
+                    activator.ServiceProvider,                    
+                    new GrpcCallContext(context),
+                    new GrpcAsyncStreamWriter<TResponseReturn>(responseStream),
+                    serviceCaller,
+                    responseConverter,
+                    faultHandler,
+                    serializer).AsTask();
+            };
+
+            var methodStub = GrpcMethodDefinition.Create<TRequest, TResponseReturn>(
+                MethodType.ServerStreaming,
+                operationInfo.FullServiceName, operationInfo.Name,
+                serializer);
+
+            binder.AddServerStreamingMethod( methodStub, handler);
+        }
+
         protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
@@ -95,7 +124,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             var serializer = serviceStub.Serializer;
             UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse<TResponseReturn>> handler = (activator, request, context) =>
             {
-                context.CancellationToken.Register(this.CallCancelled);
                 return serviceStub.CallAsyncMethod(
                     request,
                     activator.ServiceProvider,
@@ -128,8 +156,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse<TResponseReturn>> handler =
                 (activator, request, context) =>
                 {
-                    context.CancellationToken.Register(this.CallCancelled);
-
                     return serviceStub.CallBlockingMethod(
                         request,
                         activator.ServiceProvider,
@@ -158,8 +184,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             var serializer = serviceStub.Serializer;
             UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse> handler = (activator, request, context) =>
              {
-                 context.CancellationToken.Register(this.CallCancelled);
-
                  return serviceStub.CallVoidAsyncMethod(request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
              };
 
@@ -181,8 +205,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             var serializer = serviceStub.Serializer;
             UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse> handler = (activator, request, context) =>
              {
-                 context.CancellationToken.Register(this.CallCancelled);
-
                  return serviceStub.CallVoidBlockingMethod(request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
              };
 
@@ -207,16 +229,12 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             return ImmutableRpcServerOptions.Combine(this.Options, registeredOptions);
         }
 
-        private void CallCancelled()
-        {
-
-        }
 
         /// <summary>
         /// Small helper class, mainly just used to shorten the name 
         /// ServiceMethodProviderContext{NetGrpcServiceActivator{TService}} a little.
         /// </summary>
-        internal class Binder
+        internal sealed class Binder
         {
             private ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> context;
 

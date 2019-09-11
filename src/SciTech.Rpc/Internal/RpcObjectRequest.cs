@@ -1,4 +1,15 @@
-﻿using System;
+﻿#region Copyright notice and license
+// Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License. 
+// You may obtain a copy of the License at:
+//
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+#endregion
+
+using System;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -30,29 +41,6 @@ namespace SciTech.Rpc.Internal
 
         RpcObjectId IObjectRequest.Id => this.Id;
     }
-
-    //[DataContract]
-    //public sealed class RpcObjectEventRequest : IObjectRequest
-    //{
-    //    [DataMember(Order = 2)]
-    //    public Guid EventProducerId;
-
-    //    [DataMember(Order = 1)]
-    //    public RpcObjectId Id;
-
-    //    public RpcObjectEventRequest()
-    //    {
-
-    //    }
-
-    //    public RpcObjectEventRequest(RpcObjectId id, Guid eventProducerId)
-    //    {
-    //        this.Id = id;
-    //        this.EventProducerId = eventProducerId;
-    //    }
-
-    //    RpcObjectId IObjectRequest.Id => this.Id;
-    //}
 
     [DataContract]
     public class RpcServicesQueryResponse
@@ -412,65 +400,6 @@ namespace SciTech.Rpc.Internal
         RpcObjectId IObjectRequest.Id => this.Id;
     }
 
-    [DataContract]
-    public sealed class RpcResponse
-    {
-        [DataMember(Order = 2)]
-        public RpcError Error;
-
-        public RpcResponse() { }
-
-        public RpcResponse(RpcError error)
-        {
-            this.Error = error;
-        }
-    }
-
-    [DataContract]
-    public sealed class RpcResponse<T>
-    {
-        [DataMember(Order = 2)]
-        public RpcError Error;
-
-        /// <summary>
-        /// Result should be marked as nullable (?) since
-        /// it may return null reference types. 
-        /// </summary>
-        [DataMember(Order = 1)]
-        public T Result;
-
-        public RpcResponse() { }
-
-        public RpcResponse(T result)
-        {
-            this.Result = result;
-        }
-
-        public RpcResponse(RpcError error)
-        {
-            this.Error = error;
-        }
-    }
-   
-
-
-    [DataContract]
-    public class RpcError
-    {
-        [DataMember(Order = 1)]
-        public string ErrorType;
-
-        [DataMember(Order = 2)]
-        public string FaultCode;
-
-        [DataMember(Order = 3)]
-        public byte[] FaultDetails;
-
-        [DataMember(Order = 4)]
-        public string Message;
-
-        public RpcError() { }
-    }
 #nullable restore
 #pragma warning restore CA1051 // Do not declare visible instance fields
 }

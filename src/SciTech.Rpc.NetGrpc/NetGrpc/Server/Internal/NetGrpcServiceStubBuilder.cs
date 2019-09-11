@@ -26,6 +26,19 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.NetGrpc.Server.Internal
 {
+    internal interface INetGrpcBinder<TService> where TService : class
+    {
+        void AddServerStreamingMethod<TRequest, TResponse>(
+            Method<TRequest, TResponse> create,
+            ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+            where TRequest : class
+            where TResponse : class;
+
+        public void AddUnaryMethod<TRequest, TResponse>(Method<TRequest, TResponse> create, UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+            where TRequest : class
+            where TResponse : class;
+    }
+
     /// <summary>
     /// Builds a type implementing server side stubs for a ASP.NET Core gRPC service defined by an RpcService
     /// interface. The service interface must be tagged with the <see cref="RpcServiceAttribute"/> attribute.
@@ -34,15 +47,13 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// </summary>
 #pragma warning disable CA1812
     internal class NetGrpcServiceStubBuilder<TService>
-        : RpcServiceStubBuilder<TService, NetGrpcServiceStubBuilder<TService>.Binder> where TService : class
+        : RpcServiceStubBuilder<TService, INetGrpcBinder<TService>> where TService : class
 #pragma warning restore CA1812
     {
         private static readonly ILog Logger = LogProvider.For<NetGrpcServiceStubBuilder<TService>>();
 
-        private readonly NetGrpcServer server;
-
-        public NetGrpcServiceStubBuilder(NetGrpcServer server, IOptions<RpcServiceOptions<TService>> options) :
-            this(server, RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options.Value)
+        public NetGrpcServiceStubBuilder(IOptions<RpcServiceOptions<TService>> options) :
+            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options.Value)
         {
 
         }
@@ -51,23 +62,22 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         //{
         //}
 
-        public NetGrpcServiceStubBuilder(NetGrpcServer server, RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
+        public NetGrpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
             : base(serviceInfo, options)
         {
-            this.server = server;
         }
 
-        internal void Bind(ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> providerContext)
+        internal void Bind(NetGrpcServer server, ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> providerContext)
         {
             var binder = new NetGrpcServiceStubBuilder<TService>.Binder(providerContext);
-            this.GenerateOperationHandlers(this.server, binder);
+            this.GenerateOperationHandlers(server, binder);
         }
 
         protected override void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
             Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
-            Binder binder)
+            INetGrpcBinder<TService> binder)
         {
             ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, RpcObjectRequest, TEventArgs> handler = (activator, request, responseStream, context) =>
                 beginEventProducer(request, activator.ServiceProvider, new GrpcAsyncStreamWriter<TEventArgs>(responseStream), new GrpcCallContext(context)).AsTask();
@@ -83,20 +93,184 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 handler);
         }
 
-        protected override void AddServerStreamingMethodImpl<TRequest, TReturn,TResponseReturn>(
+        protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            INetGrpcBinder<TService> binder)
+        {
+            var serializer = serviceStub.Serializer;
+            if (operationInfo.AllowFault)
+            {
+                Task<RpcResponseWithError<TResponseReturn>> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallAsyncMethodWithError(
+                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller,
+                        responseConverter, faultHandler, serializer).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, Handler);
+            }
+            else
+            {
+                Task<RpcResponse<TResponseReturn>> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallAsyncMethod(
+                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller,
+                        responseConverter).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, Handler);
+            }
+        }
+
+        protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            INetGrpcBinder<TService> binder)
+        {
+            var serializer = serviceStub.Serializer;
+
+            if (operationInfo.AllowFault)
+            {
+                Task<RpcResponseWithError<TResponseReturn>> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallBlockingMethodWithError(
+                        request,
+                        activator.ServiceProvider,
+                        new GrpcCallContext(context),
+                        serviceCaller,
+                        responseConverter,
+                        faultHandler,
+                        serializer).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, Handler);
+            }
+            else
+            {
+                Task<RpcResponse<TResponseReturn>> handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context) =>
+                    serviceStub.CallBlockingMethod(
+                        request,
+                        activator.ServiceProvider,
+                        new GrpcCallContext(context),
+                        serviceCaller,
+                        responseConverter).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, handler);
+            }
+        }
+
+        protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
+            Func<TService, TRequest, CancellationToken, Task> serviceCaller,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            INetGrpcBinder<TService> binder)
+        {
+            var serializer = serviceStub.Serializer;
+            if (operationInfo.AllowFault)
+            {
+                Task<RpcResponseWithError> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallVoidAsyncMethodWithError(
+                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler,
+                        serializer).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, Handler);
+            }
+            else
+            {
+                Task<RpcResponseWithError> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallVoidAsyncMethodWithError(
+                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler,
+                        serializer).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, Handler);
+
+            }
+        }
+
+        protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
+            Action<TService, TRequest, CancellationToken> serviceCaller,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            INetGrpcBinder<TService> binder)
+        {
+            var serializer = serviceStub.Serializer;
+            if (operationInfo.AllowFault)
+            {
+                Task<RpcResponseWithError> handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallVoidBlockingMethodWithError(
+                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler,
+                        serializer).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, handler);
+            }
+            else
+            {
+                Task<RpcResponse> handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallVoidBlockingMethod(
+                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller).AsTask();
+
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse>(
+                    MethodType.Unary,
+                    operationInfo.FullServiceName, operationInfo.Name,
+                    serializer);
+
+                binder.AddUnaryMethod(methodStub, handler);
+
+            }
+        }
+
+        protected override void AddServerStreamingMethodImpl<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
-            Binder binder) 
+            INetGrpcBinder<TService> binder)
         {
             var serializer = serviceStub.Serializer;
             ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponseReturn> handler = (activator, request, responseStream, context) =>
             {
                 return serviceStub.CallServerStreamingMethod(
                     request,
-                    activator.ServiceProvider,                    
+                    activator.ServiceProvider,
                     new GrpcCallContext(context),
                     new GrpcAsyncStreamWriter<TResponseReturn>(responseStream),
                     serviceCaller,
@@ -110,110 +284,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 operationInfo.FullServiceName, operationInfo.Name,
                 serializer);
 
-            binder.AddServerStreamingMethod( methodStub, handler);
-        }
-
-        protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
-            Func<TReturn, TResponseReturn>? responseConverter,
-            RpcServerFaultHandler faultHandler,
-            RpcStub<TService> serviceStub,
-            RpcOperationInfo operationInfo,
-            Binder binder)
-        {
-            var serializer = serviceStub.Serializer;
-            UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse<TResponseReturn>> handler = (activator, request, context) =>
-            {
-                return serviceStub.CallAsyncMethod(
-                    request,
-                    activator.ServiceProvider,
-                    new GrpcCallContext(context),
-                    serviceCaller,
-                    responseConverter,
-                    faultHandler,
-                    serializer).AsTask();
-            };
-
-            var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(
-                MethodType.Unary,
-                operationInfo.FullServiceName, operationInfo.Name,
-                serializer);
-
-            binder.AddUnaryMethod<TRequest, RpcResponse<TResponseReturn>>(
-                methodStub,
-                handler);
-        }
-
-        protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
-            Func<TReturn, TResponseReturn>? responseConverter,
-            RpcServerFaultHandler faultHandler,
-            RpcStub<TService> serviceStub,
-            RpcOperationInfo operationInfo,
-            Binder binder)
-        {
-            var serializer = serviceStub.Serializer;
-            UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse<TResponseReturn>> handler =
-                (activator, request, context) =>
-                {
-                    return serviceStub.CallBlockingMethod(
-                        request,
-                        activator.ServiceProvider,
-                        new GrpcCallContext(context),
-                        serviceCaller,
-                        responseConverter,
-                        faultHandler,
-                        serializer).AsTask();
-                };
-
-            var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(
-                MethodType.Unary,
-                operationInfo.FullServiceName, operationInfo.Name,
-                serializer);
-
-            binder.AddUnaryMethod(methodStub, handler);
-        }
-
-        protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
-            Func<TService, TRequest, CancellationToken, Task> serviceCaller,
-            RpcServerFaultHandler faultHandler,
-            RpcStub<TService> serviceStub,
-            RpcOperationInfo operationInfo,
-            Binder binder)
-        {
-            var serializer = serviceStub.Serializer;
-            UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse> handler = (activator, request, context) =>
-             {
-                 return serviceStub.CallVoidAsyncMethod(request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
-             };
-
-            var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse>(
-                MethodType.Unary,
-                operationInfo.FullServiceName, operationInfo.Name,
-                serializer);
-
-            binder.AddUnaryMethod(methodStub, handler);
-        }
-
-        protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
-            Action<TService, TRequest, CancellationToken> serviceCaller,
-            RpcServerFaultHandler faultHandler,
-            RpcStub<TService> serviceStub,
-            RpcOperationInfo operationInfo,
-            Binder binder)
-        {
-            var serializer = serviceStub.Serializer;
-            UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, RpcResponse> handler = (activator, request, context) =>
-             {
-                 return serviceStub.CallVoidBlockingMethod(request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
-             };
-
-            var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse>(
-                MethodType.Unary,
-                operationInfo.FullServiceName, operationInfo.Name,
-                serializer);
-
-            binder.AddUnaryMethod(methodStub, handler);
+            binder.AddServerStreamingMethod(methodStub, handler);
         }
 
         protected override ImmutableRpcServerOptions CreateStubOptions(IRpcServerImpl server)
@@ -234,7 +305,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         /// Small helper class, mainly just used to shorten the name 
         /// ServiceMethodProviderContext{NetGrpcServiceActivator{TService}} a little.
         /// </summary>
-        internal sealed class Binder
+        internal sealed class Binder : INetGrpcBinder<TService>
         {
             private ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> context;
 

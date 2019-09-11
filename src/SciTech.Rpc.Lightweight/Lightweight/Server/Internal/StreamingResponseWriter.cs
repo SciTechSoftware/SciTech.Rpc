@@ -69,7 +69,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             {
                 try
                 {
-                    this.serializer.ToStream(responseStream, new RpcResponse());
+                    this.serializer.ToStream(responseStream, new RpcResponseWithError());
                 }
                 catch
                 {

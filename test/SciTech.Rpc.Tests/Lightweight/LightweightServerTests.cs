@@ -66,7 +66,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 await requestPipe.Writer.FlushAsync();
 
-                RpcResponse<int> response = null;
+                RpcResponseWithError<int> response = null;
                 while (response == null)
                 {
                     var readResult = await responsePipe.Reader.ReadAsync();
@@ -81,7 +81,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                             using (var responseStream = responseFrame.Payload.AsStream())
                             {
-                                response = (RpcResponse<int>)serializer.FromStream(typeof(RpcResponse<int>), responseStream);
+                                response = (RpcResponseWithError<int>)serializer.FromStream(typeof(RpcResponseWithError<int>), responseStream);
                             }
 
                             responsePipe.Reader.AdvanceTo(buffer.Start);

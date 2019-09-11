@@ -33,9 +33,9 @@ namespace SciTech.Rpc.Server.Internal
     public abstract class RpcServiceStubBuilder<TService, TMethodBinder> where TService : class
     {
 
-        private HashSet<string> addedOperations = new HashSet<string>();
+        private readonly HashSet<string> addedOperations = new HashSet<string>();
 
-        private IReadOnlyList<IRpcServerExceptionConverter> serviceErrorGenerators;
+        private readonly IReadOnlyList<IRpcServerExceptionConverter> serviceErrorGenerators;
 
         private RpcStub<TService>? serviceStub;
 

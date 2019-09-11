@@ -27,6 +27,15 @@ namespace SciTech.Rpc
         private RpcServiceDefinitionSide? serviceDefinitionType;
 
         /// <summary>
+        /// Indicates whether faults are allowed in service operations  (e.g. if <see cref="RpcFaultException"/>s and <see cref="RpcFaultException{TFault}"/>
+        /// are propagated to the caller. If <c>false</c> then fault exceptions will be converted to <see cref="RpcDefinitionException"/>s, which will
+        /// not (by default) include any exception details. This option can be overridden by specific operations by using the 
+        /// <see cref="RpcOperationAttribute.AllowFault">RpcOperationAttribute.AllowFault</see> property. The default value
+        /// for this property is <c>true</c>.
+        /// </summary>
+        public bool AllowFault { get; set; } = true;
+
+        /// <summary>
         /// Indicates that this service will always be published as a singleton. It cannot be associated 
         /// with an object id.
         /// </summary>
@@ -47,7 +56,7 @@ namespace SciTech.Rpc
 
         /// <summary>
         /// Optional information about the server side definition type, used when <see cref="ServiceDefinitionSide"/> is 
-        /// <see cref="RpcServiceDefinitionSide.Client"/>. Specifiying this type allows RPC analyzer and runtime code generation to validate 
+        /// <see cref="RpcServiceDefinitionSide.Client"/>. Specifying this type allows RPC analyzer and runtime code generation to validate 
         /// that the client definition matches the server definition. It also allows service name and similar properties to be retrieved
         /// from the server side definition.
         /// </summary>
@@ -58,8 +67,8 @@ namespace SciTech.Rpc
         /// when the server definition type is not available from the client definition assembly. 
         /// </summary>
         /// <remarks>
-        /// If both <see cref="ServerDefinitionType"/>  and <see cref="ServerDefinitionTypeName"/> are specified, then <see cref="ServerDefinitionType"/> takes precendence.
-        /// Specifiying this type name allows the RPC analyzer to validate that the client definition matches the server definition. This
+        /// If both <see cref="ServerDefinitionType"/>  and <see cref="ServerDefinitionTypeName"/> are specified, then <see cref="ServerDefinitionType"/> takes precedence.
+        /// Specifying this type name allows the RPC analyzer to validate that the client definition matches the server definition. This
         /// type name is not used by the runtime code generator.
         /// </remarks>
         public string ServerDefinitionTypeName { get; set; } = "";

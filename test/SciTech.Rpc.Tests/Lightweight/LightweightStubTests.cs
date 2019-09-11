@@ -36,14 +36,14 @@ namespace SciTech.Rpc.Tests.Lightweight
             var publishedServiceScope = servicePublisher.PublishInstance(serviceImpl);
             CreateSimpleServiceStub<IImplicitServiceProviderService>(servicePublisher, binder, false);
 
-            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
+            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponseWithError<RpcObjectRef>>(
                 "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetSimpleService");
 
             Assert.NotNull(getServiceStub);
 
             var objectId = publishedServiceScope.Value.ObjectId;
 
-            var response = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponse<RpcObjectRef<ISimpleService>>>(
+            var response = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponseWithError<RpcObjectRef<ISimpleService>>>(
                    getServiceStub, new RpcObjectRequest<int>(objectId, 1));
 
             Assert.AreEqual(WellKnownRpcErrors.Failure, response.Error?.ErrorType);
@@ -63,13 +63,13 @@ namespace SciTech.Rpc.Tests.Lightweight
             var publishedServiceScope = servicePublisher.PublishInstance(serviceImpl);
             CreateSimpleServiceStub<IImplicitServiceProviderService>(servicePublisher, binder, true);
 
-            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
+            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponseWithError<RpcObjectRef>>(
                 "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetSimpleService");
             Assert.NotNull(getServiceStub);
 
             var objectId = publishedServiceScope.Value.ObjectId;
 
-            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
+            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponseWithError<RpcObjectRef>>(
                 getServiceStub, new RpcObjectRequest<int>(objectId, 0));
             Assert.NotNull(getServiceResponse.Result);
 
@@ -77,11 +77,11 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             Assert.AreEqual(actualServiceRef, getServiceResponse.Result);
 
-            LightweightMethodStub getServicesStub = binder.GetHandler<RpcObjectRequest, RpcResponse<RpcObjectRef[]>>(
+            LightweightMethodStub getServicesStub = binder.GetHandler<RpcObjectRequest, RpcResponseWithError<RpcObjectRef[]>>(
                 "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetSimpleServices");
             Assert.NotNull(getServicesStub);
 
-            var getServicesResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponse<RpcObjectRef[]>>(
+            var getServicesResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponseWithError<RpcObjectRef[]>>(
                 getServicesStub, new RpcObjectRequest(objectId));
             Assert.NotNull(getServiceResponse.Result);
 
@@ -112,12 +112,12 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var objectId = publishedServiceScope.Value.ObjectId;
 
-            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest, RpcResponse<RpcObjectRef>>(
+            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest, RpcResponseWithError<RpcObjectRef>>(
                 "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetFirstSimpleService");
 
             Assert.NotNull(getServiceStub);
 
-            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponse<RpcObjectRef>>(
+            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponseWithError<RpcObjectRef>>(
                 getServiceStub, new RpcObjectRequest(objectId));
             Assert.NotNull(getServiceResponse.Result);
 
@@ -144,12 +144,12 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var objectId = publishedServiceScope.Value.ObjectId;
 
-            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
+            LightweightMethodStub getServiceStub = binder.GetHandler<RpcObjectRequest<int>, RpcResponseWithError<RpcObjectRef>>(
                 "SciTech.Rpc.Tests.ImplicitServiceProviderService.GetSimpleService");
 
             Assert.NotNull(getServiceStub);
 
-            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponse<RpcObjectRef>>(
+            var getServiceResponse = await SendReceiveAsync<RpcObjectRequest<int>, RpcResponseWithError<RpcObjectRef>>(
                 getServiceStub, new RpcObjectRequest<int>(objectId, 1));
             Assert.NotNull(getServiceResponse.Result);
 
@@ -166,23 +166,23 @@ namespace SciTech.Rpc.Tests.Lightweight
             var binder = new TestLightweightMethodBinder();
             CreateSimpleServiceStub<IBlockingService>(new TestBlockingSimpleServiceImpl(), binder);
 
-            LightweightMethodStub addStub = binder.GetHandler<RpcObjectRequest<int, int>, RpcResponse<int>>("SciTech.Rpc.Tests.BlockingService.Add");
+            LightweightMethodStub addStub = binder.GetHandler<RpcObjectRequest<int, int>, RpcResponseWithError<int>>("SciTech.Rpc.Tests.BlockingService.Add");
             Assert.NotNull(addStub);
 
             var objectId = RpcObjectId.NewId();
 
             var request = new RpcObjectRequest<int, int>(objectId, 5, 6);
-            RpcResponse<int> addResponse = await SendReceiveAsync<RpcObjectRequest<int, int>, RpcResponse<int>>(addStub, request);
+            RpcResponseWithError<int> addResponse = await SendReceiveAsync<RpcObjectRequest<int, int>, RpcResponseWithError<int>>(addStub, request);
             Assert.AreEqual(11, addResponse.Result);
 
-            LightweightMethodStub setStub = binder.GetHandler<RpcObjectRequest<double>, RpcResponse>("SciTech.Rpc.Tests.BlockingService.SetValue");
+            LightweightMethodStub setStub = binder.GetHandler<RpcObjectRequest<double>, RpcResponseWithError>("SciTech.Rpc.Tests.BlockingService.SetValue");
             Assert.NotNull(setStub);
-            var setResponse = await SendReceiveAsync<RpcObjectRequest<double>, RpcResponse>(setStub, new RpcObjectRequest<double>(objectId, 20));
+            var setResponse = await SendReceiveAsync<RpcObjectRequest<double>, RpcResponseWithError>(setStub, new RpcObjectRequest<double>(objectId, 20));
             Assert.NotNull(setResponse);
 
-            LightweightMethodStub getStub = binder.GetHandler<RpcObjectRequest, RpcResponse<double>>("SciTech.Rpc.Tests.BlockingService.GetValue");
+            LightweightMethodStub getStub = binder.GetHandler<RpcObjectRequest, RpcResponseWithError<double>>("SciTech.Rpc.Tests.BlockingService.GetValue");
             Assert.NotNull(getStub);
-            var getResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponse<double>>(getStub, new RpcObjectRequest(objectId));
+            var getResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponseWithError<double>>(getStub, new RpcObjectRequest(objectId));
             Assert.AreEqual(20, getResponse.Result);
 
         }
@@ -193,23 +193,23 @@ namespace SciTech.Rpc.Tests.Lightweight
             var binder = new TestLightweightMethodBinder();
             CreateSimpleServiceStub<ISimpleService>(new TestSimpleServiceImpl(), binder);
 
-            LightweightMethodStub addStub = binder.GetHandler<RpcObjectRequest<int, int>, RpcResponse<int>>("SciTech.Rpc.Tests.SimpleService.Add");
+            LightweightMethodStub addStub = binder.GetHandler<RpcObjectRequest<int, int>, RpcResponseWithError<int>>("SciTech.Rpc.Tests.SimpleService.Add");
             Assert.NotNull(addStub);
 
             var objectId = RpcObjectId.NewId();
             var request = new RpcObjectRequest<int, int>(objectId, 5, 6);
-            RpcResponse<int> addResponse = await SendReceiveAsync<RpcObjectRequest<int, int>, RpcResponse<int>>(addStub, request);
+            RpcResponseWithError<int> addResponse = await SendReceiveAsync<RpcObjectRequest<int, int>, RpcResponseWithError<int>>(addStub, request);
 
             Assert.AreEqual(11, addResponse.Result);
 
-            LightweightMethodStub setStub = binder.GetHandler<RpcObjectRequest<double>, RpcResponse>("SciTech.Rpc.Tests.SimpleService.SetValue");
+            LightweightMethodStub setStub = binder.GetHandler<RpcObjectRequest<double>, RpcResponseWithError>("SciTech.Rpc.Tests.SimpleService.SetValue");
             Assert.NotNull(setStub);
-            var setResponse = await SendReceiveAsync<RpcObjectRequest<double>, RpcResponse>(setStub, new RpcObjectRequest<double>(objectId, 20));
+            var setResponse = await SendReceiveAsync<RpcObjectRequest<double>, RpcResponseWithError>(setStub, new RpcObjectRequest<double>(objectId, 20));
             Assert.NotNull(setResponse);
 
-            LightweightMethodStub getStub = binder.GetHandler<RpcObjectRequest, RpcResponse<double>>("SciTech.Rpc.Tests.SimpleService.GetValue");
+            LightweightMethodStub getStub = binder.GetHandler<RpcObjectRequest, RpcResponseWithError<double>>("SciTech.Rpc.Tests.SimpleService.GetValue");
             Assert.NotNull(getStub);
-            var getResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponse<double>>(getStub, new RpcObjectRequest(objectId));
+            var getResponse = await SendReceiveAsync<RpcObjectRequest, RpcResponseWithError<double>>(getStub, new RpcObjectRequest(objectId));
             Assert.AreEqual(20, getResponse.Result);
 
         }

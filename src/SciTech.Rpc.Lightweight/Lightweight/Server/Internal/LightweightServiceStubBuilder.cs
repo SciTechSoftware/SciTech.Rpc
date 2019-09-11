@@ -97,13 +97,25 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             var serializer = serviceStub.Serializer;
 
-            ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
-                => serviceStub.CallAsyncMethod(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
+            if (operationInfo.AllowFault)
+            {
+                ValueTask<RpcResponseWithError<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallAsyncMethodWithError(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
-                operationInfo.AllowInlineExecution);
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponseWithError<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
 
-            binder.AddMethod(methodStub);
+                binder.AddMethod(methodStub);
+            } else
+            {
+                ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallAsyncMethod(request, serviceProvider, context, serviceCaller, responseConverter);
+
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
+
+                binder.AddMethod(methodStub);
+            }
         }
 
         protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
@@ -115,12 +127,23 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             ILightweightMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
-                => serviceStub.CallBlockingMethod(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
+            if (operationInfo.AllowFault)
+            {
+                ValueTask<RpcResponseWithError<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallBlockingMethodWithError(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
-                operationInfo.AllowInlineExecution);
-            binder.AddMethod(methodStub);
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponseWithError<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
+                binder.AddMethod(methodStub);
+            } else
+            {
+                ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallBlockingMethod(request, serviceProvider, context, serviceCaller, responseConverter);
+
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
+                binder.AddMethod(methodStub);
+            }
         }
 
         protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
@@ -131,12 +154,23 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             ILightweightMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
-                => serviceStub.CallVoidAsyncMethod(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
+            if (operationInfo.AllowFault)
+            {
+                ValueTask<RpcResponseWithError> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallVoidAsyncMethodWithError(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
-                operationInfo.AllowInlineExecution);
-            binder.AddMethod(methodStub);
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponseWithError>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
+                binder.AddMethod(methodStub);
+            } else
+            {
+                ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallVoidAsyncMethod(request, serviceProvider, context, serviceCaller);
+
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
+                binder.AddMethod(methodStub);
+            }
         }
 
         protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
@@ -148,12 +182,24 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             var serializer = serviceStub.Serializer;
 
-            ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
-                => serviceStub.CallVoidBlockingMethod(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
+            if (operationInfo.AllowFault)
+            {
+                ValueTask<RpcResponseWithError> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallVoidBlockingMethodWithError(request, serviceProvider, context, serviceCaller, faultHandler, serializer);
 
-            var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
-                operationInfo.AllowInlineExecution);
-            binder.AddMethod(methodStub);
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponseWithError>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
+                binder.AddMethod(methodStub);
+            } else
+            {
+                ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+                    => serviceStub.CallVoidBlockingMethod(request, serviceProvider, context, serviceCaller );
+
+                var methodStub = new LightweightMethodStub<TRequest, RpcResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
+                    operationInfo.AllowInlineExecution);
+                binder.AddMethod(methodStub);
+
+            }
         }
 
 
@@ -165,7 +211,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             RpcOperationInfo operationInfo,
             ILightweightMethodBinder binder)
         {
-            var serializer = operationInfo.Serializer ?? serviceStub.Serializer ;
+            var serializer = operationInfo.SerializerOverride ?? serviceStub.Serializer ;
 
             ValueTask HandleRequest(TRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TResponseReturn> responseWriter, LightweightCallContext context)
                 => serviceStub.CallServerStreamingMethod(request, serviceProvider, context, responseWriter, serviceCaller, responseConverter, faultHandler, serializer);

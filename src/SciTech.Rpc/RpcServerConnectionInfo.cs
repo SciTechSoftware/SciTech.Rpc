@@ -10,7 +10,6 @@
 #endregion
 
 using System;
-using System.Net;
 using System.Runtime.Serialization;
 
 namespace SciTech.Rpc
@@ -88,15 +87,16 @@ namespace SciTech.Rpc
     [Serializable]
     public class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
     {
-        /// <summary>
-        /// Initializes a new ServerConnectionInfo with the supplied displayName and serverId.
-        /// </summary>
-        /// <param name="displayName">The display name of the server connection.</param>
-        /// <param name="serverId">Id of the server.</param>
-        public RpcServerConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId=default)
+        [NonSerialized]
+        private Uri? hostUrl;
+
+        [DataMember(Name = "HostUrl", Order = 2)]
+        private string? hostUrlString;
+
+        public RpcServerConnectionInfo(RpcServerId serverId)
         {
-            this.DisplayName = displayName ?? hostUrl?.Host ?? "";
-            this.HostUrl = hostUrl?.ToString() ?? "";
+            this.DisplayName = "";
+            this.HostUrl = null;
             this.ServerId = serverId;
         }
 
@@ -107,14 +107,19 @@ namespace SciTech.Rpc
         public RpcServerConnectionInfo(Uri? hostUrl, RpcServerId serverId = default)
         {
             this.DisplayName = hostUrl?.Host ?? "";
-            this.HostUrl = hostUrl?.ToString() ?? "";
+            this.HostUrl = hostUrl;
             this.ServerId = serverId;
         }
 
-        public RpcServerConnectionInfo(RpcServerId serverId )
+        /// <summary>
+        /// Initializes a new ServerConnectionInfo with the supplied displayName and serverId.
+        /// </summary>
+        /// <param name="displayName">The display name of the server connection.</param>
+        /// <param name="serverId">Id of the server.</param>
+        public RpcServerConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId = default)
         {
-            this.DisplayName = "";
-            this.HostUrl = "";
+            this.DisplayName = displayName ?? hostUrl?.Host ?? "";
+            this.HostUrl = hostUrl;
             this.ServerId = serverId;
         }
 
@@ -129,8 +134,33 @@ namespace SciTech.Rpc
             private set;
         }
 
-        [DataMember(Order = 2)]
-        public string HostUrl { get; private set; }
+        public Uri? HostUrl
+        {
+            get
+            {
+                if (this.hostUrl == null && !string.IsNullOrEmpty(this.hostUrlString))
+                {
+                    if (!Uri.TryCreate(this.hostUrlString, UriKind.Absolute, out this.hostUrl))
+                    {
+                        this.hostUrlString = "";
+                    }
+                }
+
+                return this.hostUrl;
+            }
+            private set
+            {
+                this.hostUrl = value;
+                if (value != null)
+                {
+                    this.hostUrlString = value.ToString();
+                }
+                else
+                {
+                    this.hostUrlString = "";
+                }
+            }
+        }
 
         /// <summary>
         /// Gets the id of the connected server.
@@ -138,7 +168,7 @@ namespace SciTech.Rpc
         [DataMember(Order = 3)]
         public RpcServerId ServerId { get; private set; }
 
-        public sealed override bool Equals(object? obj)
+        public override sealed bool Equals(object? obj)
         {
             return obj is RpcServerConnectionInfo other && this.Equals(other);
         }
@@ -193,7 +223,7 @@ namespace SciTech.Rpc
                 throw new NotImplementedException("SetServerId must be implemented by derived class");
             }
 
-            return new RpcServerConnectionInfo(this.DisplayName, !string.IsNullOrEmpty( this.HostUrl ) ? new Uri( this.HostUrl ) : null, serverId);
+            return new RpcServerConnectionInfo(this.DisplayName, this.HostUrl, serverId);
         }
 
         public override string ToString()

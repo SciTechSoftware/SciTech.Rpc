@@ -61,8 +61,7 @@ namespace SciTech.Rpc.Grpc.Client
             IEnumerable<GrpcCore.ChannelOption>? channelOptions)
             : base(connectionInfo, options, proxyGenerator)
         {
-            if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl)
-                && (parsedUrl.Scheme == GrpcConnectionProvider.GrpcScheme))
+            if (connectionInfo?.HostUrl?.Scheme == GrpcConnectionProvider.GrpcScheme)
             {
                 GrpcCore.ChannelCredentials actualCredentials = credentials;
 
@@ -99,7 +98,7 @@ namespace SciTech.Rpc.Grpc.Client
 
                 var allOptions = ExtractOptions(options, channelOptions);
 
-                this.Channel = new GrpcCore.Channel(parsedUrl.Host, parsedUrl.Port, actualCredentials, allOptions);
+                this.Channel = new GrpcCore.Channel(connectionInfo.HostUrl.Host, connectionInfo.HostUrl.Port, actualCredentials, allOptions);
 
                 this.CallInvoker = new GrpcCore.DefaultCallInvoker(this.Channel);
 

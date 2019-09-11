@@ -48,29 +48,18 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
         {
-            if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl))
-            {
-                if (parsedUrl.Scheme == LightweightTcpScheme)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return connectionInfo?.HostUrl?.Scheme == LightweightTcpScheme;
         }
 
         public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options)
         {
-            if (connectionInfo != null && Uri.TryCreate(connectionInfo.HostUrl, UriKind.Absolute, out var parsedUrl))
+            if (connectionInfo?.HostUrl?.Scheme == LightweightTcpScheme)
             {
-                if (parsedUrl.Scheme == LightweightTcpScheme)
-                {
-                    return new TcpLightweightRpcConnection(
-                        connectionInfo, this.sslOptions,
-                        ImmutableRpcClientOptions.Combine(options, this.options),
-                        this.proxyGenerator,
-                        this.lightweightOpions);
-                }
+                return new TcpLightweightRpcConnection(
+                    connectionInfo, this.sslOptions,
+                    ImmutableRpcClientOptions.Combine(options, this.options),
+                    this.proxyGenerator,
+                    this.lightweightOpions);
             }
 
             throw new ArgumentException("Unsupported connection info. Use CanCreateConnection to check whether a connection can be created.");

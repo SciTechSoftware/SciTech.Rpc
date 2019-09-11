@@ -511,10 +511,10 @@ namespace SciTech.Rpc.Client.Internal
         /// ]]></code>
         /// This method will generate the method for the AddAsync operation (explicitly implemented):
         /// <code><![CDATA[
-        /// private static readonly GrpcCore.Method<RpcObjectRequest<int, int>,RpcResponse<int>> __Method_TestServices_SimpleService_Add;
         /// Task<int> ISimpleService.AddAsync(int a, int b)
         /// {
-        ///     return CallUnaryMethodAsync<RpcObjectRequest<int, int>, int>(__Method_TestServices_SimpleService_Add, new RpcObjectRequest<int, int>( this.objectId, a, b ), "TestServices.SimpleService", "Add");
+        ///     TMethodDef methodDef = this.proxyMethods[<Index_IBlockingService_Add>];
+        ///     return CallUnaryMethodAsync<RpcObjectRequest<int, int>, int>(methodDef, new RpcObjectRequest<int, int>( this.objectId, a, b ), "TestServices.SimpleService", "Add");
         /// }
         /// ]]></code>
         /// </remarks>
@@ -524,15 +524,6 @@ namespace SciTech.Rpc.Client.Internal
             if (this.typeBuilder == null)
             {
                 throw new InvalidOperationException();
-            }
-
-            if (operationInfo.ReturnType != typeof(void))
-            {
-                _ = typeof(Task<>).MakeGenericType(operationInfo.ReturnType);
-            }
-            else
-            {
-                _ = typeof(Task);
             }
 
             var implMethodBuilder = this.typeBuilder.DefineMethod($"{operationInfo.Service.Name}.{operationInfo.Method.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
@@ -554,12 +545,17 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ldc_I4, methodDefIndex);
             il.Emit(OpCodes.Ldelem, typeof(TMethodDef)); // load method def (this.proxyMethods[methodDefIndex])
 
-            int argIndex = 0;
-            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + 1];
+            bool isSingleton = operationInfo.Service.IsSingleton;
 
-            il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
-            il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
-            reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + (isSingleton ? 0 : 1)];
+            int argIndex = 0;
+
+            if (!isSingleton)
+            {
+                il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
+                il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
+                reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+            }
 
             // Load parameters
             foreach (var requestParameter in operationInfo.RequestParameters)
@@ -664,12 +660,17 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ldc_I4, methodDefIndex);
             il.Emit(OpCodes.Ldelem, typeof(TMethodDef)); // load method def (this.proxyMethods[methodDefIndex])
 
-            int argIndex = 0;
-            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + 1];
+            bool isSingleton = operationInfo.Service.IsSingleton;
 
-            il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
-            il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
-            reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + (isSingleton ? 0 : 1)];
+            int argIndex = 0;
+
+            if (!isSingleton)
+            {
+                il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
+                il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
+                reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+            }
 
             // Load parameters
             foreach (var requestParameter in operationInfo.RequestParameters)
@@ -773,12 +774,17 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ldc_I4, methodDefIndex);
             il.Emit(OpCodes.Ldelem, typeof(TMethodDef)); // load method def (this.proxyMethods[methodDefIndex])
 
-            int argIndex = 0;
-            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + 1];
+            bool isSingleton = operationInfo.Service.IsSingleton;
 
-            il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
-            il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
-            reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + (isSingleton ? 0 : 1)];
+            int argIndex = 0;
+
+            if (!isSingleton)
+            {
+                il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
+                il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
+                reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+            }
 
             // Load parameters
             foreach (var requestParameter in operationInfo.RequestParameters)

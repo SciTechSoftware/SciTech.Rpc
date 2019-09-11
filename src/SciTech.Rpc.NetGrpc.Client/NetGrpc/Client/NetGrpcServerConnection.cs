@@ -60,8 +60,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             GrpcNet.Client.GrpcChannelOptions? channelOptions)
             : base(connectionInfo, options, proxyGenerator)
         {
-            if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl)
-                && (parsedUrl.Scheme == NetGrpcConnectionProvider.GrpcScheme))
+            if (connectionInfo?.HostUrl?.Scheme == NetGrpcConnectionProvider.GrpcScheme)
             {
                 GrpcNet.Client.GrpcChannelOptions actualChannelOptions = ExtractOptions(options, channelOptions);
 
@@ -91,7 +90,7 @@ namespace SciTech.Rpc.NetGrpc.Client
 
 
 
-                this.Channel = GrpcNet.Client.GrpcChannel.ForAddress(new Uri($"https://{parsedUrl.Authority}/"), actualChannelOptions);
+                this.Channel = GrpcNet.Client.GrpcChannel.ForAddress(new Uri($"https://{connectionInfo.HostUrl.Authority}/"), actualChannelOptions);
                 
                 this.CallInvoker = this.Channel.CreateCallInvoker();
 

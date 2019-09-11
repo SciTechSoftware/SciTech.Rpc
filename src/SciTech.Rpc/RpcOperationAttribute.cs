@@ -25,6 +25,8 @@ namespace SciTech.Rpc
         /// methods and propreties.</remarks>
         public bool AllowInlineExecution { get; set; }
 
+        public bool? AllowFault { get; set; }
+
         public string Name { get; set; } = "";
     }
 }

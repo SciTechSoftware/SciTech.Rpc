@@ -58,7 +58,6 @@ namespace SciTech.Rpc.Client.Internal
         public SynchronizationContext? SyncContext { get; }
     }
 
-    //#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcProxyBase
     {
         #pragma warning disable CA1051 // Do not declare visible instance fields
@@ -117,12 +116,6 @@ namespace SciTech.Rpc.Client.Internal
         }
     }
 
-    //#pragma warning restore CA1062 // Validate arguments of public methods
-    //#pragma warning restore CA1051 // Do not declare visible instance fields
-
-    //#pragma warning disable CA1031 // Do not catch general exception types
-    //#pragma warning disable CA1051 // Do not declare visible instance fields
-    //#pragma warning disable CA1062 // Validate arguments of public methods
     /// <summary>
     /// Base implementation of an RPC proxy. Derived classes must, in addition to implementing the abstract methods, also 
     /// include a static method named "CreateMethodDef", with the signature 
@@ -157,7 +150,7 @@ namespace SciTech.Rpc.Client.Internal
         internal const string RemoveEventHandlerAsyncName = nameof(RemoveEventHandlerAsync);
 
 #pragma warning disable CA1051 // Do not declare visible instance fields
-        protected readonly TMethodDef[] proxyMethods;
+        protected internal readonly TMethodDef[] proxyMethods;
 #pragma warning restore CA1051 // Do not declare visible instance fields
 
         private static readonly ILog Logger = LogProvider.For<RpcProxyBase<TMethodDef>>();

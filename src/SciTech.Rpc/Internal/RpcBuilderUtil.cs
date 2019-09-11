@@ -9,7 +9,6 @@
 //
 #endregion
 
-using SciTech.Collections;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Logging;
 using System;
@@ -67,16 +66,182 @@ namespace SciTech.Rpc.Internal
             this.CancellationTokenIndex = cancellationTokenIndex;
         }
 
-        public Type Type { get; }
+        public int? CancellationTokenIndex { get; }
 
         public ImmutableArray<RpcRequestParameter> Parameters { get; }
 
-        public int? CancellationTokenIndex { get; }
+        public Type Type { get; }
     }
 
 #pragma warning disable CA1062 // Validate arguments of public methods
     public static class RpcBuilderUtil
     {
+
+        private static string GetDefaultServiceName(Type serviceType)
+        {
+            string serviceName = serviceType.Name;
+            if (serviceName.StartsWith("I", StringComparison.Ordinal) && serviceName.Length > 1 && char.IsUpper(serviceName[1]))
+            {
+                serviceName = serviceName.Substring(1);
+            }
+
+            return serviceName;
+        }
+
+        private static ServiceContractAttribute? GetServiceContractAttribute(Type serviceType)
+        {
+            ServiceContractAttribute? contractAttribute = null;
+#pragma warning disable CA1031 // Do not catch general exception types
+            try
+            {
+                contractAttribute = serviceType.GetCustomAttribute<ServiceContractAttribute>();
+            }
+            catch (Exception e)
+            {
+                Logger.Warn(e, "Failed to retrive ServiceContractAttribute for '{type}'", serviceType);
+            }
+#pragma warning restore CA1031 // Do not catch general exception types
+
+            return contractAttribute;
+        }
+
+        private static RpcServiceInfo GetServiceInfoFromContractAttribute(Type serviceType, ServiceContractAttribute contractAttribute)
+        {
+            string serviceName;
+            string serviceNamespace;
+
+            serviceName = GetServiceName(serviceType, contractAttribute);
+            serviceNamespace = serviceType.Namespace ?? "";
+
+            return new RpcServiceInfo
+            (
+                type: serviceType,
+                @namespace: serviceNamespace,
+                name: serviceName,
+                definitionSide: RpcServiceDefinitionSide.Both,
+                serverType: null,
+                isSingleton: false
+            );
+        }
+
+        private static RpcServiceInfo GetServiceInfoFromRpcAttribute(Type serviceType, RpcServiceAttribute rpcAttribute)
+        {
+            string serviceName;
+            string serviceNamespace;
+
+            // Try to retrieve it from the server side definition
+            if (rpcAttribute.ServerDefinitionType != null)
+            {
+                if (GetRpcServiceAttribute(rpcAttribute.ServerDefinitionType) is RpcServiceAttribute serverRpcAttribute)
+                {
+                    serviceName = GetServiceName(rpcAttribute.ServerDefinitionType, serverRpcAttribute);
+                    serviceNamespace = GetServiceNamespace(rpcAttribute.ServerDefinitionType, serverRpcAttribute);
+                }
+                else if (GetServiceContractAttribute(rpcAttribute.ServerDefinitionType) is ServiceContractAttribute contractAttribute)
+                {
+                    serviceName = GetServiceName(rpcAttribute.ServerDefinitionType, contractAttribute);
+                    serviceNamespace = rpcAttribute.ServerDefinitionType.Namespace ?? "";
+                }
+                else
+                {
+                    throw new RpcDefinitionException("Server side definition interface must be tagged with the RpcService or ServiceContract attribute.");
+                }
+            }
+            else
+            {
+                serviceName = GetServiceName(serviceType, rpcAttribute);
+                serviceNamespace = GetServiceNamespace(serviceType, rpcAttribute);
+            }
+
+            if (!string.IsNullOrEmpty(rpcAttribute.Name) && rpcAttribute.Name != serviceName)
+            {
+                throw new RpcDefinitionException("Name of server side type does not match specified service name."); ;
+            }
+
+            if (!string.IsNullOrEmpty(rpcAttribute.Namespace) && rpcAttribute.Namespace != serviceNamespace)
+            {
+                throw new RpcDefinitionException("Namespace of server side type does not match specified service namespace."); ;
+            }
+
+
+            var definitionType = rpcAttribute.ServiceDefinitionSide;
+
+            return new RpcServiceInfo
+            (
+                type: serviceType,
+                @namespace: serviceNamespace,
+                name: serviceName,
+                definitionSide: definitionType,
+                serverType: rpcAttribute.ServerDefinitionType,
+                isSingleton: rpcAttribute.IsSingleton
+            );
+        }
+
+        private static RpcServiceInfo? GetServiceInfoFromType(Type serviceType, bool throwIfNotServiceType)
+        {
+            if (serviceType.IsInterface)
+            {
+                RpcServiceAttribute? rpcAttribute = GetRpcServiceAttribute(serviceType);
+
+                if (rpcAttribute != null)
+                {
+                    return GetServiceInfoFromRpcAttribute(serviceType, rpcAttribute);
+                }
+
+                // Let's try with a ServiceContract attribute
+                ServiceContractAttribute? contractAttribute = GetServiceContractAttribute(serviceType);
+                if (contractAttribute != null)
+                {
+                    return GetServiceInfoFromContractAttribute(serviceType, contractAttribute);
+                }
+
+                if (throwIfNotServiceType)
+                {
+                    // The RpcService attribute is actually not strictly necessary, but I think
+                    // it's good to show the intention that an interface should be used as an RPC interface.
+                    throw new ArgumentException("Interface must be tagged with the RpcService or ServiceContract attribute to allow RPC proxy/stub to be generated.");
+                }
+            }
+            else if (throwIfNotServiceType)
+            {
+                throw new ArgumentException("Service type must be an interface to allow RPC proxy/stub to be generated.");
+            }
+
+            return null;
+        }
+
+        private static string GetServiceName(Type serviceType, RpcServiceAttribute? rpcAttribute)
+        {
+            var serviceName = rpcAttribute?.Name;
+            if (string.IsNullOrEmpty(serviceName))
+            {
+                serviceName = GetDefaultServiceName(serviceType);
+            }
+
+            return serviceName!;
+        }
+
+        private static string GetServiceName(Type serviceType, ServiceContractAttribute? contractAttribute)
+        {
+            var serviceName = contractAttribute?.Name;
+            if (string.IsNullOrEmpty(serviceName))
+            {
+                serviceName = GetDefaultServiceName(serviceType);
+            }
+
+            return serviceName!;
+        }
+
+        private static string GetServiceNamespace(Type serviceType, RpcServiceAttribute? rpcAttribute)
+        {
+            var serviceNamespace = rpcAttribute?.Namespace;
+            if (string.IsNullOrEmpty(serviceNamespace))
+            {
+                serviceNamespace = serviceType.Namespace ?? "";
+            }
+
+            return serviceNamespace!;
+        }
         private static readonly ILog Logger = LogProvider.GetLogger(typeof(RpcBuilderUtil));
 
         /// <summary>
@@ -94,13 +259,13 @@ namespace SciTech.Rpc.Internal
             var events = serviceInfo.Type.GetEvents(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
             foreach (var eventInfo in events)
             {
-                if( eventInfo.EventHandlerType == null )
+                if (eventInfo.EventHandlerType == null)
                 {
                     // How could this happen?
                     throw new NotSupportedException($"{eventInfo.Name} has no EventHandlerType");
                 }
 
-                if( eventInfo.AddMethod == null || eventInfo.RemoveMethod == null )
+                if (eventInfo.AddMethod == null || eventInfo.RemoveMethod == null)
                 {
                     // How could this happen?
                     throw new NotSupportedException($"{eventInfo.Name} is missing an Add or Remove method.");
@@ -135,12 +300,13 @@ namespace SciTech.Rpc.Internal
                             requestParameters: ImmutableArray<RpcRequestParameter>.Empty,
                             cancellationTokenIndex: null,
                             methodType: RpcMethodType.Unary,
-                            isAsync: false,                            
+                            isAsync: false,
                             responseType: typeof(RpcResponse<>).MakeGenericType(rpcPropertyInfo.ResponseReturnType),
                             responseReturnType: rpcPropertyInfo.ResponseReturnType,
                             returnType: propertyInfo.PropertyType,
                             returnKind: rpcPropertyInfo.PropertyTypeKind,
-                            allowInlineExecution: getRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false
+                            allowInlineExecution: getRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false,
+                            allowFault: getRpcAttribute?.AllowFault ?? propertyRpcAttribute?.AllowFault
                             );
 
                         yield return getOp;
@@ -162,7 +328,7 @@ namespace SciTech.Rpc.Internal
                             method: propertyInfo.SetMethod,
                             requestType: typeof(RpcObjectRequest<>).MakeGenericType(propertyInfo.PropertyType),
                             requestParameters: ImmutableArray.Create(
-                                new RpcRequestParameter( propertyInfo.PropertyType, 0) ),
+                                new RpcRequestParameter(propertyInfo.PropertyType, 0)),
                             cancellationTokenIndex: null,
                             methodType: RpcMethodType.Unary,
                             isAsync: false,
@@ -170,7 +336,8 @@ namespace SciTech.Rpc.Internal
                             returnType: typeof(void),
                             responseReturnType: typeof(void),
                             returnKind: ServiceOperationReturnKind.Standard,
-                            allowInlineExecution: setRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false
+                            allowInlineExecution: setRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false,
+                            allowFault: setRpcAttribute?.AllowFault ?? propertyRpcAttribute?.AllowFault
                         );
 
                         yield return setOp;
@@ -285,7 +452,7 @@ namespace SciTech.Rpc.Internal
         {
             var parameters = method.GetParameters();
 
-            var requestTypeInfo = GetRequestType(parameters); 
+            var requestTypeInfo = GetRequestType(parameters, serviceInfo.IsSingleton);
 
             Type actualReturnType = method.ReturnType;
             bool isAsync = false;
@@ -352,14 +519,15 @@ namespace SciTech.Rpc.Internal
                 methodType: methodType,
                 isAsync: isAsync,
                 name: operationName!,
-                requestParameters: requestTypeInfo.Parameters,                
+                requestParameters: requestTypeInfo.Parameters,
                 cancellationTokenIndex: requestTypeInfo.CancellationTokenIndex,
                 requestType: requestTypeInfo.Type,
                 returnType: actualReturnType,
                 responseType: responseType,
                 responseReturnType: responseReturnType,
                 returnKind: returnKind,
-                allowInlineExecution: rpcAttribute?.AllowInlineExecution ?? false
+                allowInlineExecution: rpcAttribute?.AllowInlineExecution ?? false,
+                allowFault: rpcAttribute?.AllowFault
             );
         }
 
@@ -377,23 +545,24 @@ namespace SciTech.Rpc.Internal
             );
         }
 
-        public static RpcRequestTypeInfo GetRequestType(IReadOnlyList<ParameterInfo> parameters)
+        public static RpcRequestTypeInfo GetRequestType(IReadOnlyList<ParameterInfo> parameters, bool isSingleton)
         {
             int? cancellationTokenIndex = null;
             var parametersBuilder = ImmutableArray.CreateBuilder<RpcRequestParameter>(parameters.Count);
             var parameterTypesList = new List<Type>(parameters.Count);
-            for( int parameterIndex=0; parameterIndex < parameters.Count; parameterIndex++)
+            for (int parameterIndex = 0; parameterIndex < parameters.Count; parameterIndex++)
             {
-                var parameterInfo = parameters[parameterIndex];                
+                var parameterInfo = parameters[parameterIndex];
                 // Handle special parameter, currently only CancellationToken.
-                if( typeof(CancellationToken).Equals( parameterInfo.ParameterType ))
+                if (typeof(CancellationToken).Equals(parameterInfo.ParameterType))
                 {
-                    if( cancellationTokenIndex != null )
+                    if (cancellationTokenIndex != null)
                     {
                         throw new RpcDefinitionException("RPC operation can only include a single CancellationToken.");
                     }
-                    cancellationTokenIndex = parameterIndex;                    
-                } else
+                    cancellationTokenIndex = parameterIndex;
+                }
+                else
                 {
                     parametersBuilder.Add(new RpcRequestParameter(parameterInfo.ParameterType, parameterIndex));
                     parameterTypesList.Add(parameterInfo.ParameterType);
@@ -402,43 +571,84 @@ namespace SciTech.Rpc.Internal
 
             parametersBuilder.Capacity = parametersBuilder.Count;
             var requestParameters = parametersBuilder.MoveToImmutable();
-            
+
             Type[] parameterTypes = parameterTypesList.ToArray();
             Type requestType;
-            switch (parameterTypes.Length)
+            if (isSingleton)
             {
-                case 0:
-                    requestType = typeof(RpcObjectRequest);
-                    break;
-                case 1:
-                    requestType = typeof(RpcObjectRequest<>).MakeGenericType(parameterTypes);
-                    break;
-                case 2:
-                    requestType = typeof(RpcObjectRequest<,>).MakeGenericType(parameterTypes);
-                    break;
-                case 3:
-                    requestType = typeof(RpcObjectRequest<,,>).MakeGenericType(parameterTypes);
-                    break;
-                case 4:
-                    requestType = typeof(RpcObjectRequest<,,,>).MakeGenericType(parameterTypes);
-                    break;
-                case 5:
-                    requestType = typeof(RpcObjectRequest<,,,,>).MakeGenericType(parameterTypes);
-                    break;
-                case 6:
-                    requestType = typeof(RpcObjectRequest<,,,,,>).MakeGenericType(parameterTypes);
-                    break;
-                case 7:
-                    requestType = typeof(RpcObjectRequest<,,,,,,>).MakeGenericType(parameterTypes);
-                    break;
-                case 8:
-                    requestType = typeof(RpcObjectRequest<,,,,,,,>).MakeGenericType(parameterTypes);
-                    break;
-                case 9:
-                    requestType = typeof(RpcObjectRequest<,,,,,,,,>).MakeGenericType(parameterTypes);
-                    break;
-                default:
-                    throw new NotImplementedException("An RPC operation is currently limited to 9 parameters.");
+                switch (parameterTypes.Length)
+                {
+                    case 0:
+                        requestType = typeof(RpcRequest);
+                        break;
+                    case 1:
+                        requestType = typeof(RpcRequest<>).MakeGenericType(parameterTypes);
+                        break;
+                    case 2:
+                        requestType = typeof(RpcRequest<,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 3:
+                        requestType = typeof(RpcRequest<,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 4:
+                        requestType = typeof(RpcRequest<,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 5:
+                        requestType = typeof(RpcRequest<,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 6:
+                        requestType = typeof(RpcRequest<,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 7:
+                        requestType = typeof(RpcRequest<,,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 8:
+                        requestType = typeof(RpcRequest<,,,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 9:
+                        requestType = typeof(RpcRequest<,,,,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    default:
+                        throw new NotImplementedException("An RPC operation is currently limited to 9 parameters.");
+                }
+            }
+            else
+            {
+                switch (parameterTypes.Length)
+                {
+                    case 0:
+                        requestType = typeof(RpcObjectRequest);
+                        break;
+                    case 1:
+                        requestType = typeof(RpcObjectRequest<>).MakeGenericType(parameterTypes);
+                        break;
+                    case 2:
+                        requestType = typeof(RpcObjectRequest<,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 3:
+                        requestType = typeof(RpcObjectRequest<,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 4:
+                        requestType = typeof(RpcObjectRequest<,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 5:
+                        requestType = typeof(RpcObjectRequest<,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 6:
+                        requestType = typeof(RpcObjectRequest<,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 7:
+                        requestType = typeof(RpcObjectRequest<,,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 8:
+                        requestType = typeof(RpcObjectRequest<,,,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    case 9:
+                        requestType = typeof(RpcObjectRequest<,,,,,,,,>).MakeGenericType(parameterTypes);
+                        break;
+                    default:
+                        throw new NotImplementedException("An RPC operation is currently limited to 9 parameters.");
+                }
             }
 
             return new RpcRequestTypeInfo(requestType, requestParameters, cancellationTokenIndex);
@@ -550,168 +760,6 @@ namespace SciTech.Rpc.Internal
 
             return rpcAttribute;
         }
-
-        private static ServiceContractAttribute? GetServiceContractAttribute(Type serviceType)
-        {
-            ServiceContractAttribute? contractAttribute = null;
-#pragma warning disable CA1031 // Do not catch general exception types
-            try
-            {
-                contractAttribute = serviceType.GetCustomAttribute<ServiceContractAttribute>();
-            }
-            catch (Exception e)
-            {
-                Logger.Warn(e, "Failed to retrive ServiceContractAttribute for '{type}'", serviceType);
-            }
-#pragma warning restore CA1031 // Do not catch general exception types
-
-            return contractAttribute;
-        }
-
-        private static RpcServiceInfo? GetServiceInfoFromType(Type serviceType, bool throwIfNotServiceType)
-        {
-            if (serviceType.IsInterface)
-            {
-                RpcServiceAttribute? rpcAttribute = GetRpcServiceAttribute(serviceType);
-
-                if (rpcAttribute != null)
-                {
-                    return GetServiceInfoFromRpcAttribute(serviceType, rpcAttribute);
-                }
-
-                // Let's try with a ServiceContract attribute
-                ServiceContractAttribute? contractAttribute = GetServiceContractAttribute(serviceType);
-                if (contractAttribute != null)
-                {
-                    return GetServiceInfoFromContractAttribute(serviceType, contractAttribute);
-                }
-
-                if (throwIfNotServiceType)
-                {
-                    // The RpcService attribute is actually not strictly necessary, but I think
-                    // it's good to show the intention that an interface should be used as an RPC interface.
-                    throw new ArgumentException("Interface must be tagged with the RpcService or ServiceContract attribute to allow RPC proxy/stub to be generated.");
-                }
-            } else if( throwIfNotServiceType )
-            {
-                throw new ArgumentException("Service type must be an interface to allow RPC proxy/stub to be generated.");
-            }
-
-            return null;
-        }
-
-        private static RpcServiceInfo GetServiceInfoFromRpcAttribute(Type serviceType, RpcServiceAttribute rpcAttribute)
-        {
-            string serviceName;
-            string serviceNamespace;
-
-            // Try to retrieve it from the server side definition
-            if (rpcAttribute.ServerDefinitionType != null)
-            {
-                if (GetRpcServiceAttribute(rpcAttribute.ServerDefinitionType) is RpcServiceAttribute serverRpcAttribute)
-                {
-                    serviceName = GetServiceName(rpcAttribute.ServerDefinitionType, serverRpcAttribute);
-                    serviceNamespace = GetServiceNamespace(rpcAttribute.ServerDefinitionType, serverRpcAttribute);
-                }
-                else if (GetServiceContractAttribute(rpcAttribute.ServerDefinitionType) is ServiceContractAttribute contractAttribute)
-                {
-                    serviceName = GetServiceName(rpcAttribute.ServerDefinitionType, contractAttribute);
-                    serviceNamespace = rpcAttribute.ServerDefinitionType.Namespace ?? "";
-                }
-                else
-                {
-                    throw new RpcDefinitionException("Server side definition interface must be tagged with the RpcService or ServiceContract attribute.");
-                }
-            }
-            else
-            {
-                serviceName = GetServiceName(serviceType, rpcAttribute);
-                serviceNamespace = GetServiceNamespace(serviceType, rpcAttribute);
-            }
-
-            if (!string.IsNullOrEmpty(rpcAttribute.Name) && rpcAttribute.Name != serviceName)
-            {
-                throw new RpcDefinitionException("Name of server side type does not match specified service name."); ;
-            }
-
-            if (!string.IsNullOrEmpty(rpcAttribute.Namespace) && rpcAttribute.Namespace != serviceNamespace)
-            {
-                throw new RpcDefinitionException("Namespace of server side type does not match specified service namespace."); ;
-            }
-
-
-            var definitionType = rpcAttribute.ServiceDefinitionSide;
-
-            return new RpcServiceInfo
-            (
-                type: serviceType,
-                @namespace: serviceNamespace,
-                name: serviceName,
-                definitionSide: definitionType,
-                serverType: rpcAttribute.ServerDefinitionType
-            );
-        }
-
-        private static RpcServiceInfo GetServiceInfoFromContractAttribute(Type serviceType, ServiceContractAttribute contractAttribute)
-        {
-            string serviceName;
-            string serviceNamespace;
-
-            serviceName = GetServiceName(serviceType, contractAttribute);
-            serviceNamespace = serviceType.Namespace ?? "";
-
-            return new RpcServiceInfo
-            (
-                type: serviceType,
-                @namespace: serviceNamespace,
-                name: serviceName,
-                definitionSide:  RpcServiceDefinitionSide.Both,
-                serverType: null
-            );
-        }
-
-        private static string GetServiceName(Type serviceType, RpcServiceAttribute? rpcAttribute)
-        {
-            var serviceName = rpcAttribute?.Name;
-            if (string.IsNullOrEmpty(serviceName))
-            {
-                serviceName = GetDefaultServiceName(serviceType);
-            }
-
-            return serviceName!;
-        }
-        private static string GetServiceName(Type serviceType, ServiceContractAttribute? contractAttribute)
-        {
-            var serviceName = contractAttribute?.Name;
-            if (string.IsNullOrEmpty(serviceName))
-            {
-                serviceName = GetDefaultServiceName(serviceType);
-            }
-
-            return serviceName!;
-        }
-
-        private static string GetDefaultServiceName(Type serviceType)
-        {
-            string serviceName = serviceType.Name;
-            if (serviceName.StartsWith("I", StringComparison.Ordinal) && serviceName.Length > 1 && char.IsUpper(serviceName[1]))
-            {
-                serviceName = serviceName.Substring(1);
-            }
-
-            return serviceName;
-        }
-
-        private static string GetServiceNamespace(Type serviceType, RpcServiceAttribute? rpcAttribute)
-        {
-            var serviceNamespace = rpcAttribute?.Namespace;
-            if (string.IsNullOrEmpty(serviceNamespace))
-            {
-                serviceNamespace = serviceType.Namespace ?? "";
-            }
-
-            return serviceNamespace!;
-        }
     }
 
 #pragma warning restore CA1062 // Validate arguments of public methods
@@ -764,7 +812,8 @@ namespace SciTech.Rpc.Internal
             Type requestType,
             Type responseType,
             ServiceOperationReturnKind returnKind,
-            bool allowInlineExecution) :
+            bool allowInlineExecution,
+            bool? allowFault) :
             base(name, service, declaringMember)
         {
             this.Method = method ?? throw new ArgumentNullException(nameof(method));
@@ -778,9 +827,14 @@ namespace SciTech.Rpc.Internal
             this.ResponseType = responseType ?? throw new ArgumentNullException(nameof(responseType));
             this.ReturnKind = returnKind;
             this.AllowInlineExecution = allowInlineExecution;
+            this.AllowFault = allowFault;
         }
-        
+
         public bool AllowInlineExecution { get; }
+
+        public bool? AllowFault { get; }
+
+        public int? CancellationTokenIndex { get; }
 
         public bool IsAsync { get; }
 
@@ -788,11 +842,9 @@ namespace SciTech.Rpc.Internal
 
         public RpcMethodType MethodType { get; }
 
-        public Type RequestType { get; }
-
         public ImmutableArray<RpcRequestParameter> RequestParameters { get; }
-        
-        public int? CancellationTokenIndex { get; }
+
+        public Type RequestType { get; }
 
         /// <summary>
         /// Type of the result, when wrapped in an RpcResponse.
@@ -835,13 +887,14 @@ namespace SciTech.Rpc.Internal
 
     public class RpcServiceInfo
     {
-        public RpcServiceInfo(string @namespace, string name, Type type, RpcServiceDefinitionSide definitionSide, Type? serverType)
+        public RpcServiceInfo(string @namespace, string name, Type type, RpcServiceDefinitionSide definitionSide, Type? serverType, bool isSingleton)
         {
             this.Namespace = @namespace ?? throw new ArgumentNullException(nameof(@namespace));
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.DefinitionSide = definitionSide;
             this.ServerType = serverType;
+            this.IsSingleton = isSingleton;
         }
 
         public RpcServiceDefinitionSide DefinitionSide { get; }
@@ -853,6 +906,8 @@ namespace SciTech.Rpc.Internal
         /// This service is the top-most service that implemenents all other services.
         /// </summary>
         public bool IsDeclaredService { get; internal set; }
+
+        public bool IsSingleton { get; }
 
         public string Name { get; }
 

@@ -303,7 +303,7 @@ namespace SciTech.Rpc.Lightweight.Client
             // If invalid an ArgumentException should be thrown there.
             EndPoint endPoint;
 
-            if (Uri.TryCreate(this.ConnectionInfo.HostUrl, UriKind.Absolute, out var uri))
+            if (this.ConnectionInfo.HostUrl is Uri uri )
             {
                 try
                 {
@@ -320,12 +320,12 @@ namespace SciTech.Rpc.Lightweight.Client
                 }
                 catch (ArgumentException e)
                 {
-                    throw new InvalidOperationException($"Failed to parse HostUrl '{this.ConnectionInfo.HostUrl}'.", e);
+                    throw new InvalidOperationException($"Failed to parse HostUrl '{uri}'.", e);
                 }
             }
             else
             {
-                throw new InvalidOperationException($"Invalid HostUrl '{this.ConnectionInfo.HostUrl}'.");
+                throw new InvalidOperationException($"Missing HostUrl '{this.ConnectionInfo.HostUrl}'.");
             }
         }
 

@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         [Test]
         public async Task FailUnpublishedServiceProviderStubTest()
         {
-            var binder = new TestMethodBinder();
+            var binder = new TestLightweightMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
@@ -52,7 +52,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         [Test]
         public async Task GenerateAutoPublishServiceProviderStubTest()
         {
-            var binder = new TestMethodBinder();
+            var binder = new TestLightweightMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
@@ -97,7 +97,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         [Test]
         public async Task GenerateImplicitServiceProviderPropertyStubTest()
         {
-            var binder = new TestMethodBinder();
+            var binder = new TestLightweightMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
@@ -131,7 +131,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         [Test]
         public async Task GenerateImplicitServiceProviderStubTest()
         {
-            var binder = new TestMethodBinder();
+            var binder = new TestLightweightMethodBinder();
             var definitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
             definitionsProviderMock.Setup(p => p.IsServiceRegistered(It.IsAny<Type>())).Returns(true);
             definitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
@@ -163,7 +163,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         [Test]
         public async Task GenerateSimpleBlockingServiceStubTest()
         {
-            var binder = new TestMethodBinder();
+            var binder = new TestLightweightMethodBinder();
             CreateSimpleServiceStub<IBlockingService>(new TestBlockingSimpleServiceImpl(), binder);
 
             LightweightMethodStub addStub = binder.GetHandler<RpcObjectRequest<int, int>, RpcResponse<int>>("SciTech.Rpc.Tests.BlockingService.Add");
@@ -190,7 +190,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         [Test]
         public async Task GenerateSimpleServiceStubTest()
         {
-            var binder = new TestMethodBinder();
+            var binder = new TestLightweightMethodBinder();
             CreateSimpleServiceStub<ISimpleService>(new TestSimpleServiceImpl(), binder);
 
             LightweightMethodStub addStub = binder.GetHandler<RpcObjectRequest<int, int>, RpcResponse<int>>("SciTech.Rpc.Tests.SimpleService.Add");
@@ -296,22 +296,6 @@ namespace SciTech.Rpc.Tests.Lightweight
             }
         }
 
-        private class TestMethodBinder : ILightweightMethodBinder
-        {
-            internal List<LightweightMethodStub> methods = new List<LightweightMethodStub>();
-
-            public void AddMethod(LightweightMethodStub methodStub)
-            {
-                this.methods.Add(methodStub);
-            }
-
-            public LightweightMethodStub GetHandler<TRequest, TResponse>(string operationName) where TRequest : IObjectRequest
-            {
-                return this.methods.SingleOrDefault(p => p.OperationName == operationName
-                    && p.RequestType.Equals(typeof(TRequest))
-                    && p.ResponseType.Equals(typeof(TResponse)));
-            }
-        }
 
         private class TestPipeline : RpcPipeline
         {
@@ -331,4 +315,22 @@ namespace SciTech.Rpc.Tests.Lightweight
             }
         }
     }
+
+    internal class TestLightweightMethodBinder : ILightweightMethodBinder
+    {
+        internal List<LightweightMethodStub> methods = new List<LightweightMethodStub>();
+
+        public void AddMethod(LightweightMethodStub methodStub)
+        {
+            this.methods.Add(methodStub);
+        }
+
+        public LightweightMethodStub GetHandler<TRequest, TResponse>(string operationName) where TRequest : IObjectRequest
+        {
+            return this.methods.SingleOrDefault(p => p.OperationName == operationName
+                && p.RequestType.Equals(typeof(TRequest))
+                && p.ResponseType.Equals(typeof(TResponse)));
+        }
+    }
+
 }

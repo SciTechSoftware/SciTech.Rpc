@@ -18,11 +18,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="NetGrpc\Client\Internal\NetGrpcProxyBase.cs" />
-    <Compile Remove="NetGrpc\Client\Internal\NetGrpcProxyGenerator.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcMethodsCache.cs" Link="NetGrpc\Client\Internal\GrpcMethodsCache.cs" />
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyBase.cs" Link="NetGrpc\Client\Internal\GrpcProxyBase.cs" />
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyGenerator.cs" Link="NetGrpc\Client\Internal\GrpcProxyGenerator.cs" />
@@ -36,8 +31,6 @@
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-    <None Include="NetGrpc\Client\Internal\NetGrpcProxyBase.cs" />
-    <None Include="NetGrpc\Client\Internal\NetGrpcProxyGenerator.cs" />
   </ItemGroup>
 
   <ItemGroup>

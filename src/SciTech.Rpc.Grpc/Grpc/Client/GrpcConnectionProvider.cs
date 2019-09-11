@@ -42,26 +42,15 @@ namespace SciTech.Rpc.Grpc.Client
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
         {
-            if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl))
-            {
-                if (parsedUrl.Scheme == GrpcScheme)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return connectionInfo?.HostUrl?.Scheme == GrpcScheme;
         }
 
         public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options)
         {
-            if (connectionInfo != null && Uri.TryCreate(connectionInfo.HostUrl, UriKind.Absolute, out var parsedUrl))
+            if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
             {
-                if (parsedUrl.Scheme == GrpcScheme)
-                {
-                    return new GrpcServerConnection(connectionInfo, this.credentials, 
-                        ImmutableRpcClientOptions.Combine(options, this.options), this.proxyGenerator, this.channelOptions);
-                }
+                return new GrpcServerConnection(connectionInfo, this.credentials,
+                    ImmutableRpcClientOptions.Combine(options, this.options), this.proxyGenerator, this.channelOptions);
             }
 
             throw new ArgumentException("Unsupported connection info. Use CanCreateConnection to check whether a connection can be created.");

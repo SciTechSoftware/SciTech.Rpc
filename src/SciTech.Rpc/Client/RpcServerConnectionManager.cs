@@ -21,7 +21,6 @@ namespace SciTech.Rpc.Client
 {
     public class RpcServerConnectionManager : IRpcServerConnectionManager
     {
-        private readonly ImmutableRpcClientOptions? options;
 
         private readonly Dictionary<RpcServerId, IRpcServerConnection> idToKnownConnection
             = new Dictionary<RpcServerId, IRpcServerConnection>();
@@ -29,13 +28,15 @@ namespace SciTech.Rpc.Client
         private readonly Dictionary<RpcServerId, WeakReference<IRpcServerConnection>> idToServerConnection
             = new Dictionary<RpcServerId, WeakReference<IRpcServerConnection>>();
 
+        private readonly ImmutableRpcClientOptions? options;
+
         private readonly object syncRoot = new object();
 
-        private readonly Dictionary<string, IRpcServerConnection> urlToKnownConnection
-            = new Dictionary<string, IRpcServerConnection>();
+        private readonly Dictionary<Uri, IRpcServerConnection> urlToKnownConnection
+            = new Dictionary<Uri, IRpcServerConnection>();
 
-        private readonly Dictionary<string, WeakReference<IRpcServerConnection>> urlToServerConnection
-            = new Dictionary<string, WeakReference<IRpcServerConnection>>();
+        private readonly Dictionary<Uri, WeakReference<IRpcServerConnection>> urlToServerConnection
+            = new Dictionary<Uri, WeakReference<IRpcServerConnection>>();
 
         private ImmutableArray<IRpcConnectionProvider> connectionProviders;
 
@@ -46,8 +47,8 @@ namespace SciTech.Rpc.Client
         //{           
         //}
 
-        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, 
-            RpcClientOptions? options=null)
+        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders,
+            RpcClientOptions? options = null)
         {
             this.connectionProviders = connectionProviders.ToImmutableArray();
             this.options = new ImmutableRpcClientOptions(options);
@@ -62,8 +63,9 @@ namespace SciTech.Rpc.Client
             }
 
             var connectionInfo = connection.ConnectionInfo;
+            Uri? hostUrl = connectionInfo?.HostUrl;
             if (connectionInfo == null
-                || (connectionInfo.ServerId == RpcServerId.Empty && string.IsNullOrWhiteSpace(connectionInfo.HostUrl)))
+                || (connectionInfo.ServerId == RpcServerId.Empty && hostUrl == null))
             {
                 throw new ArgumentException("Known connection must include a ServerId or HostUrl.");
             }
@@ -71,9 +73,9 @@ namespace SciTech.Rpc.Client
             lock (this.syncRoot)
             {
                 if (this.idToKnownConnection.ContainsKey(connection.ConnectionInfo.ServerId)
-                    || this.urlToKnownConnection.ContainsKey(connection.ConnectionInfo.HostUrl ?? "")
+                    || (hostUrl != null && this.urlToKnownConnection.ContainsKey(hostUrl))
                     || this.idToServerConnection.ContainsKey(connection.ConnectionInfo.ServerId)
-                    || this.urlToServerConnection.ContainsKey(connection.ConnectionInfo.HostUrl ?? ""))
+                    || (hostUrl != null && this.urlToServerConnection.ContainsKey(hostUrl)))
                 {
                     throw new InvalidOperationException($"Known connection '{connection}' already added.");
                 }
@@ -83,35 +85,11 @@ namespace SciTech.Rpc.Client
                     this.idToKnownConnection.Add(connectionInfo.ServerId, connection);
                 }
 
-                if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
+                if (connectionInfo.HostUrl != null)
                 {
                     this.urlToKnownConnection.Add(connectionInfo.HostUrl, connection);
                 }
             }
-        }
-
-
-        public TService GetServiceInstance<TService>(RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class
-        {
-            if (serviceRef == null)
-            {
-                throw new ArgumentNullException(nameof(serviceRef));
-            }
-
-            var connection = serviceRef.ServerConnection;
-            if( connection == null )
-            {
-                throw new ArgumentException("ServiceRef connection not initialized.", nameof(serviceRef));
-            }
-
-            var serverConnection = this.GetServerConnection(connection);
-            return serverConnection.GetServiceInstance<TService>(serviceRef.ObjectId, serviceRef.ImplementedServices, syncContext);
-        }
-
-        public TService GetServiceSingleton<TService>(RpcServerConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class
-        {
-            var serverConnection = this.GetServerConnection(connectionInfo);
-            return serverConnection.GetServiceSingleton<TService>(syncContext);
         }
 
         public IRpcServerConnection GetServerConnection(RpcServerConnectionInfo connectionInfo)
@@ -145,7 +123,7 @@ namespace SciTech.Rpc.Client
                     this.idToServerConnection[connectionInfo.ServerId] = wrNewConnection;
                 }
 
-                if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
+                if (connectionInfo.HostUrl != null)
                 {
                     if (!this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var currUrlConnection)
                         || currUrlConnection.ConnectionInfo.ServerId == RpcServerId.Empty)
@@ -156,6 +134,30 @@ namespace SciTech.Rpc.Client
 
                 return newConnection;
             }
+        }
+
+
+        public TService GetServiceInstance<TService>(RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class
+        {
+            if (serviceRef == null)
+            {
+                throw new ArgumentNullException(nameof(serviceRef));
+            }
+
+            var connection = serviceRef.ServerConnection;
+            if (connection == null)
+            {
+                throw new ArgumentException("ServiceRef connection not initialized.", nameof(serviceRef));
+            }
+
+            var serverConnection = this.GetServerConnection(connection);
+            return serverConnection.GetServiceInstance<TService>(serviceRef.ObjectId, serviceRef.ImplementedServices, syncContext);
+        }
+
+        public TService GetServiceSingleton<TService>(RpcServerConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class
+        {
+            var serverConnection = this.GetServerConnection(connectionInfo);
+            return serverConnection.GetServiceSingleton<TService>(syncContext);
         }
 
         public bool RemoveKnownConnection(IRpcServerConnection connection)
@@ -181,7 +183,7 @@ namespace SciTech.Rpc.Client
                     }
                 }
 
-                if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
+                if (connectionInfo.HostUrl != null)
                 {
                     if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var currConnection))
                     {
@@ -200,7 +202,7 @@ namespace SciTech.Rpc.Client
         public async Task ShutdownAsync()
         {
             var wrConnections = new List<WeakReference<IRpcServerConnection>>();
-            lock( this.syncRoot )
+            lock (this.syncRoot)
             {
                 wrConnections.AddRange(this.idToServerConnection.Values);
                 wrConnections.AddRange(this.urlToServerConnection.Values);
@@ -211,9 +213,9 @@ namespace SciTech.Rpc.Client
 
 
             List<Task> shutdownTasks = new List<Task>();
-            foreach( var wrConnection in wrConnections)
+            foreach (var wrConnection in wrConnections)
             {
-                if( wrConnection.TryGetTarget( out var connection ))
+                if (wrConnection.TryGetTarget(out var connection))
                 {
                     shutdownTasks.Add(connection.ShutdownAsync());
                 }
@@ -243,7 +245,8 @@ namespace SciTech.Rpc.Client
                 {
                     return knownIdConnection;
                 }
-            } else if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
+            }
+            else if (connectionInfo.HostUrl != null )
             {
                 if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var knownUrlConnection))
                 {

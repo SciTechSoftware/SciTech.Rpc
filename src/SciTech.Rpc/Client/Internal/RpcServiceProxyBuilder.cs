@@ -120,7 +120,15 @@ namespace SciTech.Rpc.Client.Internal
         /// Note that this is really a private implementation method which is made internal to allow testing. <see cref="BuildObjectProxyFactory"/>
         /// should be used by other code.
         /// </summary>
-        /// <returns></returns>
+        /// <remarks>
+        /// The proxy currently uses an array of method definitions to dispatch RPC calls. Each proxy method has an associated index into
+        /// the method definitions array (sort of a v-table). Earlier implementation stored the method definitions as fields in the proxy
+        /// type and therefore method definitions are created through a creation Expressions instead of being created directly. Storing
+        /// method definitions as (static) fields may still make sense, especially in AOT compilation scenarios, so let's keep
+        /// the Expression based creation for now.
+        /// </remarks>
+        /// <returns>A tuple containing the generated proxy type, and a factory function that can be used to 
+        /// created the method definitions array used by the proxy.</returns>
         internal (Type, Func<TMethodDef[]>) BuildObjectProxyType(Type[] proxyCtorArgs)
         {
             var declaredServiceInfo = this.allServices.Single(s => s.IsDeclaredService);

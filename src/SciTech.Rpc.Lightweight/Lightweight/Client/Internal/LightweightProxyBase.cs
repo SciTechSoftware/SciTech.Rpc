@@ -70,7 +70,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IRpcSerializer? serializer,
             RpcClientFaultHandler? faultHandler)
         {
-            return new LightweightMethodDef(methodType, $"{serviceName}.{methodName}", typeof(TRequest), typeof(TResponse), serializer, faultHandler);
+            return new LightweightMethodDef<TRequest, TResponse>(methodType, $"{serviceName}.{methodName}", serializer, faultHandler);
         }
 
         public Task ConnectAsync()

@@ -10,7 +10,7 @@ namespace SciTech.Rpc.Tests.Lightweight
     {
         public IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerImpl rpcServer) where TService : class
         {
-            var builder = new LightweightServiceStubBuilder<INoFaultService>(null);
+            var builder = new LightweightServiceStubBuilder<TService>(null);
 
             var binder = new TestLightweightMethodBinder();
             builder.GenerateOperationHandlers(rpcServer, binder);

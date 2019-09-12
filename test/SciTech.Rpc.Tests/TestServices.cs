@@ -30,24 +30,7 @@ namespace SciTech.Rpc.Tests
     }
 
     [RpcService]
-    public interface IDeviceService
-    {
-        Guid DeviceAcoId { get; }
-    }
-
-    [RpcService(Name = "DeviceService")]
-    public interface IDeviceServiceClient : IDeviceService, IRpcService
-    {
-        Task<Guid> GetDeviceAcoIdAsync();
-    }
-
-    [RpcService]
-    public interface IEmptyDerivedService : ISimpleService, ISimpleService2
-    {
-    }
-
-    [RpcService]
-    public interface IFaultService
+    public interface IDeclaredFaultsService
     {
         /// <summary>
         /// Just a simple operation to make sure that the service is reachable.
@@ -88,8 +71,25 @@ namespace SciTech.Rpc.Tests
         Task GenerateUndeclaredFaultExceptionAsync(bool direct);
     }
 
-    [RpcService(Name = "FaultService", ServerDefinitionType = typeof(IFaultService))]
-    public interface IFaultServiceClient : IFaultService
+    [RpcService]
+    public interface IDeviceService
+    {
+        Guid DeviceAcoId { get; }
+    }
+
+    [RpcService(Name = "DeviceService")]
+    public interface IDeviceServiceClient : IDeviceService, IRpcService
+    {
+        Task<Guid> GetDeviceAcoIdAsync();
+    }
+
+    [RpcService]
+    public interface IEmptyDerivedService : ISimpleService, ISimpleService2
+    {
+    }
+
+    [RpcService(Name = "DeclaredFaultsService", ServerDefinitionType = typeof(IDeclaredFaultsService))]
+    public interface IFaultServiceClient : IDeclaredFaultsService
     {
         [RpcFault(typeof(AnotherDeclaredFault))]
         Task GenerateAnotherDeclaredFaultAsync(int faultArg);
@@ -255,6 +255,19 @@ namespace SciTech.Rpc.Tests
         event EventHandler ValueChanged;
     }
 
+
+    [RpcService]
+    public interface IThermostatService : IDeviceService
+    {
+        void ScanTo(double temp);
+    }
+
+    [RpcService(Name = "ThermostatService")]
+    public interface IThermostatServiceClient : IThermostatService, IDeviceServiceClient, IRpcService
+    {
+        Task ScanToAsync(double temp);
+    }
+
     [RpcService]
     public interface ITimeoutTestService
     {
@@ -269,19 +282,6 @@ namespace SciTech.Rpc.Tests
         Task<int> AddWithDelayAsync(int a, int b, TimeSpan delay);
 
         int AsyncAddWithDelay(int a, int b, TimeSpan delay);
-    }
-
-
-    [RpcService]
-    public interface IThermostatService : IDeviceService
-    {
-        void ScanTo(double temp);
-    }
-
-    [RpcService(Name = "ThermostatService")]
-    public interface IThermostatServiceClient : IThermostatService, IDeviceServiceClient, IRpcService
-    {
-        Task ScanToAsync(double temp);
     }
 
     [DataContract]
@@ -421,7 +421,7 @@ namespace SciTech.Rpc.Tests
         public Guid DeviceAcoId { get; } = Guid.NewGuid();
     }
 
-    public class FaultServiceImpl : IFaultService
+    public class FaultServiceImpl : IDeclaredFaultsService
     {
         public int Add(int a, int b)
         {
@@ -824,6 +824,14 @@ namespace SciTech.Rpc.Tests
         }
     }
 
+    public static class TestTaskExtensions
+    {
+        public static bool IsCompletedSuccessfully(this Task task)
+        {
+            return task.Status == TaskStatus.RanToCompletion;
+        }
+    }
+
     public class TestTimeoutServiceImpl : ITimeoutTestService
     {
         public int AddWithDelay(int a, int b, TimeSpan delay)
@@ -836,14 +844,6 @@ namespace SciTech.Rpc.Tests
         {
             await Task.Delay(delay, cancellationToken);
             return a + b;
-        }
-    }
-
-    public static class TestTaskExtensions
-    {
-        public static bool IsCompletedSuccessfully(this Task task)
-        {
-            return task.Status == TaskStatus.RanToCompletion;
         }
     }
 

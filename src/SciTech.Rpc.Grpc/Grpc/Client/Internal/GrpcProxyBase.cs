@@ -60,6 +60,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             RpcMethodType methodType, string serviceName, string methodName,
             IRpcSerializer? serializerOverride,
             RpcClientFaultHandler? faultHandler)
+            where TRequest : class
+            where TResponse : class
         {
             GrpcCore.MethodType grpcMethodType;
             switch (methodType)
@@ -80,7 +82,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     throw new ArgumentException($"Unknown methodType 'methodType'", nameof(methodType));
             }
 
-            return new GrpcProxyMethod(grpcMethodType, serviceName, methodName, serializerOverride, faultHandler);
+            return new GrpcProxyMethod<TRequest, TResponse>(grpcMethodType, serviceName, methodName, serializerOverride, faultHandler);
         }
 
         protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, GrpcProxyMethod method, CancellationToken cancellationToken)
@@ -233,9 +235,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
     }
 
 
-    public class GrpcProxyMethod : RpcProxyMethod
+    public abstract class GrpcProxyMethod : RpcProxyMethod
     {
-
         internal readonly string MethodName;
 
         internal readonly GrpcCore.MethodType MethodType;
@@ -254,10 +255,29 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             this.ServiceName = serviceName;
             this.MethodName = methodName;
         }
+    }
 
-        public GrpcCore.Method<TRequest, TResponse> CreateMethod<TRequest, TResponse>(IRpcSerializer serializer)
-            where TRequest : class
-            where TResponse : class
+    public class GrpcProxyMethod<TRequest, TResponse> : GrpcProxyMethod
+        where TRequest : class
+        where TResponse : class
+
+    {
+        public GrpcProxyMethod(
+            GrpcCore.MethodType methodType,
+            string serviceName,
+            string methodName,
+            IRpcSerializer? serializerOverride,
+            RpcClientFaultHandler? faultHandler)
+            : base(methodType, serviceName, methodName, serializerOverride, faultHandler)
+        {
+
+        }
+
+        protected internal override Type RequestType => typeof(TRequest);
+
+        protected internal override Type ResponseType => typeof(TResponse);
+
+        internal GrpcCore.Method<TRequest, TResponse> CreateMethod(IRpcSerializer serializer)
         {
             IRpcSerializer actualSerializer = this.SerializerOverride ?? serializer;
             return GrpcMethodDefinition.Create<TRequest, TResponse>(

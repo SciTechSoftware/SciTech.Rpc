@@ -22,7 +22,6 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 {
     internal class GrpcMethodsCache
     {
-
         private readonly Dictionary<RpcProxyMethod, GrpcCore.IMethod> proxyToGrpcMethod = new Dictionary<RpcProxyMethod, GrpcCore.IMethod>();
 
         private readonly IRpcSerializer serializer;
@@ -45,7 +44,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     return (GrpcCore.Method<TRequest, TResponse>)grpcMethod;
                 }
 
-                var newGrpcMethod = ((GrpcProxyMethod)proxyMethod).CreateMethod<TRequest, TResponse>(this.serializer);
+                var newGrpcMethod = ((GrpcProxyMethod<TRequest, TResponse>)proxyMethod).CreateMethod(this.serializer);
                 this.proxyToGrpcMethod.Add(proxyMethod, newGrpcMethod);
 
                 return newGrpcMethod;

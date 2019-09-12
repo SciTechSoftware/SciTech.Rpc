@@ -566,7 +566,9 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        protected abstract TMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName);
+        protected abstract TMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)
+            where TRequest : class
+            where TResponse : class;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -737,7 +739,7 @@ namespace SciTech.Rpc.Client.Internal
 
             if (methodDef.FaultHandler != null
                 && !string.IsNullOrEmpty(error.FaultCode)
-                && methodDef.FaultHandler.TryGetFaultConverter(error.FaultCode, out var faultConverter))
+                && methodDef.FaultHandler.TryGetFaultConverter(error.FaultCode!, out var faultConverter))
             {
                 // It's a declared fault.
                 var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
@@ -751,7 +753,7 @@ namespace SciTech.Rpc.Client.Internal
                 Exception exception;
 
                 // First check whether there's a custom converter for this fault.
-                if (this.ProxyServicesProvider.GetExceptionConverter(error.FaultCode) is IRpcClientExceptionConverter customConverter)
+                if (this.ProxyServicesProvider.GetExceptionConverter(error.FaultCode!) is IRpcClientExceptionConverter customConverter)
                 {
                     if (!Equals(customConverter.FaultDetailsType, faultConverter.FaultDetailsType))
                     {

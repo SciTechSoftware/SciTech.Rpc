@@ -204,12 +204,11 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             }
             else
             {
-                Task<RpcResponseWithError> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
-                    => serviceStub.CallVoidAsyncMethodWithError(
-                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller, faultHandler,
-                        serializer).AsTask();
+                Task<RpcResponse> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
+                    => serviceStub.CallVoidAsyncMethod(
+                        request, activator.ServiceProvider, new GrpcCallContext(context), serviceCaller).AsTask();
 
-                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(
+                var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse>(
                     MethodType.Unary,
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);

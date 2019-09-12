@@ -29,5 +29,15 @@ namespace SciTech.Rpc.Client.Internal
         public RpcClientFaultHandler? FaultHandler { get; }
 
         public IRpcSerializer? SerializerOverride { get; }
+
+        /// <summary>
+        /// Gets the response type of this method. Currently only used for testing.
+        /// </summary>
+        protected internal abstract Type ResponseType { get; }
+
+        /// <summary>
+        /// Gets the request type of this method. Currently only used for testing.
+        /// </summary>
+        protected internal abstract Type RequestType { get; }
     }
 }

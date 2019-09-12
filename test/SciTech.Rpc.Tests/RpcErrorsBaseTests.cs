@@ -64,16 +64,16 @@ namespace SciTech.Rpc.Tests
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
-                .RegisterService<IFaultService>()
+                .RegisterService<IDeclaredFaultsService>()
                 .RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
 
             var proxyServicesProvider = new RpcProxyServicesBuilder();
             proxyServicesProvider.RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
 
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator, null, null, proxyServicesProvider);
-            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl());
+            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IDeclaredFaultsService>(new FaultServiceImpl());
 
-            var faultService = connection.GetServiceInstance<IFaultService>(publishedInstanceScope.Value);
+            var faultService = connection.GetServiceInstance<IDeclaredFaultsService>(publishedInstanceScope.Value);
             host.Start();
             try
             {
@@ -92,14 +92,14 @@ namespace SciTech.Rpc.Tests
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
-                .RegisterService<IFaultService>();
+                .RegisterService<IDeclaredFaultsService>();
 
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
             try
             {
                 host.Start();
 
-                using (var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl()))
+                using (var publishedInstanceScope = host.ServicePublisher.PublishInstance<IDeclaredFaultsService>(new FaultServiceImpl()))
                 {
 
                     var faultService = connection.GetServiceInstance<IFaultServiceClient>(publishedInstanceScope.Value);
@@ -219,14 +219,14 @@ namespace SciTech.Rpc.Tests
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
-                .RegisterService<IFaultService>();
+                .RegisterService<IDeclaredFaultsService>();
 
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
             try
             {
                 host.Start();
 
-                using (var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl()))
+                using (var publishedInstanceScope = host.ServicePublisher.PublishInstance<IDeclaredFaultsService>(new FaultServiceImpl()))
                 {
                     var faultService = connection.GetServiceInstance<IFaultServiceClient>(publishedInstanceScope.Value);
 
@@ -382,11 +382,11 @@ namespace SciTech.Rpc.Tests
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
-                .RegisterService<IFaultService>();
+                .RegisterService<IDeclaredFaultsService>();
 
 
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
-            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl());
+            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IDeclaredFaultsService>(new FaultServiceImpl());
 
             var faultService = connection.GetServiceInstance<IFaultServiceClient>(publishedInstanceScope.Value);
             host.Start();
@@ -436,12 +436,12 @@ namespace SciTech.Rpc.Tests
         {
             var serviceRegistrator = new RpcServiceDefinitionBuilder();
             serviceRegistrator
-                .RegisterService<IFaultService>();
+                .RegisterService<IDeclaredFaultsService>();
 
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
-            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IFaultService>(new FaultServiceImpl());
+            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IDeclaredFaultsService>(new FaultServiceImpl());
 
-            var faultService = connection.GetServiceInstance<IFaultService>(publishedInstanceScope.Value);
+            var faultService = connection.GetServiceInstance<IDeclaredFaultsService>(publishedInstanceScope.Value);
             host.Start();
             try
             {

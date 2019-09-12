@@ -16,29 +16,37 @@ using System;
 
 namespace SciTech.Rpc.Lightweight.Client.Internal
 {
-    public class LightweightMethodDef : RpcProxyMethod
+    public abstract class LightweightMethodDef : RpcProxyMethod
     {
         public LightweightMethodDef(
             RpcMethodType methodType,
             string operationName,
-            Type requestType,
-            Type responseType,
             IRpcSerializer? serializerOverride,
             RpcClientFaultHandler? faultHandler)
             : base(serializerOverride, faultHandler)
         {
             this.MethodType = methodType;
             this.OperationName = operationName;
-            this.RequestType = requestType;
-            this.ResponseType = responseType;
         }
 
         public RpcMethodType MethodType { get; }
 
         public string OperationName { get; }
+    }
+    
+    public class LightweightMethodDef<TRequest,TResponse> : LightweightMethodDef
+    {
+        public LightweightMethodDef(
+            RpcMethodType methodType,
+            string operationName,
+            IRpcSerializer? serializerOverride,
+            RpcClientFaultHandler? faultHandler)
+            : base(methodType, operationName, serializerOverride, faultHandler)
+        {
+        }
 
-        public Type RequestType { get; }
+        protected internal override Type RequestType => typeof(TRequest);
 
-        public Type ResponseType { get; }
+        protected internal override Type ResponseType => typeof(TResponse);
     }
 }

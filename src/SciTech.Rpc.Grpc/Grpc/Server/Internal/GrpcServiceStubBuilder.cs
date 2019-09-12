@@ -92,18 +92,36 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError<TResponseReturn>> handler = (request, context) =>
+            if (operationInfo.AllowFault)
             {
-                using (var callScope = serviceStub.ServiceProvider?.CreateScope())
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError<TResponseReturn>> handler = (request, context) =>
                 {
-                    return serviceStub.CallAsyncMethodWithError(request, callScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller, responseConverter, faultHandler, serializer).AsTask();
-                }
-            };
+                    using (var callScope = serviceStub.ServiceProvider?.CreateScope())
+                    {
+                        return serviceStub.CallAsyncMethodWithError(request, callScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller, responseConverter, faultHandler, serializer).AsTask();
+                    }
+                };
 
-            binder.AddMethod(
-                GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, serializer),
-                handler);
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+            } else
+            {
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
+                {
+                    using (var callScope = serviceStub.ServiceProvider?.CreateScope())
+                    {
+                        return serviceStub.CallAsyncMethod(request, callScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller, responseConverter).AsTask();
+                    }
+                };
+
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+
+            }
         }
 
         protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
@@ -115,20 +133,40 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError<TResponseReturn>> handler = (request, context) =>
+            if (operationInfo.AllowFault)
             {
-                using (var serviceScope = CreateServiceScope(serviceStub))
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError<TResponseReturn>> handler = (request, context) =>
                 {
-                    return serviceStub.CallBlockingMethodWithError(
-                        request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
-                        responseConverter, faultHandler, serializer).AsTask();
-                }
-            };
+                    using (var serviceScope = CreateServiceScope(serviceStub))
+                    {
+                        return serviceStub.CallBlockingMethodWithError(
+                            request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
+                            responseConverter, faultHandler, serializer).AsTask();
+                    }
+                };
 
-            binder.AddMethod(
-                GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, serializer),
-                handler);
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+            } else
+            {
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
+                {
+                    using (var serviceScope = CreateServiceScope(serviceStub))
+                    {
+                        return serviceStub.CallBlockingMethod(
+                            request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
+                            responseConverter).AsTask();
+                    }
+                };
+
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+
+            }
         }
 
         protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
@@ -139,20 +177,40 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError> handler = (request, context) =>
+            if (operationInfo.AllowFault)
             {
-                using (var serviceScope = CreateServiceScope(serviceStub))
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError> handler = (request, context) =>
                 {
-                    return serviceStub.CallVoidAsyncMethodWithError(request,
-                        serviceScope?.ServiceProvider,
-                        new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
-                }
-            };
+                    using (var serviceScope = CreateServiceScope(serviceStub))
+                    {
+                        return serviceStub.CallVoidAsyncMethodWithError(request,
+                            serviceScope?.ServiceProvider,
+                            new GrpcCallContext(context), serviceCaller, faultHandler, serializer).AsTask();
+                    }
+                };
 
-            binder.AddMethod(
-                GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, serializer),
-                handler);
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+            } else
+            {
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
+                {
+                    using (var serviceScope = CreateServiceScope(serviceStub))
+                    {
+                        return serviceStub.CallVoidAsyncMethod(request,
+                            serviceScope?.ServiceProvider,
+                            new GrpcCallContext(context), serviceCaller).AsTask();
+                    }
+                };
+
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+
+            }
         }
 
         protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
@@ -163,20 +221,39 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError> handler = (request, context) =>
+            if (operationInfo.AllowFault)
             {
-                using (var serviceScope = CreateServiceScope(serviceStub))
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError> handler = (request, context) =>
                 {
-                    return serviceStub.CallVoidBlockingMethodWithError(
-                        request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
-                        faultHandler, serializer).AsTask();
-                }
-            };
+                    using (var serviceScope = CreateServiceScope(serviceStub))
+                    {
+                        return serviceStub.CallVoidBlockingMethodWithError(
+                            request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
+                            faultHandler, serializer).AsTask();
+                    }
+                };
 
-            binder.AddMethod(
-                GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(GrpcCore.MethodType.Unary,
-                    operationInfo.FullServiceName, operationInfo.Name, serializer),
-                handler);
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponseWithError>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+            } else
+            {
+                GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
+                {
+                    using (var serviceScope = CreateServiceScope(serviceStub))
+                    {
+                        return serviceStub.CallVoidBlockingMethod(
+                            request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller).AsTask();
+                    }
+                };
+
+                binder.AddMethod(
+                    GrpcMethodDefinition.Create<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
+                        operationInfo.FullServiceName, operationInfo.Name, serializer),
+                    handler);
+
+            }
         }
 
         protected override void AddServerStreamingMethodImpl<TRequest, TReturn, TResponseReturn>(

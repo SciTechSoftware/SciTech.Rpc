@@ -137,7 +137,7 @@ namespace SciTech.Rpc.Internal
                             cancellationTokenIndex: null,
                             methodType: RpcMethodType.Unary,
                             isAsync: false,
-                            responseType: GetResponseType(rpcPropertyInfo.ResponseReturnType, allowFault),
+                            responseType: GetResponseType(RpcMethodType.Unary, rpcPropertyInfo.ResponseReturnType, allowFault),
                             responseReturnType: rpcPropertyInfo.ResponseReturnType,
                             returnType: propertyInfo.PropertyType,
                             returnKind: rpcPropertyInfo.PropertyTypeKind,
@@ -351,7 +351,7 @@ namespace SciTech.Rpc.Internal
             bool allowFault = opAllowFault ?? serviceInfo.AllowFault;
 
             var (returnKind, responseReturnType) = GetOperationReturnKind(actualReturnType);
-            Type responseType = GetResponseType(responseReturnType, allowFault);
+            Type responseType = GetResponseType(methodType, responseReturnType, allowFault);
 
             return new RpcOperationInfo
             (
@@ -587,8 +587,14 @@ namespace SciTech.Rpc.Internal
             return serviceName;
         }
 
-        private static Type GetResponseType(Type responseReturnType, bool allowFault)
+        private static Type GetResponseType(RpcMethodType methodType, Type responseReturnType, bool allowFault)
         {
+            if( methodType == RpcMethodType.ServerStreaming)
+            {
+                // Streaming errors not yet implemented.
+                return responseReturnType;
+            }
+
             if (typeof(void).Equals(responseReturnType))
             {
                 return allowFault ? typeof(RpcResponseWithError) : typeof(RpcResponse);

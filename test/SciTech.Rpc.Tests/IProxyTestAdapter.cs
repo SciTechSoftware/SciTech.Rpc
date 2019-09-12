@@ -9,9 +9,5 @@ namespace SciTech.Rpc.Tests
         RpcProxyBase<TMethodDef> CreateProxy<TService>() where TService : class;
 
         TMethodDef GetProxyMethod(RpcProxyBase<TMethodDef> proxy, string methodName);
-
-        Type GetRequestType(TMethodDef method);
-
-        Type GetResponseType(TMethodDef method);
     }
 }

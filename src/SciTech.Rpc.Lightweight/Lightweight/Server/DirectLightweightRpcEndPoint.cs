@@ -10,8 +10,10 @@
 #endregion
 
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Threading;
 using System;
 using System.IO.Pipelines;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
@@ -40,7 +42,7 @@ namespace SciTech.Rpc.Lightweight.Server
             return new RpcServerConnectionInfo("Direct", new Uri("direct://localhost"), serverId);
         }
 
-        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
+        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
         {
             IDuplexPipe pipe;
             lock (this.syncRoot)
@@ -58,30 +60,71 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private class DirectListener : ILightweightRpcListener
         {
-            private Func<IDuplexPipe, Task> clientConnectedCallback;
+            private Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
+
+            private CancellationTokenSource? clientCts;
+
+            private Task? clientTask;
 
             private bool isListening;
 
-            private IDuplexPipe pipe;
+            private IDuplexPipe? pipe;
 
-            internal DirectListener(IDuplexPipe pipe, Func<IDuplexPipe, Task> clientConnectedCallback)
+            internal DirectListener(IDuplexPipe pipe, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback)
             {
                 this.pipe = pipe;
                 this.clientConnectedCallback = clientConnectedCallback;
             }
 
-            public void Listen()
+            public void Dispose()
             {
-                if (this.isListening) throw new InvalidOperationException("DirectListener is already listening or has been stopped.");
-                this.isListening = true;
-                this.clientConnectedCallback(this.pipe);
+                if( this.isListening )
+                {
+                    // TODO: Log warning
+                    this.StopAsync().Forget();
+                }
+
+                (this.pipe as IDisposable)?.Dispose();
+                this.clientCts?.Dispose();
+                this.clientTask?.Dispose();
+
+                this.clientCts = null;
+                this.clientTask = null;
+                this.pipe = null;
             }
 
-            public Task StopAsync()
+            public void Listen()
+            {
+                if (this.isListening || this.pipe == null) throw new InvalidOperationException("DirectListener is already listening or has been stopped.");
+                this.isListening = true;
+                this.clientCts = new CancellationTokenSource();
+                this.clientTask = this.clientConnectedCallback(this.pipe, this.clientCts.Token);
+            }
+
+            public async Task StopAsync()
             {
                 if (!this.isListening) throw new InvalidOperationException("DirectListener is not listening.");
 
-                return Task.CompletedTask;
+                var clientCts = this.clientCts;
+                var clientTask = this.clientTask;
+                var pipe = this.pipe;
+                this.clientCts = null;
+                this.clientTask = null;
+                this.pipe = null;
+
+                clientCts?.Cancel();
+                if (clientTask != null)
+                {
+                    try
+                    {
+                        await clientTask.ContextFree();
+                    }
+                    catch (OperationCanceledException) { }
+                }
+
+                (pipe as IDisposable)?.Dispose();
+                clientCts?.Dispose();
+                clientTask?.Dispose();
             }
         }
     }

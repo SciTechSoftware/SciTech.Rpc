@@ -81,8 +81,14 @@ namespace SciTech.Rpc.Lightweight.Server
                     //handleRequestTask = this.HandleStreamingRequestAsync(frame);
                     //break;
                     case RpcFrameType.CancelRequest:
-                        handleRequestTask = this.HandleCancelRequestAsync(frame);
-                        break;
+                        {
+                            // It is possible that the PipeScheduler is set to Inline (which 
+                            // is a dangereous option), and then this cancellation may dead-lock-
+                            // As a safety, handle the cancellation on a worker thread.
+                            int messageId = frame.MessageNumber;
+                            handleRequestTask = new ValueTask(Task.Run(() => this.HandleCancelRequestAsync(messageId)));
+                            break;
+                        }
                     default:
                         throw new NotImplementedException();
                 }
@@ -188,12 +194,12 @@ namespace SciTech.Rpc.Lightweight.Server
                 return default;
             }
 
-            private ValueTask HandleCancelRequestAsync(in LightweightRpcFrame frame)
+            private ValueTask HandleCancelRequestAsync(int messageId )
             {
                 ActiveOperation? activeOperation;
                 lock (this.syncRoot)
                 {
-                    this.activeOperations.TryGetValue(frame.MessageNumber, out activeOperation);
+                    this.activeOperations.TryGetValue(messageId, out activeOperation);
                 }
 
                 activeOperation?.Cancel();

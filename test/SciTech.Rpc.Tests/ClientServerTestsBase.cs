@@ -34,6 +34,7 @@ namespace SciTech.Rpc.Tests
         LightweightInproc,
         LightweightTcp,
         LightweightSslTcp,
+        LightweightNamedPipe,
         Grpc,
         NetGrpc
     }
@@ -132,6 +133,19 @@ namespace SciTech.Rpc.Tests
                             this.LightweightOptions);
 
                         return (host, connection);
+                    }
+                case RpcConnectionType.LightweightNamedPipe:
+                    {
+                        var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options, this.LightweightOptions);
+                        server.AddEndPoint(new NamedPipeRpcEndPoint("testpipe"));
+
+                        var connection = new NamedPipeRpcConnection(
+                            new RpcServerConnectionInfo(new Uri("lightweight.pipe://./testpipe")),
+                            clientOptions.AsImmutable(),
+                            proxyServicesProvider,
+                            this.LightweightOptions);
+
+                        return (server, connection);
                     }
                 case RpcConnectionType.LightweightInproc:
                     {

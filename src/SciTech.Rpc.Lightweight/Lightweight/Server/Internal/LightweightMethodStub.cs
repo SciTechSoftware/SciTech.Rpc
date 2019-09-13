@@ -161,6 +161,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             if (this.AllowInlineExecution)
             {
+                // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even 
+                // higher risk of dead-lock. AllowInlineExecution and PipeScheduler.Inline should
+                // be used with caution.
                 return ExecuteOperation(pipeline, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
             }
             else

@@ -10,7 +10,6 @@
 #endregion
 
 using SciTech.Buffers;
-using SciTech.Rpc.Lightweight.IO;
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -25,7 +24,7 @@ namespace SciTech.Rpc.Lightweight.Internal
     internal enum RpcFrameState
     {
         /// <summary>
-        /// Indiciates that no frame information is available.
+        /// Indicates that no frame information is available.
         /// </summary>
         None,
 
@@ -35,7 +34,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         Header,
 
         /// <summary>
-        /// Indiciates that full frame information is available.
+        /// Indicates that full frame information is available.
         /// </summary>
         Full
     }

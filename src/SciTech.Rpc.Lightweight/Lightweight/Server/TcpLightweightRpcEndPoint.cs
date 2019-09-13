@@ -16,6 +16,7 @@ using System;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
@@ -47,7 +48,7 @@ namespace SciTech.Rpc.Lightweight.Server
             return new RpcServerConnectionInfo(this.DisplayName, new Uri($"lightweight.tcp://{this.HostName}:{this.Port}"), hostId);
         }
 
-        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
+        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
         {
             ILightweightRpcListener socketServer;
 
@@ -100,12 +101,12 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private readonly int maxRequestSize;
 
-            private Func<IDuplexPipe, Task> clientConnectedCallback;
+            private Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
 
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSocketServer(EndPoint endPoint, Func<IDuplexPipe, Task> clientConnectedCallback, int maxRequestSize)
+            internal RpcSocketServer(EndPoint endPoint, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize)
             {
                 this.clientConnectedCallback = clientConnectedCallback;
                 this.endPoint = endPoint;
@@ -132,7 +133,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
-                return this.clientConnectedCallback(client.Transport);
+                // TODO: Implement CancellationToken
+                return this.clientConnectedCallback(client.Transport, CancellationToken.None);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)
@@ -148,7 +150,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private class RpcSslSocketServer : SslSocketServer, ILightweightRpcListener
         {
-            private readonly Func<IDuplexPipe, Task> clientConnectedCallback;
+            private readonly Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
 
             private readonly EndPoint endPoint;
 
@@ -157,12 +159,17 @@ namespace SciTech.Rpc.Lightweight.Server
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSslSocketServer(EndPoint endPoint, Func<IDuplexPipe, Task> clientConnectedCallback, int maxRequestSize, SslServerOptions? sslOptions = null)
+            internal RpcSslSocketServer(EndPoint endPoint, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, SslServerOptions? sslOptions = null)
                 : base(sslOptions)
             {
                 this.clientConnectedCallback = clientConnectedCallback;
                 this.endPoint = endPoint;
                 this.maxRequestSize = maxRequestSize;
+            }
+
+            public void Dispose()
+            {
+                this.Stop();
             }
 
             public void Listen()
@@ -181,7 +188,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
-                return this.clientConnectedCallback(client.Transport);
+                // TODO: Implement CancellationToken
+                return this.clientConnectedCallback(client.Transport, CancellationToken.None);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)

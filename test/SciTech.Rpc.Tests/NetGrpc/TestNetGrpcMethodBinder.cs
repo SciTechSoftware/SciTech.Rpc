@@ -1,4 +1,5 @@
-﻿using Grpc.AspNetCore.Server.Model;
+﻿#if NETCOREAPP3_0
+using Grpc.AspNetCore.Server.Model;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Tests.Grpc;
 using System;
@@ -28,3 +29,4 @@ namespace SciTech.Rpc.Tests.NetGrpc
         }
     }
 }
+#endif

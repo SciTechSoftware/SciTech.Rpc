@@ -13,6 +13,7 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.NetGrpc.Client.Internal;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 using GrpcNet = Grpc.Net;
@@ -130,7 +131,7 @@ namespace SciTech.Rpc.NetGrpc.Client
 
         IRpcSerializer IGrpcServerConnection.Serializer => this.Serializer;
 
-        public override Task ConnectAsync()
+        public override Task ConnectAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
             //var channel = this.Channel;

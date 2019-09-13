@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Client
     /// A server connection represents an established connection to a server process. <see cref="RpcServerConnectionInfo"/> is
     /// used to provide information about a connection.
     /// </remarks>
-    public interface IRpcServerConnection
+    public interface IRpcServerConnection : IDisposable
     {
         event EventHandler ConnectionStateChanged;
 

@@ -7,11 +7,6 @@
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-
-// Based on Pipelines.Sockets.Unofficial.SocketServer (https://github.com/mgravell/Pipelines.Sockets.Unofficial)
-//
-// Copyright (c) 2018 Marc Gravell
-// Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 #endregion
 
 using System;

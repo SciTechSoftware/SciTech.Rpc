@@ -48,10 +48,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
     public class LightweightProxyBase : RpcProxyBase<LightweightMethodDef>
     {
         private readonly int callTimeout;
-        
-        private readonly int streamingCallTimeout;
 
         private readonly LightweightRpcConnection connection;
+
+        private readonly int streamingCallTimeout;
 
         protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) : base(proxyArgs, proxyMethods)
         {
@@ -73,10 +73,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return new LightweightMethodDef<TRequest, TResponse>(methodType, $"{serviceName}.{methodName}", serializer, faultHandler);
         }
 
-        public Task ConnectAsync()
-        {
-            return this.ConnectCoreAsync().AsTask();
-        }
 
         protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(
             TRequest request, LightweightMethodDef method, CancellationToken ct)
@@ -84,7 +80,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
             var actualSerializer = method.SerializerOverride ?? this.serializer;
 
-            var clientTask = this.ConnectCoreAsync();
+            var clientTask = this.ConnectCoreAsync(ct);
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
@@ -128,7 +124,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
             var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
 
-            var clientTask = this.ConnectCoreAsync();
+            var clientTask = this.ConnectCoreAsync(cancellationToken);
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
@@ -199,9 +195,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
         }
 
-        private ValueTask<RpcPipelineClient> ConnectCoreAsync()
+        private ValueTask<RpcPipelineClient> ConnectCoreAsync(CancellationToken cancellationToken)
         {
-            return this.connection.ConnectClientAsync();
+            return this.connection.ConnectClientAsync(cancellationToken);
         }
 
         private IReadOnlyDictionary<string, string>? CreateCallHeaders()

@@ -1,4 +1,5 @@
-﻿using SciTech.Rpc.Client.Internal;
+﻿#if NETCOREAPP3_0
+using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.NetGrpc.Client;
 using SciTech.Rpc.NetGrpc.Client.Internal;
 using System;
@@ -24,3 +25,4 @@ namespace SciTech.Rpc.Tests.NetGrpc
 
     }
 }
+#endif

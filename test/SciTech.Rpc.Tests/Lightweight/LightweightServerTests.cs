@@ -3,7 +3,6 @@ using NUnit.Framework;
 using SciTech.IO;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
-using SciTech.Rpc.Lightweight.IO;
 using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;

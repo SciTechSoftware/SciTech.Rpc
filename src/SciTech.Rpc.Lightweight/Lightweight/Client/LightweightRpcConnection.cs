@@ -11,7 +11,12 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
+using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Threading;
 using System;
+using System.Diagnostics;
+using System.IO.Pipelines;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
@@ -21,13 +26,17 @@ namespace SciTech.Rpc.Lightweight.Client
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
 
         public const int DefaultMaxResponseMessageSize = 4 * 1024 * 1024;
-        
+
+        private RpcPipelineClient? connectedClient;
+
+        private TaskCompletionSource<RpcPipelineClient>? connectionTcs;
+
         protected LightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             ImmutableRpcClientOptions? options,
             IRpcProxyDefinitionsProvider? definitionsProvider,
             LightweightOptions? lightweightOptions)
-            : this(connectionInfo, options, LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider), lightweightOptions )
+            : this(connectionInfo, options, LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider), lightweightOptions)
         {
         }
 
@@ -41,15 +50,179 @@ namespace SciTech.Rpc.Lightweight.Client
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
         }
 
+        public override bool IsConnected => this.connectedClient != null;
+
+
         public bool KeepSizeLimitedConnectionAlive { get; }
 
-        public override Task ConnectAsync() => this.ConnectClientAsync().AsTask();
+        protected object SyncRoot { get; } = new object();
 
-        internal abstract ValueTask<RpcPipelineClient> ConnectClientAsync();
+        public override Task ConnectAsync(CancellationToken cancellationToken) 
+            => this.ConnectClientAsync(cancellationToken).AsTask();
+
+        public override async Task ShutdownAsync()
+        {
+            var prevClient = this.ResetConnection(RpcConnectionState.Disconnected, null);
+
+            if (prevClient != null)
+            {
+                await prevClient.AwaitFinished().ContextFree();
+            }
+
+            this.NotifyDisconnected();
+        }
+
+        internal ValueTask<RpcPipelineClient> ConnectClientAsync(CancellationToken cancellationToken)
+        {
+            Task<RpcPipelineClient>? activeConnectionTask = null;
+            lock (this.SyncRoot)
+            {
+                if (this.connectedClient != null)
+                {
+                    return new ValueTask<RpcPipelineClient>(this.connectedClient);
+                }
+
+                if (this.ConnectionState == RpcConnectionState.Disconnected)
+                {
+                    throw new ObjectDisposedException(this.ToString());
+                }
+
+
+                if (this.connectionTcs != null)
+                {
+                    activeConnectionTask = this.connectionTcs.Task;
+                }
+                else
+                {
+                    this.connectionTcs = new TaskCompletionSource<RpcPipelineClient>();
+                }
+            }
+
+            if (activeConnectionTask != null)
+            {
+                async ValueTask<RpcPipelineClient> AwaitConnection()
+                {
+                    return await activeConnectionTask.ContextFree();
+                }
+
+                return AwaitConnection();
+            }
+
+            async ValueTask<RpcPipelineClient> DoConnect()
+            {
+                try
+                {
+                    int sendMaxMessageSize = this.Options?.SendMaxMessageSize ?? DefaultMaxRequestMessageSize;
+                    int receiveMaxMessageSize = this.Options?.ReceiveMaxMessageSize ?? DefaultMaxResponseMessageSize;
+
+                    var connection = await this.ConnectPipelineAsync(sendMaxMessageSize, receiveMaxMessageSize,cancellationToken).ContextFree();
+
+                    var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
+
+                    connectedClient.ReceiveLoopFaulted += this.ConnectedClient_ReceiveLoopFaulted;
+                    connectedClient.RunAsyncCore();
+
+                    TaskCompletionSource<RpcPipelineClient>? connectionTcs;
+                    lock (this.SyncRoot)
+                    {
+                        this.connectedClient = connectedClient;
+                        connectionTcs = this.connectionTcs;
+                        this.connectionTcs = null;
+                        this.SetConnectionState(RpcConnectionState.Connected);
+                    }
+
+                    connectionTcs?.SetResult(connectedClient);
+
+                    this.NotifyConnected();
+
+                    return connectedClient;
+                }
+                catch (Exception e)
+                {
+                    // Connection failed, do a little cleanup
+                    // TODO: Try to add a unit test that cover this code (e.g. using AuthenticationException).
+                    // TODO: Log.
+
+                    TaskCompletionSource<RpcPipelineClient>? connectionTcs = null;
+                    lock (this.SyncRoot)
+                    {
+                        if (this.connectionTcs != null)
+                        {
+                            Debug.Assert(this.connectedClient == null);
+
+                            connectionTcs = this.connectionTcs;
+                            this.connectionTcs = null;
+                        }
+
+                        this.SetConnectionState(RpcConnectionState.ConnectionFailed);
+                    }
+
+                    connectionTcs?.SetException(e);
+
+                    this.NotifyConnectionFailed();
+
+                    throw;
+                }
+            }
+
+            return DoConnect();
+        }
+
+        protected abstract Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken);
 
         protected override IRpcSerializer CreateDefaultSerializer()
         {
             return new DataContractRpcSerializer();
+        }
+
+        protected virtual void OnConnectionResetSynchronized()
+        {
+
+        }
+
+
+        private void ConnectedClient_ReceiveLoopFaulted(object sender, ExceptionEventArgs e)
+        {
+            this.ResetConnection(RpcConnectionState.ConnectionLost, e.Exception);
+
+            this.NotifyConnectionLost();
+        }
+
+        private RpcPipelineClient? ResetConnection(RpcConnectionState state, Exception? ex)
+        {
+            TaskCompletionSource<RpcPipelineClient>? connectionTcs;
+            RpcPipelineClient? connectedClient;
+            lock (this.SyncRoot)
+            {
+                if (this.ConnectionState == RpcConnectionState.Disconnected)
+                {
+                    // Already disconnected
+                    Debug.Assert(this.connectedClient == null);
+                    return null;
+                }
+
+                connectedClient = this.connectedClient;
+                this.connectedClient = null;
+
+
+                connectionTcs = this.connectionTcs;
+                this.connectionTcs = null;
+
+                this.OnConnectionResetSynchronized();
+
+                this.SetConnectionState(state);
+            }
+
+            connectionTcs?.TrySetCanceled();
+
+            // TODO: wait for unfinished frames?
+            if (connectedClient != null)
+            {
+                connectedClient.ReceiveLoopFaulted -= this.ConnectedClient_ReceiveLoopFaulted;
+                connectedClient.Close(ex);
+            }
+
+            return connectedClient;
         }
     }
 }

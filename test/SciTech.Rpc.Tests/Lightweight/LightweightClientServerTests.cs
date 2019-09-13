@@ -7,6 +7,7 @@ namespace SciTech.Rpc.Tests.Lightweight
     public class LightweightClientServerTests : ClientServerBaseTests
     {
         protected internal static readonly object[] DefaultLightweightClientHostFixtureArgs = {
+            new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightNamedPipe},
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightInproc},
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightTcp},
             new object[] { new ProtobufSerializer(), RpcConnectionType.LightweightSslTcp},

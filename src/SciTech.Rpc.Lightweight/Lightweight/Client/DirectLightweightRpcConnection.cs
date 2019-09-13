@@ -14,17 +14,14 @@ using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Threading;
 using System;
 using System.IO.Pipelines;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
-    public sealed class DirectLightweightRpcConnection : LightweightRpcConnection, IDisposable
+    public sealed class DirectLightweightRpcConnection : LightweightRpcConnection
     {
-        private readonly object syncRoot = new object();
-
-        private IDuplexPipe clientPipe;
-
-        private volatile RpcPipelineClient? connectedClient;
+        private IDuplexPipe? clientPipe;
 
         public DirectLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
@@ -40,91 +37,34 @@ namespace SciTech.Rpc.Lightweight.Client
 
         }
 
-        public override bool IsConnected => this.connectedClient != null;
-
         public override bool IsEncrypted => false;
 
         public override bool IsMutuallyAuthenticated => false;
 
         public override bool IsSigned => false;
 
-        public void Dispose()
-        {
-            RpcPipelineClient? connectedClient;
-            lock (this.syncRoot)
-            {
-                connectedClient = this.connectedClient;
-                this.connectedClient = null;
-            }
+        protected override Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken)
 
-            if (connectedClient != null)
-            {
-                connectedClient.Dispose();
-            }
+        {
+            var pipe = this.clientPipe ?? throw new ObjectDisposedException(this.ToString());
+            this.clientPipe = null;
+            return Task.FromResult(pipe);
         }
 
-        public override async Task ShutdownAsync()
+        protected override void OnConnectionResetSynchronized()
         {
-            RpcPipelineClient? prevClient = this.ResetConnection(RpcConnectionState.Disconnected);
+            base.OnConnectionResetSynchronized();
 
-            if (prevClient != null)
-            {
-                await prevClient.AwaitFinished().ContextFree();
-            }
-
-            this.NotifyDisconnected();
+            (this.clientPipe as IDisposable)?.Dispose();
+            this.clientPipe = null;
         }
 
-        internal override ValueTask<RpcPipelineClient> ConnectClientAsync()
+        protected override void Dispose(bool disposing)
         {
-            RpcPipelineClient connectedClient;
+            base.Dispose(disposing);
 
-            lock (this.syncRoot)
-            {
-                if (this.clientPipe == null)
-                {
-                    throw new ObjectDisposedException(this.ToString());
-                }
-
-                if (this.connectedClient == null)
-                {
-                    int sendMaxMessageSize = this.Options?.SendMaxMessageSize ?? DefaultMaxRequestMessageSize;
-                    int receiveMaxMessageSize = this.Options?.ReceiveMaxMessageSize ?? DefaultMaxResponseMessageSize;
-
-                    this.connectedClient = new RpcPipelineClient(this.clientPipe, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
-                    this.connectedClient.ReceiveLoopFaulted += this.ConnectedClient_ReceiveLoopFaulted;
-                    this.connectedClient.RunAsyncCore();
-                }
-
-                connectedClient = this.connectedClient;
-            }
-
-            return new ValueTask<RpcPipelineClient>(connectedClient);
-        }
-
-        private void ConnectedClient_ReceiveLoopFaulted(object sender, EventArgs e)
-        {
-            this.ResetConnection(RpcConnectionState.ConnectionLost);
-
-            this.NotifyConnectionLost();
-        }
-
-        private RpcPipelineClient? ResetConnection(RpcConnectionState state)
-        {
-            RpcPipelineClient? connectedClient;
-
-            lock (this.syncRoot)
-            {
-                connectedClient = this.connectedClient;
-
-                this.connectedClient = null;
-
-                this.SetConnectionState(state);
-            }
-
-            connectedClient?.Close(); 
-
-            return connectedClient;
+            (this.clientPipe as IDisposable)?.Dispose();
+            this.clientPipe = null;
         }
     }
 }

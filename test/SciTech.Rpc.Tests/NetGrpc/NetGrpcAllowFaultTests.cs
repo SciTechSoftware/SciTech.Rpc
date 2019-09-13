@@ -1,9 +1,11 @@
-﻿using SciTech.Rpc.NetGrpc.Client.Internal;
+﻿#if NETCOREAPP3_0
+using SciTech.Rpc.NetGrpc.Client.Internal;
 using System;
 using System.Linq;
 
 namespace SciTech.Rpc.Tests.NetGrpc
 {
+
     public class NetGrpcAllowFaultTests : AllowFaultTests<GrpcProxyMethod>
     {
         public NetGrpcAllowFaultTests() : base(new NetGrpcProxyTestAdapter(), new NetGrpcStubTestAdapter())
@@ -11,3 +13,4 @@ namespace SciTech.Rpc.Tests.NetGrpc
         }
     }
 }
+#endif

@@ -12,7 +12,6 @@
 //
 #endregion
 
-using SciTech.Rpc.Lightweight.IO;
 using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;
@@ -57,11 +56,10 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         private BufferWriterStream? frameWriterStream;
 
-        private IDuplexPipe? pipe;
 
         protected RpcPipeline(IDuplexPipe pipe, int? maxSendFrameLength, int? maxReceiveFrameLength, bool skipLargeFrames)
         {
-            this.pipe = pipe;
+            this.Pipe = pipe;
             this.MaxSendFrameLength = maxSendFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.MaxReceiveFrameLength = maxReceiveFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.skipLargeFrames = skipLargeFrames;
@@ -76,7 +74,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             {
                 lock (this.syncRoot)
                 {
-                    return this.pipe == null;
+                    return this.Pipe == null;
                 }
             }
         }
@@ -84,6 +82,9 @@ namespace SciTech.Rpc.Lightweight.Internal
         protected int MaxReceiveFrameLength { get; }
 
         protected int MaxSendFrameLength { get; }
+
+        protected IDuplexPipe? Pipe { get; private set; }
+
 
         public void AbortWrite()
         {
@@ -97,8 +98,8 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             lock (this.syncRoot)
             {
-                pipe = this.pipe;
-                this.pipe = null;
+                pipe = this.Pipe;
+                this.Pipe = null;
             }
             this.singleWriter.Wait();
 
@@ -135,7 +136,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         public async Task EndWriteAsync()
         {
-            var pipeWriter = this.pipe?.Output;
+            var pipeWriter = this.Pipe?.Output;
             var frameWriter = this.frameWriterStream;
             if (frameWriter == null || pipeWriter == null)
             {
@@ -278,7 +279,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         protected async Task StartReceiveLoopAsync(CancellationToken cancellationToken = default)
         {
 #pragma warning disable CA1031 // Do not catch general exception types
-            var reader = this.pipe?.Input ?? throw new ObjectDisposedException(this.ToString());
+            var reader = this.Pipe?.Input ?? throw new ObjectDisposedException(this.ToString());
             try
             {
                 await this.OnStartReceiveLoopAsync().ContextFree();

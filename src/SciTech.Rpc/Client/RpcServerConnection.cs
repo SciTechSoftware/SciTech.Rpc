@@ -10,6 +10,8 @@
 #endregion
 
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Logging;
+using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -22,6 +24,8 @@ namespace SciTech.Rpc.Client
     /// </summary>
     public abstract class RpcServerConnection : IRpcServerConnection
     {
+        private static readonly ILog Logger = LogProvider.For<RpcServerConnection>();
+
         private readonly IRpcProxyGenerator proxyGenerator;
 
         private readonly Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>> serviceInstances
@@ -32,6 +36,8 @@ namespace SciTech.Rpc.Client
         private RpcConnectionState connectionState;
 
         private bool hasPendingStateChange;
+
+        private bool isDisposed;
 
         private volatile IRpcSerializer? serializer;
 
@@ -96,7 +102,18 @@ namespace SciTech.Rpc.Client
         /// explicitly, since a connection will be established on the first RPC operation.
         /// </summary>
         /// <returns></returns>
-        public abstract Task ConnectAsync();
+        public abstract Task ConnectAsync(CancellationToken cancellationToken = default);
+
+        public void Dispose()
+        {
+            if (!this.isDisposed)
+            {
+                this.Dispose(true);
+
+                this.isDisposed = true;
+            }
+        }
+
 
         public TService GetServiceInstance<TService>(RpcObjectId objectId,
             IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class
@@ -123,6 +140,21 @@ namespace SciTech.Rpc.Client
         public abstract Task ShutdownAsync();
 
         protected abstract IRpcSerializer CreateDefaultSerializer();
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if( this.IsConnected )
+                {
+                    Logger.Warn("Connection disposed while still connected.");
+                }
+
+                // Shut down connection in case it's still connected, but let's 
+                // not wait for it to finish (to avoid dead-locks).
+                this.ShutdownAsync().Forget();
+            }
+        }
 
         protected void NotifyConnected()
         {

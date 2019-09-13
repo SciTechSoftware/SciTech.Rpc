@@ -8,7 +8,8 @@ namespace SciTech.Rpc
         SizeLimitExceeded,
         ServiceNotPublished,
         RemoteDefinitionError,
-        InvalidData
+        InvalidData,
+        AddressInUse
     }
 
 #pragma warning disable CA2237 // Mark ISerializable types with serializable

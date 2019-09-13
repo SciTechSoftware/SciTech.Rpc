@@ -19,6 +19,8 @@ namespace SciTech.Rpc.Lightweight.Client
     {
         public const string LightweightTcpScheme = "lightweight.tcp";
 
+        public const string LightweightPipeScheme = "lightweight.pipe";
+
         private readonly LightweightOptions? lightweightOpions = null;
 
         private readonly ImmutableRpcClientOptions? options;
@@ -48,7 +50,10 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
         {
-            return connectionInfo?.HostUrl?.Scheme == LightweightTcpScheme;
+            
+            return connectionInfo?.HostUrl?.Scheme is string scheme 
+                &&  ( scheme == WellKnownRpcSchemes.LightweightTcp 
+                || scheme == WellKnownRpcSchemes.LightweightPipe );
         }
 
         public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options)

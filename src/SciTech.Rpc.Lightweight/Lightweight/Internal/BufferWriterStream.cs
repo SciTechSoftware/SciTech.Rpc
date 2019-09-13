@@ -16,7 +16,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Lightweight.IO
+namespace SciTech.Rpc.Lightweight.Internal
 {
     /// <summary>
     /// A combined writer Stream and IBufferWriter{byte}.

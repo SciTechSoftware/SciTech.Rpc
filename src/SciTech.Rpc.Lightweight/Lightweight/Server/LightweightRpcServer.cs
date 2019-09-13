@@ -203,6 +203,7 @@ namespace SciTech.Rpc.Lightweight.Server
             foreach (var startedEndPoint in this.startedEndpoints)
             {
                 await startedEndPoint.StopAsync().ContextFree();
+                startedEndPoint.Dispose();
             }
 
             await base.ShutdownCoreAsync().ContextFree();
@@ -210,9 +211,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected override void StartCore()
         {
-            Task ConnectedCallback(IDuplexPipe clientPipe)
+            Task ConnectedCallback(IDuplexPipe clientPipe, CancellationToken cancellationToken)
             {
-                return this.RunClientAsync(clientPipe);
+                return this.RunClientAsync(clientPipe, cancellationToken);
             }
 
             foreach (var endPoint in this.endPoints)

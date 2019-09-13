@@ -165,9 +165,7 @@ namespace SciTech.Rpc.Client.Internal
             return (proxyType, createMethodsFunc);
 
         }
-
-
-        private Expression CreateMethodDefExpression(
+        private static Expression CreateMethodDefExpression(
             RpcMemberInfo memberInfo,
             string methodName,
             RpcMethodType methodType,

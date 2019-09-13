@@ -9,15 +9,15 @@
 //
 #endregion
 
-using System;
-using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Lightweight.Server.Internal
+namespace SciTech.Rpc
 {
-    public interface ILightweightRpcListener : IDisposable
+    public static class WellKnownRpcSchemes
     {
-        void Listen();
+        public const string Grpc = "grpc";
 
-        Task StopAsync();
+        public const string LightweightTcp = "lightweight.tcp";
+
+        public const string LightweightPipe = "lightweight.pipe";
     }
 }

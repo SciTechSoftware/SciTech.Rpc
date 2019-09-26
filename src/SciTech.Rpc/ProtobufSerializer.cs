@@ -6,7 +6,7 @@ namespace SciTech.Rpc
 {
     public class ProtobufSerializer : IRpcSerializer
     {
-        public static readonly RuntimeTypeModel DefaultTypeModel = TypeModel.Create().AddRpcTypes();
+        public static readonly RuntimeTypeModel DefaultTypeModel = RuntimeTypeModel.Create().AddRpcTypes();
 
         private readonly RuntimeTypeModel typeModel;
 

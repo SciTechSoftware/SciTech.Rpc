@@ -25,6 +25,7 @@ Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
     <Nullable>enable</Nullable>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -53,17 +54,14 @@ Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
-    <PackageReference Include="protobuf-net" Version="3.0.0-alpha.55" />
-    <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.0.0" />
+    <PackageReference Include="protobuf-net" Version="3.0.0-alpha.58" />
+    <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
-    <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
-
+    <PackageReference Include="System.Reflection.Emit" Version="4.6.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.0.0" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(HasAsyncEnum)' == 'false'">
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.0.0-preview9.19421.4" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />

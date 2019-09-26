@@ -165,7 +165,7 @@ namespace RpcCodeGen
 
             StringBuilder serviceBuilder = new StringBuilder();
 
-            RuntimeTypeModel typeModel = TypeModel.Create();
+            RuntimeTypeModel typeModel = RuntimeTypeModel.Create();
             foreach (var exportedType in assembly.GetExportedTypes())
             {
                 var serviceInfo = RpcBuilderUtil.TryGetServiceInfoFromType(exportedType);

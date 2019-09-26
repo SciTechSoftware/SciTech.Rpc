@@ -69,7 +69,7 @@ namespace SciTech.Rpc.Tests
         {
             // Don't create a timer if the task is already completed
             // or the debugger is attached
-            if (task.IsCompleted) //|| Debugger.IsAttached)
+            if (task.IsCompleted || Debugger.IsAttached)
             {
                 await task;
                 return;

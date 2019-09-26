@@ -1,5 +1,4 @@
 ﻿using Greeter;
-using Greeter;
 using Mailer;
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc;

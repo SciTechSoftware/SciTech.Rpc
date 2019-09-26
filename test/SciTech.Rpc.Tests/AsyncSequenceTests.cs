@@ -86,7 +86,16 @@ namespace SciTech.Rpc.Tests
 
                 DateTime start = DateTime.UtcNow;
                 int lastNo = 0;
-                Assert.CatchAsync<TimeoutException>(async () =>
+
+                var exceptionExpression = Is.InstanceOf<TimeoutException>();
+                if( this.ConnectionType == RpcConnectionType.NetGrpc)
+                {
+                    // It seems like NetGrpc throws OperationCancelledException instead of DeadlineExceeded RpcException (but
+                    // it also seems a bit timing dependent). Let's allow both exceptions.
+                    exceptionExpression = exceptionExpression.Or.InstanceOf<OperationCanceledException>();
+                }
+                
+                Assert.ThrowsAsync(exceptionExpression, async () =>
                 {
                     async Task GetSequence()
                     {

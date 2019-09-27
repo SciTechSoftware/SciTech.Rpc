@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SciTech.Rpc.Logging;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -9,6 +10,10 @@ namespace SciTech.Rpc
 {
     public class DataContractRpcSerializer : IRpcSerializer
     {
+        private static readonly ILog Logger = LogProvider.For<DataContractRpcSerializer>();
+        
+        private static bool traceEnabled = false;   // TODO:
+
         DataContractSerializerSettings? settings;
 
         public DataContractRpcSerializer(DataContractSerializerSettings? settings)
@@ -46,12 +51,29 @@ namespace SciTech.Rpc
         {
             if (input != null)
             {
-                using (var writer = XmlDictionaryWriter.CreateBinaryWriter(stream, null, null, false ))
+                var type = input.GetType();
+                var serializer = settings != null ? new DataContractSerializer(type, settings) : new DataContractSerializer(type);
+
+                if (traceEnabled)
                 {
-                    var type = input.GetType();
-                    var serializer = settings != null ? new DataContractSerializer(type, settings) : new DataContractSerializer(type);
-                    serializer.WriteObject(writer, input);
+                    using var memStream = new MemoryStream();
+                    using (var traceWriter = XmlDictionaryWriter.CreateTextWriter(memStream, Encoding.UTF8, false))
+                    {
+                        serializer.WriteObject(traceWriter, input);
+                    }
+
+                    var bytes = memStream.ToArray();
+                    string text = Encoding.UTF8.GetString(bytes);
+                    Logger.Trace("ToStream: {SerializedText}", text);
                 }
+
+                using var writer = XmlDictionaryWriter.CreateBinaryWriter(stream, null, null, false);
+
+                serializer.WriteObject(writer, input);
+            } else if( traceEnabled )
+            {
+                // Isn't this an error?
+                Logger.Info("ToStream with null input");
             }
         }
     }

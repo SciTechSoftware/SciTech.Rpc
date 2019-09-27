@@ -9,6 +9,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.Options;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using System;
@@ -25,12 +26,13 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly ImmutableRpcClientOptions? options;
 
-        private readonly LightweightProxyGenerator proxyGenerator;
+        private readonly IRpcProxyDefinitionsProvider? definitionsProvider;
 
         private readonly SslClientOptions? sslOptions;
 
         public LightweightConnectionProvider(
-            ImmutableRpcClientOptions? options = null, LightweightOptions? lightweightOpions = null,
+            IRpcClientOptions? options = null, 
+            LightweightOptions? lightweightOpions = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null)
             : this(null, options, lightweightOpions, definitionsProvider)
         {
@@ -38,14 +40,31 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public LightweightConnectionProvider(
             SslClientOptions? sslOptions,
-            ImmutableRpcClientOptions? options = null,
+            IRpcClientOptions? options = null,
             LightweightOptions? lightweightOpions = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
             this.sslOptions = sslOptions;
-            this.proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider);
-            this.options = options;
+            this.definitionsProvider = definitionsProvider;
+            this.options = options?.AsImmutable();
             this.lightweightOpions = lightweightOpions;
+        }
+
+        public LightweightConnectionProvider(
+            IOptions<RpcClientOptions> options,
+            LightweightOptions? lightweightOpions = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null)
+            : this(null, options?.Value, lightweightOpions, definitionsProvider)
+        {
+        }
+
+        public LightweightConnectionProvider(
+            SslClientOptions? sslOptions,
+            IOptions<RpcClientOptions> options,
+            LightweightOptions? lightweightOpions = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null)
+            : this(sslOptions, options?.Value, lightweightOpions, definitionsProvider)
+        {
         }
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
@@ -56,14 +75,17 @@ namespace SciTech.Rpc.Lightweight.Client
                 || scheme == WellKnownRpcSchemes.LightweightPipe );
         }
 
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options)
+        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider )
         {
             if (connectionInfo?.HostUrl?.Scheme == LightweightTcpScheme)
             {
+                var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
+                var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
+
                 return new TcpLightweightRpcConnection(
                     connectionInfo, this.sslOptions,
                     ImmutableRpcClientOptions.Combine(options, this.options),
-                    this.proxyGenerator,
+                    proxyGenerator,
                     this.lightweightOpions);
             }
 

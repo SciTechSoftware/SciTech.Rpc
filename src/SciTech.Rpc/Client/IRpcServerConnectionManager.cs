@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Client
     {
         bool CanCreateConnection(RpcServerConnectionInfo connectionInfo);
 
-        IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options);
+        IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider);
     }
 
     public interface IRpcServerConnectionManager
@@ -33,38 +33,53 @@ namespace SciTech.Rpc.Client
         IRpcServerConnection GetServerConnection(RpcServerConnectionInfo connectionInfo);
         
         bool RemoveKnownConnection(IRpcServerConnection connection);
+
+        ImmutableRpcClientOptions Options { get; }
+
+        IRpcProxyDefinitionsProvider? DefinitionsProvider { get; }
     }
 
-#pragma warning disable CA1062 // Validate arguments of public methods
     public static class RpcServerConnectionManagerExtensions
     {
         public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
         {
+            if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
+
             return connectionManager.GetServiceInstance<TService>(serviceRef, useSyncContext ? SynchronizationContext.Current : null);
         }
 
         public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef serviceRef, SynchronizationContext syncContext) where TService : class
         {
+            if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
+
             return connectionManager.GetServiceInstance<TService>(serviceRef, syncContext);
         }
 
         public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef<TService> serviceRef, SynchronizationContext syncContext) where TService : class
         {
+            if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
+
             return connectionManager.GetServiceInstance<TService>(serviceRef, syncContext);
         }
 
         public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef<TService> serviceRef, bool useSyncContext = true) where TService : class
         {
+            if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
+
             return connectionManager.GetServiceInstance<TService>(serviceRef, useSyncContext ? SynchronizationContext.Current : null);
         }
 
         public static TService GetServiceSingleton<TService>(this IRpcServerConnectionManager connectionManager, RpcServerConnectionInfo connectionInfo, bool useSyncContext = true) where TService : class
         {
+            if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
+
             return connectionManager.GetServiceSingleton<TService>(connectionInfo, useSyncContext ? SynchronizationContext.Current : null);
         }
 
         public static TService GetServiceSingleton<TService>(this IRpcServerConnectionManager connectionManager, RpcSingletonRef<TService> singletonRef, bool useSyncContext = true) where TService : class
         {
+            if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
+
             if (singletonRef == null)
             {
                 throw new ArgumentNullException(nameof(singletonRef));
@@ -81,6 +96,8 @@ namespace SciTech.Rpc.Client
 
         public static TService GetServiceSingleton<TService>(this IRpcServerConnectionManager connectionManager, RpcSingletonRef<TService> singletonRef, SynchronizationContext syncContext) where TService : class
         {
+            if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
+
             if (singletonRef == null)
             {
                 throw new ArgumentNullException(nameof(singletonRef));
@@ -95,5 +112,4 @@ namespace SciTech.Rpc.Client
             return connectionManager.GetServiceSingleton<TService>(connection, syncContext);
         }
     }
-#pragma warning restore CA1062 // Validate arguments of public methods
 }

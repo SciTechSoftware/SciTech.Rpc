@@ -18,7 +18,7 @@ namespace SciTech.Rpc.Client
 {
     /// <summary>
     /// Immutable variant of <see cref="RpcClientOptions"/>. Once client options have been 
-    /// assigend to a connection or associated with a service they should no longer be modified and
+    /// assigned to a connection or associated with a service they should no longer be modified and
     /// will only be accessible through this class.
     /// </summary>
     public class ImmutableRpcClientOptions : IRpcClientOptions
@@ -69,6 +69,8 @@ namespace SciTech.Rpc.Client
         IReadOnlyList<IRpcClientExceptionConverter> IRpcClientOptions.ExceptionConverters => this.ExceptionConverters;
 
         IReadOnlyList<RpcClientCallInterceptor> IRpcClientOptions.Interceptors => this.Interceptors;
+
+        ImmutableRpcClientOptions IRpcClientOptions.AsImmutable() => this;
 
         internal static ImmutableRpcClientOptions Combine(params IRpcClientOptions?[] options)
         {

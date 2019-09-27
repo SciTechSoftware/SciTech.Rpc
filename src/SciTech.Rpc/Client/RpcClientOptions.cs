@@ -14,7 +14,7 @@ using System.Collections.Generic;
 
 namespace SciTech.Rpc.Client
 {
-    internal interface IRpcClientOptions
+    public interface IRpcClientOptions
     {
         TimeSpan? CallTimeout { get; }
 
@@ -37,6 +37,8 @@ namespace SciTech.Rpc.Client
         IRpcSerializer? Serializer { get; }
 
         TimeSpan? StreamingCallTimeout { get; }
+
+        ImmutableRpcClientOptions AsImmutable();
     }
 
     /// <summary>
@@ -119,7 +121,7 @@ namespace SciTech.Rpc.Client
     /// Specialization of <see cref="RpcClientOptions"/> than can be used to configure
     /// service specific client options.
     /// </summary>
-    /// <typeparam name="T">Type of the service inteface.</typeparam>
+    /// <typeparam name="T">Type of the service interface.</typeparam>
     public class RpcClientServiceOptions<T> : RpcClientOptions
     {
     }

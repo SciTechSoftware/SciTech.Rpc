@@ -9,6 +9,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.Options;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -28,8 +29,6 @@ namespace SciTech.Rpc.Client
         private readonly Dictionary<RpcServerId, WeakReference<IRpcServerConnection>> idToServerConnection
             = new Dictionary<RpcServerId, WeakReference<IRpcServerConnection>>();
 
-        private readonly ImmutableRpcClientOptions? options;
-
         private readonly object syncRoot = new object();
 
         private readonly Dictionary<Uri, IRpcServerConnection> urlToKnownConnection
@@ -47,13 +46,24 @@ namespace SciTech.Rpc.Client
         //{           
         //}
 
-        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders,
-            RpcClientOptions? options = null)
+        // Constructor overload currently removed, since it causes ambiguity when using 
+        // dependency injection.
+        //public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IOptions<RpcClientOptions>? options, IRpcProxyDefinitionsProvider? definitionsProvider = null) 
+        //    : this( connectionProviders, options?.Value, definitionsProvider)
+        //{
+        //}
+
+
+        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, RpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
             this.connectionProviders = connectionProviders.ToImmutableArray();
-            this.options = new ImmutableRpcClientOptions(options);
+            this.DefinitionsProvider = definitionsProvider;
+            this.Options = new ImmutableRpcClientOptions(options);
         }
 
+        public ImmutableRpcClientOptions Options { get; }
+
+        public IRpcProxyDefinitionsProvider? DefinitionsProvider { get; }
 
         public void AddKnownConnection(IRpcServerConnection connection)
         {
@@ -106,7 +116,7 @@ namespace SciTech.Rpc.Client
                 }
             }
 
-            var newConnection = this.CreateServerConnection(connectionInfo, this.options);
+            var newConnection = this.CreateServerConnection(connectionInfo);
             lock (this.syncRoot)
             {
                 IRpcServerConnection? existingConnection = this.GetExistingConnection(connectionInfo);
@@ -224,13 +234,13 @@ namespace SciTech.Rpc.Client
             await Task.WhenAll(shutdownTasks).ContextFree();
         }
 
-        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo, ImmutableRpcClientOptions? options)
+        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo)
         {
             foreach (var connectionProvider in this.connectionProviders)
             {
                 if (connectionProvider.CanCreateConnection(serverConnectionInfo))
                 {
-                    return connectionProvider.CreateConnection(serverConnectionInfo, options);
+                    return connectionProvider.CreateConnection(serverConnectionInfo, this.Options, this.DefinitionsProvider);
                 }
             }
 
@@ -246,7 +256,7 @@ namespace SciTech.Rpc.Client
                     return knownIdConnection;
                 }
             }
-            else if (connectionInfo.HostUrl != null )
+            else if (connectionInfo.HostUrl != null)
             {
                 if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var knownUrlConnection))
                 {
@@ -286,5 +296,6 @@ namespace SciTech.Rpc.Client
 
             //return null;
         }
+
     }
 }

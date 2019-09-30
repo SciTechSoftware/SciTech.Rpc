@@ -168,7 +168,7 @@ namespace SciTech.Rpc.Server.Internal
 
             try
             {
-                await eventProducer.Run(service).ContextFree();
+                await eventProducer.Run(service.Service!).ContextFree();
                 Logger.Trace("EventProducer.Run returned successfully.");
             }
             catch (OperationCanceledException oce)
@@ -198,12 +198,12 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
                 try
                 {
                     // Call the actual implementation method.
-                    var result = implCaller(service, request, context.CancellationToken);
+                    var result = implCaller(activatedService.Service, request, context.CancellationToken);
                     await foreach( var ret in result.ConfigureAwait(false))
                     {
                         context.CancellationToken.ThrowIfCancellationRequested();
@@ -232,7 +232,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    this.EndCall(interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -270,12 +270,12 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
 
                 try
                 {
                     // Call the actual implementation method.
-                    var result = await implCaller(service, request, context.CancellationToken).ContextFree();
+                    var result = await implCaller(activatedService.Service, request, context.CancellationToken).ContextFree();
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return CreateResponseWithError(responseConverter, result);
@@ -291,7 +291,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    this.EndCall(interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -313,19 +313,19 @@ namespace SciTech.Rpc.Server.Internal
             Func<TResult, TResponse>? responseConverter ) 
             where TRequest : IObjectRequest
         {
-            var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
 
             try
             {
                 // Call the actual implementation method.
-                var result = await implCaller(service, request, context.CancellationToken).ContextFree();
+                var result = await implCaller(activatedService.Service, request, context.CancellationToken).ContextFree();
                 context.CancellationToken.ThrowIfCancellationRequested();
 
                 return CreateResponse(responseConverter, result);
             }
             finally
             {
-                this.EndCall(interceptDisposables);
+                this.EndCall(activatedService, interceptDisposables);
             }
         }
 
@@ -341,12 +341,12 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
                 try
                 {
                     // Call the actual implementation method.
-                    var result = implCaller(service, request, context.CancellationToken);
+                    var result = implCaller(activatedService.Service, request, context.CancellationToken);
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return CreateResponseWithError(responseConverter, result);
@@ -362,7 +362,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    this.EndCall(interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -383,19 +383,19 @@ namespace SciTech.Rpc.Server.Internal
             Func<TService, TRequest, CancellationToken, TResult> implCaller,
             Func<TResult, TResponse>? responseConverter) where TRequest : IObjectRequest
         {
-            var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
             try
             {
                 // Call the actual implementation method.
-                var result = implCaller(service, request, context.CancellationToken);
+                var result = implCaller(activatedService.Service, request, context.CancellationToken);
                 context.CancellationToken.ThrowIfCancellationRequested();
 
                 return CreateResponse(responseConverter, result);
             }
             finally
             {
-                this.EndCall(interceptDisposables);
+                this.EndCall(activatedService, interceptDisposables);
             }
         }
 
@@ -410,12 +410,12 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
 
                 try
                 {
                     // Call the actual implementation method.
-                    await implCaller(service, request, context.CancellationToken).ContextFree();
+                    await implCaller(activatedService.Service, request, context.CancellationToken).ContextFree();
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return new RpcResponseWithError();
@@ -431,7 +431,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    this.EndCall(interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -451,19 +451,19 @@ namespace SciTech.Rpc.Server.Internal
             IRpcCallContext context,
             Func<TService, TRequest, CancellationToken, Task> implCaller) where TRequest : IObjectRequest
         {
-            var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
 
             try
             {
                 // Call the actual implementation method.
-                await implCaller(service, request, context.CancellationToken).ContextFree();
+                await implCaller(activatedService.Service, request, context.CancellationToken).ContextFree();
                 context.CancellationToken.ThrowIfCancellationRequested();
 
                 return new RpcResponse();
             }
             finally
             {
-                this.EndCall(interceptDisposables);
+                this.EndCall(activatedService, interceptDisposables);
             }
         }
 
@@ -478,12 +478,12 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
 
                 try
                 {
                     // Call the actual implementation method.
-                    implCaller(service, request, context.CancellationToken);
+                    implCaller(activatedService.Service, request, context.CancellationToken);
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return new RpcResponseWithError();
@@ -499,7 +499,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    this.EndCall(interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -520,19 +520,19 @@ namespace SciTech.Rpc.Server.Internal
             Action<TService, TRequest, CancellationToken> implCaller )
             where TRequest : IObjectRequest
         {
-            var (service, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
 
             try
             {
                 // Call the actual implementation method.
-                implCaller(service, request, context.CancellationToken);
+                implCaller(activatedService.Service, request, context.CancellationToken);
                 context.CancellationToken.ThrowIfCancellationRequested();
 
                 return new RpcResponse();
             }
             finally
             {
-                this.EndCall(interceptDisposables);
+                this.EndCall(activatedService, interceptDisposables);
             }
         }
 
@@ -673,10 +673,10 @@ namespace SciTech.Rpc.Server.Internal
         /// <param name="context"></param>
         /// <returns>A tuple containing the service implementation instance, and an array of disposables that must 
         /// be disposed when the call is finished.</returns>
-        private ValueTask<ValueTuple<TService, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcCallContext context)
+        private ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcCallContext context)
         {
-            async ValueTask<ValueTuple<TService, CompactList<IDisposable?>>> AwaitPendingInterceptors(
-                TService service,
+            async ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> AwaitPendingInterceptors(
+                ActivatedService<TService> service,
                 CompactList<Task<IDisposable>> pendingInterceptors,
                 CompactList<IDisposable?> interceptDisposables)
             {
@@ -718,7 +718,7 @@ namespace SciTech.Rpc.Server.Internal
 
                 if (pendingInterceptors.IsEmpty)
                 {
-                    return new ValueTask<(TService, CompactList<IDisposable?>)>((service, interceptDisposables));
+                    return new ValueTask<(ActivatedService<TService>, CompactList<IDisposable?>)>((service, interceptDisposables));
                 }
 
                 return AwaitPendingInterceptors(service, pendingInterceptors, interceptDisposables);
@@ -736,22 +736,30 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private void EndCall(CompactList<IDisposable?> interceptDisposables)
+        private void EndCall(in ActivatedService<TService> activatedService, CompactList<IDisposable?> interceptDisposables)
         {
+            if( activatedService.ShouldDispose)
+            {
+                (activatedService.Service as IDisposable)?.Dispose();
+            }
+
             for (int index = interceptDisposables.Count - 1; index >= 0; index--)
             {
                 try { interceptDisposables[index]?.Dispose(); } catch { /* TODO: Log? */ }
             }
         }
 
-        private TService GetServiceImpl(IServiceProvider? serviceProvider, RpcObjectId objectId)
+        private ActivatedService<TService> GetServiceImpl(IServiceProvider? serviceProvider, RpcObjectId objectId)
         {
-            if (this.serviceImplProvider.GetServiceImpl<TService>(serviceProvider, objectId) is TService service)
-            {
-                return service;
+            var activatedService = this.serviceImplProvider.GetActivatedService<TService>(serviceProvider, objectId);
+            if( activatedService != null )
+            { 
+                return activatedService.Value;
             }
 
-            throw new RpcServiceUnavailableException($"Service object '{objectId}' ({typeof(TService).Name}) not available.");
+            throw new RpcServiceUnavailableException(objectId != RpcObjectId.Empty 
+                ? $"Service object '{objectId}' ({typeof(TService).Name}) not available." 
+                : $"Singleton service '{typeof(TService).Name}' not available.");
         }
 
         private RpcError? HandleRpcError(Exception e, RpcServerFaultHandler? declaredFaultHandler, IRpcSerializer serializer)
@@ -797,7 +805,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 else
                 {
-                    // TODO: Log and/or call unhandled exception handler. This is an unexepected error that may be serious and 
+                    // TODO: Log and/or call unhandled exception handler. This is an unexpected error that may be serious and 
                     // should cause the server to shutdown.
                     // Note, in case the server is shutdown, it would be very good if the response is sent to the client first (add 
                     // suitable tests).

@@ -232,7 +232,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>(MockBehavior.Strict);
-            serviceImplProviderMock.Setup(p => p.GetServiceImpl<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(serviceImpl);
+            serviceImplProviderMock.Setup(p => p.GetActivatedService<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<TService>( serviceImpl,false));
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
             hostMock.Setup(h => h.ServiceImplProvider).Returns(serviceImplProviderMock.Object);

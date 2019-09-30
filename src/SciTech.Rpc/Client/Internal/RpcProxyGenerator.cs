@@ -84,7 +84,7 @@ namespace SciTech.Rpc.Client.Internal
             if (this.moduleBuilder == null)
             {
                 var assemblyName = Guid.NewGuid().ToString();
-                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
+                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.RunAndCollect);
                 this.moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName);
                 this.definedProxyTypes = new Dictionary<string, int>();
             }

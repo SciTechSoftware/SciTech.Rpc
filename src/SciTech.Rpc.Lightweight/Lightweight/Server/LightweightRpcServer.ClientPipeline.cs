@@ -253,7 +253,6 @@ namespace SciTech.Rpc.Lightweight.Server
                         if (messageTask.Status != TaskStatus.RanToCompletion)
                         {
                             var activeScope = scope;
-                            var activeCs = cancellationSource;
                             activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
 
                             // Make sure that the scope and cancellationSource are not disposed until the operation is finished.
@@ -272,7 +271,13 @@ namespace SciTech.Rpc.Lightweight.Server
                     // If it gets here, then a synchronous exception has been thrown,
                     // Let's handle it as if an incomplete task was returned.
                     activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
-                    return this.HandleAsyncOperation(frame, activeOperation, null, Task.FromException(e));
+                    var activeScope = scope;
+
+                    // Make sure that the scope and cancellationSource are not disposed until the operation is finished.
+                    scope = null;
+                    cancellationSource = null;
+
+                    return this.HandleAsyncOperation(frame, activeOperation, activeScope, Task.FromException(e));
                 }
                 finally
                 {

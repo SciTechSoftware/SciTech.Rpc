@@ -140,15 +140,21 @@ namespace SciTech.Rpc.Server
             return this.ServicePublisher.PublishInstance(serviceInstance, takeOwnership);
         }
 
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService) where TService : class
+        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership=false) where TService : class
         {
-            return this.ServicePublisher.PublishSingleton(singletonService);
+            return this.ServicePublisher.PublishSingleton(singletonService, takeOwnership);
         }
 
-        public void PublishSingleton<TService>(Func<TService> singletonFactory) where TService : class
+        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>() where TService : class where TServiceImpl : class, TService
         {
-            throw new NotImplementedException();
+            return this.ServicePublisher.PublishSingleton<TServiceImpl,TService>();
         }
+
+        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<TService> singletonFactory) where TService : class
+            => this.ServicePublisher.PublishSingleton<TService>(singletonFactory);
+
+        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> singletonFactory) where TService : class
+            => this.ServicePublisher.PublishSingleton(singletonFactory);
 
         public async Task ShutdownAsync()
         {
@@ -201,7 +207,7 @@ namespace SciTech.Rpc.Server
         }
 
         /// <summary>
-        /// Starts this RPC server. Will generated service stubs and start listening on the configured endpoints.
+        /// Starts this RPC server. Will generate service stubs and start listening on the configured endpoints.
         /// </summary>
         public void Start()
         {

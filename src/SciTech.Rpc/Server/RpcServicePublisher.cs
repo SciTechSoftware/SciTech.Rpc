@@ -9,6 +9,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -37,6 +38,7 @@ namespace SciTech.Rpc.Server
     /// </summary>
     public interface IRpcServicePublisher
     {
+
         RpcServerConnectionInfo? ConnectionInfo { get; }
 
         RpcServerId ServerId { get; }
@@ -53,9 +55,19 @@ namespace SciTech.Rpc.Server
         /// <typeparam name="TService">The type of the published instance.</typeparam>
         /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>
         /// with the help of the provided <see cref="IServiceProvider"/>.</param>
-        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instannce. The scoped object will unpublish 
+        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
         ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider, RpcObjectId, TService> factory) where TService : class;
+
+        /// <summary>
+        /// Publishes an RPC service instance using an instance factory.
+        /// </summary>
+        /// <typeparam name="TService">The type of the published instance.</typeparam>
+        /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>. If the created
+        /// instance implements <see cref="IDisposable"/> the instance will be disposed when the RPC call has finished.
+        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
+        /// the service instance when disposed.</returns>
+        ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<RpcObjectId, TService> factory) where TService : class;
 
         /// <summary>
         /// Publishes an RPC service instance.
@@ -63,7 +75,7 @@ namespace SciTech.Rpc.Server
         /// <typeparam name="TService"></typeparam>
         /// <param name="serviceInstance">The </param>
         /// <param name="takeOwnership"><c>true</c> to indicate that the instance should be disposed when unpublished.</param>
-        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instannce. The scoped object will unpublish 
+        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
         ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false) where TService : class;
 
@@ -83,6 +95,9 @@ namespace SciTech.Rpc.Server
             where TServiceImpl : class, TService;
 
         ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> factory)
+            where TService : class;
+
+        ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<TService> factory)
             where TService : class;
 
         ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class;
@@ -110,20 +125,22 @@ namespace SciTech.Rpc.Server
 
         // TODO: Unpublish methods should probably be removed, unpublish by disposing returned Rpc...Ref
         void UnpublishSingleton<TService>() where TService : class;
+
     }
 
-
-    public class RpcServicePublisherOptions
-    {
-        public RpcServerId ServerId { get; set; }
-    }
-
+    /// <summary>
+    /// Default implementation of <see cref="IRpcServicePublisher"/>. 
+    /// </summary>
     public sealed class RpcServicePublisher : IRpcServicePublisher, IRpcServiceActivator
     {
+
         private readonly Dictionary<RpcObjectId, IReadOnlyList<string>> idToPublishedServices = new Dictionary<RpcObjectId, IReadOnlyList<string>>();
 
-        private readonly Dictionary<ServiceImplKey, Func<IServiceProvider, RpcObjectId, object>> idToServiceFactory
-            = new Dictionary<ServiceImplKey, Func<IServiceProvider, RpcObjectId, object>>();
+        /// <summary>
+        /// Value is Func<IServiceProvider, RpcObjectId, TService> or Func<RpcObjectId, TService>.
+        /// </summary>
+        private readonly Dictionary<ServiceImplKey, Delegate> idToServiceFactory
+            = new Dictionary<ServiceImplKey, Delegate>();
 
         private readonly Dictionary<ServiceImplKey, InstanceKey> idToServiceImpl = new Dictionary<ServiceImplKey, InstanceKey>();
 
@@ -131,8 +148,10 @@ namespace SciTech.Rpc.Server
 
         private readonly object syncRoot = new object();
 
-        private readonly Dictionary<Type, Func<IServiceProvider, object>> typeToSingletonServiceFactory
-            = new Dictionary<Type, Func<IServiceProvider, object>>();
+        /// <summary>
+        /// Value is Func<IServiceProvider, TService> or Func<TService>.
+        /// </summary>
+        private readonly Dictionary<Type, Delegate> typeToSingletonServiceFactory = new Dictionary<Type, Delegate>();
 
         private RpcServerConnectionInfo? connectionInfo;
 
@@ -145,7 +164,7 @@ namespace SciTech.Rpc.Server
             this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
             this.serverId = serverId;
         }
-        
+
 
         public RpcServicePublisher(RpcServerConnectionInfo connectionInfo, IRpcServiceDefinitionsProvider serviceDefinitionsProvider)
         {
@@ -204,6 +223,8 @@ namespace SciTech.Rpc.Server
             var allServices = RpcBuilderUtil.GetAllServices(serviceInstance.GetType(), true);
             this.TryRegisterServiceDefinitions(allServices);
 
+            var connectionInfo = this.RetrieveConnectionInfo();
+
             lock (this.syncRoot)
             {
                 // Let's try again.
@@ -215,20 +236,22 @@ namespace SciTech.Rpc.Server
                 }
 
                 var objectId = RpcObjectId.NewId();
-                var newPublishedServices = this.PublishServiceInstanceCore(allServices, serviceInstance, objectId, true);
-                return new RpcObjectRef<TService>(this.connectionInfo, objectId, newPublishedServices.ToArray());
+                var newPublishedServices = this.PublishServiceInstanceCore_Locked(allServices, serviceInstance, objectId, true);
+                return new RpcObjectRef<TService>(connectionInfo, objectId, newPublishedServices.ToArray());
             }
         }
 
         public RpcObjectRef<TService>? GetPublishedInstance<TService>(TService serviceInstance) where TService : class
         {
+            var connectionInfo = this.RetrieveConnectionInfo();
+
             lock (this.syncRoot)
             {
                 var key = new InstanceKey(serviceInstance, false);
                 if (this.serviceImplToId.TryGetValue(key, out var objectId))
                 {
                     this.idToPublishedServices.TryGetValue(objectId, out var publishedServices);
-                    return new RpcObjectRef<TService>(this.RetrieveConnectionInfo(), objectId, publishedServices.ToArray());
+                    return new RpcObjectRef<TService>(connectionInfo, objectId, publishedServices.ToArray());
                 }
             }
 
@@ -282,17 +305,53 @@ namespace SciTech.Rpc.Server
 
         public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider, RpcObjectId, TService> factory) where TService : class
         {
-            var allServices = RpcBuilderUtil.GetAllServices(typeof(TService), true);
+            var allServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Server, true);
             this.TryRegisterServiceDefinitions(allServices);
+
+            var connectionInfo = this.RetrieveConnectionInfo();
+
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
+            {
+                if (services == null)
+                {
+                    throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
+                }
+
+                return new ActivatedService<TService>(factory(services, objectId), false);
+            }
 
             lock (this.syncRoot)
             {
                 RpcObjectId objectId = RpcObjectId.NewId();
 
-                var publishedServices = this.PublishInstanceFactoryCore(allServices, objectId, factory);
+                var publishedServices = this.PublishInstanceFactoryCore_Locked(allServices, objectId, CreateActivatedService);
 
                 return new ScopedObject<RpcObjectRef<TService>>(new RpcObjectRef<TService>(
-                    this.RetrieveConnectionInfo(), objectId, publishedServices.ToArray()), () => this.UnpublishServiceInstance(objectId));
+                    connectionInfo, objectId, publishedServices.ToArray()), () => this.UnpublishServiceInstance(objectId));
+
+            }
+        }
+
+        public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<RpcObjectId, TService> factory) where TService : class
+        {
+            var allServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Server, true);
+            this.TryRegisterServiceDefinitions(allServices);
+
+            var connectionInfo = this.RetrieveConnectionInfo();
+
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
+            {
+                return new ActivatedService<TService>(factory(objectId), true);
+            }
+
+            lock (this.syncRoot)
+            {
+                RpcObjectId objectId = RpcObjectId.NewId();
+
+                var publishedServices = this.PublishInstanceFactoryCore_Locked(allServices, objectId, CreateActivatedService);
+
+                return new ScopedObject<RpcObjectRef<TService>>(new RpcObjectRef<TService>(
+                    connectionInfo, objectId, publishedServices.ToArray()), () => this.UnpublishServiceInstance(objectId));
 
             }
         }
@@ -302,12 +361,13 @@ namespace SciTech.Rpc.Server
         {
             if (serviceInstance is null) throw new ArgumentNullException(nameof(serviceInstance));
 
+            var connectionInfo = this.RetrieveConnectionInfo();
             lock (this.syncRoot)
             {
                 var serviceInstanceId = RpcObjectId.NewId();
 
                 var allServices = RpcBuilderUtil.GetAllServices(serviceInstance.GetType(), true);
-                var publishedServices = this.PublishServiceInstanceCore(allServices, serviceInstance, serviceInstanceId, false);
+                var publishedServices = this.PublishServiceInstanceCore_Locked(allServices, serviceInstance, serviceInstanceId, false);
 
                 Action disposeAction;
                 if (takeOwnership && serviceInstance is IDisposable disposableService)
@@ -324,7 +384,7 @@ namespace SciTech.Rpc.Server
                 }
 
                 return new ScopedObject<RpcObjectRef<TService>>(new RpcObjectRef<TService>(
-                    this.RetrieveConnectionInfo(), serviceInstanceId, publishedServices.ToArray()), disposeAction);
+                    connectionInfo, serviceInstanceId, publishedServices.ToArray()), disposeAction);
             }
         }
 
@@ -332,25 +392,41 @@ namespace SciTech.Rpc.Server
             where TServiceImpl : class, TService
             where TService : class
         {
-            // TODO: Should use ObjectFactory if s.GetService cannot resolve TServiceImpl.
-            return PublishSingleton<TService>(s => (TService)s.GetService(typeof(TServiceImpl)));
+            this.PublishSingletonFactoryCore<TServiceImpl, TService>(ServiceActivator<TServiceImpl, TService>.CreateActivatedService);
+
+            return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
+                this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
         }
+
 
         public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> factory)
             where TService : class
         {
-            var rpcServiceType = RpcBuilderUtil.GetServiceInfoFromType(typeof(TService));
-            var rpcTypesList = new RpcServiceInfo[] { rpcServiceType };
-            this.TryRegisterServiceDefinitions(rpcTypesList);
-
-            lock (this.syncRoot)
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
             {
-                this.PublishSingletonFactoryCore(rpcTypesList, factory);
+                if (services == null)
+                {
+                    throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
+                }
 
-                return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
-                    this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
-
+                return new ActivatedService<TService>(factory(services), false);
             }
+
+            this.PublishSingletonFactoryCore<TService, TService>(CreateActivatedService);
+
+            return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
+                this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
+        }
+
+        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<TService> factory)
+            where TService : class
+        {
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? _) => new ActivatedService<TService>(factory(), true);
+
+            this.PublishSingletonFactoryCore<TService, TService>(CreateActivatedService);
+
+            return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
+                this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
         }
 
         public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class
@@ -359,12 +435,14 @@ namespace SciTech.Rpc.Server
             var rpcTypesList = new RpcServiceInfo[] { rpcServiceType };
             this.TryRegisterServiceDefinitions(rpcTypesList);
 
+            var connectionInfo = this.RetrieveConnectionInfo();
             lock (this.syncRoot)
             {
-                this.PublishServiceInstanceCore(rpcTypesList, singletonService, RpcObjectId.Empty, false);
-                return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
-                    this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
+                this.PublishServiceInstanceCore_Locked(rpcTypesList, singletonService, RpcObjectId.Empty, false);
 
+
+                return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
+                    connectionInfo), () => this.UnpublishSingleton<TService>());
             }
         }
 
@@ -461,40 +539,28 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        TService? IRpcServiceActivator.GetServiceImpl<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
+        ActivatedService<TService>? IRpcServiceActivator.GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
         {
             var key = new ServiceImplKey(id, typeof(TService));
             lock (this.syncRoot)
             {
                 if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
                 {
-                    return service;
+                    return new ActivatedService<TService>(service, false);
                 }
 
                 if (id != RpcObjectId.Empty)
                 {
                     if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
                     {
-                        if (serviceProvider == null)
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)serviceFactory(serviceProvider, id);
+                        return ((Func<IServiceProvider?, RpcObjectId, ActivatedService<TService>>)serviceFactory)(serviceProvider, id);
                     }
                 }
                 else
                 {
                     if (this.typeToSingletonServiceFactory.TryGetValue(typeof(TService), out var singletonfactory))
                     {
-                        if (serviceProvider == null)
-                        {
-                            // TODO: At least log, maybe throw?
-                            return null;
-                        }
-
-                        return (TService)singletonfactory(serviceProvider);
+                        return ((Func<IServiceProvider?, ActivatedService<TService>>)singletonfactory)(serviceProvider);
                     }
                 }
             }
@@ -510,7 +576,8 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        private IReadOnlyCollection<string> PublishInstanceFactoryCore(IReadOnlyList<RpcServiceInfo> allServices, RpcObjectId objectId, Func<IServiceProvider, RpcObjectId, object> factory)
+        private IReadOnlyCollection<string> PublishInstanceFactoryCore_Locked<TService>(IReadOnlyList<RpcServiceInfo> allServices, RpcObjectId objectId, Func<IServiceProvider, RpcObjectId, ActivatedService<TService>> factory)
+            where TService : class
         {
             string[] implementedServices = this.VerifyPublishedServices(allServices);
 
@@ -524,7 +591,7 @@ namespace SciTech.Rpc.Server
             return implementedServices;
         }
 
-        private IReadOnlyCollection<string> PublishServiceInstanceCore(IReadOnlyList<RpcServiceInfo> allServices, object serviceInstance, RpcObjectId serviceInstanceId, bool isWeak)
+        private IReadOnlyCollection<string> PublishServiceInstanceCore_Locked(IReadOnlyList<RpcServiceInfo> allServices, object serviceInstance, RpcObjectId serviceInstanceId, bool isWeak)
         {
             var key = new InstanceKey(serviceInstance, isWeak);
             if (this.serviceImplToId.ContainsKey(key))
@@ -570,13 +637,24 @@ namespace SciTech.Rpc.Server
             return implementedServices;
         }
 
-        private IReadOnlyCollection<string> PublishSingletonFactoryCore(IReadOnlyList<RpcServiceInfo> allServices, Func<IServiceProvider, object> factory)
+        private IReadOnlyCollection<string> PublishSingletonFactoryCore<TServiceImpl, TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
+            where TService : class
+            where TServiceImpl : class, TService
         {
+            // Getting the ServiceInfo validated that TService is actually an RPC service interface.
+            RpcBuilderUtil.GetServiceInfoFromType(typeof(TService));
+
+            var allServices = RpcBuilderUtil.GetAllServices(typeof(TServiceImpl), RpcServiceDefinitionSide.Server, true);
+            this.TryRegisterServiceDefinitions(allServices);
+
             string[] implementedServices = this.VerifyPublishedServices(allServices);
 
-            foreach (var serviceInfo in allServices)
+            lock (this.syncRoot)
             {
-                this.typeToSingletonServiceFactory.Add(serviceInfo.Type, factory);
+                foreach (var serviceInfo in allServices)
+                {
+                    this.typeToSingletonServiceFactory.Add(serviceInfo.Type, factory);
+                }
             }
 
             Array.Sort(implementedServices);
@@ -626,6 +704,7 @@ namespace SciTech.Rpc.Server
 
         private struct ServiceImplKey : IEquatable<ServiceImplKey>
         {
+
             private readonly RpcObjectId objectId;
 
             private readonly Type serviceType;
@@ -660,10 +739,12 @@ namespace SciTech.Rpc.Server
                     return hashCode;
                 }
             }
+
         }
 
         private sealed class InstanceKey : IEquatable<InstanceKey>
         {
+
             private int hashCode;
 
             private object instance;
@@ -704,11 +785,47 @@ namespace SciTech.Rpc.Server
 
                 return this.instance;
             }
+
         }
+
+        private sealed class ServiceActivator<TServiceImpl, TService>
+            where TServiceImpl : class, TService
+            where TService : class
+        {
+
+            private static readonly Lazy<ObjectFactory> Factory = new Lazy<ObjectFactory>(()=>ActivatorUtilities.CreateFactory(typeof(TServiceImpl), Type.EmptyTypes));
+
+            internal static ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
+            {
+                if (services == null)
+                {
+                    throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
+                }
+
+                TService service = services.GetService<TServiceImpl>();
+                if (service != null)
+                {
+                    return new ActivatedService<TService>(service, false);
+                }
+
+                service = (TService)Factory.Value(services, Array.Empty<object>());
+                return new ActivatedService<TService>(service, true);
+            }
+        }
+
+    }
+
+
+    public class RpcServicePublisherOptions
+    {
+
+        public RpcServerId ServerId { get; set; }
+
     }
 
     public static class ServicePublisherExtensions
     {
+
         public static IList<RpcObjectRef<TService>?> GetPublishedServiceInstances<TService>(this IRpcServicePublisher servicePublisher,
             IReadOnlyList<TService> serviceInstances, bool allowUnpublished) where TService : class
         {
@@ -757,5 +874,6 @@ namespace SciTech.Rpc.Server
 
             return publisher.PublishSingleton<TService, TService>();
         }
+
     }
 }

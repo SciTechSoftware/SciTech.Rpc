@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         protected LightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            ImmutableRpcClientOptions? options,
+            IRpcClientOptions? options,
             IRpcProxyDefinitionsProvider? definitionsProvider,
             LightweightOptions? lightweightOptions)
             : this(connectionInfo, options, LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider), lightweightOptions)
@@ -42,7 +42,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private protected LightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            ImmutableRpcClientOptions? options,
+            IRpcClientOptions? options,
             LightweightProxyGenerator proxyGenerator,
             LightweightOptions? lightweightOptions)
             : base(connectionInfo, options, proxyGenerator)

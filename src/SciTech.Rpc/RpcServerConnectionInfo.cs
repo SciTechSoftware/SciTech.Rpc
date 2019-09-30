@@ -15,7 +15,8 @@ using System.Runtime.Serialization;
 namespace SciTech.Rpc
 {
     /// <summary>
-    /// The RpcServerId struct is used to identify a server process.
+    /// The RpcServerId struct is used to identify a logical RPC server. The logical RPC server may be a single server process, 
+    /// or a set of load-balanced servers.
     /// </summary>
     [DataContract]
     [Serializable]

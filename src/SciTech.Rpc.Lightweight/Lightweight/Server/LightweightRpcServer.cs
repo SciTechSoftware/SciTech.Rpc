@@ -49,9 +49,10 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
 
-        public LightweightRpcServer(IRpcServiceDefinitionsProvider definitionsProvider,
-            IServiceProvider? serviceProvider,
-            RpcServerOptions options,
+        public LightweightRpcServer(
+            IRpcServiceDefinitionsProvider? definitionsProvider=null,
+            IServiceProvider? serviceProvider = null,
+            RpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
             : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options, lightweightOptions)
         {
@@ -61,8 +62,11 @@ namespace SciTech.Rpc.Lightweight.Server
         /// 
         /// </summary>
         /// <param name="servicePublisher"></param>
-        public LightweightRpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider, RpcServerOptions options,
-             LightweightOptions? lightweightOptions = null)
+        public LightweightRpcServer(
+            RpcServicePublisher servicePublisher, 
+            IServiceProvider? serviceProvider, 
+            RpcServerOptions? options,
+            LightweightOptions? lightweightOptions = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
                   servicePublisher.DefinitionsProvider, serviceProvider, options, lightweightOptions)
@@ -70,19 +74,26 @@ namespace SciTech.Rpc.Lightweight.Server
         }
 
         public LightweightRpcServer(
-            RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider,
-            RpcServerOptions options, LightweightOptions? lightweightOptions = null)
-            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options, lightweightOptions)
+            RpcServerId serverId,
+            IRpcServiceDefinitionsProvider? definitionsProvider = null,
+            IServiceProvider? serviceProvider = null,
+            RpcServerOptions? options = null,
+            LightweightOptions? lightweightOptions = null)
+            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionBuilder(options), serverId), 
+                  serviceProvider, options, lightweightOptions)
         {
         }
 
         /// <summary>
-        /// Only intended for testing.
+        /// Internal to allow testing.
         /// </summary>
         internal LightweightRpcServer(
-            IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
-            IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider,
-            RpcServerOptions options, LightweightOptions? lightweightOptions = null)
+            IRpcServicePublisher servicePublisher,
+            IRpcServiceActivator serviceImplProvider,
+            IRpcServiceDefinitionsProvider definitionsProvider,
+            IServiceProvider? serviceProvider,
+            RpcServerOptions? options,
+            LightweightOptions? lightweightOptions = null)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;

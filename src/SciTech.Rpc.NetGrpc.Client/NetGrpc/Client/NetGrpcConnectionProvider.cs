@@ -10,7 +10,7 @@ namespace SciTech.Rpc.NetGrpc.Client
 
         public const string GrpcScheme = "grpc";
 
-        private readonly GrpcProxyGenerator proxyGenerator;
+        private readonly IRpcProxyDefinitionsProvider? definitionsProvider;
 
         private GrpcNet.Client.GrpcChannelOptions? channelOptions;
 
@@ -23,7 +23,7 @@ namespace SciTech.Rpc.NetGrpc.Client
         {
             this.channelOptions = channelOptions;
             this.options = options;
-            this.proxyGenerator = GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider);
+            this.definitionsProvider = definitionsProvider;
         }
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
@@ -31,11 +31,14 @@ namespace SciTech.Rpc.NetGrpc.Client
             return connectionInfo?.HostUrl?.Scheme == GrpcScheme;
         }
 
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options)
+        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
         {
             if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
             {
-                return new NetGrpcServerConnection(connectionInfo, ImmutableRpcClientOptions.Combine(this.options, options), this.proxyGenerator, this.channelOptions);
+                var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
+                var proxyGenerator = GrpcProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
+
+                return new NetGrpcServerConnection(connectionInfo, ImmutableRpcClientOptions.Combine(this.options, options), proxyGenerator, this.channelOptions);
             }
 
             throw new ArgumentException("Unsupported connection info. Use CanCreateConnection to check whether a connection can be created.");

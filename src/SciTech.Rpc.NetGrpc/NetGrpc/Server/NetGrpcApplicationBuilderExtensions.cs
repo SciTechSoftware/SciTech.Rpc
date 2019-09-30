@@ -39,7 +39,7 @@ namespace SciTech.Rpc.NetGrpc.Server
         }
 
         /// <summary>
-        /// Publishes a singleton service that will be contructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
+        /// Publishes a singleton service that will be constructed by the <see cref="IServiceProvider"/> associated with the RPC operation.
         /// </summary>
         /// <typeparam name="TServiceImpl">The type implementing the RPC service.</typeparam>
         /// <typeparam name="TService">The interface type defining the RPC service.</typeparam>

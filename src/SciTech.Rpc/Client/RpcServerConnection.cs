@@ -43,12 +43,12 @@ namespace SciTech.Rpc.Client
 
         protected RpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
-            ImmutableRpcClientOptions? options,
+            IRpcClientOptions? options,
             IRpcProxyGenerator proxyGenerator)
         {
             this.ConnectionInfo = connectionInfo;
             this.proxyGenerator = proxyGenerator;
-            this.Options = options ?? ImmutableRpcClientOptions.Empty;
+            this.Options = options?.AsImmutable() ?? ImmutableRpcClientOptions.Empty;
         }
 
         public event EventHandler? Connected;

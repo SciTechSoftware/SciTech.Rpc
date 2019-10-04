@@ -15,6 +15,7 @@ using Microsoft.Extensions.Options;
 using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
@@ -115,12 +116,7 @@ namespace SciTech.Rpc.Grpc.Server
             }
         }
 
-        internal Task<RpcServicesQueryResponse> QueryServices(RpcObjectRequest request, GrpcCore.ServerCallContext context)
-        {
-            return Task.FromResult(this.QueryServices(request.Id));
-        }
-
-        protected override void AddEndPoint(IRpcServerEndPoint endPoint)
+        public override void AddEndPoint(IRpcServerEndPoint endPoint)
         {
             if (endPoint is GrpcServerEndPoint grpcEndPoint)
             {
@@ -130,6 +126,11 @@ namespace SciTech.Rpc.Grpc.Server
             {
                 throw new ArgumentException($"End point must implement {nameof(GrpcServerEndPoint)}.");
             }
+        }
+
+        internal Task<RpcServicesQueryResponse> QueryServices(RpcObjectRequest request, GrpcCore.ServerCallContext context)
+        {
+            return Task.FromResult(this.QueryServices(request.Id));
         }
 
         protected override void BuildServiceStub(Type serviceType)
@@ -166,10 +167,10 @@ namespace SciTech.Rpc.Grpc.Server
 
         protected override IRpcSerializer CreateDefaultSerializer()
         {
-            return new ProtobufSerializer();
+            return new ProtobufRpcSerializer();
         }
 
-        protected async override Task ShutdownCoreAsync()
+        protected override async Task ShutdownCoreAsync()
         {
             GrpcCore.Server? grpcServer;
             lock (this.syncRoot)
@@ -202,7 +203,7 @@ namespace SciTech.Rpc.Grpc.Server
         private IGrpcServiceStubBuilder CreateServiceStubBuilder<TService>() where TService : class
         {
             IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
-            
+
             return new GrpcServiceStubBuilder<TService>(options?.Value);
         }
     }

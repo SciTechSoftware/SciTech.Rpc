@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Tests;
 using System;
 
@@ -9,7 +10,7 @@ namespace SciTech.Rpc.Tests.NetGrpc
     public class NetGrpcClientServerTests : ClientServerBaseTests
     {
         protected static readonly object[] DefaultGrpcClientHostFixtureArgs = {
-            new object[] { new ProtobufSerializer(), RpcConnectionType.NetGrpc}
+            new object[] { new ProtobufRpcSerializer(), RpcConnectionType.NetGrpc}
         };
 
         public NetGrpcClientServerTests(IRpcSerializer serializer, RpcConnectionType connectionType) :

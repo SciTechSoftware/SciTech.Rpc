@@ -9,15 +9,14 @@
 //
 #endregion
 
-using SciTech.IO;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -76,6 +75,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         where TRequest : class
         where TResponse : class
     {
+        private readonly IRpcSerializer<TRequest> requestSerializer;
+
+        private readonly IRpcSerializer<TResponse> responseSerializer;
+
         /// <summary>
         /// Creates a method stub that will handle streaming requests.
         /// </summary>
@@ -88,6 +91,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             : base(fullName, serializer, faultHandler)
         {
             this.StreamHandler = streamHandler;
+            this.requestSerializer = this.Serializer.CreateTyped<TRequest>();
+            this.responseSerializer = this.Serializer.CreateTyped<TResponse>();
         }
 
         /// <summary>
@@ -104,6 +109,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             this.Handler = handler;
             this.AllowInlineExecution = allowInlineExecution;
+
+            this.requestSerializer = this.Serializer.CreateTyped<TRequest>();
+            this.responseSerializer = this.Serializer.CreateTyped<TResponse>();
         }
 
         public override Type RequestType => typeof(TRequest);
@@ -129,12 +137,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Unary request handler is not initialized for '{frame.RpcOperation}'.");
             }
 
-            TRequest request;
-            using (var requestStream = frame.Payload.AsStream())
-            {
-                request = this.Serializer.FromStream<TRequest>(requestStream);
-            }
-
+            TRequest request = this.requestSerializer.Deserialize(frame.Payload);
 
             Task ExecuteOperation(
                 RpcPipeline pipeline, TRequest request, int messageNumber, string operation,
@@ -175,14 +178,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public override Task HandleStreamingMessage(RpcPipeline pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
-            TRequest request;
-            using (var requestStream = frame.Payload.AsStream())
-            {
-                request = this.Serializer.FromStream<TRequest>(requestStream);
-            }
+            TRequest request = this.requestSerializer.Deserialize(frame.Payload);
 
-            var responseWriter = new StreamingResponseWriter<TResponse>(pipeline, this.Serializer, frame.MessageNumber, frame.RpcOperation);
-
+            var responseWriter = new StreamingResponseWriter<TResponse>(pipeline, this.responseSerializer, frame.MessageNumber, frame.RpcOperation);
 
             if (this.StreamHandler == null)
             {
@@ -206,12 +204,12 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 var responseStreamTask = pipeline.TryBeginWriteAsync(responseHeader);
                 if (responseStreamTask.IsCompletedSuccessfully)
                 {
-                    if (responseStreamTask.Result is Stream responseStream)
+                    if (responseStreamTask.Result is BufferWriterStream responseStream)
                     {
                         // Perfect, everything is synchronous.
                         try
                         {
-                            this.Serializer.ToStream(responseStream, response);
+                            this.responseSerializer.Serialize(responseStream, response);
                         }
                         catch
                         {
@@ -232,7 +230,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         var responseStream = await responseStreamTask.ContextFree();
                         try
                         {
-                            this.Serializer.ToStream(responseStream, response);
+                            this.responseSerializer.Serialize(responseStream, response);
                         }
                         catch
                         {
@@ -260,7 +258,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     {
                         try
                         {
-                            this.Serializer.ToStream(responseStream, response);
+                            this.responseSerializer.Serialize(responseStream, response);
                         }
                         catch
                         {
@@ -280,17 +278,17 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             //try
             //{
-                await responseTask.ContextFree();
-                await responseWriter.EndAsync().ContextFree();
-//            }
-//#pragma warning disable CA1031 // Do not catch general exception types
-//            catch (Exception x)
-//            {
-//                HandleResponse
-//                throw new NotImplementedException();
+            await responseTask.ContextFree();
+            await responseWriter.EndAsync().ContextFree();
+            //            }
+            //#pragma warning disable CA1031 // Do not catch general exception types
+            //            catch (Exception x)
+            //            {
+            //                HandleResponse
+            //                throw new NotImplementedException();
 
-//            }
-//#pragma warning restore CA1031 // Do not catch general exception types
+            //            }
+            //#pragma warning restore CA1031 // Do not catch general exception types
 
         }
     }

@@ -13,14 +13,13 @@
 //
 #endregion
 
-using SciTech.IO;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Logging;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Threading;
@@ -64,13 +63,13 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             string operation,
             IReadOnlyCollection<KeyValuePair<string, string>>? headers,
             TRequest request,
-            IRpcSerializer serializer,
+            LightweightSerializers<TRequest, TResponse> serializers,
             int callTimeout,
             CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class
         {
-            var streamingCall = new AsyncStreamingServerCall<TResponse>(serializer);
+            var streamingCall = new AsyncStreamingServerCall<TResponse>(serializers.ResponseSerializer);
             int messageId = this.AddAwaitingResponse(streamingCall);
 
             try
@@ -85,13 +84,13 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 if (callTimeout > 0 && !RpcProxyOptions.RoundTripCancellationsAndTimeouts)
                 {
                     Task.Delay(callTimeout)
-                        .ContinueWith(t => this.TimeoutCall(messageId, operation, callTimeout),cancellationToken, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default).Forget();
+                        .ContinueWith(t => this.TimeoutCall(messageId, operation, callTimeout), cancellationToken, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default).Forget();
                 }
 
                 var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)callTimeout, headers);
 
                 var payloadStream = await this.BeginWriteAsync(frame).ContextFree();
-                WriteRequest(request, serializer, payloadStream);
+                this.WriteRequest(request, serializers.RequestSerializer, payloadStream);
 
                 return streamingCall;
             }
@@ -121,18 +120,19 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             string operation,
             IReadOnlyCollection<KeyValuePair<string, string>>? headers,
             TRequest request,
-            IRpcSerializer serializer,
+            IRpcSerializer<TRequest> requestSerializer,
+            IRpcSerializer<TResponse> responseSerializer,
             CancellationToken cancellationToken)
             where TRequest : class
         {
             Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
 
-            async Task<TResponse> Awaited(int messageId, ValueTask<Stream> pendingWriteTask, Task<TResponse> response)
+            async Task<TResponse> Awaited(int messageId, ValueTask<BufferWriterStream> pendingWriteTask, Task<TResponse> response)
             {
                 try
                 {
                     Logger.Trace("Awaiting writer for '{Operation}'.", operation);
-                    this.WriteRequest(request, serializer, await pendingWriteTask.ContextFree());
+                    this.WriteRequest(request, requestSerializer, await pendingWriteTask.ContextFree());
 
                     var awaitedResponse = await response.ContextFree();
                     Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
@@ -145,7 +145,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 }
             }
 
-            var tcs = new ResponseCompletionSource<TResponse>(serializer);
+            var tcs = new ResponseCompletionSource<TResponse>(responseSerializer);
             int messageId = this.AddAwaitingResponse(tcs);
             try
             {
@@ -164,7 +164,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
                 if (writeTask.IsCompletedSuccessfully)
                 {
-                    this.WriteRequest(request, serializer, writeTask.Result);
+                    this.WriteRequest(request, requestSerializer, writeTask.Result);
 
                     if (Logger.IsTraceEnabled())
                     {
@@ -201,19 +201,19 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
-        public async Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
+        internal async Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
             RpcFrameType frameType,
             string operation,
             IReadOnlyCollection<KeyValuePair<string, string>>? headers,
             TRequest request,
-            IRpcSerializer serializer,
+            LightweightSerializers<TRequest, TResponse> serializers,
             int timeout,
             CancellationToken cancellationToken)
             where TRequest : class
         {
             Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
 
-            var tcs = new ResponseCompletionSource<TResponse>(serializer);
+            var tcs = new ResponseCompletionSource<TResponse>(serializers.ResponseSerializer);
             int messageId = this.AddAwaitingResponse(tcs);
             try
             {
@@ -228,7 +228,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)timeout, headers);
 
                 var requestStream = await this.BeginWriteAsync(frame).ContextFree();
-                await this.WriteRequestAsync(request, serializer, requestStream).ContextFree();
+                await this.WriteRequestAsync(request, serializers.RequestSerializer, requestStream).ContextFree();
 
                 if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
                 {
@@ -394,23 +394,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
         }
 
-        private void TimeoutCall(int messageId, string operation, int timeout)
-        {
-            IResponseHandler? responseHandler;
-            lock (this.awaitingResponses)
-            {
-                if (this.awaitingResponses.TryGetValue(messageId, out responseHandler))
-                {
-                    this.awaitingResponses.Remove(messageId);
-                }
-            }
-
-            if (responseHandler != null)
-            {
-                responseHandler.HandleError(new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).") );
-            }
-        }
-
         private void HandleCallError(int messageId, Exception e)
         {
             IResponseHandler? responseHandler;
@@ -425,11 +408,28 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             responseHandler?.HandleError(e);
         }
 
-        private void WriteRequest<TRequest>(TRequest request, IRpcSerializer serializer, Stream payloadStream) where TRequest : class
+        private void TimeoutCall(int messageId, string operation, int timeout)
+        {
+            IResponseHandler? responseHandler;
+            lock (this.awaitingResponses)
+            {
+                if (this.awaitingResponses.TryGetValue(messageId, out responseHandler))
+                {
+                    this.awaitingResponses.Remove(messageId);
+                }
+            }
+
+            if (responseHandler != null)
+            {
+                responseHandler.HandleError(new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms)."));
+            }
+        }
+
+        private void WriteRequest<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, BufferWriterStream payloadStream) where TRequest : class
         {
             try
             {
-                serializer.ToStream(payloadStream, request);
+                serializer.Serialize(payloadStream, request);
             }
             catch
             {
@@ -440,11 +440,11 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             this.EndWriteAsync().Forget();
         }
 
-        private async ValueTask WriteRequestAsync<TRequest>(TRequest request, IRpcSerializer serializer, Stream payloadStream) where TRequest : class
+        private async ValueTask WriteRequestAsync<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, BufferWriterStream payloadStream) where TRequest : class
         {
             try
             {
-                serializer.ToStream(payloadStream, request);
+                serializer.Serialize(payloadStream, request);
             }
             catch
             {
@@ -460,7 +460,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         {
             private readonly StreamingResponseStream<TResponse> responseStream;
 
-            private IRpcSerializer serializer;
+            private IRpcSerializer<TResponse> serializer;
 
             /// <summary>
             /// Initializes a new ResponseCompletionSource for handling an RPC call response.
@@ -470,7 +470,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             /// called from the receive loop).
             /// </summary>
             /// <param name="serializer"></param>
-            internal AsyncStreamingServerCall(IRpcSerializer serializer)
+            internal AsyncStreamingServerCall(IRpcSerializer<TResponse> serializer)
             {
                 this.serializer = serializer;
                 this.responseStream = new StreamingResponseStream<TResponse>();
@@ -497,12 +497,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 switch (frame.FrameType)
                 {
                     case RpcFrameType.StreamingResponse:
-                        using (var responsePayloadStream = frame.Payload.AsStream())
-                        {
-                            var response = (TResponse)this.serializer.FromStream(typeof(TResponse), responsePayloadStream);
-
-                            this.responseStream.Enqueue(response);
-                        }
+                        var response = this.serializer.Deserialize(frame.Payload);
+                        this.responseStream.Enqueue(response);
                         return false;
 
                     case RpcFrameType.StreamingEnd:
@@ -525,7 +521,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private sealed class ResponseCompletionSource<TResponse> : TaskCompletionSource<TResponse>, IResponseHandler
         {
-            private IRpcSerializer serializer;
+            private IRpcSerializer<TResponse> serializer;
 
             /// <summary>
             /// Initializes a new ResponseCompletionSource for handling an RPC call response.
@@ -535,10 +531,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             /// called from the receive loop).
             /// </summary>
             /// <param name="serializer"></param>
-            internal ResponseCompletionSource(IRpcSerializer serializer)
+            internal ResponseCompletionSource(IRpcSerializer<TResponse> serializer)
                 : base(TaskCreationOptions.RunContinuationsAsynchronously)
             {
-
                 this.serializer = serializer;
             }
 
@@ -557,12 +552,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 switch (frame.FrameType)
                 {
                     case RpcFrameType.UnaryResponse:
-                        using (var responseStream = frame.Payload.AsStream())
-                        {
-                            var response = (TResponse)this.serializer.FromStream(typeof(TResponse), responseStream);
-
-                            this.TrySetResult(response);
-                        }
+                        var response = this.serializer.Deserialize(frame.Payload);
+                        this.TrySetResult(response);
                         break;
                     case RpcFrameType.TimeoutResponse:
                         // This is not very likely, since the operation should have 

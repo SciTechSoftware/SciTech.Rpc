@@ -6,12 +6,13 @@ using System.Text;
 using System.Threading.Tasks;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Server;
+using SciTech.Rpc.Serialization;
 
 namespace SciTech.Rpc.Tests
 {
     public abstract class TimeoutTests : ClientServerTestsBase
     {
-        protected TimeoutTests(RpcConnectionType connectionType) : base(new ProtobufSerializer(), connectionType)
+        protected TimeoutTests(RpcConnectionType connectionType) : base(new ProtobufRpcSerializer(), connectionType)
         {
 
         }

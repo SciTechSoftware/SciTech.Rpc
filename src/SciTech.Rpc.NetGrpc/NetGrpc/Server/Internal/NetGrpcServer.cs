@@ -12,6 +12,7 @@
 
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -43,15 +44,15 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         {
         }
 
+        public override void AddEndPoint(IRpcServerEndPoint endPoint)
+        {
+            throw new NotSupportedException("End points cannot be added to NetGrpc, use ASP.NET configuration instead.");
+        }
+
         internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request,
             GrpcCore.ServerCallContext callContext)
         {
             return Task.FromResult(server.QueryServices(request.Id));
-        }
-
-        protected override void AddEndPoint(IRpcServerEndPoint endPoint)
-        {
-            throw new NotSupportedException("End points cannot be added to NetGrpc, use ASP.NET configuration instead.");
         }
 
         protected override void BuildServiceStub(Type serviceType)
@@ -72,7 +73,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         protected override IRpcSerializer CreateDefaultSerializer()
         {
-            return new ProtobufSerializer();
+            return new ProtobufRpcSerializer();
         }
 
         protected override Task ShutdownCoreAsync()

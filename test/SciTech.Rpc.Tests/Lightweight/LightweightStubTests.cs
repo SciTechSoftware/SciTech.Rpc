@@ -4,6 +4,7 @@ using SciTech.IO;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -20,7 +21,7 @@ namespace SciTech.Rpc.Tests.Lightweight
     [TestFixture]
     public class LightweightStubTests
     {
-        private static readonly IRpcSerializer DefaultSerializer = new ProtobufSerializer();
+        private static readonly IRpcSerializer DefaultSerializer = new ProtobufRpcSerializer();
 
         [Test]
         public async Task FailUnpublishedServiceProviderStubTest()
@@ -276,7 +277,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             using (var pipeline = new TestPipeline(duplexPipe))
             {
 
-                var payload = new ReadOnlySequence<byte>(DefaultSerializer.ToBytes(request));
+                var payload = new ReadOnlySequence<byte>(DefaultSerializer.Serialize(request));
 
                 var frame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, null, 1, methodStub.OperationName, RpcOperationFlags.None, 0, payload, null);
 
@@ -287,10 +288,7 @@ namespace SciTech.Rpc.Tests.Lightweight
                 bool hasResponseFrame = LightweightRpcFrame.TryRead(ref buffer, 65536, out var responseFrame) == RpcFrameState.Full;
                 Assert.IsTrue(hasResponseFrame);
 
-                using (var responsePayloadStream = responseFrame.Payload.AsStream())
-                {
-                    response = (TResponse)DefaultSerializer.FromStream(typeof(TResponse), responsePayloadStream);
-                }
+                response = (TResponse)DefaultSerializer.Deserialize(responseFrame.Payload, typeof(TResponse));
 
                 return response;
             }

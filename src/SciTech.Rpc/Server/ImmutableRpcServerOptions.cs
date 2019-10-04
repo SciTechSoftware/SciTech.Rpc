@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Immutable;
 using System.Linq;
@@ -17,7 +18,7 @@ namespace SciTech.Rpc.Server
 {
     /// <summary>
     /// Immutable variant of <see cref="RpcServerOptions"/>. Once server options have been 
-    /// assigend to an RPC server or associated with a service they should no longer be modified and
+    /// assigned to an RPC server or associated with a service they should no longer be modified and
     /// will only be accessible through this class.
     /// </summary>
     public class ImmutableRpcServerOptions

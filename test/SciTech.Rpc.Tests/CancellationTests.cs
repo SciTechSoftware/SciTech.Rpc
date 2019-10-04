@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using System;
 using System.Linq;
@@ -31,7 +32,7 @@ namespace SciTech.Rpc.Tests
 
     public abstract class CancellationTests : ClientServerTestsBase
     {
-        protected CancellationTests(RpcConnectionType connectionType) : base(new ProtobufSerializer(), connectionType)
+        protected CancellationTests(RpcConnectionType connectionType) : base(new ProtobufRpcSerializer(), connectionType)
         {
         }
 
@@ -43,14 +44,20 @@ namespace SciTech.Rpc.Tests
             {
                 Assert.Catch<OperationCanceledException>(() =>
                 {
-                    var cts = new CancellationTokenSource();
-                    Task.Run(async () =>
-                   {
-                       await Task.Delay(200);
-                       cts.Cancel();
-                   });
+                    try
+                    {
+                        var cts = new CancellationTokenSource();
+                        Task.Run(async () =>
+                       {
+                           await Task.Delay(200);
+                           cts.Cancel();
+                       });
 
-                    client.AddWithDelay(1000, 5, 6, cts.Token);
+                        client.AddWithDelay(1000, 5, 6, cts.Token);
+                    }catch( Exception )
+                    {
+                        throw;
+                    }
                 });
             });
         }

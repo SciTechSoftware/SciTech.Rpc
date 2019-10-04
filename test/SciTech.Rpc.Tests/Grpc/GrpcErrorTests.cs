@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Tests;
 using System;
@@ -12,7 +13,7 @@ namespace SciTech.Rpc.Tests.Grpc
     public class GrpcErrorTests : RpcErrorsBaseTests
     {
         protected static readonly object[] GrpcCommunicationErrorFixtureArgs = {
-            new object[] { new ProtobufSerializer(), RpcConnectionType.Grpc},
+            new object[] { new ProtobufRpcSerializer(), RpcConnectionType.Grpc},
         };
 
         public GrpcErrorTests(IRpcSerializer serializer, RpcConnectionType connectionType) : base(serializer, connectionType)

@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
@@ -123,6 +124,8 @@ namespace SciTech.Rpc.Server
 
         IServiceProvider? IRpcServerImpl.ServiceProvider => this.ServiceProvider;
 
+        public abstract void AddEndPoint(IRpcServerEndPoint endPoint);
+
         public void Dispose()
         {
             // Do not change this code. Put cleanup code in Dispose(bool disposing).
@@ -140,14 +143,9 @@ namespace SciTech.Rpc.Server
             return this.ServicePublisher.PublishInstance(serviceInstance, takeOwnership);
         }
 
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership=false) where TService : class
-        {
-            return this.ServicePublisher.PublishSingleton(singletonService, takeOwnership);
-        }
-
         public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>() where TService : class where TServiceImpl : class, TService
         {
-            return this.ServicePublisher.PublishSingleton<TServiceImpl,TService>();
+            return this.ServicePublisher.PublishSingleton<TServiceImpl, TService>();
         }
 
         public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<TService> singletonFactory) where TService : class
@@ -155,6 +153,11 @@ namespace SciTech.Rpc.Server
 
         public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> singletonFactory) where TService : class
             => this.ServicePublisher.PublishSingleton(singletonFactory);
+
+        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class
+        {
+            return this.ServicePublisher.PublishSingleton(singletonService, takeOwnership);
+        }
 
         public async Task ShutdownAsync()
         {
@@ -262,8 +265,6 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        protected abstract void AddEndPoint(IRpcServerEndPoint endPoint);
-
         protected abstract void BuildServiceStub(Type serviceType);
 
         /// <summary>
@@ -322,10 +323,6 @@ namespace SciTech.Rpc.Server
 
         protected abstract void StartCore();
 
-        void IRpcServer.AddEndPoint(IRpcServerEndPoint endPoint)
-        {
-            this.AddEndPoint(endPoint);
-        }
 
         private void CheckConnectionInfo()
         {

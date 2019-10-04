@@ -2,6 +2,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client;
 using SciTech.Rpc.Grpc.Server;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Rpc.Tests;
@@ -18,7 +19,7 @@ namespace SciTech.Rpc.Tests.Grpc
     public class GrpcFullStackTests : GrpcCoreFullStackTestsBase
     {
         private static object[] FixtureArgs = {
-            new object[] { new ProtobufSerializer() },
+            new object[] { new ProtobufRpcSerializer() },
             new object[] { new DataContractRpcSerializer(null) }
         };
 

@@ -16,13 +16,16 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Lightweight.Internal
+namespace SciTech.Rpc.Serialization
 {
     /// <summary>
-    /// A combined writer Stream and IBufferWriter{byte}.
-    /// TODO: If this class is kept, unit tests must be written.
+    /// A combined writer <see cref="Stream"/> and <see cref="IBufferWriter{T}"/>. It is used
+    /// by the <see cref="IRpcSerializer"/> and allows serializer implementations to decide whether
+    /// it is more efficient to use <see cref="Stream"/> methods or <see cref="IBufferWriter{T}"/>
+    /// methods when serializing an object.
     /// </summary>
-    internal sealed class BufferWriterStream : Stream, IBufferWriter<byte>
+    // TODO: If this class is kept, unit tests must be written.
+    public class BufferWriterStream : Stream, IBufferWriter<byte>
     {
         private byte[]? activeBuffer;
 
@@ -36,21 +39,21 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         private long length;
 
-        internal BufferWriterStream(int chunkSize = 16384, ArrayPool<byte>? arrayPool = null)
+        private protected BufferWriterStream(int chunkSize = 16384, ArrayPool<byte>? arrayPool = null)
         {
             this.arrayPool = arrayPool ?? ArrayPool<byte>.Shared;
             this.chunkSize = chunkSize;
         }
 
-        public override bool CanRead => false;
+        public override sealed bool CanRead => false;
 
-        public override bool CanSeek => false;
+        public override sealed bool CanSeek => false;
 
-        public override bool CanWrite => true;
+        public override sealed bool CanWrite => true;
 
-        public override long Length => this.length;
+        public override sealed long Length => this.length;
 
-        public override long Position { get => this.length; set => throw new NotSupportedException(); }
+        public override sealed long Position { get => this.length; set => throw new NotSupportedException(); }
 
         public void Advance(int count)
         {
@@ -63,7 +66,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.length += count;
         }
 
-        public override void Close()
+        public override sealed void Close()
         {
             base.Close();
 
@@ -92,12 +95,14 @@ namespace SciTech.Rpc.Lightweight.Internal
                 int bytesInBuffer = this.activeBuffer.Length - this.availableBufferSize;
                 if (bytesInBuffer > 0)
                 {
-                    writer.Write(new Span<byte>(this.activeBuffer, 0, bytesInBuffer));
+                    writer.Write(new ReadOnlySpan<byte>(this.activeBuffer, 0, bytesInBuffer));
                 }
             }
         }
 
-        public override void Flush()
+
+
+        public override sealed void Flush()
         {
         }
 
@@ -121,38 +126,50 @@ namespace SciTech.Rpc.Lightweight.Internal
             return new Span<byte>(this.activeBuffer, this.activeBuffer!.Length - this.availableBufferSize, this.availableBufferSize);
         }
 
-        public override int Read(byte[] buffer, int offset, int count)
+        public override sealed int Read(byte[] buffer, int offset, int count)
         {
             throw new NotSupportedException();
         }
 
-        public void Reset()
+        public override sealed long Seek(long offset, SeekOrigin origin)
         {
+            throw new NotSupportedException();
+        }
+
+        public override sealed void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public byte[] ToArray()
+        {
+            var data = new byte[this.length];
+            Span<byte> destData = data;
+
             if (this.filledBuffers != null)
             {
                 foreach (var buffer in this.filledBuffers)
                 {
-                    this.arrayPool.Return(buffer.buffer);
+                    var srcData = new ReadOnlySpan<byte>(buffer.buffer, 0, buffer.bytesInBuffer);
+                    srcData.CopyTo(destData);
+                    destData = destData.Slice(srcData.Length);
                 }
-
-                this.filledBuffers.Clear();
             }
 
-            this.availableBufferSize = this.activeBuffer?.Length ?? 0;
-            this.length = 0;
+            if (this.activeBuffer != null)
+            {
+                int bytesInBuffer = this.activeBuffer.Length - this.availableBufferSize;
+                if (bytesInBuffer > 0)
+                {
+                    var srcData = new ReadOnlySpan<byte>(this.activeBuffer, 0, bytesInBuffer);
+                    srcData.CopyTo(destData);
+                }
+            }
+
+            return data;
         }
 
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void SetLength(long value)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
+        public override sealed void Write(byte[] buffer, int offset, int count)
         {
             int srcOffset = offset;
             int bytesLeft = count;
@@ -174,77 +191,28 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
         }
 
-        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        public override sealed Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             this.Write(buffer, offset, count);
 
             return Task.CompletedTask;
         }
 
-#if PLAT_SPAN_OVERLOADS
-        /// <inheritdoc />
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        internal void Reset()
         {
-            throw new NotSupportedException();
-        }
-
-        /// <inheritdoc />
-        public override int Read(Span<byte> buffer)
-        {
-            throw new NotSupportedException();
-        }
-
-        /// <inheritdoc />
-        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            int srcOffset = 0;
-            int bytesLeft = buffer.Length;
-            while (bytesLeft > 0)
+            if (this.filledBuffers != null)
             {
-                if (this.availableBufferSize == 0)
+                foreach (var buffer in this.filledBuffers)
                 {
-                    this.AllocateBuffer(0);
+                    this.arrayPool.Return(buffer.buffer);
                 }
 
-                int dstOffset = this.activeBuffer!.Length - this.availableBufferSize;
-                int bytesToCopy = Math.Min(bytesLeft, this.availableBufferSize);
-                buffer.Slice(srcOffset, bytesToCopy).CopyTo(new Memory<byte>(this.activeBuffer, dstOffset, bytesToCopy));
-                bytesLeft -= bytesToCopy;
-                this.availableBufferSize -= bytesToCopy;
-                this.length += bytesToCopy;
-
-                srcOffset += bytesToCopy;
+                this.filledBuffers.Clear();
             }
 
-            return default;
+            this.availableBufferSize = this.activeBuffer?.Length ?? 0;
+            this.length = 0;
         }
-
-        /// <inheritdoc />
-        public override void Write(ReadOnlySpan<byte> buffer)
-        {
-            int srcOffset = 0;
-            int bytesLeft = buffer.Length;
-            while (bytesLeft > 0)
-            {
-                if (this.availableBufferSize == 0)
-                {
-                    this.AllocateBuffer(0);
-                }
-
-                int dstOffset = this.activeBuffer!.Length - this.availableBufferSize;
-                int bytesToCopy = Math.Min(bytesLeft, this.availableBufferSize);
-                buffer.Slice(srcOffset, bytesToCopy).CopyTo(new Span<byte>(this.activeBuffer, dstOffset, bytesToCopy));
-                bytesLeft -= bytesToCopy;
-                this.availableBufferSize -= bytesToCopy;
-                this.length += bytesToCopy;
-
-                srcOffset += bytesToCopy;
-            }
-        }
-
-#endif
         private void AllocateBuffer(int sizeHint)
         {
             if (this.availableBufferSize == 0 || this.availableBufferSize < sizeHint)
@@ -277,5 +245,70 @@ namespace SciTech.Rpc.Lightweight.Internal
                 this.bytesInBuffer = bytesInBuffer;
             }
         }
+
+#if PLAT_SPAN_OVERLOADS
+        /// <inheritdoc />
+        public override sealed ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc />
+        public override sealed int Read(Span<byte> buffer)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc />
+        public override sealed ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            int srcOffset = 0;
+            int bytesLeft = buffer.Length;
+            while (bytesLeft > 0)
+            {
+                if (this.availableBufferSize == 0)
+                {
+                    this.AllocateBuffer(0);
+                }
+
+                int dstOffset = this.activeBuffer!.Length - this.availableBufferSize;
+                int bytesToCopy = Math.Min(bytesLeft, this.availableBufferSize);
+                buffer.Slice(srcOffset, bytesToCopy).CopyTo(new Memory<byte>(this.activeBuffer, dstOffset, bytesToCopy));
+                bytesLeft -= bytesToCopy;
+                this.availableBufferSize -= bytesToCopy;
+                this.length += bytesToCopy;
+
+                srcOffset += bytesToCopy;
+            }
+
+            return default;
+        }
+
+        /// <inheritdoc />
+        public override sealed void Write(ReadOnlySpan<byte> buffer)
+        {
+            int srcOffset = 0;
+            int bytesLeft = buffer.Length;
+            while (bytesLeft > 0)
+            {
+                if (this.availableBufferSize == 0)
+                {
+                    this.AllocateBuffer(0);
+                }
+
+                int dstOffset = this.activeBuffer!.Length - this.availableBufferSize;
+                int bytesToCopy = Math.Min(bytesLeft, this.availableBufferSize);
+                buffer.Slice(srcOffset, bytesToCopy).CopyTo(new Span<byte>(this.activeBuffer, dstOffset, bytesToCopy));
+                bytesLeft -= bytesToCopy;
+                this.availableBufferSize -= bytesToCopy;
+                this.length += bytesToCopy;
+
+                srcOffset += bytesToCopy;
+            }
+        }
+
+#endif
     }
 }

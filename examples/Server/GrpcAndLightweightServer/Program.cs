@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc;
 using SciTech.Rpc.Grpc.Server;
 using SciTech.Rpc.Lightweight.Server;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using System;
 using System.IO;
@@ -41,7 +42,7 @@ namespace GrpcAndLightweightServer
 
             var options = new RpcServerOptions
             {
-                Serializer = new ProtobufSerializer(),
+                Serializer = new ProtobufRpcSerializer(),
             };
             
             var grpcServer = new GrpcServer(rpcPublisher, serviceProvider, options);

@@ -4,6 +4,8 @@ using SciTech.IO;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server;
+using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Serialization.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -27,7 +29,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             Pipe requestPipe = new Pipe();
             Pipe responsePipe = new Pipe();
 
-            var serializer = new ProtobufSerializer();
+            var serializer = new ProtobufRpcSerializer();
             var serviceImpl = new TestBlockingSimpleServiceImpl();
             var hostMock = new Mock<IRpcServerImpl>();
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>();
@@ -50,12 +52,12 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 var requestFrame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, 1, "SciTech.Rpc.Tests.SimpleService.Add", ImmutableArray<KeyValuePair<string, string>>.Empty);
 
-                using (var frameWriter = new BufferWriterStream())
+                using (var frameWriter = new BufferWriterStreamImpl())
                 {
                     var writeState = requestFrame.BeginWrite(frameWriter);
 
                     var request = new RpcObjectRequest<int, int>(objectId, 5, 6);
-                    serializer.ToStream(frameWriter, request);
+                    serializer.Serialize(frameWriter, request, request.GetType());
                     int frameLength = checked((int)frameWriter.Length);
 
                     LightweightRpcFrame.EndWrite(frameLength, writeState);
@@ -78,10 +80,7 @@ namespace SciTech.Rpc.Tests.Lightweight
                             Assert.AreEqual(requestFrame.RpcOperation, responseFrame.RpcOperation);
                             Assert.AreEqual(requestFrame.MessageNumber, responseFrame.MessageNumber);
 
-                            using (var responseStream = responseFrame.Payload.AsStream())
-                            {
-                                response = (RpcResponseWithError<int>)serializer.FromStream(typeof(RpcResponseWithError<int>), responseStream);
-                            }
+                            response = (RpcResponseWithError<int>)serializer.Deserialize(responseFrame.Payload, typeof(RpcResponseWithError<int>));
 
                             responsePipe.Reader.AdvanceTo(buffer.Start);
                         }

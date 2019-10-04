@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,11 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 {
     internal class LightweightProxyGenerator : RpcProxyGenerator<LightweightProxyBase, LightweightProxyArgs, LightweightMethodDef>
     {
+        private readonly ConditionalWeakTable<IRpcSerializer, LightweightSerializersCache> serializerToMethodSerializersCache
+            = new ConditionalWeakTable<IRpcSerializer, LightweightSerializersCache>();
+
+        private readonly object syncRoot = new object();
+
         internal LightweightProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider = null) : base(proxyServicesProvider)
         {
         }
@@ -41,6 +47,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         callInterceptors: lightweightConnection.Options.Interceptors,
                         connection: lightweightConnection,
                         serializer: lightweightConnection.Serializer,
+                        methodSerializersCache: this.GetMethodSerializersCache(lightweightConnection.Serializer),
                         implementedServices: implementedServices,
                         proxyServicesProvider: proxyServicesProvider,
                         syncContext: syncContext
@@ -53,6 +60,22 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     throw new InvalidOperationException($"{nameof(LightweightProxyGenerator)} should only be used for {nameof(LightweightRpcConnection)}.");
                 }
             };
+        }
+
+        private LightweightSerializersCache GetMethodSerializersCache(IRpcSerializer serializer)
+        {
+            lock (this.syncRoot)
+            {
+                if (this.serializerToMethodSerializersCache.TryGetValue(serializer, out var existingMethodsCache))
+                {
+                    return existingMethodsCache;
+                }
+
+                var methodsCache = new LightweightSerializersCache(serializer);
+                this.serializerToMethodSerializersCache.Add(serializer, methodsCache);
+
+                return methodsCache;
+            }
         }
 
         internal static class Factory

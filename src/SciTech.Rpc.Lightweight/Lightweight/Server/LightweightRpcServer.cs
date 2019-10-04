@@ -13,6 +13,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Logging;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
@@ -24,13 +26,11 @@ using System.IO.Pipelines;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using SciTech.Rpc.Logging;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
     public partial class LightweightRpcServer : RpcServerBase
     {
-        private static ILog Logger = LogProvider.For<LightweightRpcServer>();
 
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
 
@@ -38,6 +38,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(LightweightRpcServer)
             .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+
+        private static ILog Logger = LogProvider.For<LightweightRpcServer>();
 
         private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients
             = new ConcurrentDictionary<ClientPipeline, ClientPipeline>();
@@ -50,7 +52,7 @@ namespace SciTech.Rpc.Lightweight.Server
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
 
         public LightweightRpcServer(
-            IRpcServiceDefinitionsProvider? definitionsProvider=null,
+            IRpcServiceDefinitionsProvider? definitionsProvider = null,
             IServiceProvider? serviceProvider = null,
             RpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
@@ -63,8 +65,8 @@ namespace SciTech.Rpc.Lightweight.Server
         /// </summary>
         /// <param name="servicePublisher"></param>
         public LightweightRpcServer(
-            RpcServicePublisher servicePublisher, 
-            IServiceProvider? serviceProvider, 
+            RpcServicePublisher servicePublisher,
+            IServiceProvider? serviceProvider,
             RpcServerOptions? options,
             LightweightOptions? lightweightOptions = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
@@ -79,7 +81,7 @@ namespace SciTech.Rpc.Lightweight.Server
             IServiceProvider? serviceProvider = null,
             RpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
-            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionBuilder(options), serverId), 
+            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionBuilder(options), serverId),
                   serviceProvider, options, lightweightOptions)
         {
         }
@@ -130,13 +132,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         }
 
-        internal LightweightMethodStub GetMethodDefinition(string rpcOperation)
-        {
-            this.methodDefinitions.TryGetValue(rpcOperation, out var methodStub);
-            return methodStub;
-        }
-
-        protected override void AddEndPoint(IRpcServerEndPoint endPoint)
+        public override void AddEndPoint(IRpcServerEndPoint endPoint)
         {
             if (endPoint is LightweightRpcEndPoint lightweightEndPoint)
             {
@@ -146,6 +142,12 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 throw new ArgumentException($"End point must implement {nameof(LightweightRpcEndPoint)}.");
             }
+        }
+
+        internal LightweightMethodStub GetMethodDefinition(string rpcOperation)
+        {
+            this.methodDefinitions.TryGetValue(rpcOperation, out var methodStub);
+            return methodStub;
         }
 
         protected override void BuildServiceStub(Type serviceType)
@@ -181,10 +183,15 @@ namespace SciTech.Rpc.Lightweight.Server
                 foreach (var client in this.clients)
                 {
 #pragma warning disable CA1031 // Do not catch general exception types
-                    try { client.Key.Dispose(); } catch(Exception x ) { Logger.Warn(x, "Error when disposing client." ); }
+                    try { client.Key.Dispose(); } catch (Exception x) { Logger.Warn(x, "Error when disposing client."); }
 #pragma warning restore CA1031 // Do not catch general exception types
                 }
                 this.clients.Clear();
+
+                //foreach (var endPoint in endPoints)
+                //{
+                //    endPoint.Stop();
+                //}
             }
 
             base.Dispose(disposing);
@@ -209,13 +216,14 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        protected async override Task ShutdownCoreAsync()
+        protected override async Task ShutdownCoreAsync()
         {
             foreach (var startedEndPoint in this.startedEndpoints)
             {
                 await startedEndPoint.StopAsync().ContextFree();
                 startedEndPoint.Dispose();
             }
+            this.startedEndpoints.Clear();
 
             await base.ShutdownCoreAsync().ContextFree();
         }

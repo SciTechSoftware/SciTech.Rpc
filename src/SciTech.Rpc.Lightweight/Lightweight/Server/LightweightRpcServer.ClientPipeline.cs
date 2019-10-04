@@ -12,6 +12,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -152,7 +153,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     {
                         if (t.IsCanceled)
                         {
-                            if (activeOperation.IsCancellationRequested )
+                            if (activeOperation.IsCancellationRequested)
                             {
                                 await this.WriteCancelResponseAsync(messageId, operationName).ContextFree();
                             }
@@ -194,7 +195,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 return default;
             }
 
-            private ValueTask HandleCancelRequestAsync(int messageId )
+            private ValueTask HandleCancelRequestAsync(int messageId)
             {
                 ActiveOperation? activeOperation;
                 lock (this.syncRoot)

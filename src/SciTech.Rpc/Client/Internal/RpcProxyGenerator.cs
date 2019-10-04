@@ -84,17 +84,19 @@ namespace SciTech.Rpc.Client.Internal
             if (this.moduleBuilder == null)
             {
                 var assemblyName = Guid.NewGuid().ToString();
-                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.RunAndCollect);
+#if PLAT_SUPPORT_COLLECTIBLE_ASSEMBLIES
+                var builderAccess = AssemblyBuilderAccess.RunAndCollect;
+#else
+                // RunAndCollect causes tests to crash on .NET Core 2.0 and .NET Core 2.1. It seems
+                // like assemblies are collected while still being in use.
+                var builderAccess = AssemblyBuilderAccess.Run;
+#endif
+                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), builderAccess);
                 this.moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName);
                 this.definedProxyTypes = new Dictionary<string, int>();
             }
 
             return (this.moduleBuilder,this.definedProxyTypes!);
-        }
-
-        public RpcSingletonProxyFactory GenerateSingletonProxy<TService>() where TService : class
-        {
-            throw new NotImplementedException();
         }
 
         internal List<RpcServiceInfo> GetAllServices<TService>(IReadOnlyCollection<string>? implementedServices)

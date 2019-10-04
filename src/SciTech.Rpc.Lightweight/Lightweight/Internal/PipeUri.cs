@@ -28,7 +28,6 @@ using System.Text;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
-
     /// <summary>
     /// Disposable wrapper for a pipe name that is stored in a memory mapped file.
     /// </summary>
@@ -57,22 +56,6 @@ namespace SciTech.Rpc.Lightweight.Internal
     /// </summary>
     internal static class PipeUri
     {
-#if !COREFX
-        private static readonly MemoryMappedFileSecurity DefaultSecurity = CreateDefaultSecurity();
-
-        private static MemoryMappedFileSecurity CreateDefaultSecurity()
-        {
-            var sec = new MemoryMappedFileSecurity();
-            // Deny network access (actually unnecessary, since the memory mapped file cannot be accessed over the network)
-            sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(new SecurityIdentifier(WellKnownSidType.NetworkSid, null), MemoryMappedFileRights.FullControl, AccessControlType.Deny));
-            // Allow everyone on the machine to connect
-            sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(new SecurityIdentifier(WellKnownSidType.WorldSid, null), MemoryMappedFileRights.Read, AccessControlType.Allow));
-            // Allow the current user should have full control.
-            sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(WindowsIdentity.GetCurrent().User, MemoryMappedFileRights.FullControl, AccessControlType.Allow));
-            return sec;
-        }
-#endif
-
         internal static PipeNameHolder CreatePipeName(Uri uri)
         {
             string path = uri.AbsolutePath;
@@ -158,7 +141,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         /// <summary>
         /// Looks up the pipe name for the  specified <paramref name="uri"/>. The pipe name is expected
-        /// to be stored (by the server) in a memory mapped file with a name created by <see cref="CreateSharedMemoryName(string, bool)"/> .
+        /// to be stored (by the server) in a memory mapped file with a name created by <see cref="CreateSharedMemoryName(string, bool?)"/> .
         /// Currently this implementation will not support UWP apps on Windows.
         /// </summary>
         /// <param name="uri"></param>
@@ -269,6 +252,23 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             public Guid pipeGuid;
         }
+
+#if !COREFX
+        private static readonly MemoryMappedFileSecurity DefaultSecurity = CreateDefaultSecurity();
+
+        private static MemoryMappedFileSecurity CreateDefaultSecurity()
+        {
+            var sec = new MemoryMappedFileSecurity();
+            // Deny network access (actually unnecessary, since the memory mapped file cannot be accessed over the network)
+            sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(new SecurityIdentifier(WellKnownSidType.NetworkSid, null), MemoryMappedFileRights.FullControl, AccessControlType.Deny));
+            // Allow everyone on the machine to connect
+            sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(new SecurityIdentifier(WellKnownSidType.WorldSid, null), MemoryMappedFileRights.Read, AccessControlType.Allow));
+            // Allow the current user should have full control.
+            sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(WindowsIdentity.GetCurrent().User, MemoryMappedFileRights.FullControl, AccessControlType.Allow));
+            return sec;
+        }
+#endif
+
     }
 
 }

@@ -9,11 +9,17 @@
 //
 #endregion
 
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 
 namespace SciTech.Rpc.Client
 {
+
+    /// <summary>
+    /// Defines RPC client options properties. For more information, see the implementations <see cref="RpcClientOptions"/> and 
+    /// <see cref="ImmutableRpcClientOptions"/>.
+    /// </summary>
     public interface IRpcClientOptions
     {
         TimeSpan? CallTimeout { get; }

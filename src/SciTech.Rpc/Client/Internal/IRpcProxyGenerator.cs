@@ -22,7 +22,5 @@ namespace SciTech.Rpc.Client.Internal
     public interface IRpcProxyGenerator
     {
         RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(IReadOnlyCollection<string>? implementedServices) where TService : class;
-
-        RpcSingletonProxyFactory GenerateSingletonProxy<TService>() where TService : class;
     }
 }

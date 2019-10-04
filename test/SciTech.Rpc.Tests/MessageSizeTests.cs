@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using System;
 using System.Linq;

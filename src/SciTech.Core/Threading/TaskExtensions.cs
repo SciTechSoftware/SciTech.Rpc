@@ -69,11 +69,15 @@ namespace SciTech.Threading
 
         public static void AwaiterResult(this Task task)
         {
+            if (task is null) throw new ArgumentNullException(nameof(task));
+
             task.GetAwaiter().GetResult();
         }
 
         public static T AwaiterResult<T>(this Task<T> task)
         {
+            if (task is null) throw new ArgumentNullException(nameof(task));
+
             return task.GetAwaiter().GetResult();
         }
 

@@ -8,9 +8,15 @@
   <Import Project="..\Platform.props" />
 
   <PropertyGroup>
-    <LangVersion>8.0</LangVersion>
-    <Nullable>enable</Nullable>
-    <NullableContextOptions>enable</NullableContextOptions>
+    <Copyright>Copyright 2019. SciTech Software AB</Copyright>
+    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
+This package contains the client communication layer for the fully managed ASP.NET Core implementation of the gRPC library (https://github.com/grpc/grpc-dotnet).
+    </Description>
+
+    <!-- Still alpha, since it uses alpha protobuf-net library -->
+    <Version>1.0.0-alpha.1</Version>
   </PropertyGroup>
 
   <PropertyGroup>

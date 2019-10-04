@@ -7,6 +7,7 @@
     <HasPlatformSpanOverloads>false</HasPlatformSpanOverloads>
     <HasReflectionEmit>true</HasReflectionEmit>
     <HasSystemSslProtocols>true</HasSystemSslProtocols>
+    <HasCollectibleAssemblies>true</HasCollectibleAssemblies>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
@@ -15,6 +16,11 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+
+    <!--AssemblyBuilderAccess.RunAndCollect seems to unload collectible assemblies
+    even though they are still on stack when running under .NET Core 2.0 and .NET Core 2.1    
+    To be safe, they have to be disabled for .NET Standard as well.-->
+    <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
@@ -26,12 +32,19 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <!--AssemblyBuilderAccess.RunAndCollect seems to unload collectible assemblies
+    even though they are still on stack when running under .NET Core 2.0 and .NET Core 2.1 -->
+    <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
     <HasAsyncEnum>true</HasAsyncEnum>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
+    
+    <!--AssemblyBuilderAccess.RunAndCollect seems to unload collectible assemblies
+    even though they are still on stack when running under .NET Core 2.0 and .NET Core 2.1 -->
+    <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
@@ -55,5 +68,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(HasSystemSslProtocols)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_SYSTEM_SSL_PROTOCOLS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasCollectibleAssemblies)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_SUPPORT_COLLECTIBLE_ASSEMBLIES</DefineConstants>
   </PropertyGroup>
 </Project>

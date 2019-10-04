@@ -4,6 +4,7 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Grpc.Client.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -265,7 +266,7 @@ namespace SciTech.Rpc.Tests.Grpc
             var callInvokerMock = new Mock<TestCallInvoker>(MockBehavior.Strict);
             var connectionMock = new Mock<IRpcServerConnection>(MockBehavior.Strict);
             connectionMock.Setup(m => m.Options).Returns(ImmutableRpcClientOptions.Empty);
-            var serializer = new ProtobufSerializer();
+            var serializer = new ProtobufRpcSerializer();
 
             var args = new GrpcProxyArgs
             (

@@ -5,6 +5,7 @@ using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Rpc.Tests.Lightweight;
@@ -58,7 +59,7 @@ namespace SciTech.Rpc.Tests
             var binder = new TestLightweightMethodBinder();
             var serverMock = new Mock<IRpcServerImpl>();
             var definitionsBuilder = new RpcServiceDefinitionBuilder();
-            var serializer = new ProtobufSerializer();
+            var serializer = new ProtobufRpcSerializer();
             serverMock.SetupGet(m => m.ServiceDefinitionsProvider).Returns(definitionsBuilder);
             serverMock.SetupGet(m => m.Serializer).Returns(serializer);
 

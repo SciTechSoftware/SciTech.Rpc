@@ -12,6 +12,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client.Internal;
 using SciTech.Rpc.Logging;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -47,10 +48,10 @@ namespace SciTech.Rpc.Grpc.Client
             ImmutableRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
-            :this( 
-                 connectionInfo, credentials, options, 
+            : this(
+                 connectionInfo, credentials, options,
                  GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
-                 channelOptions )
+                 channelOptions)
         {
         }
 
@@ -145,7 +146,7 @@ namespace SciTech.Rpc.Grpc.Client
             if (channel != null)
             {
                 Task connectTask = channel.ConnectAsync();
-                if ( !connectTask.IsCompleted && cancellationToken.CanBeCanceled)
+                if (!connectTask.IsCompleted && cancellationToken.CanBeCanceled)
                 {
                     cancellationToken.Register(() => channel.ShutdownAsync().Forget());
                 }
@@ -174,7 +175,7 @@ namespace SciTech.Rpc.Grpc.Client
             }
         }
 
-        protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufSerializer();
+        protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufRpcSerializer();
 
         private static IEnumerable<GrpcCore.ChannelOption>? ExtractOptions(ImmutableRpcClientOptions? options, IEnumerable<GrpcCore.ChannelOption>? channelOptions)
         {

@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,7 +25,7 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc.Client.Internal
 {
     /// <summary>
-    /// Helper class for <see cref="RpcProxyGenerator"/> which is used to create the actual proxy factories.
+    /// Helper class for <see cref="RpcProxyGenerator{TRpcProxy, TProxyArgs, TMethodDef}"/> which is used to create the actual proxy factories.
     /// </summary>
     internal class RpcServiceProxyBuilder<TRpcProxyBase, TMethodDef>
         where TRpcProxyBase : RpcProxyBase<TMethodDef>

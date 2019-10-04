@@ -1,6 +1,8 @@
 ﻿using NUnit.Framework;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Serialization;
 using System;
+using System.Buffers;
 using System.IO;
 using System.Linq;
 
@@ -76,12 +78,17 @@ namespace SciTech.Rpc.Tests
                 this.Id = id;
             }
 
-            public object FromStream(Type type, Stream input)
+            public IRpcSerializer<T> CreateTyped<T>()
             {
                 throw new NotImplementedException();
             }
 
-            public void ToStream(Stream stream, object input)
+            public object Deserialize(ReadOnlySequence<byte> input, Type type)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void Serialize(BufferWriterStream bufferWriter, object input, Type type)
             {
                 throw new NotImplementedException();
             }

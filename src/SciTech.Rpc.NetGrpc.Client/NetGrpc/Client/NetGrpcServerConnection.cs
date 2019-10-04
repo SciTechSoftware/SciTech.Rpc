@@ -12,6 +12,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.NetGrpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,26 +21,8 @@ using GrpcNet = Grpc.Net;
 
 namespace SciTech.Rpc.NetGrpc.Client
 {
-    //public class GrpcChannel : GrpcCore.ChannelBase
-    //{
-    //    /// <summary>
-    //    /// Initializes a new instance of <see cref="GrpcChannel"/> class that connects to a specific host.
-    //    /// </summary>
-    //    /// <param name="target">Target of the channel.</param>
-    //    protected GrpcChannel(string target) : base(target)
-    //    {
-
-    //    }
-
-    //    public override GrpcCore.CallInvoker CreateCallInvoker()
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-    //}
-
     public class NetGrpcServerConnection : RpcServerConnection, IGrpcServerConnection
     {
-
         private static readonly ILog Logger = LogProvider.For<NetGrpcServerConnection>();
 
         private bool isSecure;
@@ -92,7 +75,7 @@ namespace SciTech.Rpc.NetGrpc.Client
 
 
                 this.Channel = GrpcNet.Client.GrpcChannel.ForAddress(new Uri($"https://{connectionInfo.HostUrl.Authority}/"), actualChannelOptions);
-                
+
                 this.CallInvoker = this.Channel.CreateCallInvoker();
 
                 this.isSecure = false;//credentials != null && credentials != GrpcCore.ChannelCredentials.Insecure;
@@ -159,11 +142,11 @@ namespace SciTech.Rpc.NetGrpc.Client
             return Task.CompletedTask;
         }
 
-        protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufSerializer();
+        protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufRpcSerializer();
 
         private static GrpcNet.Client.GrpcChannelOptions ExtractOptions(ImmutableRpcClientOptions? options, GrpcNet.Client.GrpcChannelOptions? channelOptions)
         {
-            if( channelOptions != null && options == null )
+            if (channelOptions != null && options == null)
             {
                 return channelOptions;
             }
@@ -176,10 +159,10 @@ namespace SciTech.Rpc.NetGrpc.Client
 
                 o.CompressionProviders = channelOptions.CompressionProviders;
                 o.Credentials = channelOptions.Credentials;
-                o.DisposeHttpClient= channelOptions.DisposeHttpClient;
+                o.DisposeHttpClient = channelOptions.DisposeHttpClient;
                 o.HttpClient = channelOptions.HttpClient;
-                o.LoggerFactory= channelOptions.LoggerFactory;
-                o.MaxReceiveMessageSize= channelOptions.MaxReceiveMessageSize;
+                o.LoggerFactory = channelOptions.LoggerFactory;
+                o.MaxReceiveMessageSize = channelOptions.MaxReceiveMessageSize;
                 o.MaxSendMessageSize = channelOptions.MaxSendMessageSize;
                 o.ThrowOperationCanceledOnCancellation = channelOptions.ThrowOperationCanceledOnCancellation;
             }

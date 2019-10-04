@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Logging;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -747,7 +748,7 @@ namespace SciTech.Rpc.Client.Internal
                 object? details = null;
                 if (faultConverter!.FaultDetailsType != null)
                 {
-                    details = actualSerializer.FromBytes(faultConverter.FaultDetailsType, error.FaultDetails!);
+                    details = actualSerializer.Deserialize(error.FaultDetails ?? Array.Empty<byte>(), faultConverter.FaultDetailsType);
                 }
 
                 Exception exception;

@@ -13,6 +13,7 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -26,22 +27,26 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 {
     public class LightweightProxyArgs : RpcProxyArgs
     {
-        public LightweightProxyArgs(
+        internal LightweightProxyArgs(
             LightweightRpcConnection connection,
             IReadOnlyList<RpcClientCallInterceptor> callInterceptors,
             RpcObjectId objectId,
             IRpcSerializer serializer,
+            LightweightSerializersCache methodSerializersCache,
             IReadOnlyCollection<string>? implementedServices,
             IRpcProxyDefinitionsProvider proxyServicesProvider,
             SynchronizationContext? syncContext)
             : base(connection, objectId, serializer, implementedServices, proxyServicesProvider, syncContext)
         {
+            this.MethodSerializersCache = methodSerializersCache;
             this.CallInterceptors = callInterceptors;
         }
 
-        public IReadOnlyList<RpcClientCallInterceptor> CallInterceptors { get; }
+        internal IReadOnlyList<RpcClientCallInterceptor> CallInterceptors { get; }
 
-        public new LightweightRpcConnection Connection => (LightweightRpcConnection)base.Connection;
+        internal new LightweightRpcConnection Connection => (LightweightRpcConnection)base.Connection;
+
+        internal LightweightSerializersCache MethodSerializersCache { get; }
     }
 
 #pragma warning disable CA1062 // Validate arguments of public methods
@@ -51,6 +56,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private readonly LightweightRpcConnection connection;
 
+        private readonly LightweightSerializersCache methodSerializersCache;
+
         private readonly int streamingCallTimeout;
 
         protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) : base(proxyArgs, proxyMethods)
@@ -58,6 +65,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             this.connection = proxyArgs.Connection;
             this.callTimeout = ((int?)this.connection.Options.CallTimeout?.TotalMilliseconds) ?? 0;
             this.streamingCallTimeout = ((int?)this.connection.Options.StreamingCallTimeout?.TotalMilliseconds) ?? 0;
+            this.methodSerializersCache = proxyArgs.MethodSerializersCache;
             this.CallInterceptors = proxyArgs.CallInterceptors.ToImmutableArray();
         }
 
@@ -78,7 +86,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             TRequest request, LightweightMethodDef method, CancellationToken ct)
         {
             IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
-            var actualSerializer = method.SerializerOverride ?? this.serializer;
+
+            var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)method).LightweightSerializersOverride
+                ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(method);
 
             var clientTask = this.ConnectCoreAsync(ct);
             if (clientTask.IsCompletedSuccessfully)
@@ -89,7 +99,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     method.OperationName,
                     headers,
                     request,
-                    actualSerializer,
+                    actualSerializers,
                     this.streamingCallTimeout,
                     ct);
 
@@ -104,7 +114,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     method.OperationName,
                     headers,
                     request,
-                    actualSerializer,
+                    actualSerializers,
                     this.streamingCallTimeout,
                     ct).ContextFree();
 
@@ -122,7 +132,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         protected override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
             IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
-            var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
+
+            var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)methodDef).LightweightSerializersOverride
+                ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(methodDef);
 
             var clientTask = this.ConnectCoreAsync(cancellationToken);
             if (clientTask.IsCompletedSuccessfully)
@@ -133,7 +145,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     methodDef.OperationName,
                     headers,
                     request,
-                    actualSerializer,
+                    actualSerializers,
                     this.callTimeout,
                     cancellationToken);
 
@@ -148,7 +160,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     methodDef.OperationName,
                     headers,
                     request,
-                    actualSerializer,
+                    actualSerializers,
                     this.callTimeout,
                     cancellationToken).ContextFree();
             }
@@ -230,5 +242,51 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
         }
     }
+
 #pragma warning restore CA1062 // Validate arguments of public methods
+
+    internal sealed class LightweightSerializers<TRequest, TResponse>
+    {
+        internal readonly IRpcSerializer<TRequest> RequestSerializer;
+
+        internal readonly IRpcSerializer<TResponse> ResponseSerializer;
+
+        public LightweightSerializers(IRpcSerializer<TRequest> requestSerializer, IRpcSerializer<TResponse> responseSerializer)
+        {
+            this.RequestSerializer = requestSerializer;
+            this.ResponseSerializer = responseSerializer;
+        }
+    }
+
+    internal class LightweightSerializersCache
+    {
+        private readonly Dictionary<RpcProxyMethod, object> proxyToSerializers = new Dictionary<RpcProxyMethod, object>();
+
+        private readonly IRpcSerializer serializer;
+
+        private readonly object syncRoot = new object();
+
+        internal LightweightSerializersCache(IRpcSerializer serializer)
+        {
+            this.serializer = serializer;
+        }
+
+        internal LightweightSerializers<TRequest, TResponse> GetSerializers<TRequest, TResponse>(RpcProxyMethod proxyMethod)
+            where TRequest : class
+            where TResponse : class
+        {
+            lock (this.syncRoot)
+            {
+                if (this.proxyToSerializers.TryGetValue(proxyMethod, out var serializers))
+                {
+                    return (LightweightSerializers<TRequest, TResponse>)serializers;
+                }
+
+                var newSerializers = new LightweightSerializers<TRequest, TResponse>(this.serializer.CreateTyped<TRequest>(), this.serializer.CreateTyped<TResponse>());
+                this.proxyToSerializers.Add(proxyMethod, newSerializers);
+
+                return newSerializers;
+            }
+        }
+    }
 }

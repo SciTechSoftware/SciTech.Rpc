@@ -14,6 +14,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using SciTech.Rpc.Tests.Grpc;
+using SciTech.Rpc.Serialization;
 
 #if NETCOREAPP3_0
 using SciTech.Rpc.NetGrpc.Server.Internal;

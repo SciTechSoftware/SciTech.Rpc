@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -21,7 +22,7 @@ namespace SciTech.Rpc.Client
     /// assigned to a connection or associated with a service they should no longer be modified and
     /// will only be accessible through this class.
     /// </summary>
-    public class ImmutableRpcClientOptions : IRpcClientOptions
+    public sealed class ImmutableRpcClientOptions : IRpcClientOptions
     {
         public static readonly ImmutableRpcClientOptions Empty = new ImmutableRpcClientOptions(null);
 

@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +16,7 @@ namespace SciTech.Rpc.Tests.Lightweight
     public class LightweightAsyncSequenceTests : AsyncSequenceTests
     {
 
-        public LightweightAsyncSequenceTests(RpcConnectionType connectionType, bool roundTripCancellation) : base(new ProtobufSerializer(), connectionType, roundTripCancellation)
+        public LightweightAsyncSequenceTests(RpcConnectionType connectionType, bool roundTripCancellation) : base(new ProtobufRpcSerializer(), connectionType, roundTripCancellation)
         {        
         }
 

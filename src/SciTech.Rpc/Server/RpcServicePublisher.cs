@@ -65,6 +65,7 @@ namespace SciTech.Rpc.Server
         /// <typeparam name="TService">The type of the published instance.</typeparam>
         /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>. If the created
         /// instance implements <see cref="IDisposable"/> the instance will be disposed when the RPC call has finished.
+        /// </param>    
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
         ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<RpcObjectId, TService> factory) where TService : class;
@@ -137,7 +138,7 @@ namespace SciTech.Rpc.Server
         private readonly Dictionary<RpcObjectId, IReadOnlyList<string>> idToPublishedServices = new Dictionary<RpcObjectId, IReadOnlyList<string>>();
 
         /// <summary>
-        /// Value is Func<IServiceProvider, RpcObjectId, TService> or Func<RpcObjectId, TService>.
+        /// Value is <see cref="Func{IServiceProvider,RpcObjectId,TService}"/> or <see cref="Func{RpcObjectId,TService}"/>.
         /// </summary>
         private readonly Dictionary<ServiceImplKey, Delegate> idToServiceFactory
             = new Dictionary<ServiceImplKey, Delegate>();
@@ -149,7 +150,7 @@ namespace SciTech.Rpc.Server
         private readonly object syncRoot = new object();
 
         /// <summary>
-        /// Value is Func<IServiceProvider, TService> or Func<TService>.
+        /// Value is <see cref="Func{IServiceProvider,TService}"/> or <see cref="Func{TService}"/>.
         /// </summary>
         private readonly Dictionary<Type, Delegate> typeToSingletonServiceFactory = new Dictionary<Type, Delegate>();
 
@@ -793,7 +794,7 @@ namespace SciTech.Rpc.Server
             where TService : class
         {
 
-            private static readonly Lazy<ObjectFactory> Factory = new Lazy<ObjectFactory>(()=>ActivatorUtilities.CreateFactory(typeof(TServiceImpl), Type.EmptyTypes));
+            private static readonly Lazy<ObjectFactory> Factory = new Lazy<ObjectFactory>(() => ActivatorUtilities.CreateFactory(typeof(TServiceImpl), Type.EmptyTypes));
 
             internal static ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
             {

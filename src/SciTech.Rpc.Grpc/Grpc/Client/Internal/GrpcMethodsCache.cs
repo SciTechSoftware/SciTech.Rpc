@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using GrpcCore = Grpc.Core;

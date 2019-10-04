@@ -12,6 +12,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Diagnostics;
@@ -57,7 +58,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         protected object SyncRoot { get; } = new object();
 
-        public override Task ConnectAsync(CancellationToken cancellationToken) 
+        public override Task ConnectAsync(CancellationToken cancellationToken)
             => this.ConnectClientAsync(cancellationToken).AsTask();
 
         public override async Task ShutdownAsync()
@@ -115,7 +116,7 @@ namespace SciTech.Rpc.Lightweight.Client
                     int sendMaxMessageSize = this.Options?.SendMaxMessageSize ?? DefaultMaxRequestMessageSize;
                     int receiveMaxMessageSize = this.Options?.ReceiveMaxMessageSize ?? DefaultMaxResponseMessageSize;
 
-                    var connection = await this.ConnectPipelineAsync(sendMaxMessageSize, receiveMaxMessageSize,cancellationToken).ContextFree();
+                    var connection = await this.ConnectPipelineAsync(sendMaxMessageSize, receiveMaxMessageSize, cancellationToken).ContextFree();
 
                     var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
 

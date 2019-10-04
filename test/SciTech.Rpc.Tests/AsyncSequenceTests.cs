@@ -9,6 +9,7 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Runtime.CompilerServices;
+using SciTech.Rpc.Serialization;
 
 namespace SciTech.Rpc.Tests
 {

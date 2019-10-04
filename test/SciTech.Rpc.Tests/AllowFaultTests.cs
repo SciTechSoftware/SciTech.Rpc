@@ -2,6 +2,7 @@
 using NUnit.Framework;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -81,7 +82,7 @@ namespace SciTech.Rpc.Tests
         public void FaultServiceStub_ShouldUseRpcResponseWithError()
         {
             var definitionsBuilder = new RpcServiceDefinitionBuilder();
-            var serializer = new ProtobufSerializer();
+            var serializer = new ProtobufRpcSerializer();
             var serverMock = new Mock<IRpcServerImpl>();
 
             serverMock.SetupGet(m => m.ServiceDefinitionsProvider).Returns(definitionsBuilder);
@@ -131,7 +132,7 @@ namespace SciTech.Rpc.Tests
         public void NoFaultServiceStub_ShouldUseRpcResponse()
         {
             var definitionsBuilder = new RpcServiceDefinitionBuilder();
-            var serializer = new ProtobufSerializer();
+            var serializer = new ProtobufRpcSerializer();
             var serverMock = new Mock<IRpcServerImpl>();
 
             serverMock.SetupGet(m => m.ServiceDefinitionsProvider).Returns(definitionsBuilder);

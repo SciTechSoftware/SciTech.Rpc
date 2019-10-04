@@ -9,8 +9,8 @@
 //
 #endregion
 
-using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
@@ -28,9 +28,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private string rpcOperation;
 
-        private IRpcSerializer serializer;
+        private IRpcSerializer<TResponse> serializer;
 
-        public StreamingResponseWriter(RpcPipeline pipelineClient, IRpcSerializer serializer, int messageNumber, string rpcOperation)
+        public StreamingResponseWriter(RpcPipeline pipelineClient, IRpcSerializer<TResponse> serializer, int messageNumber, string rpcOperation)
         {
             this.pipelineClient = pipelineClient ?? throw new ArgumentNullException(nameof(pipelineClient));
             this.serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
@@ -47,7 +47,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             var responseStream = await this.pipelineClient.BeginWriteAsync(responseHeader).ContextFree();
             try
             {
-                this.serializer.ToStream(responseStream, response!);
+                this.serializer.Serialize(responseStream, response);
             }
             catch
             {
@@ -67,16 +67,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             var responseStream = await this.pipelineClient.TryBeginWriteAsync(responseHeader).ContextFree();
             if (responseStream != null)
             {
-                try
-                {
-                    this.serializer.ToStream(responseStream, new RpcResponseWithError());
-                }
-                catch
-                {
-                    this.pipelineClient.AbortWrite();
-                    throw;
-                }
-
+                // Response data is ignored when frame is StreamingEnd,
+                // and we have not suitable response to write anyway.
                 await this.pipelineClient.EndWriteAsync().ContextFree();
             }
         }

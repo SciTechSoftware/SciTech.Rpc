@@ -21,6 +21,7 @@ using SciTech.Rpc.Grpc;
 using SciTech.Rpc.Grpc.Client;
 using SciTech.Rpc.Grpc.Client.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Tests;
 using GrpcCore = Grpc.Core;
 

@@ -12,6 +12,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 
 namespace SciTech.Rpc.Lightweight.Client.Internal
@@ -33,8 +34,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         public string OperationName { get; }
     }
-    
-    public class LightweightMethodDef<TRequest,TResponse> : LightweightMethodDef
+
+    public class LightweightMethodDef<TRequest, TResponse> : LightweightMethodDef
     {
         public LightweightMethodDef(
             RpcMethodType methodType,
@@ -43,7 +44,15 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             RpcClientFaultHandler? faultHandler)
             : base(methodType, operationName, serializerOverride, faultHandler)
         {
+            if (serializerOverride != null)
+            {
+                this.LightweightSerializersOverride = new LightweightSerializers<TRequest, TResponse>(
+                    serializerOverride.CreateTyped<TRequest>(),
+                    serializerOverride.CreateTyped<TResponse>());
+            }
         }
+
+        internal LightweightSerializers<TRequest, TResponse>? LightweightSerializersOverride { get; }
 
         protected internal override Type RequestType => typeof(TRequest);
 

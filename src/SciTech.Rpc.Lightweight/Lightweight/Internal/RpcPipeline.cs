@@ -13,9 +13,10 @@
 #endregion
 
 using SciTech.Rpc.Logging;
+using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Serialization.Internal;
 using SciTech.Threading;
 using System;
-using System.IO;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
@@ -63,7 +64,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.MaxSendFrameLength = maxSendFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.MaxReceiveFrameLength = maxReceiveFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.skipLargeFrames = skipLargeFrames;
-            this.frameWriterStream = new BufferWriterStream();
+            this.frameWriterStream = new BufferWriterStreamImpl();
         }
 
         public event EventHandler<ExceptionEventArgs>? ReceiveLoopFaulted;
@@ -169,7 +170,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                 this.ReleaseWriteStream();
             }
         }
-        
+
         // TODO: Make a non-async fast-path version of EndWriteAsync (this one is obsolete).
         //public ValueTask EndWriteAsyncFast()
         //{
@@ -223,12 +224,12 @@ namespace SciTech.Rpc.Lightweight.Internal
         //    return AwaitFlushAndRelease();
         //}
 
-        protected internal ValueTask<Stream> BeginWriteAsync(in LightweightRpcFrame responseHeader)
+        protected internal ValueTask<BufferWriterStream> BeginWriteAsync(in LightweightRpcFrame responseHeader)
         {
             return this.BeginWriteAsync(responseHeader, true)!;
         }
 
-        protected internal ValueTask<Stream?> TryBeginWriteAsync(in LightweightRpcFrame responseHeader)
+        protected internal ValueTask<BufferWriterStream?> TryBeginWriteAsync(in LightweightRpcFrame responseHeader)
         {
             return this.BeginWriteAsync(responseHeader, false);
         }
@@ -399,7 +400,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         /// </summary>
         /// <param name="responseHeader"></param>
         /// <returns></returns>
-        private ValueTask<Stream?> BeginWriteAsync(in LightweightRpcFrame responseHeader, bool throwOnError)
+        private ValueTask<BufferWriterStream?> BeginWriteAsync(in LightweightRpcFrame responseHeader, bool throwOnError)
         {
             SemaphoreSlim? writerMutex = this.singleWriter;
             if (writerMutex.Wait(0))
@@ -409,12 +410,12 @@ namespace SciTech.Rpc.Lightweight.Internal
                     var writer = this.frameWriterStream;
                     if (writer == null)
                     {
-                        return !throwOnError ? new ValueTask<Stream?>((Stream?)null) : throw new ObjectDisposedException(this.ToString());
+                        return !throwOnError ? new ValueTask<BufferWriterStream?>((BufferWriterStream?)null) : throw new ObjectDisposedException(this.ToString());
                     }
 
                     this.currentWriteState = responseHeader.BeginWrite(writer);
                     writerMutex = null; // Prevent mutex from being released (will be released in EndWrite/AbortWrite
-                    return new ValueTask<Stream?>(writer);
+                    return new ValueTask<BufferWriterStream?>(writer);
                 }
                 finally
                 {
@@ -423,7 +424,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
 
             var header = responseHeader;
-            async ValueTask<Stream?> AwaitSingleWriter()
+            async ValueTask<BufferWriterStream?> AwaitSingleWriter()
             {
                 await writerMutex.WaitAsync().ContextFree();
                 try
@@ -431,7 +432,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                     var writer = this.frameWriterStream;
                     if (writer == null)
                     {
-                        return !throwOnError ? (Stream?)null : throw new ObjectDisposedException(this.ToString());
+                        return !throwOnError ? (BufferWriterStream?)null : throw new ObjectDisposedException(this.ToString());
                     }
 
                     this.currentWriteState = header.BeginWrite(writer);

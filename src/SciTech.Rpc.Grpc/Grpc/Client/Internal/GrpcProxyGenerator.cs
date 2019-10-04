@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -110,6 +111,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 return methodsCache;
             }
         }
+
         internal static class Factory
         {
             private static readonly GrpcProxyGenerator DefaultGenerator = new GrpcProxyGenerator(null);

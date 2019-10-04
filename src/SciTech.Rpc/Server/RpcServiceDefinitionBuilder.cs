@@ -11,7 +11,7 @@
 
 using SciTech.Collections;
 using SciTech.Rpc.Internal;
-using SciTech.Rpc.Server.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -38,8 +38,8 @@ namespace SciTech.Rpc.Server
         private IImmutableList<Type>? registeredServicesList;
 
         public RpcServiceDefinitionBuilder(
-            RpcServerOptions? options = null, 
-            IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null, 
+            RpcServerOptions? options = null,
+            IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null,
             IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
         {
             this.Options = new ImmutableRpcServerOptions(options);
@@ -76,8 +76,6 @@ namespace SciTech.Rpc.Server
                 }
             }
         }
-
-        public ImmutableRpcServerOptions Options {get;}
 
         public event EventHandler<RpcServicesEventArgs>? ServicesRegistered;
 
@@ -117,6 +115,8 @@ namespace SciTech.Rpc.Server
 
         public bool IsFrozen => this.isFrozen;
 
+        public ImmutableRpcServerOptions Options { get; }
+
         public IRpcSerializer? Serializer => this.Options.Serializer;
 
         public void Freeze()
@@ -134,6 +134,17 @@ namespace SciTech.Rpc.Server
                 }
 
                 return this.registeredServicesList;
+            }
+        }
+
+        public RpcServerOptions? GetServiceOptions(Type serviceType)
+        {
+            if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
+
+            lock (this.syncRoot)
+            {
+                this.registeredServiceTypes.TryGetValue(serviceType, out var options);
+                return options;
             }
         }
 
@@ -202,7 +213,7 @@ namespace SciTech.Rpc.Server
                     if (!this.registeredServiceTypes.ContainsKey(service.Type))
                     {
                         this.registeredServiceTypes.Add(service.Type, options);
-                        
+
                         if (this.registeredServices.TryGetValue(service.FullName, out var existingServiceType))
                         {
                             if (!service.Type.Equals(existingServiceType))
@@ -222,11 +233,11 @@ namespace SciTech.Rpc.Server
                     else
                     {
                         // Type already registered, but let's update the service options if provided.
-                        if( options != null )
+                        if (options != null)
                         {
                             this.registeredServiceTypes[service.Type] = options;
                         }
-                                                
+
                         continue;
                     }
                 }
@@ -256,17 +267,6 @@ namespace SciTech.Rpc.Server
             if (this.isFrozen)
             {
                 throw new InvalidOperationException("Cannot register services to a frozen service registrator.");
-            }
-        }
-
-        public RpcServerOptions? GetServiceOptions(Type serviceType)
-        {
-            if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
-
-            lock ( this.syncRoot )
-            {
-                this.registeredServiceTypes.TryGetValue(serviceType, out var options);
-                return options;
             }
         }
     }

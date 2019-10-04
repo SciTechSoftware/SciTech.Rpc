@@ -1,6 +1,7 @@
 ﻿using Moq;
 using NUnit.Framework;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;

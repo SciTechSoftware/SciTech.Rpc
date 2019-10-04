@@ -4,6 +4,7 @@ using Moq;
 using NUnit.Framework;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
@@ -20,7 +21,7 @@ namespace SciTech.Rpc.Tests.Grpc
     [TestFixture]
     public class GrpcStubTests
     {
-        private static readonly IRpcSerializer DefaultSerializer = new ProtobufSerializer();
+        private static readonly IRpcSerializer DefaultSerializer = new ProtobufRpcSerializer();
 
         public GrpcStubTests()
         {
@@ -278,7 +279,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
         private static void CreateSimpleServiceStub<TService>(TService serviceImpl, IGrpcMethodBinder methodBinder) where TService : class
         {
-            var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufSerializer() });
+            var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufRpcSerializer() });
 
             var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
 

@@ -1,7 +1,6 @@
 ﻿using SciTech.Rpc.Client;
+using SciTech.Rpc.Serialization;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using GrpcCore = Grpc.Core;
 
 #if FEATURE_NET_GRPC

@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Logging;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;

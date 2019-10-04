@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 
 namespace SciTech.Rpc.Client.Internal

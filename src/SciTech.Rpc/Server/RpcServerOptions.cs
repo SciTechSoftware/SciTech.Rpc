@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 

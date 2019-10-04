@@ -17,21 +17,14 @@
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
 This package contains the communication layer for the fully managed ASP.NET Core implementation of the gRPC library (https://github.com/grpc/grpc-dotnet).
-    </Description>
-  </PropertyGroup>
-
-
-  <PropertyGroup>
-    <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
+</Description>
+    
+    <!-- Still alpha, since it uses alpha protobuf-net library -->
+    <Version>1.0.0-alpha.1</Version>
   </PropertyGroup>
 
   <PropertyGroup>
-    <LangVersion>8.0</LangVersion>
-    <Nullable>enable</Nullable>
-    <NullableContextOptions>enable</NullableContextOptions>
-    <ApplicationIcon />
     <OutputType>Library</OutputType>
-    <StartupObject />
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,11 +33,6 @@ This package contains the communication layer for the fully managed ASP.NET Core
       <PackagePath></PackagePath>
     </None>
   </ItemGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>1573;1591</NoWarn>
-  </PropertyGroup>
   
   <ItemGroup>
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Server\Internal\GrpcCallContext.cs" Link="Grpc\Server\Internal\GrpcCallContext.cs" />
@@ -58,8 +46,6 @@ This package contains the communication layer for the fully managed ASP.NET Core
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    
-    <!--<PackageReference Include="Grpc.Core.Api" Version="$(GrpcCorePackageVersion)" />-->
   </ItemGroup>
 
   <ItemGroup>

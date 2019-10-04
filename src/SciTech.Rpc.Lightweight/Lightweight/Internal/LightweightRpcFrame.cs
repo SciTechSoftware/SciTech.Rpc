@@ -304,9 +304,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
             else
             {   // copy 4 bytes into a local span
-                // Temporarily changed to new due to https://github.com/dotnet/roslyn/issues/35764
-                Span<byte> local = new byte[4];
-                // Span<byte> local = stackalloc byte[4];
+                Span<byte> local = stackalloc byte[4];
 
                 input.Slice(0, 4).CopyTo(local);
                 value = BinaryPrimitives.ReadInt32LittleEndian(local);

@@ -26,7 +26,7 @@ namespace SciTech.Rpc.Lightweight.Client
         public DirectLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
-            ImmutableRpcClientOptions? options=null,
+            IRpcClientOptions? options=null,
             IRpcProxyDefinitionsProvider? definitionsProvider=null,
             LightweightOptions? lightweightOptions = null)
             : base(connectionInfo, options, 

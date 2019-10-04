@@ -20,12 +20,12 @@ namespace SciTech.Rpc.Lightweight
 {
     public class DirectLightweightRpcConnector
     {
-        public DirectLightweightRpcConnector(ImmutableRpcClientOptions? options=null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
+        public DirectLightweightRpcConnector(IRpcClientOptions? options=null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
             : this(RpcServerId.Empty, options, definitionsProvider)
         {
         }
 
-        public DirectLightweightRpcConnector(RpcServerId serverId, ImmutableRpcClientOptions? options = null,
+        public DirectLightweightRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
             var requestPipe = new Pipe();

@@ -96,7 +96,11 @@ namespace SciTech.Rpc
         [DataMember(Name = "HostUrl", Order = 2)]
         private string? hostUrlString;
 
-        public RpcServerConnectionInfo() { }
+        public RpcServerConnectionInfo()
+        {
+            this.DisplayName = "";
+            this.HostUrl = null;
+        }
 
         public RpcServerConnectionInfo(RpcServerId serverId)
         {

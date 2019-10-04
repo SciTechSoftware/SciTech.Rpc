@@ -11,6 +11,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             new object[] { new ProtobufRpcSerializer(), RpcConnectionType.LightweightNamedPipe},
             new object[] { new ProtobufRpcSerializer(), RpcConnectionType.LightweightInproc},
             new object[] { new ProtobufRpcSerializer(), RpcConnectionType.LightweightTcp},
+            new object[] { new JsonRpcSerializer(), RpcConnectionType.LightweightTcp},
             new object[] { new ProtobufRpcSerializer(), RpcConnectionType.LightweightSslTcp},
             new object[] { new DataContractRpcSerializer(), RpcConnectionType.LightweightTcp},
             new object[] { new DataContractRpcSerializer(), RpcConnectionType.LightweightInproc},

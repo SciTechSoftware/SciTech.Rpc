@@ -10,7 +10,8 @@ namespace SciTech.Rpc.Tests.NetGrpc
     public class NetGrpcClientServerTests : ClientServerBaseTests
     {
         protected static readonly object[] DefaultGrpcClientHostFixtureArgs = {
-            new object[] { new ProtobufRpcSerializer(), RpcConnectionType.NetGrpc}
+            new object[] { new ProtobufRpcSerializer(), RpcConnectionType.NetGrpc},
+            new object[] { new JsonRpcSerializer(), RpcConnectionType.NetGrpc}
         };
 
         public NetGrpcClientServerTests(IRpcSerializer serializer, RpcConnectionType connectionType) :

@@ -11,6 +11,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
 namespace SciTech.Rpc
 {
@@ -20,21 +21,22 @@ namespace SciTech.Rpc
     /// </summary>
     [DataContract]
     [Serializable]
+    [JsonConverter(typeof(Serialization.RpcServerIdJsonConverter))]
     public struct RpcServerId : IEquatable<RpcServerId>
     {
         public static readonly RpcServerId Empty;
 
-        [DataMember(Order = 1, Name = "Id")]
-        private Guid id;
+        [DataMember(Order = 1)]
+        internal Guid Id { get; set; }
 
         public RpcServerId(string idString)
         {
-            this.id = new Guid(idString);
+            this.Id = new Guid(idString);
         }
 
         public RpcServerId(Guid id)
         {
-            this.id = id;
+            this.Id = id;
         }
 
         public static RpcServerId NewId()
@@ -49,32 +51,32 @@ namespace SciTech.Rpc
 
         public bool Equals(RpcServerId other)
         {
-            return this.id == other.id;
+            return this.Id == other.Id;
         }
 
         public override int GetHashCode()
         {
-            return this.id.GetHashCode();
+            return this.Id.GetHashCode();
         }
 
         public Guid ToGuid()
         {
-            return this.id;
+            return this.Id;
         }
 
         public override string ToString()
         {
-            return this.id.ToString();
+            return this.Id.ToString();
         }
 
         public static bool operator ==(RpcServerId id1, RpcServerId id2)
         {
-            return id1.id == id2.id;
+            return id1.Id == id2.Id;
         }
 
         public static bool operator !=(RpcServerId id1, RpcServerId id2)
         {
-            return id1.id != id2.id;
+            return id1.Id != id2.Id;
         }
     }
 
@@ -86,13 +88,15 @@ namespace SciTech.Rpc
     [DataContract]
     //[KnownType(typeof(TcpRpcServerConnectionInfo))]
     [Serializable]
-    public class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
+    public sealed class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
     {
         [NonSerialized]
         private Uri? hostUrl;
 
         [DataMember(Name = "HostUrl", Order = 2)]
         private string? hostUrlString;
+
+        public RpcServerConnectionInfo() { }
 
         public RpcServerConnectionInfo(RpcServerId serverId)
         {
@@ -174,7 +178,7 @@ namespace SciTech.Rpc
             return obj is RpcServerConnectionInfo other && this.Equals(other);
         }
 
-        public virtual bool Equals(RpcServerConnectionInfo other)
+        public bool Equals(RpcServerConnectionInfo other)
         {
             if (other != null && this.GetType() == other.GetType())
             {
@@ -194,7 +198,7 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>
-        public virtual bool Matches(RpcServerConnectionInfo other)
+        public bool Matches(RpcServerConnectionInfo other)
         {
             if (other == null)
             {
@@ -217,7 +221,7 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="serverId"></param>
         /// <returns></returns>
-        public virtual RpcServerConnectionInfo SetServerId(RpcServerId serverId)
+        public RpcServerConnectionInfo SetServerId(RpcServerId serverId)
         {
             if (this.GetType() != typeof(RpcServerConnectionInfo))
             {

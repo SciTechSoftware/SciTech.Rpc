@@ -336,7 +336,8 @@ namespace SciTech.Rpc.Server.Internal
                         throw new RpcDefinitionException("Failed to find RPC method parameter.");
                     }
 
-                    parameterExpressions.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{valueIndex}"));
+                    parameterExpressions.Add(Expression.Property(requestParameter, typeof(TRequest), $"Value{valueIndex}"));
+                    //parameterExpressions.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{valueIndex}"));
                 }
             }
 

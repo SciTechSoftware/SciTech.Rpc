@@ -27,7 +27,7 @@ namespace SciTech.Rpc.Internal
     public sealed class RpcObjectRequest : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         public RpcObjectRequest()
         {
@@ -38,25 +38,25 @@ namespace SciTech.Rpc.Internal
         {
             this.Id = id;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public class RpcServicesQueryResponse
     {
         [DataMember(Order = 1)]
-        public string[] ImplementedServices;
+#pragma warning disable CA1819 // Properties should not return arrays
+        public string[] ImplementedServices { get; set; }
+#pragma warning restore CA1819 // Properties should not return arrays
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -68,21 +68,19 @@ namespace SciTech.Rpc.Internal
             this.Id = id;
             this.Value1 = value1;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -95,24 +93,22 @@ namespace SciTech.Rpc.Internal
             this.Value1 = value1;
             this.Value2 = value2;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2, T3> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         [DataMember(Order = 4)]
-        public T3 Value3;
+        public T3 Value3 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -126,27 +122,25 @@ namespace SciTech.Rpc.Internal
             this.Value2 = value2;
             this.Value3 = value3;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2, T3, T4> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         [DataMember(Order = 4)]
-        public T3 Value3;
+        public T3 Value3 { get; set; }
 
         [DataMember(Order = 5)]
-        public T4 Value4;
+        public T4 Value4 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -161,30 +155,28 @@ namespace SciTech.Rpc.Internal
             this.Value3 = value3;
             this.Value4 = value4;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2, T3, T4, T5> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         [DataMember(Order = 4)]
-        public T3 Value3;
+        public T3 Value3 { get; set; }
 
         [DataMember(Order = 5)]
-        public T4 Value4;
+        public T4 Value4 { get; set; }
 
         [DataMember(Order = 6)]
-        public T5 Value5;
+        public T5 Value5 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -200,33 +192,31 @@ namespace SciTech.Rpc.Internal
             this.Value4 = value4;
             this.Value5 = value5;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2, T3, T4, T5, T6> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         [DataMember(Order = 4)]
-        public T3 Value3;
+        public T3 Value3 { get; set; }
 
         [DataMember(Order = 5)]
-        public T4 Value4;
+        public T4 Value4 { get; set; }
 
         [DataMember(Order = 6)]
-        public T5 Value5;
+        public T5 Value5 { get; set; }
 
         [DataMember(Order = 7)]
-        public T6 Value6;
+        public T6 Value6 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -243,36 +233,34 @@ namespace SciTech.Rpc.Internal
             this.Value5 = value5;
             this.Value6 = value6;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2, T3, T4, T5, T6, T7> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         [DataMember(Order = 4)]
-        public T3 Value3;
+        public T3 Value3 { get; set; }
 
         [DataMember(Order = 5)]
-        public T4 Value4;
+        public T4 Value4 { get; set; }
 
         [DataMember(Order = 6)]
-        public T5 Value5;
+        public T5 Value5 { get; set; }
 
         [DataMember(Order = 7)]
-        public T6 Value6;
+        public T6 Value6 { get; set; }
 
         [DataMember(Order = 8)]
-        public T7 Value7;
+        public T7 Value7 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -290,39 +278,37 @@ namespace SciTech.Rpc.Internal
             this.Value6 = value6;
             this.Value7 = value7;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2, T3, T4, T5, T6, T7, T8> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         [DataMember(Order = 4)]
-        public T3 Value3;
+        public T3 Value3 { get; set; }
 
         [DataMember(Order = 5)]
-        public T4 Value4;
+        public T4 Value4 { get; set; }
 
         [DataMember(Order = 6)]
-        public T5 Value5;
+        public T5 Value5 { get; set; }
 
         [DataMember(Order = 7)]
-        public T6 Value6;
+        public T6 Value6 { get; set; }
 
         [DataMember(Order = 8)]
-        public T7 Value7;
+        public T7 Value7 { get; set; }
 
         [DataMember(Order = 9)]
-        public T8 Value8;
+        public T8 Value8 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -341,42 +327,40 @@ namespace SciTech.Rpc.Internal
             this.Value7 = value7;
             this.Value8 = value8;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
     [DataContract]
     public sealed class RpcObjectRequest<T1, T2, T3, T4, T5, T6, T7, T8, T9> : IObjectRequest
     {
         [DataMember(Order = 1)]
-        public RpcObjectId Id;
+        public RpcObjectId Id { get; set; }
 
         [DataMember(Order = 2)]
-        public T1 Value1;
+        public T1 Value1 { get; set; }
 
         [DataMember(Order = 3)]
-        public T2 Value2;
+        public T2 Value2 { get; set; }
 
         [DataMember(Order = 4)]
-        public T3 Value3;
+        public T3 Value3 { get; set; }
 
         [DataMember(Order = 5)]
-        public T4 Value4;
+        public T4 Value4 { get; set; }
 
         [DataMember(Order = 6)]
-        public T5 Value5;
+        public T5 Value5 { get; set; }
 
         [DataMember(Order = 7)]
-        public T6 Value6;
+        public T6 Value6 { get; set; }
 
         [DataMember(Order = 8)]
-        public T7 Value7;
+        public T7 Value7 { get; set; }
 
         [DataMember(Order = 9)]
-        public T8 Value8;
+        public T8 Value8 { get; set; }
 
         [DataMember(Order = 10)]
-        public T9 Value9;
+        public T9 Value9 { get; set; }
 
         public RpcObjectRequest()
         {
@@ -396,8 +380,6 @@ namespace SciTech.Rpc.Internal
             this.Value8 = value8;
             this.Value9 = value9;
         }
-
-        RpcObjectId IObjectRequest.Id => this.Id;
     }
 
 #nullable restore

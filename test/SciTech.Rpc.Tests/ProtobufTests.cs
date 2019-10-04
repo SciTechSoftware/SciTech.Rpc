@@ -7,7 +7,7 @@ namespace SciTech.Rpc
 {
 
     [ProtoContract]
-    public class BaseClass
+    public class BaseProtoClass
     {
         [ProtoMember(1)]
         internal int a;
@@ -17,7 +17,7 @@ namespace SciTech.Rpc
     }
 
     [ProtoContract]
-    public class ClassWithBool
+    public class ProtoClassWithBool
     {
         [ProtoMember(1)]
         public bool First;
@@ -27,7 +27,7 @@ namespace SciTech.Rpc
     }
 
     [ProtoContract]
-    public class DerivedClass : BaseClass
+    public class DerivedProtoClass : BaseProtoClass
     {
 
         [ProtoMember(3)]
@@ -40,7 +40,7 @@ namespace SciTech.Rpc
     }
 
     [ProtoContract]
-    public class EmptyDerivedClass : BaseClass
+    public class EmptyDerivedProtoClass : BaseProtoClass
     {
         [ProtoMember(1)]
         internal new int a { get => base.a; set => base.a = value; }
@@ -59,14 +59,14 @@ namespace SciTech.Rpc
         public void BoolRequestErrorTest()
 
         {
-            var request = new ClassWithBool { First = true, Second = false };
+            var request = new ProtoClassWithBool { First = true, Second = false };
             var ms = new MemoryStream();
 
             Serializer.Serialize(ms, request);
             ms.Seek(0, SeekOrigin.Begin);
 
             // Deserialize will throw in Protobuf 3.0.0-alpha.32
-            var dr = Serializer.Deserialize<ClassWithBool>(ms);
+            var dr = Serializer.Deserialize<ProtoClassWithBool>(ms);
             Assert.AreEqual(request.First, dr.First);
             Assert.AreEqual(request.Second, dr.Second);
         }
@@ -77,14 +77,14 @@ namespace SciTech.Rpc
         {
             for (int i = 0; i < 100; i++)
             {
-                var d = new DerivedClass { a = i, b = (uint)i * 2, c = (uint)i * 3 };
+                var d = new DerivedProtoClass { a = i, b = (uint)i * 2, c = (uint)i * 3 };
 
                 var ms = new MemoryStream();
 
                 Serializer.Serialize(ms, d);
                 ms.Seek(0, SeekOrigin.Begin);
 
-                var dr = Serializer.Deserialize<DerivedClass>(ms);
+                var dr = Serializer.Deserialize<DerivedProtoClass>(ms);
 
                 Assert.AreEqual(d.a, dr.a);
                 Assert.AreEqual(d.b, dr.b);
@@ -97,14 +97,14 @@ namespace SciTech.Rpc
         {
             for (int i = 0; i < 100; i++)
             {
-                var d = new EmptyDerivedClass { a = i, b = (uint)i * 2 };
+                var d = new EmptyDerivedProtoClass { a = i, b = (uint)i * 2 };
 
                 var ms = new MemoryStream();
 
                 Serializer.Serialize(ms, d);
                 ms.Seek(0, SeekOrigin.Begin);
 
-                var dr = Serializer.Deserialize<EmptyDerivedClass>(ms);
+                var dr = Serializer.Deserialize<EmptyDerivedProtoClass>(ms);
 
                 Assert.AreEqual(d.a, dr.a);
                 Assert.AreEqual(d.b, dr.b);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc
@@ -10,18 +11,19 @@ namespace SciTech.Rpc
 #pragma warning disable CA2235 // Mark all non-serializable fields
     [DataContract]
     [Serializable]  
+    [JsonConverter(typeof(Serialization.RpcObjectIdJsonConverter))]
     public struct RpcObjectId : IEquatable<RpcObjectId>
     {
         public static readonly RpcObjectId Empty = default;
 
 #pragma warning disable IDE0044 // Add readonly modifier
         [DataMember(Order = 1,Name ="Id")]
-        private Guid id;
+        internal Guid Id { get; private set; }
 #pragma warning restore IDE0044 // Add readonly modifier
 
-        private RpcObjectId(Guid id)
+        internal RpcObjectId(Guid id)
         {
-            this.id = id;
+            this.Id = id;
         }
 
         public RpcObjectId(string id)
@@ -31,12 +33,12 @@ namespace SciTech.Rpc
                 throw new ArgumentException("id should not be empty.", nameof(id));
             }
 
-            this.id = new Guid(id);
+            this.Id = new Guid(id);
         }
 
         public override string ToString()
         {
-            return this.id.ToString();
+            return this.Id.ToString();
         }
 
         public static RpcObjectId NewId()
@@ -61,12 +63,12 @@ namespace SciTech.Rpc
 
         public bool Equals(RpcObjectId other)
         {
-            return this.id.Equals(other.id);
+            return this.Id.Equals(other.Id);
         }
 
         public override int GetHashCode()
         {
-            return this.id.GetHashCode();
+            return this.Id.GetHashCode();
         }
     }
 #pragma warning restore CA2235 // Mark all non-serializable fields

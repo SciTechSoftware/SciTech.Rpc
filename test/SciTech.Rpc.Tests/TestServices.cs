@@ -288,6 +288,8 @@ namespace SciTech.Rpc.Tests
     [ProtoContract(SkipConstructor = true)]
     public class AnotherDeclaredFault
     {
+        public AnotherDeclaredFault() { }
+
         public AnotherDeclaredFault(string message, int argument)
         {
             this.Message = message;
@@ -295,16 +297,18 @@ namespace SciTech.Rpc.Tests
         }
 
         [DataMember(Order = 2)]
-        public int Argument { get; private set; }
+        public int Argument { get; set; }
 
         [DataMember(Order = 1)]
-        public string Message { get; private set; }
+        public string Message { get; set; }
     }
 
     [DataContract]
     [ProtoContract(SkipConstructor = true)]
     public class AnotherServiceDeclaredFault
     {
+        public AnotherServiceDeclaredFault() { }
+
         public AnotherServiceDeclaredFault(string message, int argument)
         {
             this.Message = message;
@@ -312,10 +316,10 @@ namespace SciTech.Rpc.Tests
         }
 
         [DataMember(Order = 2)]
-        public int Argument { get; private set; }
+        public int Argument { get; set; }
 
         [DataMember(Order = 1)]
-        public string Message { get; private set; }
+        public string Message { get; set; }
     }
 
     public class AutoPublishServiceProviderServiceImpl : IImplicitServiceProviderService
@@ -361,13 +365,15 @@ namespace SciTech.Rpc.Tests
     [ProtoContract(SkipConstructor = true)]
     public class DeclaredFault
     {
+        public DeclaredFault() { }
+
         public DeclaredFault(string message)
         {
             this.Message = message;
         }
 
         [DataMember(Order = 1)]
-        public string Message { get; private set; }
+        public string Message { get; set; }
     }
 
     public class DeclaredFaultException : Exception
@@ -583,13 +589,15 @@ namespace SciTech.Rpc.Tests
     [ProtoContract(SkipConstructor = true)]
     public class ServiceDeclaredFault
     {
+        public ServiceDeclaredFault() { }
+
         public ServiceDeclaredFault(string message)
         {
             this.Message = message;
         }
 
         [DataMember(Order = 1)]
-        public string Message { get; private set; }
+        public string Message { get; set; }
     }
 
     public class ServiceFaultServiceImpl : IServiceFaultService
@@ -870,6 +878,8 @@ namespace SciTech.Rpc.Tests
     [ProtoContract(SkipConstructor = true)]
     public class ValueChangedEventArgs //: EventArgs
     {
+        public ValueChangedEventArgs() { }
+
         public ValueChangedEventArgs(int newValue, int oldValue)
         {
             this.NewValue = newValue;
@@ -877,9 +887,9 @@ namespace SciTech.Rpc.Tests
         }
 
         [DataMember(Order = 1)]
-        public int NewValue { get; private set; }
+        public int NewValue { get; set; }
 
         [DataMember(Order = 2)]
-        public int OldValue { get; private set; }
+        public int OldValue { get; set; }
     }
 }

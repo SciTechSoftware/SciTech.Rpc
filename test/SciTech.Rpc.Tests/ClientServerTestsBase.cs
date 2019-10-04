@@ -15,6 +15,7 @@ using System.Collections.Immutable;
 using System.Threading.Tasks;
 using SciTech.Rpc.Tests.Grpc;
 using SciTech.Rpc.Serialization;
+using Microsoft.Extensions.Options;
 
 #if NETCOREAPP3_0
 using SciTech.Rpc.NetGrpc.Server.Internal;
@@ -173,7 +174,7 @@ namespace SciTech.Rpc.Tests
 #if NETCOREAPP3_0
                 case RpcConnectionType.NetGrpc:
                     {
-                        var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId);
+                        var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, options);
                         //var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
                         //host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
@@ -203,7 +204,7 @@ namespace SciTech.Rpc.Tests
 
 
 #if NETCOREAPP3_0
-        private static IRpcServer CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId)
+        private static IRpcServer CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
         {
             var hostBuilder = WebHost.CreateDefaultBuilder()
                 .ConfigureKestrel(options =>
@@ -218,10 +219,11 @@ namespace SciTech.Rpc.Tests
                         listenOptions.Protocols = HttpProtocols.Http2;
                     });
                 })
-                .ConfigureServices(s=>
+                .ConfigureServices(s =>
                 {
                     s.AddSingleton(serviceDefinitionsProvider);
                     s.Configure<RpcServicePublisherOptions>(o => o.ServerId = serverId);
+                    s.AddSingleton<IOptions<RpcServerOptions>>(new OptionsWrapper<RpcServerOptions>(options));
                 })
                 .UseStartup<NetStartup>();
 

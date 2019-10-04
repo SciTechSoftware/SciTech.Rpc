@@ -18,21 +18,21 @@ namespace SciTech.Rpc.Internal
     [DataContract]
     public class RpcError
     {
-#pragma warning disable CA1051 // Do not declare visible instance fields
         [DataMember(Order = 1)]
-        public string? ErrorType;
+        public string? ErrorType { get; set; }
 
         [DataMember(Order = 2)]
-        public string? FaultCode;
+        public string? FaultCode { get; set; }
 
         [DataMember(Order = 3)]
-        public byte[]? FaultDetails;
+#pragma warning disable CA1819 // Properties should not return arrays
+        public byte[]? FaultDetails { get; set; }
+#pragma warning restore CA1819 // Properties should not return arrays
 
         [DataMember(Order = 4)]
-        public string? Message;
+        public string? Message { get; set; }
 
         public RpcError() { }
-#pragma warning restore CA1051 // Do not declare visible instance fields
     }
 
     [DataContract]
@@ -44,26 +44,23 @@ namespace SciTech.Rpc.Internal
     [DataContract]
     public sealed class RpcResponse<T>
     {
-#pragma warning disable CA1051 // Do not declare visible instance fields
-#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         /// <summary>
         /// Result should be marked as nullable (?) since
         /// it may return null reference types. 
         /// </summary>
         [DataMember(Order = 1)]
-        public T Result;
+        public T Result { get; set; }
 
+#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         public RpcResponse()
+#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         {
-            //this.Result = default!;
         }
 
         public RpcResponse(T result)
         {
             this.Result = result;
         }
-#pragma warning restore CA1051 // Do not declare visible instance fields
-#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
     }
 
 
@@ -71,9 +68,8 @@ namespace SciTech.Rpc.Internal
     [DataContract]
     public sealed class RpcResponseWithError
     {
-#pragma warning disable CA1051 // Do not declare visible instance fields
         [DataMember(Order = 2)]
-        public RpcError? Error;
+        public RpcError? Error { get; set; }
 
         public RpcResponseWithError() { }
 
@@ -81,27 +77,25 @@ namespace SciTech.Rpc.Internal
         {
             this.Error = error;
         }
-#pragma warning restore CA1051 // Do not declare visible instance fields
     }
 
     [DataContract]
     public sealed class RpcResponseWithError<T>
     {
-#pragma warning disable CA1051 // Do not declare visible instance fields
-#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         [DataMember(Order = 2)]
-        public RpcError? Error;
+        public RpcError? Error { get; set; }
 
         /// <summary>
         /// Result should be marked as nullable (?) since
         /// it may return null reference types. 
         /// </summary>
         [DataMember(Order = 1)]
-        public T Result;
+        public T Result { get; set; }
 
+#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         public RpcResponseWithError()
+#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         {
-            //this.Result = default!;
         }
 
         public RpcResponseWithError(T result)
@@ -109,11 +103,11 @@ namespace SciTech.Rpc.Internal
             this.Result = result;
         }
 
+#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         public RpcResponseWithError(RpcError error)
+#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         {
             this.Error = error;
         }
-#pragma warning restore CA1051 // Do not declare visible instance fields
-#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
     }
 }

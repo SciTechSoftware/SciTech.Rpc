@@ -11,6 +11,7 @@ namespace SciTech.Rpc.Tests.Grpc
         protected static readonly object[] DefaultGrpsClientHostFixtureArgs = {
             new object[] { new ProtobufRpcSerializer(), RpcConnectionType.Grpc},
             new object[] { new DataContractRpcSerializer(), RpcConnectionType.Grpc},
+            new object[] { new JsonRpcSerializer(), RpcConnectionType.Grpc},
         };
 
         public GrpcClientServerTests(IRpcSerializer serializer, RpcConnectionType connectionType) :

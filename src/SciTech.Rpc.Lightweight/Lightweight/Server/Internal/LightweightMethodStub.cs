@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
@@ -72,7 +73,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     }
 
     internal class LightweightMethodStub<TRequest, TResponse> : LightweightMethodStub
-        where TRequest : class
+        where TRequest : class, IObjectRequest
         where TResponse : class
     {
         private readonly IRpcSerializer<TRequest> requestSerializer;
@@ -130,6 +131,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// </summary>
         internal Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TResponse>, LightweightCallContext, ValueTask>? StreamHandler { get; }
 
+        //[ThreadStatic]
+        //static TRequest? workRequest;
+
         public override Task HandleMessage(RpcPipeline pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
             if (this.Handler == null)
@@ -137,15 +141,21 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Unary request handler is not initialized for '{frame.RpcOperation}'.");
             }
 
-            TRequest request = this.requestSerializer.Deserialize(frame.Payload);
+            //var wr = workRequest;
+            //if( wr != null )
+            //{
+            //    workRequest = null;
+            //}
+            TRequest request = this.requestSerializer.Deserialize(frame.Payload, null);// wr);
 
-            Task ExecuteOperation(
+            static Task ExecuteOperation(
+                LightweightMethodStub<TRequest,TResponse> stub,
                 RpcPipeline pipeline, TRequest request, int messageNumber, string operation,
                 IServiceProvider? serviceProvider, LightweightCallContext context)
             {
-                var responseTask = this.Handler!(request, serviceProvider, context);
+                var responseTask = stub.Handler!(request, serviceProvider, context);
 
-                return this.HandleResponse(messageNumber, operation, pipeline, responseTask);
+                return stub.HandleResponse(messageNumber, operation, pipeline, request, responseTask);
             }
 
             Task StartHandleMessage(RpcPipeline pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context, TRequest request)
@@ -154,9 +164,13 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 var operation = frame.RpcOperation;
                 // TODO: Scheduler should be a stub property
                 var scheduler = TaskScheduler.Default;
-
+                //ThreadPool.UnsafeQueueUserWorkItem(
+                //    oStub => ExecuteOperation((LightweightMethodStub<TRequest, TResponse>)oStub, pipeline, request, messageNumber, operation, serviceProvider, context),
+                //    this);
+                //)
                 return Task.Factory.StartNew(
-                    () => ExecuteOperation(pipeline, request, messageNumber, operation, serviceProvider, context),
+                    oStub => ExecuteOperation((LightweightMethodStub<TRequest, TResponse>)oStub, pipeline, request, messageNumber, operation, serviceProvider, context),
+                    this,
                     context.CancellationToken,
                     TaskCreationOptions.DenyChildAttach, scheduler).Unwrap();
             }
@@ -167,7 +181,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even 
                 // higher risk of dead-lock. AllowInlineExecution and PipeScheduler.Inline should
                 // be used with caution.
-                return ExecuteOperation(pipeline, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
+                return ExecuteOperation(this, pipeline, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
             }
             else
             {
@@ -192,11 +206,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             return this.HandleStreamResponse(responseTask, responseWriter);
         }
 
-        private Task HandleResponse(int messageNumber, string operation, RpcPipeline pipeline, ValueTask<TResponse> responseTask)
+        private Task HandleResponse(int messageNumber, string operation, RpcPipeline pipeline, TRequest request, ValueTask<TResponse> responseTask)
         {
             // Try to return response from synchronous methods directly.
             if (responseTask.IsCompletedSuccessfully)
             {
+                //request.Clear();
+                //workRequest = request;
+
                 var response = responseTask.Result;
                 ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
                 var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
@@ -250,6 +267,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 async Task AwaitAndWriteResponse(int messageNumber, string operation)
                 {
                     var response = await responseTask.ContextFree();
+                    // workRequest = request;
                     ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
                     var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
 

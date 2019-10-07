@@ -171,7 +171,7 @@ namespace SciTech.Rpc.Serialization
             this.options = options;
         }
 
-        public T Deserialize(ReadOnlySequence<byte> input)
+        public T Deserialize(ReadOnlySequence<byte> input, T value)
         {
             if (JsonRpcSerializer.TraceEnabled)
             {

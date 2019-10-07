@@ -11,6 +11,7 @@
 
 using System;
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Rpc.Serialization
 {
@@ -26,7 +27,7 @@ namespace SciTech.Rpc.Serialization
 
     public interface IRpcSerializer<T>
     {
-        T Deserialize(ReadOnlySequence<byte> input);
+        T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value=default);
 
         void Serialize(BufferWriterStream bufferWriter, T input);
     }

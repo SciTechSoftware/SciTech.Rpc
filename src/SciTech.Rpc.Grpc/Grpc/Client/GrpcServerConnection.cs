@@ -31,7 +31,7 @@ namespace SciTech.Rpc.Grpc.Client
 
         public GrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
-            ImmutableRpcClientOptions? options = null,
+            IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(connectionInfo,
@@ -45,7 +45,7 @@ namespace SciTech.Rpc.Grpc.Client
         public GrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
             GrpcCore.ChannelCredentials credentials,
-            ImmutableRpcClientOptions? options = null,
+            IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(
@@ -58,7 +58,7 @@ namespace SciTech.Rpc.Grpc.Client
         internal GrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
             GrpcCore.ChannelCredentials credentials,
-            ImmutableRpcClientOptions? options,
+            IRpcClientOptions? options,
             GrpcProxyGenerator proxyGenerator,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions)
             : base(connectionInfo, options, proxyGenerator)
@@ -72,7 +72,7 @@ namespace SciTech.Rpc.Grpc.Client
                     var callInterceptors = options.Interceptors;
                     if (callInterceptors != null)
                     {
-                        int nInterceptors = callInterceptors.Length;
+                        int nInterceptors = callInterceptors.Count;
                         if (nInterceptors > 0)
                         {
                             GrpcCore.CallCredentials callCredentials;
@@ -177,7 +177,7 @@ namespace SciTech.Rpc.Grpc.Client
 
         protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufRpcSerializer();
 
-        private static IEnumerable<GrpcCore.ChannelOption>? ExtractOptions(ImmutableRpcClientOptions? options, IEnumerable<GrpcCore.ChannelOption>? channelOptions)
+        private static IEnumerable<GrpcCore.ChannelOption>? ExtractOptions(IRpcClientOptions? options, IEnumerable<GrpcCore.ChannelOption>? channelOptions)
         {
             if (options == null)
             {

@@ -30,6 +30,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
     internal class RpcPipelineClient : RpcPipeline
     {
         private static readonly ILog Logger = LogProvider.For<RpcPipelineClient>();
+        
+        private static readonly bool TraceEnabled = Logger.IsTraceEnabled();
 
         private readonly Dictionary<int, IResponseHandler> awaitingResponses
             = new Dictionary<int, IResponseHandler>();
@@ -125,17 +127,29 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             CancellationToken cancellationToken)
             where TRequest : class
         {
-            Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
+            if (TraceEnabled)
+            {
+                Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
+            }
 
             async Task<TResponse> Awaited(int messageId, ValueTask<BufferWriterStream> pendingWriteTask, Task<TResponse> response)
             {
                 try
                 {
-                    Logger.Trace("Awaiting writer for '{Operation}'.", operation);
+                    if (TraceEnabled)
+                    {
+                        Logger.Trace("Awaiting writer for '{Operation}'.", operation);
+                    }
+
                     this.WriteRequest(request, requestSerializer, await pendingWriteTask.ContextFree());
 
                     var awaitedResponse = await response.ContextFree();
-                    Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
+
+                    if (TraceEnabled)
+                    {
+                        Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
+                    }
+
                     return awaitedResponse;
                 }
                 catch (Exception ex)
@@ -166,7 +180,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 {
                     this.WriteRequest(request, requestSerializer, writeTask.Result);
 
-                    if (Logger.IsTraceEnabled())
+                    if (TraceEnabled)
                     {
                         tcs.Task.ContinueWith(t =>
                         {
@@ -211,7 +225,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             CancellationToken cancellationToken)
             where TRequest : class
         {
-            Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
+            if (TraceEnabled)
+            {
+                Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
+            }
 
             var tcs = new ResponseCompletionSource<TResponse>(serializers.ResponseSerializer);
             int messageId = this.AddAwaitingResponse(tcs);

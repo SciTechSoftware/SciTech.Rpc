@@ -102,7 +102,7 @@ namespace SciTech.Rpc.Serialization
             this.dataContractSerializer = settings != null ? new DataContractSerializer(typeof(T), settings) : new DataContractSerializer(typeof(T));
         }
 
-        public T Deserialize(ReadOnlySequence<byte> input)
+        public T Deserialize(ReadOnlySequence<byte> input, T value)
         {
             return (T)DataContractRpcSerializer.Deserialize(input, this.dataContractSerializer);
         }

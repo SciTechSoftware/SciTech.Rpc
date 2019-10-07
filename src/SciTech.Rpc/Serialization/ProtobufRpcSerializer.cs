@@ -92,10 +92,10 @@ namespace SciTech.Rpc.Serialization
             this.typeModel = typeModel;
         }
 
-        public T Deserialize(ReadOnlySequence<byte> input)
+        public T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value)
         {
             using var state = ProtoBuf.ProtoReader.State.Create(input, this.typeModel);
-            return state.DeserializeRoot<T>();
+            return state.DeserializeRoot<T>(value);
         }
 
 
@@ -122,7 +122,7 @@ namespace SciTech.Rpc.Serialization
                 throw new ArgumentException("Types do not match", nameof(type));
             }
 
-            return this.Deserialize(input);
+            return this.Deserialize(input, default);
 
         }
 

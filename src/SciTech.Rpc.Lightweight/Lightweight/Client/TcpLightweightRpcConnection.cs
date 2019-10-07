@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Lightweight.Client
         public TcpLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions = null,
-            ImmutableRpcClientOptions? options = null,
+            IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null,
             LightweightOptions? lightweightOptions = null)
             : this(connectionInfo, sslOptions, options,
@@ -51,7 +51,7 @@ namespace SciTech.Rpc.Lightweight.Client
         internal TcpLightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions,
-            ImmutableRpcClientOptions? options,
+            IRpcClientOptions? options,
             LightweightProxyGenerator proxyGenerator,
             LightweightOptions? lightweightOptions)
             : base(connectionInfo, options,
@@ -89,9 +89,11 @@ namespace SciTech.Rpc.Lightweight.Client
 
             var sendOptions = new PipeOptions(
                 pauseWriterThreshold: sendMaxMessageSize * 2, resumeWriterThreshold: sendMaxMessageSize,
+                readerScheduler: PipeScheduler.ThreadPool,
                 useSynchronizationContext: false);
             var receiveOptions = new PipeOptions(
                 pauseWriterThreshold: receiveMaxMessageSize * 2, resumeWriterThreshold: receiveMaxMessageSize,
+                readerScheduler: PipeScheduler.Inline,
                 useSynchronizationContext: false);
 
             try

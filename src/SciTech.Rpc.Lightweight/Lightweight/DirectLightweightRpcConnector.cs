@@ -28,8 +28,8 @@ namespace SciTech.Rpc.Lightweight
         public DirectLightweightRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
-            var requestPipe = new Pipe();
-            var responsePipe = new Pipe();
+            var requestPipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
+            var responsePipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
 
             this.EndPoint = new DirectLightweightRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
 

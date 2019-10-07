@@ -238,6 +238,7 @@ namespace SciTech.Rpc.Server.Internal
                 {
                     // Call the actual implementation method.
                     var result = await implCaller(activatedService.Service, request, context.CancellationToken).ContextFree();
+                    
                     context.CancellationToken.ThrowIfCancellationRequested();
 
                     return CreateResponseWithError(responseConverter, result);

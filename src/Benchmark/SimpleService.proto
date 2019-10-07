@@ -1,0 +1,17 @@
+﻿syntax = "proto3";
+
+package SciTech.Rpc.Benchmark;
+
+message AddRequest {
+	int32 a=1;
+	int32 b=2;
+}
+
+message AddResponse {
+    int32 Sum=1;
+}
+
+
+service SimpleService {
+	rpc Add(AddRequest) returns(AddResponse);
+}

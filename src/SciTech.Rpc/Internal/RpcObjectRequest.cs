@@ -21,6 +21,8 @@ namespace SciTech.Rpc.Internal
     public interface IObjectRequest
     {
         RpcObjectId Id { get; }
+
+        void Clear();
     }
 
     [DataContract]
@@ -37,6 +39,11 @@ namespace SciTech.Rpc.Internal
         public RpcObjectRequest(RpcObjectId id)
         {
             this.Id = id;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
         }
     }
 
@@ -68,6 +75,13 @@ namespace SciTech.Rpc.Internal
             this.Id = id;
             this.Value1 = value1;
         }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+        }
+
     }
 
     [DataContract]
@@ -93,6 +107,14 @@ namespace SciTech.Rpc.Internal
             this.Value1 = value1;
             this.Value2 = value2;
         }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
+        }
+
     }
 
     [DataContract]
@@ -121,6 +143,13 @@ namespace SciTech.Rpc.Internal
             this.Value1 = value1;
             this.Value2 = value2;
             this.Value3 = value3;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
         }
     }
 
@@ -154,6 +183,13 @@ namespace SciTech.Rpc.Internal
             this.Value2 = value2;
             this.Value3 = value3;
             this.Value4 = value4;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
         }
     }
 
@@ -191,6 +227,13 @@ namespace SciTech.Rpc.Internal
             this.Value3 = value3;
             this.Value4 = value4;
             this.Value5 = value5;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
         }
     }
 
@@ -232,6 +275,13 @@ namespace SciTech.Rpc.Internal
             this.Value4 = value4;
             this.Value5 = value5;
             this.Value6 = value6;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
         }
     }
 
@@ -277,6 +327,13 @@ namespace SciTech.Rpc.Internal
             this.Value5 = value5;
             this.Value6 = value6;
             this.Value7 = value7;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
         }
     }
 
@@ -326,6 +383,13 @@ namespace SciTech.Rpc.Internal
             this.Value6 = value6;
             this.Value7 = value7;
             this.Value8 = value8;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
         }
     }
 
@@ -379,6 +443,13 @@ namespace SciTech.Rpc.Internal
             this.Value7 = value7;
             this.Value8 = value8;
             this.Value9 = value9;
+        }
+
+        public void Clear()
+        {
+            this.Id = default;
+            this.Value1 = default;
+            this.Value2 = default;
         }
     }
 

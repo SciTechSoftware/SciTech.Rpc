@@ -14,6 +14,10 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+
+        public void Clear()
+        {
+        }
     }
 
     [DataContract]
@@ -34,6 +38,11 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+
+        public void Clear()
+        {
+            this.Value1 = default;
+        }
     }
 
     [DataContract]
@@ -57,6 +66,12 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+        
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
     }
 
     [DataContract]
@@ -84,6 +99,12 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
     }
 
     [DataContract]
@@ -115,6 +136,13 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+
+
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
     }
 
     [DataContract]
@@ -150,6 +178,13 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
+
     }
 
     [DataContract]
@@ -189,6 +224,12 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
     }
 
     [DataContract]
@@ -232,6 +273,11 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
     }
 
     [DataContract]
@@ -279,6 +325,11 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
     }
 
     [DataContract]
@@ -330,6 +381,11 @@ namespace SciTech.Rpc.Internal
         }
 
         RpcObjectId IObjectRequest.Id => RpcObjectId.Empty;
+        public void Clear()
+        {
+            this.Value1 = default;
+            this.Value2 = default;
+        }
     }
 #nullable restore
 #pragma warning restore CA1051 // Do not declare visible instance fields

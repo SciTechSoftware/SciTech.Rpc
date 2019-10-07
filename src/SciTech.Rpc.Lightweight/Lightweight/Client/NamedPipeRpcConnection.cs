@@ -78,9 +78,11 @@ namespace SciTech.Rpc.Lightweight.Client
 
                     var sendOptions = new System.IO.Pipelines.PipeOptions(
                         pauseWriterThreshold: sendMaxMessageSize * 2, resumeWriterThreshold: sendMaxMessageSize,
+                        readerScheduler: System.IO.Pipelines.PipeScheduler.Inline,
                         useSynchronizationContext: false);
                     var receiveOptions = new System.IO.Pipelines.PipeOptions(
                         pauseWriterThreshold: receiveMaxMessageSize * 2, resumeWriterThreshold: receiveMaxMessageSize,
+                        readerScheduler: System.IO.Pipelines.PipeScheduler.Inline,
                         useSynchronizationContext: false);
 
                     var connection = StreamConnection.GetDuplex(pipeClientStream, sendOptions, receiveOptions);

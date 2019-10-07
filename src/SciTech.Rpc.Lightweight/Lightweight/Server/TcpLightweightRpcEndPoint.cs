@@ -121,7 +121,10 @@ namespace SciTech.Rpc.Lightweight.Server
                     resumeWriterThreshold: receivePauseThreshold / 2,
                     readerScheduler: PipeScheduler.Inline,
                     useSynchronizationContext: false);
-                this.Listen(this.endPoint, receiveOptions: receiveOptions);
+                var sendOptions = new PipeOptions(
+                    readerScheduler: PipeScheduler.ThreadPool,
+                    useSynchronizationContext: false);
+                this.Listen(this.endPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
             }
 
             public Task StopAsync()

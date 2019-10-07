@@ -147,12 +147,12 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 Task<RpcResponseWithError<TResponseReturn>> Handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context)
                     => serviceStub.CallBlockingMethodWithError(
                         request,
-                        activator.ServiceProvider,
                         new GrpcCallContext(context),
                         serviceCaller,
                         responseConverter,
                         faultHandler,
-                        serializer).AsTask();
+                        serializer,
+                        activator.ServiceProvider).AsTask();
 
                 var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(
                     MethodType.Unary,
@@ -166,10 +166,10 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 Task<RpcResponse<TResponseReturn>> handler(NetGrpcServiceActivator<TService> activator, TRequest request, ServerCallContext context) =>
                     serviceStub.CallBlockingMethod(
                         request,
-                        activator.ServiceProvider,
                         new GrpcCallContext(context),
                         serviceCaller,
-                        responseConverter).AsTask();
+                        responseConverter,
+                        activator.ServiceProvider).AsTask();
 
                 var methodStub = GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(
                     MethodType.Unary,

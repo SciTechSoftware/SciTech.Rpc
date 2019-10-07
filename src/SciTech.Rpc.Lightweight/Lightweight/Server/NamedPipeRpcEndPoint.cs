@@ -50,23 +50,39 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
         {
-            return new RpcPipeServer(this.uri, clientConnectedCallback);
+            return new RpcPipeServer(this.uri, clientConnectedCallback, maxRequestSize);
         }
 
         private class RpcPipeServer : NamedPipeServer, ILightweightRpcListener
         {
             private Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
-
+            
+            private readonly int maxRequestSize;
+            
             /// <summary>
             /// Create a new instance of a named pipe server
             /// </summary>
-            internal RpcPipeServer(Uri uri, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback) 
+            internal RpcPipeServer(Uri uri, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize) 
                 : base(uri)
             {
                 this.clientConnectedCallback = clientConnectedCallback;
+                this.maxRequestSize = maxRequestSize;
             }
 
-            public void Listen() => base.Listen();
+            public void Listen()
+            {
+                int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
+                var receiveOptions = new System.IO.Pipelines.PipeOptions(
+                    pauseWriterThreshold: receivePauseThreshold,
+                    resumeWriterThreshold: receivePauseThreshold / 2,
+                    readerScheduler: PipeScheduler.Inline,
+                    useSynchronizationContext: false);
+                var sendOptions = new System.IO.Pipelines.PipeOptions(
+                    readerScheduler: PipeScheduler.ThreadPool,
+                    useSynchronizationContext: false);
+
+                base.Listen(sendOptions: sendOptions, receiveOptions: receiveOptions);
+            }
 
             public Task StopAsync()
             {

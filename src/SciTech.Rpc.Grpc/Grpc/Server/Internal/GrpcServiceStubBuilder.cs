@@ -140,8 +140,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                     using (var serviceScope = CreateServiceScope(serviceStub))
                     {
                         return serviceStub.CallBlockingMethodWithError(
-                            request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
-                            responseConverter, faultHandler, serializer).AsTask();
+                            request, new GrpcCallContext(context), serviceCaller, responseConverter,
+                            faultHandler, serializer, serviceScope?.ServiceProvider).AsTask();
                     }
                 };
 
@@ -156,8 +156,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                     using (var serviceScope = CreateServiceScope(serviceStub))
                     {
                         return serviceStub.CallBlockingMethod(
-                            request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
-                            responseConverter).AsTask();
+                            request, new GrpcCallContext(context), serviceCaller, responseConverter,
+                            serviceScope?.ServiceProvider).AsTask();
                     }
                 };
 

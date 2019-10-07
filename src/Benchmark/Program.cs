@@ -5,7 +5,7 @@ using BenchmarkDotNet.Environments;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
 using BenchmarkDotNet.Toolchains.CsProj;
-using Grpc.Core;
+using GrpcCore = Grpc.Core;
 using ProtoBuf.Meta;
 using SciTech.Rpc;
 using SciTech.Rpc.Benchmark;
@@ -19,12 +19,27 @@ using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using System;
+using System.Collections.Immutable;
 using System.IO;
 using System.Security.Cryptography;
 using System.ServiceModel;
 using System.Threading.Tasks;
 
-namespace Benchmark
+#if NETCOREAPP3_0
+using GrpcNet = Grpc.Net;
+using Grpc.Net.Client;
+using SciTech.Rpc.NetGrpc.Client;
+using SciTech.Rpc.NetGrpc.Server;
+using SciTech.Rpc.NetGrpc.Server.Internal;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+#endif
+
+namespace SciTech.Rpc.Benchmark
 {
 
     public enum RpcConnectionType
@@ -38,7 +53,7 @@ namespace Benchmark
 
     public class GrpcSimpleService : SciTech.Rpc.Benchmark.SimpleService.SimpleServiceBase
     {
-        public override Task<AddResponse> Add(AddRequest request, ServerCallContext context)
+        public override Task<AddResponse> Add(AddRequest request, GrpcCore.ServerCallContext context)
         {
             return Task.FromResult(new AddResponse { Sum = request.A + request.B });
         }
@@ -114,12 +129,15 @@ namespace Benchmark
     [Config(typeof(MultipleRuntimes))]
     public class RawGrpcBenchmark
     {
-        [Params(RpcConnectionType.Grpc)]
+        [Params(RpcConnectionType.Grpc, RpcConnectionType.NetGrpc)]
         public RpcConnectionType ConnectionType;
 
-        private Channel channel;
+        private GrpcCore.ChannelBase channel;
         private SimpleService.SimpleServiceClient clientService;
-        private Server server;
+        private GrpcCore.Server server;
+#if NETCOREAPP3_0
+        private IWebHost host;
+#endif
 
         [GlobalSetup]
         public void GlobalSetup()
@@ -129,25 +147,84 @@ namespace Benchmark
             switch (this.ConnectionType)
             {
                 case RpcConnectionType.Grpc:
-                    this.server = new Server
+                    this.server = new GrpcCore.Server
                     {
                         Services = { SimpleService.BindService(new GrpcSimpleService()) },
-                        Ports = { new ServerPort("localhost", 50051, ServerCredentials.Insecure) }
+                        Ports = { new GrpcCore.ServerPort("localhost", 50051, GrpcCore.ServerCredentials.Insecure) }
                     };
                     this.server.Start();
 
-                    this.channel = new Channel("127.0.0.1:50051", ChannelCredentials.Insecure);
+                    this.channel = new GrpcCore.Channel("127.0.0.1:50051", GrpcCore.ChannelCredentials.Insecure);
                     this.clientService = new SimpleService.SimpleServiceClient(this.channel);
                     break;
+#if NETCOREAPP3_0
+                case RpcConnectionType.NetGrpc:
+                    this.host = CreateNetGrpcHost();
+                    host.Start();
 
+                    this.channel = GrpcChannel.ForAddress("https://localhost:50051");
+                    this.clientService = new SimpleService.SimpleServiceClient(channel);
+                    break;
+#endif      
             }
         }
+
+#if NETCOREAPP3_0
+        private static IWebHost CreateNetGrpcHost()
+        {
+            var hostBuilder = new WebHostBuilder()
+                .UseKestrel()
+                .ConfigureKestrel(options =>
+                {
+                    options.ListenLocalhost(50051, listenOptions =>
+                    {
+                        listenOptions.UseHttps(TestCertificates.ServerPFXPath, "1111");
+                        listenOptions.Protocols = HttpProtocols.Http2;
+                    });
+                })
+                .ConfigureServices(s =>
+                {
+                })
+                .UseStartup<NetStartup>();
+
+            var host = hostBuilder.Build();
+
+            return host;
+
+        }
+
+        public class NetStartup
+        {
+            public void Configure(IApplicationBuilder app)
+            {
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapGrpcService<GrpcSimpleService>();
+                });
+            }
+
+            public void ConfigureServices(IServiceCollection services)
+            {
+                services.AddNetGrpc();
+            }
+        }
+#endif
 
         [GlobalCleanup]
         public void GlobalCleanup()
         {
-            this.channel.ShutdownAsync().Wait();
-            this.server.ShutdownAsync().Wait();
+#if NETCOREAPP3_0
+            if (this.ConnectionType == RpcConnectionType.NetGrpc)
+            {
+                this.host.StopAsync().Wait();
+            }
+#endif
+            if (this.ConnectionType == RpcConnectionType.Grpc)
+            {
+                ((GrpcCore.Channel)this.channel).ShutdownAsync().Wait();
+                this.server.ShutdownAsync().Wait();
+            }
         }
 
         [Benchmark(OperationsPerInvoke = 8)]
@@ -190,7 +267,11 @@ namespace Benchmark
         }
 
 
-        [Params(/*RpcConnectionType.Grpc,*/ RpcConnectionType.LightweightInproc/*, RpcConnectionType.LightweightTcp*/)]
+#if NETCOREAPP3_0
+        [Params(RpcConnectionType.Grpc, RpcConnectionType.NetGrpc , RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightInproc, RpcConnectionType.LightweightNamedPipe)]
+#else
+        [Params(/*RpcConnectionType.Grpc,*/ /*, RpcConnectionType.LightweightTcp*/)]
+#endif
         public RpcConnectionType ConnectionType;
 
         [GlobalSetup]
@@ -212,12 +293,11 @@ namespace Benchmark
             {
                 case RpcConnectionType.Grpc:
                     this.server = new GrpcServer(definitionsProvider, null, serverOptions);
-                    this.server.AddEndPoint(new GrpcServerEndPoint("localhost", 50051, false, Grpc.Core.ServerCredentials.Insecure));
+                    this.server.AddEndPoint(new GrpcServerEndPoint("localhost", 50051, false, GrpcCore.ServerCredentials.Insecure));
                     this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
                     this.server.Start();
 
                     this.clientConnection = new GrpcServerConnection(new RpcServerConnectionInfo(new Uri("grpc://localhost:50051")), clientOptions);
-                    clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
                     break;
                 case RpcConnectionType.LightweightInproc:
                     {
@@ -244,8 +324,145 @@ namespace Benchmark
                         clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
                         break;
                     }
+                case RpcConnectionType.LightweightNamedPipe:
+                    {
+                        this.server = new LightweightRpcServer(definitionsProvider, null, serverOptions);
+                        this.server.AddEndPoint(new NamedPipeRpcEndPoint("RpcBenchmark"));
+                        this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
+                        this.server.Start();
+
+                        this.clientConnection = new NamedPipeRpcConnection("RpcBenchmark", clientOptions);
+                        clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
+                        break;
+                    }
+#if NETCOREAPP3_0
+                case RpcConnectionType.NetGrpc:
+                    {
+                        var serverId = RpcServerId.NewId();
+                        this.server = CreateNetGrpcServer(definitionsProvider, serverId, serverOptions);
+                        this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
+                        this.server.Start();
+                        //var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
+                        //host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
+
+                        var handler = new System.Net.Http.HttpClientHandler();
+                        handler.ServerCertificateCustomValidationCallback =
+                            (httpRequestMessage, cert, cetChain, policyErrors) =>
+                            {
+                                return true;
+                            };
+                        var channelOptions = new GrpcNet.Client.GrpcChannelOptions()
+                        {
+                            HttpClient = new System.Net.Http.HttpClient(handler),
+                            DisposeHttpClient = true
+                        };
+
+
+                        this.clientConnection = new NetGrpcServerConnection(
+                            new RpcServerConnectionInfo("net-grpc", new Uri($"grpc://localhost:{50051}"), serverId),
+                            clientOptions.AsImmutable(), null, channelOptions);
+                        break;
+                    }
+#endif
+            }
+
+            this.clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
+
+        }
+
+
+#if NETCOREAPP3_0
+        private static IRpcServer CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
+        {
+            var hostBuilder = new WebHostBuilder()
+                .UseKestrel()
+                .ConfigureKestrel(options =>
+                {
+                    options.ListenLocalhost(50051, listenOptions =>
+                    {
+                        listenOptions.UseHttps(TestCertificates.ServerPFXPath, "1111");
+                        //listenOptions.UseHttps(certPath, "1111", o =>
+                        //{
+                        //    o.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
+                        //});
+                        listenOptions.Protocols = HttpProtocols.Http2;
+                    });
+                })
+                .ConfigureServices(s =>
+                {
+                    s.AddSingleton(serviceDefinitionsProvider);
+                    s.Configure<RpcServicePublisherOptions>(o => o.ServerId = serverId);
+                    s.AddSingleton<IOptions<RpcServerOptions>>(new OptionsWrapper<RpcServerOptions>(options));
+                })
+                .UseStartup<NetStartup>();
+
+            var host = hostBuilder.Build();
+
+            var rpcServer = (NetGrpcServer)host.Services.GetService(typeof(NetGrpcServer));
+
+            return new NetGrpcTestServer(host, rpcServer);
+        }
+
+        public class NetStartup
+        {
+            public void Configure(IApplicationBuilder app)
+            {
+                app.UseRouting();
+                app.UseEndpoints(endpoints =>
+                {
+                    endpoints.MapNetGrpcServices();
+                });
+            }
+
+            public void ConfigureServices(IServiceCollection services)
+            {
+                services.AddNetGrpc();
             }
         }
+#endif
+
+#if NETCOREAPP3_0
+        internal class NetGrpcTestServer : IRpcServer
+        {
+            private IWebHost webHost;
+            NetGrpcServer server;
+
+            internal NetGrpcTestServer(IWebHost webHost, NetGrpcServer server)
+            {
+                this.webHost = webHost;
+                this.server = server;
+
+            }
+            public bool AllowAutoPublish => this.server.AllowAutoPublish;
+
+            public ImmutableArray<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
+
+            public IRpcServicePublisher ServicePublisher => this.server.ServicePublisher;
+
+            public void AddEndPoint(IRpcServerEndPoint endPoint)
+            {
+
+            }
+
+            public void Dispose()
+            {
+                this.server.Dispose();
+                this.webHost.Dispose();
+            }
+
+            public async Task ShutdownAsync()
+            {
+                await this.server.ShutdownAsync().ConfigureAwait(false);
+                await this.webHost.StopAsync().ConfigureAwait(false);
+            }
+
+            public void Start()
+            {
+                this.webHost.Start();
+            }
+        }
+
+#endif
 
         [GlobalCleanup]
         public void GlobalCleanup()
@@ -307,9 +524,15 @@ namespace Benchmark
         }
 
         [Benchmark]
-        public int SingleCall()
+        public int SingleCallInline()
         {
             return this.clientService.AddInline(5, 6 );
+        }
+
+        [Benchmark]
+        public int SingleCall()
+        {
+            return this.clientService.Add(5, 6);
         }
 
         [Benchmark(OperationsPerInvoke = 8)]
@@ -331,7 +554,7 @@ namespace Benchmark
         public static void Main(string[] args)
         {
             var b = new SimpleServiceCall();
-            b.ConnectionType = RpcConnectionType.LightweightInproc;
+            b.ConnectionType = RpcConnectionType.NetGrpc;
             b.GlobalSetup();
             //int pres = b.Protobuf();
 
@@ -350,7 +573,7 @@ namespace Benchmark
 
 
             var summary = BenchmarkRunner.Run<SimpleServiceCall>();
-            //var summary2 = BenchmarkRunner.Run<RawGrpcBenchmark>();
+            var summary2 = BenchmarkRunner.Run<RawGrpcBenchmark>();
 
             //BenchmarkRunner.Run<SimpleServiceCall>(
             //    DefaultConfig.Instance

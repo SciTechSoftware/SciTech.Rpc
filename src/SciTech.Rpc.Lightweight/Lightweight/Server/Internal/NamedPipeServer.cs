@@ -40,6 +40,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         private readonly Action<object> RunClientAsync;
 
 #pragma warning disable CA2213  // Disposable fields should be disposed
+        // TODO: Try to dispose safely.
         private CancellationTokenSource? listenerCts;
 #pragma warning restore CA2213  // Disposable fields should be disposed
 
@@ -90,12 +91,12 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             this.pipeNameHolder = PipeUri.CreatePipeName(this.serverUri);
             this.listenerCts = new CancellationTokenSource();
-
+            var cancellationToken = this.listenerCts.Token;
             StartOnScheduler(receiveOptions?.ReaderScheduler, _ => this.ListenForConnectionsAsync(
                 listenBacklog,
                 sendOptions ?? System.IO.Pipelines.PipeOptions.Default,
                 receiveOptions ?? System.IO.Pipelines.PipeOptions.Default,
-                this.listenerCts.Token).Forget(), null);
+                cancellationToken).Forget(), null);
 
             this.OnStarted();
         }

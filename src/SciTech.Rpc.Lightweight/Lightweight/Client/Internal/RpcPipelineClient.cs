@@ -215,7 +215,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
-        internal async Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
+        internal Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
             RpcFrameType frameType,
             string operation,
             IReadOnlyCollection<KeyValuePair<string, string>>? headers,
@@ -225,12 +225,49 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             CancellationToken cancellationToken)
             where TRequest : class
         {
+            async Task<TResponse> AwaitTimeoutResponse(Task<TResponse> responseTask, string operation, int timeout)
+            {
+                var completedTask = await Task.WhenAny(responseTask, Task.Delay(timeout)).ContextFree();
+                if (completedTask == responseTask)
+                {
+                    return responseTask.AwaiterResult();
+                }
+                else
+                {
+                    throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).");
+                }
+            }
+
+
+            async Task<TResponse> AwaitRequestStreamAndWrite(ValueTask<BufferWriterStream> requestStreamTask, Task<TResponse> responseTask)
+            {
+                var requestStream = await requestStreamTask.ContextFree();
+                var writeTask = this.WriteRequestAsync(request, serializers.RequestSerializer, requestStream);
+
+                return await AwaitWrite(writeTask, responseTask).ContextFree();
+            }
+
+            async Task<TResponse> AwaitWrite(ValueTask writeTask, Task<TResponse> responseTask)
+            {
+                await writeTask.ContextFree();
+
+                if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
+                {
+                    return await responseTask.ContextFree();
+                }
+                else
+                {
+                    return await AwaitTimeoutResponse(responseTask, operation, timeout).ContextFree();
+                }
+            }
+
             if (TraceEnabled)
             {
                 Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
             }
 
             var tcs = new ResponseCompletionSource<TResponse>(serializers.ResponseSerializer);
+
             int messageId = this.AddAwaitingResponse(tcs);
             try
             {
@@ -244,25 +281,28 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
                 var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)timeout, headers);
 
-                var requestStream = await this.BeginWriteAsync(frame).ContextFree();
-                await this.WriteRequestAsync(request, serializers.RequestSerializer, requestStream).ContextFree();
-
-                if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
+                var requestStreamTask = this.BeginWriteAsync(frame);
+                if( requestStreamTask.IsCompletedSuccessfully)
                 {
-                    return await tcs.Task.ContextFree();
-                }
-                else
-                {
-                    var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(timeout)).ContextFree();
-                    if (completedTask == tcs.Task)
+                    var writeTask = this.WriteRequestAsync(request, serializers.RequestSerializer, requestStreamTask.Result);
+                    if (writeTask.IsCompletedSuccessfully)
                     {
-                        return tcs.Task.AwaiterResult();
+                        if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
+                        {
+                            return tcs.Task;
+                        }
+                        else
+                        {
+                            return AwaitTimeoutResponse(tcs.Task, operation, timeout);
+                        }
                     }
                     else
                     {
-                        throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).");
+                        return AwaitWrite(writeTask, tcs.Task);
                     }
                 }
+
+                return AwaitRequestStreamAndWrite(requestStreamTask, tcs.Task);
             }
             catch (Exception ex)
             {
@@ -457,7 +497,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             this.EndWriteAsync().Forget();
         }
 
-        private async ValueTask WriteRequestAsync<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, BufferWriterStream payloadStream) where TRequest : class
+        private ValueTask WriteRequestAsync<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, BufferWriterStream payloadStream) where TRequest : class
         {
             try
             {
@@ -469,7 +509,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 throw;
             }
 
-            await this.EndWriteAsync().ContextFree();
+            return this.EndWriteAsync();
         }
 
         private class AsyncStreamingServerCall<TResponse> : IAsyncStreamingServerCall<TResponse>, IResponseHandler

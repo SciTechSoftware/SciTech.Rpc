@@ -135,7 +135,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.Dispose(true);
         }
 
-        public async Task EndWriteAsync()
+        public ValueTask EndWriteAsync()
         {
             var pipeWriter = this.Pipe?.Output;
             var frameWriter = this.frameWriterStream;
@@ -144,6 +144,19 @@ namespace SciTech.Rpc.Lightweight.Internal
                 throw new InvalidOperationException();
             }
 
+            static async ValueTask AwaitWriteAndRelease(RpcPipeline self, ValueTask<FlushResult> flushTask )
+            {
+                try
+                {
+                    await flushTask.ContextFree();
+                }
+                finally
+                {
+                    self.ReleaseWriteStream();
+                }
+            }
+
+            bool writeStreamReleased = false;
             try
             {
                 try
@@ -163,66 +176,29 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
 
                 frameWriter.CopyTo(pipeWriter);
-                await pipeWriter.FlushAsync().ContextFree();
+                var flushTask = pipeWriter.FlushAsync();
+                writeStreamReleased = true; // It will be soon
+
+                if ( flushTask.IsCompletedSuccessfully)
+                {
+                    this.ReleaseWriteStream();
+                    return default;
+
+                } else
+                {
+                    return AwaitWriteAndRelease(this, flushTask);
+                }
             }
             finally
             {
-                this.ReleaseWriteStream();
+                if (!writeStreamReleased)
+                {
+                    this.ReleaseWriteStream();
+                }
             }
         }
 
-        // TODO: Make a non-async fast-path version of EndWriteAsync (this one is obsolete).
-        //public ValueTask EndWriteAsyncFast()
-        //{
-        //    var pipeWriter = this.pipe?.Output;
-        //    var frameWriter = this.frameWriterStream;
-        //    if (frameWriter == null || pipeWriter == null)
-        //    {
-        //        throw new InvalidOperationException();
-        //    }
-        //    ValueTask<FlushResult> flushTask;
-        //    try
-        //    {
-        //        try
-        //        {
-        //            int frameLength = checked((int)frameWriter.Length);
-        //            LightweightRpcFrame.EndWrite(frameLength, this.currentWriteState);
-        //            if (frameLength > this.maxSendFrameLength)
-        //            {
-        //                throw new RpcFailureException($"RPC message too large (messageSize={frameLength}, maxSize={this.maxSendFrameLength}.");
-        //            }
-        //        }
-        //        catch
-        //        {
-        //            writer.CancelPendingFlush();
-        //            flushTask = writer.FlushAsync();
-        //            throw;
-        //        }
-        //        flushTask = writer.FlushAsync();
-        //        if (flushTask.IsCompletedSuccessfully)
-        //        {
-        //            this.ReleaseWriteStream();
-        //            return default;
-        //        }
-        //    }
-        //    catch
-        //    {
-        //        this.ReleaseWriteStream();
-        //        throw;
-        //    }
-        //    async ValueTask AwaitFlushAndRelease()
-        //    {
-        //        try
-        //        {
-        //            await flushTask.ContextFree();
-        //        }
-        //        finally
-        //        {
-        //            this.ReleaseWriteStream();
-        //        }
-        //    }
-        //    return AwaitFlushAndRelease();
-        //}
+
 
         protected internal ValueTask<BufferWriterStream> BeginWriteAsync(in LightweightRpcFrame responseHeader)
         {

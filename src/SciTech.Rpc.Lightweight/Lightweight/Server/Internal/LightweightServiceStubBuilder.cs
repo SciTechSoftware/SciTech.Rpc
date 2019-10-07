@@ -130,7 +130,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             if (operationInfo.AllowFault)
             {
                 ValueTask<RpcResponseWithError<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
-                    => serviceStub.CallBlockingMethodWithError(request, serviceProvider, context, serviceCaller, responseConverter, faultHandler, serializer);
+                    => serviceStub.CallBlockingMethodWithError(request, context, serviceCaller, responseConverter, faultHandler, serializer, serviceProvider);
 
                 var methodStub = new LightweightMethodStub<TRequest, RpcResponseWithError<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
                     operationInfo.AllowInlineExecution);
@@ -138,7 +138,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             } else
             {
                 ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
-                    => serviceStub.CallBlockingMethod(request, serviceProvider, context, serviceCaller, responseConverter);
+                    => serviceStub.CallBlockingMethod(request, context, serviceCaller, responseConverter, serviceProvider);
 
                 var methodStub = new LightweightMethodStub<TRequest, RpcResponse<TResponseReturn>>(operationInfo.FullName, HandleRequest, serializer, faultHandler,
                     operationInfo.AllowInlineExecution);

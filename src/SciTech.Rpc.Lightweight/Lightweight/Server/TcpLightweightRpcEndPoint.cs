@@ -178,8 +178,16 @@ namespace SciTech.Rpc.Lightweight.Server
             public void Listen()
             {
                 int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
-                var receiveOptions = new PipeOptions(pauseWriterThreshold: receivePauseThreshold, resumeWriterThreshold: receivePauseThreshold / 2, useSynchronizationContext: false);
-                this.Listen(this.endPoint, receiveOptions: receiveOptions);
+                var receiveOptions = new PipeOptions(
+                    pauseWriterThreshold: receivePauseThreshold,
+                    resumeWriterThreshold: receivePauseThreshold / 2,
+                    readerScheduler: PipeScheduler.Inline,
+                    useSynchronizationContext: false);
+                var sendOptions = new PipeOptions(
+                    readerScheduler: PipeScheduler.ThreadPool,
+                    useSynchronizationContext: false);
+
+                this.Listen(this.endPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
             }
 
             public Task StopAsync()

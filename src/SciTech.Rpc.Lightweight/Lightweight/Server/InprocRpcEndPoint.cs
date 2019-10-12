@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
-    public sealed class DirectLightweightRpcEndPoint : LightweightRpcEndPoint
+    public sealed class InprocRpcEndPoint : LightweightRpcEndPoint
     {
         private readonly object syncRoot = new object();
 
@@ -28,7 +28,7 @@ namespace SciTech.Rpc.Lightweight.Server
         /// 
         /// </summary>
         /// <param name="clientPipe"></param>
-        public DirectLightweightRpcEndPoint(IDuplexPipe clientPipe)
+        public InprocRpcEndPoint(IDuplexPipe clientPipe)
         {
             this.clientPipe = clientPipe;
         }

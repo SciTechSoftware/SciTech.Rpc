@@ -43,7 +43,7 @@ namespace SciTech.Rpc.Tests
 
     public interface ITestConnectionCreator
     {
-        (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionBuilder serviceDefinitionsBuilder,
+        (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionsBuilder serviceDefinitionsBuilder,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null,
             IRpcProxyDefinitionsProvider proxyServicesProvider = null);
@@ -119,7 +119,7 @@ namespace SciTech.Rpc.Tests
                             sslServerOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
                         }
 
-                        host.AddEndPoint(new TcpLightweightRpcEndPoint("127.0.0.1", TcpTestPort, false, sslServerOptions));
+                        host.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", TcpTestPort, false, sslServerOptions));
 
                         SslClientOptions sslClientOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)
@@ -127,7 +127,7 @@ namespace SciTech.Rpc.Tests
                             sslClientOptions = new SslClientOptions { RemoteCertificateValidationCallback = this.ValidateTestCertificate };
 
                         }
-                        var connection = new TcpLightweightRpcConnection(
+                        var connection = new TcpRpcConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
                             sslClientOptions,
                             clientOptions.AsImmutable(),
@@ -155,9 +155,9 @@ namespace SciTech.Rpc.Tests
                         Pipe responsePipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
 
                         var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options);
-                        host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
+                        host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
-                        var connection = new DirectLightweightRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
+                        var connection = new InprocRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
                             new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), proxyServicesProvider);
                         return (host, connection);
                     }

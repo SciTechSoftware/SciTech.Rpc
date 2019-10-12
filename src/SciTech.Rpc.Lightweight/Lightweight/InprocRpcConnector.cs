@@ -18,22 +18,22 @@ using System.IO.Pipelines;
 
 namespace SciTech.Rpc.Lightweight
 {
-    public class DirectLightweightRpcConnector
+    public class InprocRpcConnector
     {
-        public DirectLightweightRpcConnector(IRpcClientOptions? options=null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
+        public InprocRpcConnector(IRpcClientOptions? options=null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
             : this(RpcServerId.Empty, options, definitionsProvider)
         {
         }
 
-        public DirectLightweightRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null,
+        public InprocRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
             var requestPipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
             var responsePipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
 
-            this.EndPoint = new DirectLightweightRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
+            this.EndPoint = new InprocRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
 
-            this.Connection = new DirectLightweightRpcConnection(
+            this.Connection = new InprocRpcConnection(
                 new RpcServerConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId),
                 new DuplexPipe(responsePipe.Reader, requestPipe.Writer),
                 options,
@@ -42,7 +42,7 @@ namespace SciTech.Rpc.Lightweight
 
         public LightweightRpcConnection Connection { get; }
 
-        public DirectLightweightRpcEndPoint EndPoint { get; }
+        public InprocRpcEndPoint EndPoint { get; }
 
         private sealed class DuplexPipe : IDuplexPipe
         {

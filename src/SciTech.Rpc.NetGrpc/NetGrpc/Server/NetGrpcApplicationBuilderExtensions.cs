@@ -91,7 +91,7 @@ namespace SciTech.Rpc.NetGrpc.Server
         {
             if (builder is null) throw new ArgumentNullException(nameof(builder));
 
-            var definitionsBuilder = builder.ApplicationServices.GetRequiredService<IRpcServiceDefinitionBuilder>();
+            var definitionsBuilder = builder.ApplicationServices.GetRequiredService<IRpcServiceDefinitionsBuilder>();
             definitionsBuilder.RegisterService(typeof(TService));
             return builder;
         }

@@ -26,7 +26,7 @@ namespace SciTech.Rpc.Client
     {
         public static readonly ImmutableRpcClientOptions Empty = new ImmutableRpcClientOptions(null);
 
-        public ImmutableRpcClientOptions(RpcClientOptions? options)
+        public ImmutableRpcClientOptions(IRpcClientOptions? options)
         {
             this.Assign(options);
         }

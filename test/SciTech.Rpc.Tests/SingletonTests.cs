@@ -29,7 +29,7 @@ namespace SciTech.Rpc.Tests
             var generator = new LightweightProxyGenerator();
 
             var factory = generator.GenerateObjectProxyFactory<ISingletonService>(null);
-            var proxy = (LightweightProxyBase)factory(RpcObjectId.Empty, new TcpLightweightRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost"))), null);
+            var proxy = (LightweightProxyBase)factory(RpcObjectId.Empty, new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost"))), null);
 
             var addMethod = proxy.proxyMethods.Single(m => m.OperationName == "SciTech.Rpc.Tests.SingletonService.Add");
             Assert.AreEqual(typeof(RpcRequest<int, int>), addMethod.RequestType);
@@ -58,7 +58,7 @@ namespace SciTech.Rpc.Tests
 
             var binder = new TestLightweightMethodBinder();
             var serverMock = new Mock<IRpcServerImpl>();
-            var definitionsBuilder = new RpcServiceDefinitionBuilder();
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
             var serializer = new ProtobufRpcSerializer();
             serverMock.SetupGet(m => m.ServiceDefinitionsProvider).Returns(definitionsBuilder);
             serverMock.SetupGet(m => m.Serializer).Returns(serializer);

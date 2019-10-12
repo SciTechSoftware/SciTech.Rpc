@@ -121,7 +121,7 @@ namespace SciTech.Rpc.Tests
             Action<RpcServerOptions> serverConfig = null,
             Action<RpcClientOptions> clientConfig = null)
         {
-            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            var definitionBuilder = new RpcServiceDefinitionsBuilder();
             definitionBuilder.RegisterService<ISimpleService>();
 
             var (host, connection) = this.CreateServerAndConnection(definitionBuilder,
@@ -165,7 +165,7 @@ namespace SciTech.Rpc.Tests
             Action<RpcServerOptions> serverConfig = null,
             Action<RpcClientOptions> clientConfig = null)
         {
-            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            var definitionBuilder = new RpcServiceDefinitionsBuilder();
             definitionBuilder.RegisterService<ISimpleService>();
 
             var (host, connection) = this.CreateServerAndConnection(definitionBuilder,

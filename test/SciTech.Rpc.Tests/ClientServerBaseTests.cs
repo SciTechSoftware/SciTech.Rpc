@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task AddRemoveMixedEventHandlersTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -55,7 +55,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task BlockingServiceCallTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
@@ -98,7 +98,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task DirectServiceProviderServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IServiceProviderService>()
                 .RegisterService<ISimpleService>();
 
@@ -134,7 +134,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task GenericEventHandlerTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -222,7 +222,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task MultiInstanceServicesTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
@@ -260,7 +260,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task MultiSingletonServicesTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleService>();
             serverBuilder.RegisterService<IBlockingService>();
 
@@ -298,7 +298,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task PlainEventHandlerTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -380,7 +380,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task ServiceProviderServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IImplicitServiceProviderService>()
                 .RegisterService<ISimpleService>()
                 .RegisterService<IBlockingService>();
@@ -418,7 +418,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task SingletonServiceTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleService>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -447,7 +447,7 @@ namespace SciTech.Rpc.Tests
         [Ignore("Not implemented yet.")]
         public async Task UnserializableEventHandlerTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IServiceWithUnserializableEvent>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);

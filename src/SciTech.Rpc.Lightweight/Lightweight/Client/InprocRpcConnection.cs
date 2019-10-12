@@ -13,17 +13,18 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Threading;
 using System;
+using System.ComponentModel;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
-    public sealed class DirectLightweightRpcConnection : LightweightRpcConnection
+    public sealed class InprocRpcConnection : LightweightRpcConnection
     {
         private IDuplexPipe? clientPipe;
 
-        public DirectLightweightRpcConnection(
+        public InprocRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
             IRpcClientOptions? options=null,
@@ -43,14 +44,15 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public override bool IsSigned => false;
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected override Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken)
-
         {
             var pipe = this.clientPipe ?? throw new ObjectDisposedException(this.ToString());
             this.clientPipe = null;
             return Task.FromResult(pipe);
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected override void OnConnectionResetSynchronized()
         {
             base.OnConnectionResetSynchronized();

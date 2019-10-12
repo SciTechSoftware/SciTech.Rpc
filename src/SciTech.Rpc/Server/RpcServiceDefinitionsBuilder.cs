@@ -19,7 +19,7 @@ using System.Reflection;
 
 namespace SciTech.Rpc.Server
 {
-    public class RpcServiceDefinitionBuilder : IRpcServiceDefinitionBuilder
+    public class RpcServiceDefinitionsBuilder : IRpcServiceDefinitionsBuilder
     {
         private readonly List<IRpcServerExceptionConverter> registeredExceptionConverters = new List<IRpcServerExceptionConverter>();
 
@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Server
 
         private IImmutableList<Type>? registeredServicesList;
 
-        public RpcServiceDefinitionBuilder(
+        public RpcServiceDefinitionsBuilder(
             RpcServerOptions? options = null,
             IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null,
             IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
@@ -156,7 +156,7 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        public IRpcServiceDefinitionBuilder RegisterAssemblyServices(params Assembly[] assemblies)
+        public IRpcServiceDefinitionsBuilder RegisterAssemblyServices(params Assembly[] assemblies)
         {
             if (assemblies != null)
             {
@@ -179,7 +179,7 @@ namespace SciTech.Rpc.Server
             return this;
         }
 
-        public IRpcServiceDefinitionBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter)
+        public IRpcServiceDefinitionsBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter)
         {
             lock (this.syncRoot)
             {
@@ -191,12 +191,12 @@ namespace SciTech.Rpc.Server
             return this;
         }
 
-        public IRpcServiceDefinitionBuilder RegisterService<TService>(RpcServerOptions? options = null)
+        public IRpcServiceDefinitionsBuilder RegisterService<TService>(RpcServerOptions? options = null)
         {
             return this.RegisterService(typeof(TService), options);
         }
 
-        public IRpcServiceDefinitionBuilder RegisterService(Type serviceType, RpcServerOptions? options = null)
+        public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, RpcServerOptions? options = null)
         {
             if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
 

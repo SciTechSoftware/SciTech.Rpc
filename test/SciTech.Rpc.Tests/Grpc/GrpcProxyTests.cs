@@ -253,7 +253,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
         private (TService, Mock<TestCallInvoker>) CreateServiceInstance<TService>() where TService : class
         {
-            var proxyServiceDefinitionsProvider = new RpcProxyServicesBuilder();
+            var proxyServiceDefinitionsProvider = new RpcProxyDefinitionsBuilder();
             var (moduleBuilder, definedTypes) = this.CreateModuleBuilder();
             var proxyBuilder = new RpcServiceProxyBuilder<GrpcProxyBase, GrpcProxyMethod>(RpcBuilderUtil.GetAllServices<TService>(true), proxyServiceDefinitionsProvider, moduleBuilder, definedTypes);
 

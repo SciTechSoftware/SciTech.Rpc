@@ -82,7 +82,7 @@ namespace SciTech.Rpc.Lightweight.Client
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
 
-                return new TcpLightweightRpcConnection(
+                return new TcpRpcConnection(
                     connectionInfo, this.sslOptions,
                     ImmutableRpcClientOptions.Combine(options, this.options),
                     proxyGenerator,

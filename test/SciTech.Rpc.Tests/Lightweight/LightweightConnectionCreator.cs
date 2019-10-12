@@ -15,7 +15,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         }
 
         public (IRpcServer, RpcServerConnection) CreateServerAndConnection(
-            RpcServiceDefinitionBuilder serviceDefinitionsBuilder,
+            RpcServiceDefinitionsBuilder serviceDefinitionsBuilder,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null,
             IRpcProxyDefinitionsProvider proxyServicesProvider = null)

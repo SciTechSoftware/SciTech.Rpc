@@ -16,15 +16,15 @@ using System.Reflection;
 
 namespace SciTech.Rpc.Server
 {
-    public interface IRpcServiceDefinitionBuilder : IRpcServiceDefinitionsProvider
+    public interface IRpcServiceDefinitionsBuilder : IRpcServiceDefinitionsProvider
     {
-        IRpcServiceDefinitionBuilder RegisterAssemblyServices(params Assembly[] assemblies);
+        IRpcServiceDefinitionsBuilder RegisterAssemblyServices(params Assembly[] assemblies);
 
-        IRpcServiceDefinitionBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter);
+        IRpcServiceDefinitionsBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter);
 
-        IRpcServiceDefinitionBuilder RegisterService<TService>(RpcServerOptions? options = null);
+        IRpcServiceDefinitionsBuilder RegisterService<TService>(RpcServerOptions? options = null);
 
-        IRpcServiceDefinitionBuilder RegisterService(Type serviceType, RpcServerOptions? options = null);
+        IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, RpcServerOptions? options = null);
     }
 
     public interface IRpcServiceDefinitionsProvider

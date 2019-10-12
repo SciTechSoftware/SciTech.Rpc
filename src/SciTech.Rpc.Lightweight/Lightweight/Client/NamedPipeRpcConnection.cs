@@ -5,6 +5,7 @@ using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO.Pipelines;
 using System.IO.Pipes;
 using System.Text;
@@ -56,6 +57,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public override bool IsSigned => false;
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected override async Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken)
         {
             // TODO: The URL should be parsed in RpConnectionInfo constructor .

@@ -81,7 +81,7 @@ namespace SciTech.Rpc.Lightweight.Server
             IServiceProvider? serviceProvider = null,
             RpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
-            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionBuilder(options), serverId),
+            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(options), serverId),
                   serviceProvider, options, lightweightOptions)
         {
         }

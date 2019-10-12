@@ -81,12 +81,11 @@ namespace SciTech.Rpc
     }
 
     /// <summary>
-    /// The RpcServerConnectionInfo class contains base information about a connected 
-    /// server. This base class only provides the name and id of the server. Use
+    /// The RpcServerConnectionInfo class contains base information about a connection 
+    /// to an RPC server. This base class only provides the name and id of the server. Use
     /// derived classes to access protocol specific connection data.
     /// </summary>
     [DataContract]
-    //[KnownType(typeof(TcpRpcServerConnectionInfo))]
     [Serializable]
     public sealed class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
     {

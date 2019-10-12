@@ -43,7 +43,7 @@ namespace SciTech.Rpc.Client.Internal
 
         protected RpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider)
         {
-            this.ProxyServicesProvider = proxyServicesProvider ?? new RpcProxyServicesBuilder();
+            this.ProxyServicesProvider = proxyServicesProvider ?? new RpcProxyDefinitionsBuilder();
         }
 
         protected IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }

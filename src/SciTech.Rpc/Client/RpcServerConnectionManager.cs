@@ -54,7 +54,7 @@ namespace SciTech.Rpc.Client
         //}
 
 
-        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, RpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
+        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IRpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
         {
             this.connectionProviders = connectionProviders.ToImmutableArray();
             this.DefinitionsProvider = definitionsProvider;

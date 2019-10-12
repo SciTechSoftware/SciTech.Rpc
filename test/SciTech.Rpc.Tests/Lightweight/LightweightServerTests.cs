@@ -38,13 +38,13 @@ namespace SciTech.Rpc.Tests.Lightweight
             hostMock.Setup(p => p.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
             hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
 
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator.RegisterService<ISimpleService>();
 
             _ = RpcServerId.NewId();
             using (var host = new LightweightRpcServer(Mock.Of<IRpcServicePublisher>(), serviceImplProviderMock.Object, serviceRegistrator, null, new RpcServerOptions { Serializer = serializer }))
             {
-                host.AddEndPoint(new DirectLightweightRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
+                host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                 host.Start();
 

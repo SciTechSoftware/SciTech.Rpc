@@ -3,7 +3,11 @@ using System;
 using System.Linq;
 using GrpcCore = Grpc.Core;
 
+#if FEATURE_NET_GRPC
+namespace SciTech.Rpc.NetGrpc.Client.Internal
+#else
 namespace SciTech.Rpc.Grpc.Client.Internal
+#endif
 {
     public class GrpcCallMetadata : IRpcClientCallMetadata
     {

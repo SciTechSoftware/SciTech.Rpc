@@ -35,7 +35,7 @@ namespace SciTech.Rpc.Tests.Grpc
         [Test]
         public async Task BlockingServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
@@ -85,7 +85,7 @@ namespace SciTech.Rpc.Tests.Grpc
         [Test]
         public async Task DeviceServiceTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IThermostatService>();
             var host = new GrpcServer(serverBuilder, null, this.options);
 
@@ -118,7 +118,7 @@ namespace SciTech.Rpc.Tests.Grpc
         [Test]
         public async Task EventHandlersTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var host = new GrpcServer(serverBuilder, null, this.options);
@@ -182,7 +182,7 @@ namespace SciTech.Rpc.Tests.Grpc
         [Test]
         public async Task ReverseDeviceServiceTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IThermostatService>();
             var host = new GrpcServer(serverBuilder, null, this.options);
 
@@ -215,7 +215,7 @@ namespace SciTech.Rpc.Tests.Grpc
         [Test]
         public async Task ServiceProviderServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IServiceProviderService>()
                 .RegisterService<ISimpleService>();
 
@@ -251,7 +251,7 @@ namespace SciTech.Rpc.Tests.Grpc
         [Test]
         public async Task SimpleObjectServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleService>();
             var host = new GrpcServer(serverBuilder, null, this.options);
             host.AddEndPoint(CreateEndPoint());

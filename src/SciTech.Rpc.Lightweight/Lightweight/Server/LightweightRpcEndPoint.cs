@@ -18,6 +18,9 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
+    /// <summary>
+    /// Base class for RPC end points that can be added to a <see cref="LightweightRpcServer"/>.
+    /// </summary>
     public abstract class LightweightRpcEndPoint : IRpcServerEndPoint
     {
         public abstract string DisplayName { get; }

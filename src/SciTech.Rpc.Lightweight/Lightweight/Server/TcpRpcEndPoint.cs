@@ -21,11 +21,11 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
-    public class TcpLightweightRpcEndPoint : LightweightRpcEndPoint
+    public class TcpRpcEndPoint : LightweightRpcEndPoint
     {
         private readonly SslServerOptions? sslOptions;
 
-        public TcpLightweightRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
+        public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
         {
             this.BindToAllInterfaces = bindToAllInterfaces;
             this.HostName = hostName ?? throw new ArgumentNullException(nameof(hostName));

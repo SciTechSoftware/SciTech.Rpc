@@ -34,7 +34,7 @@ namespace GrpcAndLightweightServer
 
             var serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var definitionsBuilder = new RpcServiceDefinitionBuilder();
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
             var rpcPublisher = new RpcServicePublisher(definitionsBuilder);
 
             RegisterServiceDefinitions(definitionsBuilder);
@@ -52,7 +52,7 @@ namespace GrpcAndLightweightServer
 
             var sslOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
             lightweightServer.AddEndPoint(
-                new TcpLightweightRpcEndPoint("127.0.0.1", 50052, false, sslOptions));
+                new TcpRpcEndPoint("127.0.0.1", 50052, false, sslOptions));
 
             Console.WriteLine("Starting gRPC server and lightweight RPC server.");
 
@@ -119,7 +119,7 @@ namespace GrpcAndLightweightServer
             publisher.PublishSingleton<MailBoxManager, IMailBoxManagerService>();
         }
 
-        private static void RegisterServiceDefinitions(RpcServiceDefinitionBuilder definitionsBuilder)
+        private static void RegisterServiceDefinitions(RpcServiceDefinitionsBuilder definitionsBuilder)
         {
             definitionsBuilder.RegisterService<IMailboxService>();
         }

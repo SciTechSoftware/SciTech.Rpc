@@ -50,7 +50,7 @@ namespace SciTech.Rpc.NetGrpc.Server
         /// <summary>
         /// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
         /// </summary>
-        /// <remarks>NOTE. This method tries to register common RPC services, like <see cref="IRpcServiceDefinitionBuilder"/>
+        /// <remarks>NOTE. This method tries to register common RPC services, like <see cref="IRpcServiceDefinitionsBuilder"/>
         /// and <see cref="IRpcServicePublisher"/>. To provide specific implementations of these interfaces, add them 
         /// to the service collection prior to calling this method.
         /// </remarks>
@@ -75,9 +75,9 @@ namespace SciTech.Rpc.NetGrpc.Server
             services.TryAdd(ServiceDescriptor.Scoped(typeof(NetGrpcServiceActivator<>), typeof(NetGrpcServiceActivator<>)));
             services.AddTransient(typeof(NetGrpcServiceStubBuilder<>));
 
-            services.TryAddSingleton<RpcServiceDefinitionBuilder>();
-            services.TryAddSingleton<IRpcServiceDefinitionBuilder>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>());
-            services.TryAddSingleton<IRpcServiceDefinitionsProvider>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>());
+            services.TryAddSingleton<RpcServiceDefinitionsBuilder>();
+            services.TryAddSingleton<IRpcServiceDefinitionsBuilder>(s => s.GetRequiredService<RpcServiceDefinitionsBuilder>());
+            services.TryAddSingleton<IRpcServiceDefinitionsProvider>(s => s.GetRequiredService<RpcServiceDefinitionsBuilder>());
 
             services.TryAddSingleton(
                 s => new RpcServicePublisher(s.GetRequiredService<IRpcServiceDefinitionsProvider>(),

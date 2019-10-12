@@ -15,17 +15,17 @@ using System.Collections.Generic;
 
 namespace SciTech.Rpc.Client
 {
-    public class RpcProxyServicesBuilder : IRpcProxyDefinitionsBuilder
+    public class RpcProxyDefinitionsBuilder : IRpcProxyDefinitionsBuilder
     {
         private readonly Dictionary<string, IRpcClientExceptionConverter> exceptionConverters = new Dictionary<string, IRpcClientExceptionConverter>();
 
         private readonly Dictionary<string, List<Type>> knownServices = new Dictionary<string, List<Type>>();
 
-        public RpcProxyServicesBuilder()
+        public RpcProxyDefinitionsBuilder()
         {
         }
 
-        public RpcProxyServicesBuilder(IEnumerable<IRpcServiceRegistration> registrations, IEnumerable<IRpcClientExceptionConverter> exceptionConverters)
+        public RpcProxyDefinitionsBuilder(IEnumerable<IRpcServiceRegistration> registrations, IEnumerable<IRpcClientExceptionConverter> exceptionConverters)
         {
             if (registrations != null)
             {

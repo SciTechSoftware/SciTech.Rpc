@@ -21,6 +21,7 @@ using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Reflection;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
@@ -28,9 +29,9 @@ using GrpcCore = Grpc.Core;
 namespace SciTech.Rpc.Grpc.Server
 {
     /// <summary>
-    /// The managed/native gRPC implementation of <see cref="RpcServerBase"/>. 
+    /// The managed/native gRPC implementation of <see cref="IRpcServer"/>. 
     /// </summary>
-    public sealed class GrpcServer : RpcServerBase
+    public sealed class GrpcServer : RpcServerBase, IRpcServer
     {
         private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(GrpcServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
 
@@ -62,6 +63,7 @@ namespace SciTech.Rpc.Grpc.Server
         /// <param name="servicePublisher"></param>
         /// <param name="serviceImplProvider"></param>
         /// <param name="serviceDefinitionsProvider"></param>
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public GrpcServer(
             IRpcServicePublisher servicePublisher,
             IRpcServiceActivator serviceImplProvider,

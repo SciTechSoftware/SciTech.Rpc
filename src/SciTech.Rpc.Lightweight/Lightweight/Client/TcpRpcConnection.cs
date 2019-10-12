@@ -15,6 +15,7 @@ using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipelines;
@@ -27,7 +28,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
-    public class TcpLightweightRpcConnection : LightweightRpcConnection
+    public class TcpRpcConnection : LightweightRpcConnection
     {
         // TODO: Add logging.
         //private static readonly ILog Logger = LogProvider.For<TcpLightweightRpcConnection>();
@@ -36,7 +37,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private volatile SslStream? sslStream;
 
-        public TcpLightweightRpcConnection(
+        public TcpRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions = null,
             IRpcClientOptions? options = null,
@@ -48,7 +49,7 @@ namespace SciTech.Rpc.Lightweight.Client
         {
         }
 
-        internal TcpLightweightRpcConnection(
+        internal TcpRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions,
             IRpcClientOptions? options,
@@ -77,7 +78,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public override bool IsSigned => this.sslStream?.IsSigned ?? false;
 
-
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected override async Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken)
         {
             // TODO: Implement cancellationToken somehow, but how?. ConnectAsync and AuthenticateAsClientAsync don't accept a CancellationToken.
@@ -162,6 +163,7 @@ namespace SciTech.Rpc.Lightweight.Client
             }
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected override void OnConnectionResetSynchronized()
         {
             base.OnConnectionResetSynchronized();

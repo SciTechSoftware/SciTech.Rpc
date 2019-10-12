@@ -20,7 +20,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task TooSlowExecution_ShouldThrowException()
         {
-            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            var definitionBuilder = new RpcServiceDefinitionsBuilder();
             definitionBuilder.RegisterService<ITimeoutTestService>();
 
             var (host, connection) = this.CreateServerAndConnection(definitionBuilder,
@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task FastExecution_ShouldReturn()
         {
-            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            var definitionBuilder = new RpcServiceDefinitionsBuilder();
             definitionBuilder.RegisterService<ITimeoutTestService>();
 
             var (host, connection) = this.CreateServerAndConnection(definitionBuilder,

@@ -12,9 +12,12 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Threading;
@@ -22,6 +25,16 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
+    /// <summary>
+    /// <para>
+    /// Represents a connection to a <see cref="LightweightRpcServer"/>. 
+    /// </para>
+    /// <para>To create a connection, use one of the derived classes,
+    /// e.g. <see cref="TcpRpcConnection"/>, <see cref="NamedPipeRpcConnection"/>, or <see cref="InprocRpcConnection"/>. 
+    /// Alternatively, a <see cref="LightweightConnectionProvider"/> can be registered with an <see cref="RpcServerConnectionManager"/>
+    /// and then connections can be retrieved using <see cref="RpcServerConnectionManager.CreateServerConnection(RpcServerConnectionInfo)"/>.
+    /// </para>
+    /// </summary>
     public abstract class LightweightRpcConnection : RpcServerConnection
     {
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
@@ -51,13 +64,19 @@ namespace SciTech.Rpc.Lightweight.Client
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
         }
 
+        /// <inheritdoc/>
         public override bool IsConnected => this.connectedClient != null;
 
 
+        /// <summary>
+        /// Gets a value indicating  if the connection should be kept alive even if the size of a message
+        /// exceeds the limits specified by <see cref="RpcClientOptions"/> and <see cref="RpcServerOptions"/>. 
+        /// </summary>
         public bool KeepSizeLimitedConnectionAlive { get; }
 
         protected object SyncRoot { get; } = new object();
 
+        /// <inheritdoc/>
         public override Task ConnectAsync(CancellationToken cancellationToken)
             => this.ConnectClientAsync(cancellationToken).AsTask();
 
@@ -169,13 +188,16 @@ namespace SciTech.Rpc.Lightweight.Client
             return DoConnect();
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected abstract Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken);
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected override IRpcSerializer CreateDefaultSerializer()
         {
             return new DataContractRpcSerializer();
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected virtual void OnConnectionResetSynchronized()
         {
 

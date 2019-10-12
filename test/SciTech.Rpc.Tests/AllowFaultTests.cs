@@ -81,7 +81,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void FaultServiceStub_ShouldUseRpcResponseWithError()
         {
-            var definitionsBuilder = new RpcServiceDefinitionBuilder();
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
             var serializer = new ProtobufRpcSerializer();
             var serverMock = new Mock<IRpcServerImpl>();
 
@@ -131,7 +131,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void NoFaultServiceStub_ShouldUseRpcResponse()
         {
-            var definitionsBuilder = new RpcServiceDefinitionBuilder();
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
             var serializer = new ProtobufRpcSerializer();
             var serverMock = new Mock<IRpcServerImpl>();
 

@@ -114,7 +114,7 @@ namespace SciTech.Rpc.Tests
 
         private async Task CancellationTest(Action<ICancellationTestServiceClient> testAction)
         {
-            var definitionsBuilder = new RpcServiceDefinitionBuilder();
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
             var (server, connection) = this.CreateServerAndConnection(definitionsBuilder);
             definitionsBuilder.RegisterService<ICancellationTestService>();
 

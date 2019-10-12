@@ -63,12 +63,12 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task CustomExceptionConverterTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IDeclaredFaultsService>()
                 .RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
 
-            var proxyServicesProvider = new RpcProxyServicesBuilder();
+            var proxyServicesProvider = new RpcProxyDefinitionsBuilder();
             proxyServicesProvider.RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
 
             var (host, connection) = this.CreateServerAndConnection(serviceRegistrator, null, null, proxyServicesProvider);
@@ -91,7 +91,7 @@ namespace SciTech.Rpc.Tests
         [TestCaseSource(nameof(OperationTypes))]
         public async Task DeclaredFault_ShouldThreadRpcFaultException(TestOperationType operationType)
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IDeclaredFaultsService>();
 
@@ -152,7 +152,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task DeclaredServiceFaultTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IServiceFaultService>();
 
@@ -183,7 +183,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void HostNotFoundTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IBlockingService>(); ;
 
@@ -198,7 +198,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void IncorrectFaultOp_ShouldThrowDefinitionException()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
 
             var (_, connection) = this.CreateServerAndConnection(serviceRegistrator);
 
@@ -208,7 +208,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void IncorrectServiceFault_ShouldThrowDefinitionException()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
 
             var (_, connection) = this.CreateServerAndConnection(serviceRegistrator);
 
@@ -218,7 +218,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task NoDetailsDeclaredFaultTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IDeclaredFaultsService>();
 
@@ -247,7 +247,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task TooLargeClientMessage_ShouldThrowException()
         {
-            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            var definitionBuilder = new RpcServiceDefinitionsBuilder();
             definitionBuilder.RegisterService<ISimpleService>();
 
             var (host, connection) = this.CreateServerAndConnection(definitionBuilder, options =>
@@ -292,7 +292,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void TooLargeServerMessage_ShouldThrowException()
         {
-            var definitionBuilder = new RpcServiceDefinitionBuilder();
+            var definitionBuilder = new RpcServiceDefinitionsBuilder();
             definitionBuilder.RegisterService<ISimpleService>();
 
             var (host, connection) = this.CreateServerAndConnection(definitionBuilder, options =>
@@ -323,7 +323,7 @@ namespace SciTech.Rpc.Tests
         [TestCaseSource(nameof(OperationTypes))]
         public async Task UnavailableService_ShouldThrowRpcServiceUnavailableException(TestOperationType operationType)
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
@@ -381,7 +381,7 @@ namespace SciTech.Rpc.Tests
         [TestCaseSource(nameof(OperationTypes))]
         public async Task UndeclaredException_ShouldThrowRpcFailure(TestOperationType operationType)
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IDeclaredFaultsService>();
 
@@ -435,7 +435,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task UndeclaredFaultException_ShouldThrowFault()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IDeclaredFaultsService>();
 

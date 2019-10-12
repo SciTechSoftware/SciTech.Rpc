@@ -14,6 +14,7 @@ using SciTech.Rpc.Logging;
 using SciTech.Rpc.NetGrpc.Client.Internal;
 using SciTech.Rpc.Serialization;
 using System;
+using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
@@ -39,7 +40,7 @@ namespace SciTech.Rpc.NetGrpc.Client
 
         internal NetGrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
-            ImmutableRpcClientOptions? options,
+            IRpcClientOptions? options,
             GrpcProxyGenerator proxyGenerator,
             GrpcNet.Client.GrpcChannelOptions? channelOptions)
             : base(connectionInfo, options, proxyGenerator)
@@ -48,29 +49,30 @@ namespace SciTech.Rpc.NetGrpc.Client
             {
                 GrpcNet.Client.GrpcChannelOptions actualChannelOptions = ExtractOptions(options, channelOptions);
 
-                //var interceptors = options?.Interceptors ?? ImmutableArray<RpcClientCallInterceptor>.Empty;
-                //if (interceptors.Length > 0)
-                //{
-                //    GrpcCore.CallCredentials callCredentials;
-                //    if (nInterceptors > 1)
-                //    {
-                //        GrpcCore.CallCredentials[] allCallCredentials = new GrpcCore.CallCredentials[nInterceptors];
-                //        for (int index = 0; index < nInterceptors; index++)
-                //        {
-                //            var callInterceptor = interceptors[index];
-                //            allCallCredentials[index] = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
-                //        }
+                var interceptors = options?.Interceptors ?? ImmutableList<RpcClientCallInterceptor>.Empty;
+                int nInterceptors = interceptors.Count;
+                if (nInterceptors > 0)
+                {
+                    GrpcCore.CallCredentials callCredentials;
+                    if (nInterceptors > 1)
+                    {
+                        GrpcCore.CallCredentials[] allCallCredentials = new GrpcCore.CallCredentials[nInterceptors];
+                        for (int index = 0; index < nInterceptors; index++)
+                        {
+                            var callInterceptor = interceptors[index];
+                            allCallCredentials[index] = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
+                        }
 
-                //        callCredentials = GrpcCore.CallCredentials.Compose(allCallCredentials);
-                //    }
-                //    else
-                //    {
-                //        var callInterceptor = callInterceptors[0];
-                //        callCredentials = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
-                //    }
+                        callCredentials = GrpcCore.CallCredentials.Compose(allCallCredentials);
+                    }
+                    else
+                    {
+                        var callInterceptor = interceptors[0];
+                        callCredentials = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
+                    }
 
-                //    actualCredentials = GrpcCore.ChannelCredentials.Create(actualCredentials, callCredentials);
-                //}
+                    actualChannelOptions.Credentials = GrpcCore.ChannelCredentials.Create(actualChannelOptions.Credentials, callCredentials);
+                }
 
 
 
@@ -144,7 +146,7 @@ namespace SciTech.Rpc.NetGrpc.Client
 
         protected override IRpcSerializer CreateDefaultSerializer() => new ProtobufRpcSerializer();
 
-        private static GrpcNet.Client.GrpcChannelOptions ExtractOptions(ImmutableRpcClientOptions? options, GrpcNet.Client.GrpcChannelOptions? channelOptions)
+        private static GrpcNet.Client.GrpcChannelOptions ExtractOptions(IRpcClientOptions? options, GrpcNet.Client.GrpcChannelOptions? channelOptions)
         {
             if (channelOptions != null && options == null)
             {

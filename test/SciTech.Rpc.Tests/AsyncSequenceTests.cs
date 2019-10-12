@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task SequenceEnumerableTest()
         {
-            var builder = new RpcServiceDefinitionBuilder();
+            var builder = new RpcServiceDefinitionsBuilder();
             builder.RegisterService<ISequenceService>();
 
             var (server, connection) = this.CreateServerAndConnection(builder);
@@ -68,7 +68,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task SequenceEnumerableTimeoutTest()
         {
-            var builder = new RpcServiceDefinitionBuilder();
+            var builder = new RpcServiceDefinitionsBuilder();
             builder.RegisterService<ISequenceService>();
 
             var (server, connection) = this.CreateServerAndConnection(builder,
@@ -124,7 +124,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task SequenceEnumerableWithCancellationTest()
         {
-            var builder = new RpcServiceDefinitionBuilder();
+            var builder = new RpcServiceDefinitionsBuilder();
             builder.RegisterService<ISequenceService>();
 
             var (server, connection) = this.CreateServerAndConnection(builder);

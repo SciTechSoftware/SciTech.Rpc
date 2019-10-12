@@ -665,7 +665,7 @@ namespace SciTech.Rpc.Server
 
         private void TryRegisterServiceDefinitions(IReadOnlyList<RpcServiceInfo> allServices)
         {
-            if (this.DefinitionsProvider is IRpcServiceDefinitionBuilder builder)
+            if (this.DefinitionsProvider is IRpcServiceDefinitionsBuilder builder)
             {
                 if (!builder.IsFrozen)
                 {

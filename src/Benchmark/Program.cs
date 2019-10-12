@@ -142,7 +142,7 @@ namespace SciTech.Rpc.Benchmark
         [GlobalSetup]
         public void GlobalSetup()
         {
-            var definitionsProvider = new RpcServiceDefinitionBuilder();
+            var definitionsProvider = new RpcServiceDefinitionsBuilder();
 
             switch (this.ConnectionType)
             {
@@ -284,7 +284,7 @@ namespace SciTech.Rpc.Benchmark
             responseReadStream = new MemoryStream(responseReadBuffer);
 
 
-            var definitionsProvider = new RpcServiceDefinitionBuilder();
+            var definitionsProvider = new RpcServiceDefinitionsBuilder();
             // var serializer = new JsonRpcSerializer();
             var serializer = new ProtobufRpcSerializer(RuntimeTypeModel.Create());
             var serverOptions = new RpcServerOptions { Serializer = serializer };
@@ -301,7 +301,7 @@ namespace SciTech.Rpc.Benchmark
                     break;
                 case RpcConnectionType.LightweightInproc:
                     {
-                        var connector = new DirectLightweightRpcConnector(clientOptions);
+                        var connector = new InprocRpcConnector(clientOptions);
                         this.server = new LightweightRpcServer(definitionsProvider, null, serverOptions );
                         this.server.AddEndPoint(connector.EndPoint);
                         this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
@@ -314,11 +314,11 @@ namespace SciTech.Rpc.Benchmark
                 case RpcConnectionType.LightweightTcp:
                     {
                         this.server = new LightweightRpcServer(definitionsProvider, null, serverOptions);
-                        this.server.AddEndPoint(new TcpLightweightRpcEndPoint("127.0.0.1", 50051, false));
+                        this.server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50051, false));
                         this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
                         this.server.Start();
 
-                        this.clientConnection = new TcpLightweightRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50051")), 
+                        this.clientConnection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50051")), 
                             null,
                             clientOptions);
                         clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();

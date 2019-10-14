@@ -23,19 +23,19 @@ namespace SciTech.Rpc.Client
     public class RpcServerConnectionManager : IRpcServerConnectionManager
     {
 
-        private readonly Dictionary<RpcServerId, IRpcServerConnection> idToKnownConnection
-            = new Dictionary<RpcServerId, IRpcServerConnection>();
+        private readonly Dictionary<RpcServerId, IRpcChannel> idToKnownConnection
+            = new Dictionary<RpcServerId, IRpcChannel>();
 
-        private readonly Dictionary<RpcServerId, WeakReference<IRpcServerConnection>> idToServerConnection
-            = new Dictionary<RpcServerId, WeakReference<IRpcServerConnection>>();
+        private readonly Dictionary<RpcServerId, WeakReference<IRpcChannel>> idToServerConnection
+            = new Dictionary<RpcServerId, WeakReference<IRpcChannel>>();
 
         private readonly object syncRoot = new object();
 
-        private readonly Dictionary<Uri, IRpcServerConnection> urlToKnownConnection
-            = new Dictionary<Uri, IRpcServerConnection>();
+        private readonly Dictionary<Uri, IRpcChannel> urlToKnownConnection
+            = new Dictionary<Uri, IRpcChannel>();
 
-        private readonly Dictionary<Uri, WeakReference<IRpcServerConnection>> urlToServerConnection
-            = new Dictionary<Uri, WeakReference<IRpcServerConnection>>();
+        private readonly Dictionary<Uri, WeakReference<IRpcChannel>> urlToServerConnection
+            = new Dictionary<Uri, WeakReference<IRpcChannel>>();
 
         private ImmutableArray<IRpcConnectionProvider> connectionProviders;
 
@@ -65,7 +65,7 @@ namespace SciTech.Rpc.Client
 
         public IRpcProxyDefinitionsProvider? DefinitionsProvider { get; }
 
-        public void AddKnownConnection(IRpcServerConnection connection)
+        public void AddKnownConnection(IRpcChannel connection)
         {
             if (connection == null || connection.ConnectionInfo == null)
             {
@@ -102,13 +102,13 @@ namespace SciTech.Rpc.Client
             }
         }
 
-        public IRpcServerConnection GetServerConnection(RpcServerConnectionInfo connectionInfo)
+        public IRpcChannel GetServerConnection(RpcServerConnectionInfo connectionInfo)
         {
             if (connectionInfo is null) throw new ArgumentNullException(nameof(connectionInfo));
 
             lock (this.syncRoot)
             {
-                IRpcServerConnection? existingConnection = this.GetExistingConnection(connectionInfo);
+                IRpcChannel? existingConnection = this.GetExistingConnection(connectionInfo);
 
                 if (existingConnection != null)
                 {
@@ -119,7 +119,7 @@ namespace SciTech.Rpc.Client
             var newConnection = this.CreateServerConnection(connectionInfo);
             lock (this.syncRoot)
             {
-                IRpcServerConnection? existingConnection = this.GetExistingConnection(connectionInfo);
+                IRpcChannel? existingConnection = this.GetExistingConnection(connectionInfo);
 
                 if (existingConnection != null)
                 {
@@ -127,7 +127,7 @@ namespace SciTech.Rpc.Client
                     return existingConnection;
                 }
 
-                var wrNewConnection = new WeakReference<IRpcServerConnection>(newConnection);
+                var wrNewConnection = new WeakReference<IRpcChannel>(newConnection);
                 if (connectionInfo.ServerId != RpcServerId.Empty)
                 {
                     this.idToServerConnection[connectionInfo.ServerId] = wrNewConnection;
@@ -170,7 +170,7 @@ namespace SciTech.Rpc.Client
             return serverConnection.GetServiceSingleton<TService>(syncContext);
         }
 
-        public bool RemoveKnownConnection(IRpcServerConnection connection)
+        public bool RemoveKnownConnection(IRpcChannel connection)
         {
             var connectionInfo = connection?.ConnectionInfo;
             if (connectionInfo == null)
@@ -211,7 +211,7 @@ namespace SciTech.Rpc.Client
 
         public async Task ShutdownAsync()
         {
-            var wrConnections = new List<WeakReference<IRpcServerConnection>>();
+            var wrConnections = new List<WeakReference<IRpcChannel>>();
             lock (this.syncRoot)
             {
                 wrConnections.AddRange(this.idToServerConnection.Values);
@@ -234,7 +234,7 @@ namespace SciTech.Rpc.Client
             await Task.WhenAll(shutdownTasks).ContextFree();
         }
 
-        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo)
+        protected virtual IRpcChannel CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo)
         {
             foreach (var connectionProvider in this.connectionProviders)
             {
@@ -247,7 +247,7 @@ namespace SciTech.Rpc.Client
             throw new NotSupportedException("Cannot create a connection for the specified connection info.");
         }
 
-        private IRpcServerConnection? GetExistingConnection(RpcServerConnectionInfo connectionInfo)
+        private IRpcChannel? GetExistingConnection(RpcServerConnectionInfo connectionInfo)
         {
             if (connectionInfo.ServerId != RpcServerId.Empty)
             {

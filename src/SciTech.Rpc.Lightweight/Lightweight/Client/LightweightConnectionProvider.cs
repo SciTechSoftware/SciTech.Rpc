@@ -75,7 +75,7 @@ namespace SciTech.Rpc.Lightweight.Client
                 || scheme == WellKnownRpcSchemes.LightweightPipe );
         }
 
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider )
+        public IRpcChannel CreateConnection(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider )
         {
             if (connectionInfo?.HostUrl?.Scheme == LightweightTcpScheme)
             {

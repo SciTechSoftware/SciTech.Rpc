@@ -94,7 +94,7 @@ namespace SciTech.Rpc.Tests
         /// <param name="serviceDefinitionsProvider"></param>
         /// <param name="proxyServicesProvider"></param>
         /// <returns></returns>
-        protected (IRpcServer, RpcServerConnection) CreateServerAndConnection(IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
+        protected (IRpcServerHost, IRpcChannel) CreateServerAndConnection(IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null,
             IRpcProxyDefinitionsProvider proxyServicesProvider = null)
@@ -204,7 +204,7 @@ namespace SciTech.Rpc.Tests
 
 
 #if NETCOREAPP3_0
-        private static IRpcServer CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
+        private static IRpcServerHost CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
         {
             var hostBuilder = WebHost.CreateDefaultBuilder()
                 .ConfigureKestrel(options =>
@@ -260,7 +260,7 @@ namespace SciTech.Rpc.Tests
     }
 
 #if NETCOREAPP3_0
-    internal class NetGrpcTestServer : IRpcServer
+    internal class NetGrpcTestServer : IRpcServerHost
     {
         private IWebHost webHost;
         NetGrpcServer server;
@@ -290,7 +290,6 @@ namespace SciTech.Rpc.Tests
 
         public async Task ShutdownAsync()
         {
-            await this.server.ShutdownAsync().ConfigureAwait(false);
             await this.webHost.StopAsync().ConfigureAwait(false);
         }
 

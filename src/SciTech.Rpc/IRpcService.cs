@@ -22,7 +22,7 @@ namespace SciTech.Rpc.Client
 {
     public interface IRpcService : IEquatable<IRpcService>, IDisposable
     {
-        IRpcServerConnection Connection { get; }
+        IRpcChannel Connection { get; }
 
         RpcObjectId ObjectId { get; }
 

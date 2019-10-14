@@ -12,11 +12,9 @@
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Threading;
 using System;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
@@ -31,7 +29,6 @@ namespace SciTech.Rpc.Server
                 options)
         {
         }
-        //private HashSet<string> registeredServices;
 
         protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, RpcServerOptions? options) :
             this(new RpcServicePublisher(definitionsProvider, serverId), options)
@@ -77,15 +74,6 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        protected enum ServerState
-        {
-            Initializing,
-            Starting,
-            Started,
-            Stopping,
-            Stopped,
-            Failed
-        }
 
         public bool AllowAutoPublish { get; set; }
 
@@ -118,13 +106,10 @@ namespace SciTech.Rpc.Server
 
         protected virtual IServiceProvider? ServiceProvider => null;
 
-        protected ServerState state { get; private set; }
-
-        protected object syncRoot { get; } = new object();
+        protected object SyncRoot { get; } = new object();
 
         IServiceProvider? IRpcServerImpl.ServiceProvider => this.ServiceProvider;
 
-        public abstract void AddEndPoint(IRpcServerEndPoint endPoint);
 
         public void Dispose()
         {
@@ -159,93 +144,7 @@ namespace SciTech.Rpc.Server
             return this.ServicePublisher.PublishSingleton(singletonService, takeOwnership);
         }
 
-        public async Task ShutdownAsync()
-        {
-            bool waitForState = false;
 
-            lock (this.syncRoot)
-            {
-                switch (this.state)
-                {
-                    case ServerState.Initializing:
-                        this.state = ServerState.Stopped;
-                        return;
-                    case ServerState.Failed:
-                    case ServerState.Stopped:
-                        return;
-                    case ServerState.Stopping:
-                    case ServerState.Starting:
-                        waitForState = true;
-                        break;
-                    default:
-                        this.state = ServerState.Stopping;
-                        break;
-                }
-            }
-
-            if (waitForState)
-            {
-                throw new NotImplementedException();
-            }
-
-            try
-            {
-                await this.ShutdownCoreAsync().ContextFree();
-
-                lock (this.syncRoot)
-                {
-                    this.state = ServerState.Stopped;
-                }
-            }
-            finally
-            {
-                lock (this.syncRoot)
-                {
-                    if (this.state == ServerState.Stopping)
-                    {
-                        this.state = ServerState.Failed;
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Starts this RPC server. Will generate service stubs and start listening on the configured endpoints.
-        /// </summary>
-        public void Start()
-        {
-            this.CheckCanStart();
-
-            lock (this.syncRoot)
-            {
-                if (this.state != ServerState.Initializing)
-                {
-                    throw new InvalidOperationException("Server can only be started once.");
-                }
-
-                this.state = ServerState.Starting;
-            }
-
-            try
-            {
-                this.BuildServiceStubs();
-                this.StartCore();
-                lock (this.syncRoot)
-                {
-                    this.state = ServerState.Started;
-                }
-            }
-            finally
-            {
-                lock (this.syncRoot)
-                {
-                    if (this.state == ServerState.Starting)
-                    {
-                        this.state = ServerState.Failed;
-                    }
-                }
-            }
-        }
 
         public void UnpublishInstance(RpcObjectId serviceInstanceId)
         {
@@ -257,31 +156,13 @@ namespace SciTech.Rpc.Server
             this.ServicePublisher.UnpublishSingleton<TService>();
         }
 
-        protected abstract void BuildServiceStub(Type serviceType);
-
-        /// <summary>
-        /// 
-        /// </summary>
-        protected virtual void BuildServiceStubs()
-        {
-            foreach (Type serviceType in this.ServiceDefinitionsProvider.GetRegisteredServiceTypes())
-            {
-                this.BuildServiceStub(serviceType);
-            }
-        }
 
         protected virtual void CheckCanStart()
         {
             this.CheckConnectionInfo();
         }
 
-        protected void CheckIsInitializing()
-        {
-            if (this.state != ServerState.Initializing)
-            {
-                throw new InvalidOperationException("");
-            }
-        }
+
 
         protected abstract IRpcSerializer CreateDefaultSerializer();
 
@@ -307,13 +188,6 @@ namespace SciTech.Rpc.Server
 
             throw new RpcServiceUnavailableException($"Service object '{objectId}' not published.");
         }
-
-        protected virtual Task ShutdownCoreAsync()
-        {
-            return Task.CompletedTask;
-        }
-
-        protected abstract void StartCore();
 
 
         private void CheckConnectionInfo()

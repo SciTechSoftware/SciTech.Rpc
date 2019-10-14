@@ -74,8 +74,6 @@ namespace SciTech.Rpc.Lightweight.Client
         /// </summary>
         public bool KeepSizeLimitedConnectionAlive { get; }
 
-        protected object SyncRoot { get; } = new object();
-
         /// <inheritdoc/>
         public override Task ConnectAsync(CancellationToken cancellationToken)
             => this.ConnectClientAsync(cancellationToken).AsTask();

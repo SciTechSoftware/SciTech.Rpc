@@ -15,9 +15,9 @@ using System.Threading;
 
 namespace SciTech.Rpc.Client.Internal
 {
-    public delegate RpcProxyBase RpcObjectProxyFactory(RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? synchronizationContext);
+    public delegate RpcProxyBase RpcObjectProxyFactory(RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? synchronizationContext);
 
-    public delegate RpcProxyBase RpcSingletonProxyFactory(RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? synchronizationContext);
+    public delegate RpcProxyBase RpcSingletonProxyFactory(RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? synchronizationContext);
 
     public interface IRpcProxyGenerator
     {

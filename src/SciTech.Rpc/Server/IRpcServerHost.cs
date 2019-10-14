@@ -10,19 +10,16 @@
 #endregion
 
 using System;
-using System.Collections.Immutable;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
-    public interface IRpcServer : IDisposable
+    public interface IRpcServerHost : IRpcServer
     {
-        /// <summary>
-        /// Indicates that service instances returned from an RPC call is 
-        /// allowed to be automatically published.
-        /// </summary>
-        bool AllowAutoPublish { get; }
+        void AddEndPoint(IRpcServerEndPoint endPoint);
 
-        IRpcServicePublisher ServicePublisher { get; }
+        Task ShutdownAsync();
+
+        void Start();
     }
 }

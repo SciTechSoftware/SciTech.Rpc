@@ -30,7 +30,7 @@ namespace TicketerClient
                 return Task.CompletedTask;
             });
 
-            RpcServerConnection connection = new NetGrpcServerConnection(Address, options);
+            var connection = new NetGrpcServerConnection(Address, options);
             var client = connection.GetServiceSingleton<ITicketerServiceClient>();
 
             Console.WriteLine("gRPC Ticketer");

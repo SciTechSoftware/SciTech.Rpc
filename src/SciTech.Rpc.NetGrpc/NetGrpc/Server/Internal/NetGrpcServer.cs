@@ -44,10 +44,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         {
         }
 
-        public override void AddEndPoint(IRpcServerEndPoint endPoint)
-        {
-            throw new NotSupportedException("End points cannot be added to NetGrpc, use ASP.NET configuration instead.");
-        }
 
         internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request,
             GrpcCore.ServerCallContext callContext)
@@ -55,34 +51,10 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             return Task.FromResult(server.QueryServices(request.Id));
         }
 
-        protected override void BuildServiceStub(Type serviceType)
-        {
-            throw new NotSupportedException("Service stubs should be built by NetGrpcServiceMethodProvider<TService>, using BuildServiceStub<TService>.");
-        }
-
-        protected override void BuildServiceStubs()
-        {
-            // Not much to do here. Service stubs are built by NetGrpcServiceMethodProvider.
-            this.ServiceDefinitionsProvider.Freeze();
-        }
-
-        protected override void CheckCanStart()
-        {
-            base.CheckCanStart();
-        }
-
         protected override IRpcSerializer CreateDefaultSerializer()
         {
             return new ProtobufRpcSerializer();
         }
 
-        protected override Task ShutdownCoreAsync()
-        {
-            return Task.CompletedTask;
-        }
-
-        protected override void StartCore()
-        {
-        }
     }
 }

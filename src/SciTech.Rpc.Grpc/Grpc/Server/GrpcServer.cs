@@ -31,7 +31,7 @@ namespace SciTech.Rpc.Grpc.Server
     /// <summary>
     /// The managed/native gRPC implementation of <see cref="IRpcServer"/>. 
     /// </summary>
-    public sealed class GrpcServer : RpcServerBase, IRpcServer
+    public sealed class GrpcServer : RpcServerHostBase
     {
         private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(GrpcServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
 
@@ -104,7 +104,7 @@ namespace SciTech.Rpc.Grpc.Server
             if (endPoint is null) throw new ArgumentNullException(nameof(endPoint));
 
             bool firstEndPoint = false;
-            lock (this.syncRoot)
+            lock (this.SyncRoot)
             {
                 this.CheckIsInitializing();
 
@@ -175,7 +175,7 @@ namespace SciTech.Rpc.Grpc.Server
         protected override async Task ShutdownCoreAsync()
         {
             GrpcCore.Server? grpcServer;
-            lock (this.syncRoot)
+            lock (this.SyncRoot)
             {
                 grpcServer = this.grpcServer;
                 this.grpcServer = null;

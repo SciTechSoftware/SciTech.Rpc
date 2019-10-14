@@ -9,7 +9,7 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 namespace SciTech.Rpc.Grpc.Client.Internal
 #endif
 {
-    internal interface IGrpcServerConnection : IRpcServerConnection
+    internal interface IGrpcRpcChannel : IRpcChannel
     {
         GrpcCore.CallInvoker? CallInvoker { get; }
 

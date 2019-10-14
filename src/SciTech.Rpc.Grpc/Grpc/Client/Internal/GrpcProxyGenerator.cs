@@ -26,7 +26,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 {
     public class GrpcProxyArgs : RpcProxyArgs
     {
-        internal GrpcProxyArgs(IRpcServerConnection connection,
+        internal GrpcProxyArgs(IRpcChannel connection,
                                GrpcCore.CallInvoker callInvoker,
                                RpcObjectId objectId,
                                GrpcMethodsCache methodsCache,
@@ -62,9 +62,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             GrpcProxyMethod[] proxyMethods)
         {
             var proxyServicesProvider = this.ProxyServicesProvider;
-            return (RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? syncContext) =>
+            return (RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? syncContext) =>
             {
-                if (connection is IGrpcServerConnection grpcConnection)
+                if (connection is IGrpcRpcChannel grpcConnection)
                 {
                     var callInvoker = grpcConnection.CallInvoker;
                     if (callInvoker == null)

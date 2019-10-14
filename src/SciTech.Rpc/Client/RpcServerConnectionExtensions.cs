@@ -14,16 +14,16 @@ using System.Threading;
 
 namespace SciTech.Rpc.Client
 {
-    public static class RpcServerConnectionExtensions
+    public static class RpcChannelExtensions
     {
-        public static TService GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectId objectId, bool useSyncContext = true) where TService : class
+        public static TService GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectId objectId, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
 
             return connection.GetServiceInstance<TService>(objectId, default, useSyncContext ? SynchronizationContext.Current : null);
         }
 
-        public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef<TService> serviceRef, bool useSyncContext = true) where TService : class
+        public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef<TService> serviceRef, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
 
@@ -40,7 +40,7 @@ namespace SciTech.Rpc.Client
             throw new ArgumentException("Invalid serviceRef connection.");
         }
 
-        public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef<TService> serviceRef, SynchronizationContext syncContext) where TService : class
+        public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef<TService> serviceRef, SynchronizationContext syncContext) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
 
@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Client
             throw new ArgumentException("Invalid serviceRef connection.");
         }
 
-        public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
+        public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
 
@@ -74,7 +74,7 @@ namespace SciTech.Rpc.Client
             throw new ArgumentException("Invalid serviceRef connection.");
         }
 
-        public static TService? GetServiceInstance<TService>(this IRpcServerConnection connection, RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class
+        public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
 
@@ -91,14 +91,14 @@ namespace SciTech.Rpc.Client
             throw new ArgumentException("Invalid serviceRef connection.");
         }
 
-        public static TService GetServiceSingleton<TService>(this IRpcServerConnection connection, bool useSyncContext = true) where TService : class
+        public static TService GetServiceSingleton<TService>(this IRpcChannel connection, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
 
             return connection.GetServiceSingleton<TService>(useSyncContext ? SynchronizationContext.Current : null);
         }
 
-        public static TService GetServiceSingleton<TService>(this IRpcServerConnection connection, RpcSingletonRef<TService> singletonRef, bool useSyncContext = true) where TService : class
+        public static TService GetServiceSingleton<TService>(this IRpcChannel connection, RpcSingletonRef<TService> singletonRef, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
 

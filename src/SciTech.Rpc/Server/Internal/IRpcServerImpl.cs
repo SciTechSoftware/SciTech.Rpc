@@ -21,6 +21,8 @@ namespace SciTech.Rpc.Server.Internal
     /// </summary>
     public interface IRpcServerImpl : IRpcServer
     {
+        ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
+
         /// <summary>
         /// Gets the custom <see cref="RpcServerFaultHandler"/> that has been initialized 
         /// using the <see cref="ExceptionConverters"/>. If there are no <c>ExceptionConverters</c>

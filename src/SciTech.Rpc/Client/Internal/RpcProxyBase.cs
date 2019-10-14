@@ -29,7 +29,7 @@ namespace SciTech.Rpc.Client.Internal
     public class RpcProxyArgs
     {
         public RpcProxyArgs(
-            IRpcServerConnection connection, RpcObjectId objectId, IRpcSerializer serializer,
+            IRpcChannel connection, RpcObjectId objectId, IRpcSerializer serializer,
             IReadOnlyCollection<string>? implementedServices,
             IRpcProxyDefinitionsProvider proxyServicesProvider,
             SynchronizationContext? syncContext)
@@ -42,7 +42,7 @@ namespace SciTech.Rpc.Client.Internal
             this.SyncContext = syncContext;
         }
 
-        public IRpcServerConnection Connection { get; }
+        public IRpcChannel Connection { get; }
 
         /// <summary>
         /// The services implemented by the server side of this proxy. May be <c>null</c> or empty if
@@ -83,7 +83,7 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        public IRpcServerConnection Connection { get; }
+        public IRpcChannel Connection { get; }
 
         /// <summary>
         /// The services implemented by the server side this proxy. May be empty if

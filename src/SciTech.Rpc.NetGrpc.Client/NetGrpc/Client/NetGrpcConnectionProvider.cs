@@ -28,7 +28,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             return connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc;
         }
 
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
+        public IRpcChannel CreateConnection(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
         {
             if (connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc)
             {

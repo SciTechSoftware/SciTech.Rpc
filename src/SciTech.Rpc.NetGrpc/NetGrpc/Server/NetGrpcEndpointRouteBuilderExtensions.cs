@@ -45,7 +45,7 @@ namespace SciTech.Rpc.NetGrpc.Server
         private static readonly MethodInfo MapGrpcServiceMethod =
             typeof(GrpcEndpointRouteBuilderExtensions).GetMethod(
                 nameof(GrpcEndpointRouteBuilderExtensions.MapGrpcService),
-                BindingFlags.Static | BindingFlags.Public) 
+                BindingFlags.Static | BindingFlags.Public)
                 ?? throw new NotImplementedException(
                 $"{nameof(GrpcEndpointRouteBuilderExtensions.MapGrpcService)} not implemented as expected on {nameof(GrpcEndpointRouteBuilderExtensions)}");
 
@@ -81,8 +81,6 @@ namespace SciTech.Rpc.NetGrpc.Server
             {
                 MapRegisteredType(builder, serviceType, conventionBuilders);
             }
-
-            rpcServer.Start();
 
             return new CompositeEndpointConventionBuilder(conventionBuilders.ToImmutable());
         }

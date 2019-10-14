@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             LightweightMethodDef[] proxyMethods)
         {
             var proxyServicesProvider = this.ProxyServicesProvider;
-            return (RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? syncContext) =>
+            return (RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? syncContext) =>
             {
                 if (connection is LightweightRpcConnection lightweightConnection)
                 {

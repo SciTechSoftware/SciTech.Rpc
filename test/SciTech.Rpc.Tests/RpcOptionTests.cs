@@ -41,7 +41,7 @@ namespace SciTech.Rpc.Tests
         {
             var connectionManager = new RpcServerConnectionManager(new IRpcConnectionProvider[] { this.CreateConnectionProvider(null) }, ConnectionManagerOptions);
 
-            var connection = (RpcServerConnection)connectionManager.GetServerConnection(this.CreateConnectionInfo());
+            var connection = connectionManager.GetServerConnection(this.CreateConnectionInfo());
 
             AssertOptions(ConnectionManagerOptions, connection.Options);
         }
@@ -51,7 +51,7 @@ namespace SciTech.Rpc.Tests
         {
             var connectionManager = new RpcServerConnectionManager(new IRpcConnectionProvider[] { this.CreateConnectionProvider(ProviderOptions.AsImmutable()) }, ConnectionManagerOptions);
 
-            var connection = (RpcServerConnection)connectionManager.GetServerConnection(this.CreateConnectionInfo());
+            var connection = connectionManager.GetServerConnection(this.CreateConnectionInfo());
 
             AssertOptions(ProviderOptions, connection.Options);
         }

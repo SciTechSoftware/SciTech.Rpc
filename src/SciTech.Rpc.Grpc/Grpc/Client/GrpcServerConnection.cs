@@ -23,7 +23,7 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.Grpc.Client
 {
-    public class GrpcServerConnection : RpcServerConnection, IGrpcServerConnection
+    public class GrpcServerConnection : RpcChannel, IGrpcRpcChannel
     {
         private static readonly ILog Logger = LogProvider.For<GrpcServerConnection>();
 
@@ -114,33 +114,14 @@ namespace SciTech.Rpc.Grpc.Client
 
         public GrpcCore.Channel? Channel { get; private set; }
 
-        public override bool IsConnected => this.Channel?.State == GrpcCore.ChannelState.Ready;
-
-        /// <summary>
-        /// Get a value indicating whether this connection is encrypted. The current implementation assumes
-        /// that the connection is encrypted if it's connected and credentials have been supplied.
-        /// </summary>
-        public override bool IsEncrypted => this.IsConnected && this.isSecure;
-
-        /// <summary>
-        /// Get a value indicating whether this client and server is mutually authenticated. Not yet implemented,
-        /// will always return false.
-        /// </summary>
-        public override bool IsMutuallyAuthenticated => false;
-
-        /// <summary>
-        /// Get a value indicating whether this connection is signed. The current implementation assumes
-        /// that the connection is signed if it's connected and credentials have been supplied.
-        /// </summary>
-        public override bool IsSigned => this.IsConnected && this.isSecure;
 
         internal GrpcCore.CallInvoker? CallInvoker { get; private set; }
 
-        GrpcCore.CallInvoker? IGrpcServerConnection.CallInvoker => this.CallInvoker;
+        GrpcCore.CallInvoker? IGrpcRpcChannel.CallInvoker => this.CallInvoker;
 
-        IRpcSerializer IGrpcServerConnection.Serializer => this.Serializer;
+        IRpcSerializer IGrpcRpcChannel.Serializer => this.Serializer;
 
-        public override Task ConnectAsync(CancellationToken cancellationToken)
+        public Task ConnectAsync(CancellationToken cancellationToken)
         {
             var channel = this.Channel;
             if (channel != null)

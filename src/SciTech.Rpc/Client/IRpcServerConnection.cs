@@ -10,9 +10,6 @@
 #endregion
 
 using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
@@ -33,22 +30,8 @@ namespace SciTech.Rpc.Client
     /// A server connection represents an established connection to a server process. <see cref="RpcServerConnectionInfo"/> is
     /// used to provide information about a connection.
     /// </remarks>
-    public interface IRpcServerConnection : IDisposable
+    public interface IRpcServerConnection : IRpcChannel
     {
-        event EventHandler ConnectionStateChanged;
-
-        RpcServerConnectionInfo ConnectionInfo { get; }
-
-        RpcConnectionState ConnectionState { get; }
-
-        ImmutableRpcClientOptions Options { get; }
-
-        TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class;
-
-        TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class;
-
-        Task ShutdownAsync();
-
 
         event EventHandler? Connected;
 
@@ -56,6 +39,11 @@ namespace SciTech.Rpc.Client
 
         event EventHandler? ConnectionLost;
 
+        event EventHandler ConnectionStateChanged;
+
         event EventHandler? Disconnected;
+
+
+        RpcConnectionState ConnectionState { get; }
     }
 }

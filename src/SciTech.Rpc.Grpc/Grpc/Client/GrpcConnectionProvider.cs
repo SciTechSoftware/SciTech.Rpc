@@ -21,7 +21,7 @@ namespace SciTech.Rpc.Grpc.Client
         private readonly ImmutableRpcClientOptions? options;
 
         public GrpcConnectionProvider(
-            ImmutableRpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IRpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(GrpcCore.ChannelCredentials.Insecure, options, definitionsProvider, channelOptions )
         {
@@ -29,12 +29,12 @@ namespace SciTech.Rpc.Grpc.Client
 
         public GrpcConnectionProvider(
             GrpcCore.ChannelCredentials credentials,
-            ImmutableRpcClientOptions? options = null,
+            IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
         {
             this.credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
-            this.options = options;
+            this.options = options?.AsImmutable();
             this.channelOptions = channelOptions?.AsImmutableArrayList();
 
             this.definitionsProvider = definitionsProvider;
@@ -45,7 +45,7 @@ namespace SciTech.Rpc.Grpc.Client
             return connectionInfo?.HostUrl?.Scheme == GrpcScheme;
         }
 
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
+        public IRpcChannel CreateConnection(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
         {
             if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
             {

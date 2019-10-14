@@ -22,7 +22,7 @@ using GrpcNet = Grpc.Net;
 
 namespace SciTech.Rpc.NetGrpc.Client
 {
-    public class NetGrpcServerConnection : RpcServerConnection, IGrpcServerConnection
+    public class NetGrpcServerConnection : RpcChannel, IGrpcRpcChannel
     {
         private static readonly ILog Logger = LogProvider.For<NetGrpcServerConnection>();
 
@@ -136,45 +136,12 @@ namespace SciTech.Rpc.NetGrpc.Client
 
         public GrpcNet.Client.GrpcChannel? Channel { get; private set; }
 
-        public override bool IsConnected => false;// this.Channel?.State == GrpcCore.ChannelState.Ready;
-
-        /// <summary>
-        /// Get a value indicating whether this connection is encrypted. The current implementation assumes
-        /// that the connection is encrypted if it's connected and credentials have been supplied.
-        /// </summary>
-        public override bool IsEncrypted => this.IsConnected && this.isSecure;
-
-        /// <summary>
-        /// Get a value indicating whether this client and server is mutually authenticated. Not yet implemented,
-        /// will always return false.
-        /// </summary>
-        public override bool IsMutuallyAuthenticated => false;
-
-        /// <summary>
-        /// Get a value indicating whether this connection is signed. The current implementation assumes
-        /// that the connection is signed if it's connected and credentials have been supplied.
-        /// </summary>
-        public override bool IsSigned => this.IsConnected && this.isSecure;
-
         internal GrpcCore.CallInvoker? CallInvoker { get; private set; }
 
-        GrpcCore.CallInvoker? IGrpcServerConnection.CallInvoker => this.CallInvoker;
+        GrpcCore.CallInvoker? IGrpcRpcChannel.CallInvoker => this.CallInvoker;
 
-        IRpcSerializer IGrpcServerConnection.Serializer => this.Serializer;
+        IRpcSerializer IGrpcRpcChannel.Serializer => this.Serializer;
 
-        public override Task ConnectAsync(CancellationToken cancellationToken)
-        {
-            return Task.CompletedTask;
-            //var channel = this.Channel;
-            //if (channel != null)
-            //{
-            //    return channel.ConnectAsync();
-            //}
-            //else
-            //{
-            //    throw new ObjectDisposedException(this.ToString());
-            //}
-        }
 
         public override Task ShutdownAsync()
         {

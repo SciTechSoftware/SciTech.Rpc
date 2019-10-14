@@ -68,6 +68,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SciTech.Rpc.NetGrpc.Client"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SciTech.Rpc.Benchmark", "src\Benchmark\SciTech.Rpc.Benchmark.csproj", "{702EAF05-3F56-49E4-AB2F-ED5DBE727428}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TicketerClient", "examples\Clients\Ticketer\TicketerClient.csproj", "{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -153,6 +155,12 @@ Global
 		{702EAF05-3F56-49E4-AB2F-ED5DBE727428}.Release|Any CPU.Build.0 = Release|Any CPU
 		{702EAF05-3F56-49E4-AB2F-ED5DBE727428}.VS|Any CPU.ActiveCfg = Debug|Any CPU
 		{702EAF05-3F56-49E4-AB2F-ED5DBE727428}.VS|Any CPU.Build.0 = Debug|Any CPU
+		{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80}.VS|Any CPU.ActiveCfg = Debug|Any CPU
+		{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80}.VS|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -175,6 +183,7 @@ Global
 		{F46D84BC-2C40-41CF-8B0C-DEEC6073CDC7} = {B08C6779-5720-4C9D-B8C0-10F77E646E50}
 		{ACFD4020-F132-445E-8ECE-EC7099A1BAD1} = {99206CFB-B5B3-4F58-A28B-2E00E96B8228}
 		{702EAF05-3F56-49E4-AB2F-ED5DBE727428} = {99206CFB-B5B3-4F58-A28B-2E00E96B8228}
+		{C73F54F9-BDD0-46FD-928F-5C6AD7A8FE80} = {904A3B27-BBD3-4F0B-BA9A-5ADD167C6A9D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FDB676FA-C3D7-4415-B518-C0285B6C67A8}

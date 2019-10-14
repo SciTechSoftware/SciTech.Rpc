@@ -29,9 +29,8 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
-    public partial class LightweightRpcServer : RpcServerBase
+    public partial class LightweightRpcServer : RpcServerHostBase
     {
-
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
 
         public const int DefaultMaxResponseMessageSize = 4 * 1024 * 1024;
@@ -122,7 +121,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 throw new ArgumentNullException(nameof(endPoint));
             }
 
-            lock (this.syncRoot)
+            lock (this.SyncRoot)
             {
                 this.CheckIsInitializing();
                 this.endPoints.Add(endPoint);

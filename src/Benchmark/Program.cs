@@ -256,9 +256,9 @@ namespace SciTech.Rpc.Benchmark
     {
         public static readonly RuntimeTypeModel DefaultTypeModel = RuntimeTypeModel.Create().AddRpcTypes();
 
-        IRpcServer server;
+        IRpcServerHost server;
 
-        IRpcServerConnection clientConnection;
+        IRpcChannel clientConnection;
         ISimpleServiceClient clientService;
 
         public SimpleServiceCall()
@@ -372,7 +372,7 @@ namespace SciTech.Rpc.Benchmark
 
 
 #if NETCOREAPP3_0
-        private static IRpcServer CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
+        private static IRpcServerHost CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
         {
             var hostBuilder = new WebHostBuilder()
                 .UseKestrel()
@@ -422,7 +422,7 @@ namespace SciTech.Rpc.Benchmark
 #endif
 
 #if NETCOREAPP3_0
-        internal class NetGrpcTestServer : IRpcServer
+        internal class NetGrpcTestServer : IRpcServerHost
         {
             private IWebHost webHost;
             NetGrpcServer server;
@@ -452,7 +452,6 @@ namespace SciTech.Rpc.Benchmark
 
             public async Task ShutdownAsync()
             {
-                await this.server.ShutdownAsync().ConfigureAwait(false);
                 await this.webHost.StopAsync().ConfigureAwait(false);
             }
 

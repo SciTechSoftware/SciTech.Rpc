@@ -369,7 +369,6 @@ namespace SciTech.Rpc.Server.Internal
             var errorGenerators = new List<IRpcServerExceptionConverter>();
             foreach (RpcFaultAttribute faultAttribute in faultAttributes)
             {
-
                 if (faultAttribute.FaultType != null)
                 {
                     var rpcErrorGenerator = (IRpcServerExceptionConverter?)typeof(RpcFaultExceptionConverter<>)

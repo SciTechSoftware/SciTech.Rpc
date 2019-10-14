@@ -7,17 +7,21 @@ using System.Reflection;
 namespace SciTech.Rpc
 {
     /// <summary>
+    /// <para>
     /// Default implementation of <see cref="IRpcServerExceptionConverter"/> and  <see cref="IRpcClientExceptionConverter"/>
     /// which converts exceptions based on the <typeparamref name="TException"/> type argument, the specified faultCode, 
     /// and the message provided to <see cref="CreateException(string)"/>.
+    /// </para>
+    /// <para>
     /// NOTE! The <see cref="IRpcServerExceptionConverter.CreateFault(Exception)"/> implementation will use
     /// the message from the exception. Make sure that this message doesn't include any sensitive information.
+    /// </para>
     /// </summary>
     /// <remarks>
     /// If <see cref="Exception.Message"/> may contain sensitive information, don't use this class as the server side
     /// exception converter. Instead make a custom implementation of <see cref="IRpcServerExceptionConverter"/>.
     /// </remarks>
-    /// <typeparam name="TException">Type of the exception created by this converter.</typeparam>
+    /// <typeparam name="TException">Type of the exception that this converter handles.</typeparam>
     public class RpcExceptionConverter<TException> : RpcExceptionConverterBase<TException>
         where TException : Exception
     {
@@ -46,6 +50,17 @@ namespace SciTech.Rpc
         }
     }
 
+
+    /// <summary>
+    /// <para>
+    /// Base implementation of <see cref="IRpcServerExceptionConverter"/> and  <see cref="IRpcClientExceptionConverter"/> for
+    /// exception converters that include fault details.
+    /// </para>
+    /// <para>Derived classes must implement the abstract methods <see cref="CreateException(string, TFault)"/> and <see cref="CreateFault(TException)"/>.
+    /// </para>
+    /// </summary>
+    /// <typeparam name="TException">Type of the exception that this converter handles.</typeparam>
+    /// <typeparam name="TFault">Type of the fault details that this converter handles.</typeparam>
     public abstract class RpcExceptionConverter<TException, TFault> : IRpcServerExceptionConverter, IRpcClientExceptionConverter
         where TException : Exception
     {
@@ -96,6 +111,16 @@ namespace SciTech.Rpc
         public Type ExceptionType { get; }
     }
 
+    /// <summary>
+    /// <para>
+    /// Base implementation of <see cref="IRpcServerExceptionConverter"/> and  <see cref="IRpcClientExceptionConverter"/> for
+    /// exception converters that do include additional fault details.
+    /// </para>
+    /// <para>Derived classes must implement the abstract methods <see cref="CreateException(string, TFault)"/> and <see cref="CreateFault(TException)"/>.
+    /// </para>
+    /// </summary>
+    /// <typeparam name="TException">Type of the exception that this converter handles.</typeparam>
+    /// <typeparam name="TFault">Type of the fault details that this converter handles.</typeparam>
     public abstract class RpcExceptionConverterBase<TException> : IRpcServerExceptionConverter, IRpcClientExceptionConverter
         where TException : Exception
     {

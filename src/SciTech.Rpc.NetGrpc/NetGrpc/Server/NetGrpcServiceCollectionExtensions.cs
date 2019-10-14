@@ -160,15 +160,16 @@ namespace SciTech.Rpc.NetGrpc.Server
                 throw new InvalidCastException("Unexpected failure when casting to ServiceMethodProviderContext<NetGrpcServiceActivator<TService>>.");
             }
 
-            var stubBuilder = this.serviceProvider.GetService<NetGrpcServiceStubBuilder<TService>>();
-            if (stubBuilder != null)
+            var serviceInfo = this.rpcServer.ServiceDefinitionsProvider.GetRegisteredServiceInfo(typeof(TService));
+            if( serviceInfo == null )
             {
-                stubBuilder.Bind(this.rpcServer, typedContext);
+                throw new InvalidOperationException($"Service '{typeof(TService)}' not registered.");
             }
-            else
-            {
-                // TODO: What now? Log warning or throw exception?
-            }
+
+            var stubBuilder = new NetGrpcServiceStubBuilder<TService>(
+                serviceInfo, 
+                this.serviceProvider.GetService<IOptions<RpcServiceOptions<TService>>>()?.Value);
+            stubBuilder.Bind(this.rpcServer, typedContext);
         }
     }
 

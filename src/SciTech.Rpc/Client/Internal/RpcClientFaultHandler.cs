@@ -12,7 +12,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace SciTech.Rpc.Client
+namespace SciTech.Rpc.Client.Internal
 {
     public sealed class RpcClientFaultHandler
     {

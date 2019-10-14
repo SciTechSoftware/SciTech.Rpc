@@ -147,7 +147,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             {
                 var responseTask = stub.Handler!(request, serviceProvider, context);
 
-                return stub.HandleResponse(messageNumber, operation, pipeline, request, responseTask);
+                return stub.HandleResponse(messageNumber, operation, pipeline, responseTask);
             }
 
             Task StartHandleMessage(RpcPipeline pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context, TRequest request)
@@ -203,7 +203,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             await valueTask.ContextFree();
         }
 
-        private Task HandleResponse(int messageNumber, string operation, RpcPipeline pipeline, TRequest request, ValueTask<TResponse> responseTask)
+        private Task HandleResponse(int messageNumber, string operation, RpcPipeline pipeline, ValueTask<TResponse> responseTask)
         {
             // Try to return response from synchronous methods directly.
             if (responseTask.IsCompletedSuccessfully)

@@ -29,8 +29,33 @@ namespace SciTech.Rpc.NetGrpc.Client
         private bool isSecure;
 
         public NetGrpcServerConnection(
+            string url,
+            IRpcClientOptions? options = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
+            : this(
+                  new RpcServerConnectionInfo(new Uri(url)),
+                  options,
+                  GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                  channelOptions)
+        {
+        }
+        public NetGrpcServerConnection(
+            Uri url,
+            IRpcClientOptions? options = null,
+            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
+            : this(
+                  new RpcServerConnectionInfo(url),
+                  options,
+                  GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                  channelOptions)
+        {
+        }
+
+        public NetGrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
-            ImmutableRpcClientOptions? options = null,
+            IRpcClientOptions? options = null,
             IRpcProxyDefinitionsProvider? definitionsProvider = null,
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
             : this(connectionInfo, options, GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
@@ -45,9 +70,15 @@ namespace SciTech.Rpc.NetGrpc.Client
             GrpcNet.Client.GrpcChannelOptions? channelOptions)
             : base(connectionInfo, options, proxyGenerator)
         {
-            if (connectionInfo?.HostUrl?.Scheme == NetGrpcConnectionProvider.GrpcScheme)
+            if (connectionInfo is null) throw new ArgumentNullException(nameof(connectionInfo));
+
+            var scheme = connectionInfo.HostUrl?.Scheme;
+            if (connectionInfo.HostUrl != null
+                && (scheme == WellKnownRpcSchemes.Grpc || scheme == "https" || scheme == "http" ))
             {
                 GrpcNet.Client.GrpcChannelOptions actualChannelOptions = ExtractOptions(options, channelOptions);
+
+                this.isSecure = scheme == "https" || scheme == WellKnownRpcSchemes.Grpc;
 
                 var interceptors = options?.Interceptors ?? ImmutableList<RpcClientCallInterceptor>.Empty;
                 int nInterceptors = interceptors.Count;
@@ -71,20 +102,35 @@ namespace SciTech.Rpc.NetGrpc.Client
                         callCredentials = GrpcCore.CallCredentials.FromInterceptor((context, metadata) => callInterceptor(new GrpcCallMetadata(metadata)));
                     }
 
-                    actualChannelOptions.Credentials = GrpcCore.ChannelCredentials.Create(actualChannelOptions.Credentials, callCredentials);
+                    var channelCredentials = actualChannelOptions.Credentials;
+                    if( channelCredentials == null )
+                    {
+                        if( this.isSecure )
+                        {
+                            channelCredentials = new GrpcCore.SslCredentials();
+                        } else
+                        {
+                            channelCredentials = GrpcCore.ChannelCredentials.Insecure;
+                        }
+                    }
+
+                    actualChannelOptions.Credentials = GrpcCore.ChannelCredentials.Create(channelCredentials, callCredentials);
                 }
 
 
+                var channelUri = scheme == WellKnownRpcSchemes.Grpc
+                    ? new Uri($"https://{connectionInfo.HostUrl.Authority}/")
+                    : connectionInfo.HostUrl;
 
-                this.Channel = GrpcNet.Client.GrpcChannel.ForAddress(new Uri($"https://{connectionInfo.HostUrl.Authority}/"), actualChannelOptions);
+                this.Channel = GrpcNet.Client.GrpcChannel.ForAddress(channelUri, actualChannelOptions);
 
                 this.CallInvoker = this.Channel.CreateCallInvoker();
 
-                this.isSecure = false;//credentials != null && credentials != GrpcCore.ChannelCredentials.Insecure;
+                
             }
             else
             {
-                throw new NotImplementedException($"NetGrpcServerConnection is only implemented for the '{nameof(NetGrpcConnectionProvider.GrpcScheme)}' scheme.");
+                throw new NotImplementedException($"NetGrpcServerConnection is only implemented for the '{WellKnownRpcSchemes.Grpc}' scheme.");
             }
         }
 

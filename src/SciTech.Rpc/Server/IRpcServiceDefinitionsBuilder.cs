@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -22,11 +23,12 @@ namespace SciTech.Rpc.Server
 
         IRpcServiceDefinitionsBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter);
 
-        IRpcServiceDefinitionsBuilder RegisterService<TService>(RpcServerOptions? options = null);
+        IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType, RpcServerOptions? options = null);
 
-        IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, RpcServerOptions? options = null);
+        IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, RpcServerOptions? options = null);
+
+
     }
-
     public interface IRpcServiceDefinitionsProvider
     {
         event EventHandler<RpcServicesEventArgs> ServicesRegistered;
@@ -60,6 +62,8 @@ namespace SciTech.Rpc.Server
         RpcServerOptions? GetServiceOptions(Type serviceType);
 
         bool IsServiceRegistered(Type serviceType);
+        
+        RpcServiceInfo? GetRegisteredServiceInfo(Type serviceType);
     }
 
 

@@ -126,7 +126,7 @@ namespace SciTech.Rpc.Server.Internal
             ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TEventArgs> responseStream, IRpcCallContext context)
             {
                 var eventProducer = new GenericEventHandlerProducer<TEventArgs>(responseStream, addHandlerAction, removeHandlerAction, context.CancellationToken);
-                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer, context);
+                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer);
             }
 
             this.AddEventHandlerDefinition<TEventArgs>(eventInfo, LocalBeginEventProducer, serviceStub, binder);
@@ -420,7 +420,7 @@ namespace SciTech.Rpc.Server.Internal
             ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<EventArgs> responseStream, IRpcCallContext context)
             {
                 var eventProducer = new PlainEventHandlerProducer(responseStream, addHandlerAction, removeHandlerAction, context.CancellationToken);
-                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer, context);
+                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer);
             }
 
             this.AddEventHandlerDefinition<EventArgs>(eventInfo, LocalBeginEventProducer, serviceStub, binder);

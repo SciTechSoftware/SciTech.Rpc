@@ -316,7 +316,9 @@ namespace SciTech.Rpc.Client.Internal
                 {
                     newEventData = this.CreateEventDataSynchronized<TEventHandler>(eventMethodIndex);
                     Debug.Assert(newEventData.eventHandler == null);
-
+                    var finishedTask = newEventData.eventListenerFinishedTcs!.Task;
+                    finishedTask.ContinueWith(t => { lock (this.SyncRoot) { this.RemoveEventDataSynchronized(newEventData); } }, TaskScheduler.Default );
+    
                     eventData = newEventData;
                 }
 
@@ -590,20 +592,7 @@ namespace SciTech.Rpc.Client.Internal
             where TEventArgs : class
             where TEventHandler : Delegate
         {
-            EventData<TEventHandler>? removedEventData = null;
-            lock (this.SyncRoot)
-            {
-                var eventData = GetEventDataSynchronized<TEventHandler>(eventMethodIndex);
-                if (eventData?.eventHandler != null)
-                {
-                    eventData.eventHandler = (TEventHandler?)Delegate.Remove(eventData.eventHandler, value);
-                    if (eventData.eventHandler == null)
-                    {
-                        this.RemoveEventDataSynchronized(eventData);
-                        removedEventData = eventData;
-                    }
-                }
-            }
+            RpcProxyBase<TMethodDef>.EventData<TEventHandler>? removedEventData = RemoveEventHandler(value, eventMethodIndex);
 
             if (removedEventData != null)
             {
@@ -628,6 +617,26 @@ namespace SciTech.Rpc.Client.Internal
             {
                 return;
             }
+        }
+
+        private RpcProxyBase<TMethodDef>.EventData<TEventHandler>? RemoveEventHandler<TEventHandler>(TEventHandler value, int eventMethodIndex) where TEventHandler : Delegate
+        {
+            EventData<TEventHandler>? removedEventData = null;
+            lock (this.SyncRoot)
+            {
+                var eventData = GetEventDataSynchronized<TEventHandler>(eventMethodIndex);
+                if (eventData?.eventHandler != null)
+                {
+                    eventData.eventHandler = (TEventHandler?)Delegate.Remove(eventData.eventHandler, value);
+                    if (eventData.eventHandler == null)
+                    {
+                        this.RemoveEventDataSynchronized(eventData);
+                        removedEventData = eventData;
+                    }
+                }
+            }
+
+            return removedEventData;
         }
 
         private static string GetServiceName<TService>() where TService : class
@@ -815,7 +824,11 @@ namespace SciTech.Rpc.Client.Internal
 
         private void RemoveEventDataSynchronized(EventData eventData)
         {
-            this.activeEvents?.Remove(eventData.eventMethodIndex);
+            if (!eventData.isRemoved)
+            {
+                eventData.isRemoved = true;
+                this.activeEvents?.Remove(eventData.eventMethodIndex);
+            }
         }
 
         private async void StartEventRetrieverAsync<TEventHandler, TEventArgs>(EventData<TEventHandler> eventData)
@@ -868,10 +881,6 @@ namespace SciTech.Rpc.Client.Internal
                             }
                             else
                             {
-                                //// TODO: This will prevent strict ordering of events, but
-                                //// without this there will be a dead-lock if the handler calls back into 
-                                //// the proxy (why?). Maybe invoke through a queue?
-                                //Task.Run(() => this.InvokeDelegate(eventHandler, eventArgs)).Forget();
                                 this.InvokeDelegate(eventHandler, eventArgs);
                             }
                         }
@@ -882,11 +891,26 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception ce) when (this.IsCancellationException(ce))
             {
+                if( eventData.cancellationSource.IsCancellationRequested)
+                {
+                    // If cancellation has been requested, let's just
+                    // silently end the retriever
+
+                    eventData.eventListenerStartedTcs.TrySetResult(false);
+
+                    eventData.eventListenerFinishedTcs.TrySetResult(false);
+                }
+
+                // This is most likely some error, the
+                // retrieve loop should only be cancelled through
+                // eventData.cancellationSource (e.g. NetGrpc returns cancelled
+                // when streaming call fails due to authorization error).
+                // Should maybe SetException instead of SetCanceled.
                 // Try to set exception on started task as well, in case
                 // the exception occurred while starting.
-                eventData.eventListenerStartedTcs.TrySetResult(true);
+                eventData.eventListenerStartedTcs.TrySetCanceled();
 
-                eventData.eventListenerFinishedTcs.SetResult(true);
+                eventData.eventListenerFinishedTcs.TrySetCanceled();
             }
 #pragma warning disable CA1031 // Do not catch general exception types
             catch (Exception e)
@@ -931,6 +955,8 @@ namespace SciTech.Rpc.Client.Internal
             internal readonly TaskCompletionSource<bool> eventListenerStartedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             internal readonly int eventMethodIndex;
+            
+            internal bool isRemoved;
 
             public EventData(int eventMethodIndex)
             {

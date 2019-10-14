@@ -157,8 +157,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask BeginEventProducer<TEventArgs>(
             RpcObjectRequest request,
             IServiceProvider? serviceProvider,
-            EventProducer<TService, TEventArgs> eventProducer,
-            IRpcCallContext context)
+            EventProducer<TService, TEventArgs> eventProducer)
         {
             var service = this.GetServiceImpl(serviceProvider, request.Id);
             if (RpcStubOptions.TestDelayEventHandlers)

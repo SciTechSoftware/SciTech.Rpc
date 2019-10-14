@@ -247,22 +247,14 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        public void UnpublishServiceInstance(RpcObjectId serviceInstanceId)
+        public void UnpublishInstance(RpcObjectId serviceInstanceId)
         {
-            lock (this.syncRoot)
-            {
-                //throw new NotImplementedException();
-                //this.idToServiceImpl.Remove(serviceInstanceId);
-            }
+            this.ServicePublisher.UnpublishInstance(serviceInstanceId);
         }
 
         public void UnpublishSingleton<TService>() where TService : class
         {
-            lock (this.syncRoot)
-            {
-                //throw new NotImplementedException();
-                //this.idToServiceImpl.Remove(serviceInstanceId);
-            }
+            this.ServicePublisher.UnpublishSingleton<TService>();
         }
 
         protected abstract void BuildServiceStub(Type serviceType);
@@ -308,7 +300,7 @@ namespace SciTech.Rpc.Server
         protected RpcServicesQueryResponse QueryServices(RpcObjectId objectId)
         {
             var servicesList = this.ServiceImplProvider.GetPublishedServices(objectId);
-            if (servicesList?.Count > 0)
+            if (!servicesList.IsDefaultOrEmpty)
             {
                 return new RpcServicesQueryResponse { ImplementedServices = servicesList.ToArray() };
             }

@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 namespace SciTech.Rpc.Server.Internal
 {
     public interface IRpcServiceActivator
     {
-        IReadOnlyList<string> GetPublishedServices(RpcObjectId objectId);
+        ImmutableArray<string> GetPublishedServices(RpcObjectId objectId);
 
         ActivatedService<TService>? GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
     }

@@ -30,15 +30,18 @@ namespace SciTech.Rpc
     public struct RegisteredServiceType
 #pragma warning restore CA1815 // Override equals and operator equals on value types
     {
-        internal RegisteredServiceType(Type serviceType, RpcServerOptions? serverOptions)
+        internal RegisteredServiceType(Type serviceType, Type? implementationType, RpcServerOptions? serverOptions)
         {
             this.ServiceType = serviceType;
             this.ServerOptions = serverOptions;
+            this.ImplementationType = implementationType;
         }
 
         public RpcServerOptions? ServerOptions { get; }
 
         public Type ServiceType { get; }
+
+        public Type? ImplementationType { get; }
     }
 
     public class KnownSerializationType
@@ -84,7 +87,7 @@ namespace SciTech.Rpc
                 || rpcServiceAttribute.ServiceDefinitionSide == RpcServiceDefinitionSide.Both
                 || definitionType == rpcServiceAttribute.ServiceDefinitionSide))
             {
-                yield return new RegisteredServiceType(this.ServiceType, this.ServerOptions);
+                yield return new RegisteredServiceType(this.ServiceType, null, this.ServerOptions);
             }
         }
     }
@@ -113,7 +116,7 @@ namespace SciTech.Rpc
                         || rpcServiceAttribute.ServiceDefinitionSide == RpcServiceDefinitionSide.Both
                         || definitionType == rpcServiceAttribute.ServiceDefinitionSide))
                     {
-                        yield return new RegisteredServiceType(type, this.ServerOptions);
+                        yield return new RegisteredServiceType(type, null, this.ServerOptions);
                     }
                 }
             }

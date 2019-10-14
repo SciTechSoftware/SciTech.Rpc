@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Server
                 {
                     foreach (var registeredType in registration.GetServiceTypes(RpcServiceDefinitionSide.Server))
                     {
-                        this.RegisterService(registeredType.ServiceType, registeredType.ServerOptions);
+                        this.RegisterService(registeredType.ServiceType, registeredType.ImplementationType, registeredType.ServerOptions);
                     }
                 }
             }
@@ -193,12 +193,28 @@ namespace SciTech.Rpc.Server
 
         public IRpcServiceDefinitionsBuilder RegisterService<TService>(RpcServerOptions? options = null)
         {
-            return this.RegisterService(typeof(TService), options);
+            return this.RegisterService(typeof(TService), null, options);
         }
 
-        public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, RpcServerOptions? options = null)
+        public IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, RpcServerOptions? options = null)
+        {
+            var allServices = RpcBuilderUtil.GetAllServices(implementationType, true);
+            foreach( var serviceInfo in allServices)
+            {
+                RegisterService(serviceInfo.Type, implementationType, options);
+            }
+
+            return this;
+        }
+
+        public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType=null, RpcServerOptions? options = null)
         {
             if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
+            if( implementationType != null && !serviceType.IsAssignableFrom( implementationType) )
+            {
+                throw new ArgumentException("Implementation type must implement service type.", nameof(implementationType));
+            }
+
 
             this.CheckFrozen();
 

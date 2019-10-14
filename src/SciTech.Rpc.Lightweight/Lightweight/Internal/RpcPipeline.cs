@@ -97,12 +97,14 @@ namespace SciTech.Rpc.Lightweight.Internal
             IDuplexPipe? pipe;
             BufferWriterStream? frameWriterStream;
 
+
+            this.singleWriter.Wait();
+
             lock (this.syncRoot)
             {
                 pipe = this.Pipe;
                 this.Pipe = null;
             }
-            this.singleWriter.Wait();
 
             frameWriterStream = this.frameWriterStream;
             this.frameWriterStream = null;

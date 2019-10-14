@@ -48,5 +48,14 @@ namespace SciTech.Rpc.Client
         TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class;
 
         Task ShutdownAsync();
+
+
+        event EventHandler? Connected;
+
+        event EventHandler? ConnectionFailed;
+
+        event EventHandler? ConnectionLost;
+
+        event EventHandler? Disconnected;
     }
 }

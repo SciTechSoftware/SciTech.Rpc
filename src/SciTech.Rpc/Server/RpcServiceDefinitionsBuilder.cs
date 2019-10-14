@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Server
 
         private readonly Dictionary<string, Type> registeredServices = new Dictionary<string, Type>();
 
-        private readonly Dictionary<Type, RpcServerOptions?> registeredServiceTypes = new Dictionary<Type, RpcServerOptions?>();
+        private readonly Dictionary<Type, RegisteredServiceType> registeredServiceTypes = new Dictionary<Type, RegisteredServiceType>();
 
         private readonly object syncRoot = new object();
 
@@ -36,6 +36,18 @@ namespace SciTech.Rpc.Server
         private bool isFrozen;
 
         private IImmutableList<Type>? registeredServicesList;
+
+        private struct RegisteredServiceType
+        {
+            internal Type? ImplementationType;
+            internal RpcServerOptions? Options;
+
+            internal RegisteredServiceType(Type? implementationType, RpcServerOptions? options)
+            {
+                this.ImplementationType = implementationType;
+                this.Options = options;
+            }
+        }
 
         public RpcServiceDefinitionsBuilder(
             RpcServerOptions? options = null,
@@ -124,6 +136,16 @@ namespace SciTech.Rpc.Server
             this.isFrozen = true;
         }
 
+        public RpcServiceInfo? GetRegisteredServiceInfo(Type type)
+        {
+            if( this.registeredServiceTypes.TryGetValue( type, out var registration ))
+            {
+                return RpcBuilderUtil.GetServiceInfoFromType(type, registration.ImplementationType);
+            }
+
+            return null;
+        }
+
         public IImmutableList<Type> GetRegisteredServiceTypes()
         {
             lock (this.syncRoot)
@@ -143,8 +165,8 @@ namespace SciTech.Rpc.Server
 
             lock (this.syncRoot)
             {
-                this.registeredServiceTypes.TryGetValue(serviceType, out var options);
-                return options;
+                this.registeredServiceTypes.TryGetValue(serviceType, out var registeredServiceType);
+                return registeredServiceType.Options;
             }
         }
 
@@ -191,26 +213,26 @@ namespace SciTech.Rpc.Server
             return this;
         }
 
-        public IRpcServiceDefinitionsBuilder RegisterService<TService>(RpcServerOptions? options = null)
-        {
-            return this.RegisterService(typeof(TService), null, options);
-        }
-
         public IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, RpcServerOptions? options = null)
         {
             var allServices = RpcBuilderUtil.GetAllServices(implementationType, true);
-            foreach( var serviceInfo in allServices)
+            foreach (var serviceInfo in allServices)
             {
-                RegisterService(serviceInfo.Type, implementationType, options);
+                this.RegisterService(serviceInfo.Type, implementationType, options);
             }
 
             return this;
         }
 
-        public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType=null, RpcServerOptions? options = null)
+        public IRpcServiceDefinitionsBuilder RegisterService<TService>(RpcServerOptions? options = null)
+        {
+            return this.RegisterService(typeof(TService), null, options);
+        }
+
+        public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType = null, RpcServerOptions? options = null)
         {
             if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
-            if( implementationType != null && !serviceType.IsAssignableFrom( implementationType) )
+            if (implementationType != null && !serviceType.IsAssignableFrom(implementationType))
             {
                 throw new ArgumentException("Implementation type must implement service type.", nameof(implementationType));
             }
@@ -218,7 +240,7 @@ namespace SciTech.Rpc.Server
 
             this.CheckFrozen();
 
-            List<RpcServiceInfo> allServices = RpcBuilderUtil.GetAllServices(serviceType, RpcServiceDefinitionSide.Server, false);
+            List<RpcServiceInfo> allServices = RpcBuilderUtil.GetAllServices(serviceType, implementationType, RpcServiceDefinitionSide.Server, false);
 
             var newServices = new List<RpcServiceInfo>();
             Type[]? newServiceTypes = null;
@@ -226,9 +248,9 @@ namespace SciTech.Rpc.Server
             {
                 foreach (var service in allServices)
                 {
-                    if (!this.registeredServiceTypes.ContainsKey(service.Type))
+                    if (!this.registeredServiceTypes.TryGetValue(service.Type, out var currRegistration ))
                     {
-                        this.registeredServiceTypes.Add(service.Type, options);
+                        this.registeredServiceTypes.Add(service.Type, new RegisteredServiceType( implementationType, options ));
 
                         if (this.registeredServices.TryGetValue(service.FullName, out var existingServiceType))
                         {
@@ -248,10 +270,15 @@ namespace SciTech.Rpc.Server
                     }
                     else
                     {
+                        if( currRegistration.ImplementationType != implementationType)
+                        {
+                            throw new RpcDefinitionException($"Service '{serviceType}' already registered with a different implementation type.");
+                        }
+
                         // Type already registered, but let's update the service options if provided.
                         if (options != null)
                         {
-                            this.registeredServiceTypes[service.Type] = options;
+                            this.registeredServiceTypes[service.Type] = new RegisteredServiceType(implementationType, options);
                         }
 
                         continue;

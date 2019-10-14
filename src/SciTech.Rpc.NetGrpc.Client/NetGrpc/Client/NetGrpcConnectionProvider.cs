@@ -7,9 +7,6 @@ namespace SciTech.Rpc.NetGrpc.Client
 {
     public class NetGrpcConnectionProvider : IRpcConnectionProvider
     {
-
-        public const string GrpcScheme = "grpc";
-
         private readonly IRpcProxyDefinitionsProvider? definitionsProvider;
 
         private GrpcNet.Client.GrpcChannelOptions? channelOptions;
@@ -28,12 +25,12 @@ namespace SciTech.Rpc.NetGrpc.Client
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
         {
-            return connectionInfo?.HostUrl?.Scheme == GrpcScheme;
+            return connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc;
         }
 
         public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, ImmutableRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
         {
-            if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
+            if (connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc)
             {
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = GrpcProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);

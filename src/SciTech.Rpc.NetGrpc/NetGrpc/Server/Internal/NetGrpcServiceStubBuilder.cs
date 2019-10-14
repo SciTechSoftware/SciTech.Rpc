@@ -11,7 +11,9 @@
 
 using Grpc.AspNetCore.Server.Model;
 using Grpc.Core;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using SciTech.Rpc.Authorization;
 using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
@@ -20,6 +22,8 @@ using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
@@ -29,12 +33,16 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     internal interface INetGrpcBinder<TService> where TService : class
     {
         void AddServerStreamingMethod<TRequest, TResponse>(
-            Method<TRequest, TResponse> create,
+            Method<TRequest, TResponse> method,
+            ImmutableArray<object> metadata,
             ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
             where TRequest : class
             where TResponse : class;
 
-        public void AddUnaryMethod<TRequest, TResponse>(Method<TRequest, TResponse> create, UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+        public void AddUnaryMethod<TRequest, TResponse>(
+            Method<TRequest, TResponse> method,
+            ImmutableArray<object> metadata,
+            UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
             where TRequest : class
             where TResponse : class;
     }
@@ -51,16 +59,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 #pragma warning restore CA1812
     {
         private static readonly ILog Logger = LogProvider.For<NetGrpcServiceStubBuilder<TService>>();
-
-        public NetGrpcServiceStubBuilder(IOptions<RpcServiceOptions<TService>> options) :
-            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options.Value)
-        {
-
-        }
-        //internal NetGrpcServiceStubBuilder(IRpcSerializer serializer) :
-        //    this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), serializer)
-        //{
-        //}
 
         public NetGrpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
             : base(serviceInfo, options)
@@ -90,6 +88,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     eventInfo.FullServiceName,
                     beginEventProducerName,
                     serviceStub.Serializer),
+                eventInfo.Metadata,
                 handler);
         }
 
@@ -114,7 +113,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, Handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
             }
             else
             {
@@ -128,7 +127,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, Handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
             }
         }
 
@@ -159,7 +158,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, Handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
             }
             else
             {
@@ -176,7 +175,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, handler);
             }
         }
 
@@ -200,7 +199,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, Handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
             }
             else
             {
@@ -213,7 +212,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, Handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
 
             }
         }
@@ -238,7 +237,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, handler);
             }
             else
             {
@@ -251,7 +250,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                     operationInfo.FullServiceName, operationInfo.Name,
                     serializer);
 
-                binder.AddUnaryMethod(methodStub, handler);
+                binder.AddUnaryMethod(methodStub, operationInfo.Metadata, handler);
 
             }
         }
@@ -283,7 +282,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 operationInfo.FullServiceName, operationInfo.Name,
                 serializer);
 
-            binder.AddServerStreamingMethod(methodStub, handler);
+            binder.AddServerStreamingMethod(methodStub, operationInfo.Metadata, handler);
         }
 
         protected override ImmutableRpcServerOptions CreateStubOptions(IRpcServerImpl server)
@@ -315,18 +314,49 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
             public void AddServerStreamingMethod<TRequest, TResponse>(
                 Method<TRequest, TResponse> create,
+                ImmutableArray<object> metadata,
                 ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
                 where TRequest : class
                 where TResponse : class
             {
-                this.context.AddServerStreamingMethod(create, new List<object>(), handler);
+                this.context.AddServerStreamingMethod(create, TranslateMetadata(metadata), handler);
             }
 
-            public void AddUnaryMethod<TRequest, TResponse>(Method<TRequest, TResponse> create, UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+            public void AddUnaryMethod<TRequest, TResponse>(Method<TRequest, TResponse> create, ImmutableArray<object> metadata, UnaryServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
                 where TRequest : class
                 where TResponse : class
             {
-                this.context.AddUnaryMethod(create, new List<object>(), handler);
+                this.context.AddUnaryMethod(create, TranslateMetadata(metadata), handler);
+            }
+
+            private static IList<object> TranslateMetadata(ImmutableArray<object> metadata)
+            {
+                if( !metadata.IsDefaultOrEmpty)
+                {
+                    var translatedMetadata = new List<object>(metadata.Length);
+                    foreach( var metadataEntry in metadata )
+                    {
+                        object translatedEntry = metadataEntry;
+                        if( metadataEntry is RpcAuthorizeAttribute rpcAuthorize)
+                        {
+                            translatedEntry = new AuthorizeAttribute
+                            {
+                                AuthenticationSchemes = rpcAuthorize.AuthenticationSchemes,
+                                Policy = rpcAuthorize.Policy,
+                                Roles = rpcAuthorize.Roles                               
+                            };
+                        } else if( metadataEntry is RpcAllowAnonymousAttribute rpcAllowAnonymous)
+                        {
+                            translatedEntry = new AllowAnonymousAttribute();
+                        }
+
+                        translatedMetadata.Add(translatedEntry);
+                    }
+
+                    return translatedMetadata;
+                }
+
+                return Array.Empty<object>();
             }
         }
 

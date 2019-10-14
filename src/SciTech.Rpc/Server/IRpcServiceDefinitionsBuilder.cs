@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -61,6 +62,8 @@ namespace SciTech.Rpc.Server
         RpcServerOptions? GetServiceOptions(Type serviceType);
 
         bool IsServiceRegistered(Type serviceType);
+        
+        RpcServiceInfo? GetRegisteredServiceInfo(Type serviceType);
     }
 
 

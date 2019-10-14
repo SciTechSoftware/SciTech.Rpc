@@ -728,7 +728,7 @@ namespace SciTech.Rpc.Server
             // Getting the ServiceInfo validates that TService is actually an RPC service interface.
             RpcBuilderUtil.GetServiceInfoFromType(typeof(TService));
 
-            var allServices = RpcBuilderUtil.GetAllServices(typeof(TServiceImpl), RpcServiceDefinitionSide.Server, true);
+            var allServices = RpcBuilderUtil.GetAllServices(typeof(TServiceImpl), typeof(TServiceImpl), RpcServiceDefinitionSide.Server, true);
             this.TryRegisterServiceDefinitions(allServices, typeof(TServiceImpl));
 
             var publishedServices = this.VerifyPublishedServices(allServices);
@@ -761,7 +761,10 @@ namespace SciTech.Rpc.Server
                 {
                     foreach (var service in allServices)
                     {
-                        builder.RegisterService(service.Type, implementationType);
+                        if (!builder.IsServiceRegistered(service.Type) )
+                        {
+                            builder.RegisterService(service.Type, implementationType);
+                        }
                     }
                 }
             }

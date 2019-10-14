@@ -116,11 +116,10 @@ namespace SciTech.Rpc
     /// Base implementation of <see cref="IRpcServerExceptionConverter"/> and  <see cref="IRpcClientExceptionConverter"/> for
     /// exception converters that do include additional fault details.
     /// </para>
-    /// <para>Derived classes must implement the abstract methods <see cref="CreateException(string, TFault)"/> and <see cref="CreateFault(TException)"/>.
+    /// <para>Derived classes must implement the abstract methods <see cref="CreateException(string)"/> and <see cref="CreateFault(TException)"/>.
     /// </para>
     /// </summary>
     /// <typeparam name="TException">Type of the exception that this converter handles.</typeparam>
-    /// <typeparam name="TFault">Type of the fault details that this converter handles.</typeparam>
     public abstract class RpcExceptionConverterBase<TException> : IRpcServerExceptionConverter, IRpcClientExceptionConverter
         where TException : Exception
     {

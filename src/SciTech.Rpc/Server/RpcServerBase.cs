@@ -20,6 +20,7 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerBase : IRpcServerImpl
     {
+
         private volatile IRpcSerializer? serializer;
 
         protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServerOptions? options) :
@@ -118,43 +119,6 @@ namespace SciTech.Rpc.Server
             GC.SuppressFinalize(this);
         }
 
-        public RpcObjectRef<TService>? GetPublishedServiceInstance<TService>(TService serviceInstance) where TService : class
-        {
-            return this.ServicePublisher.GetPublishedInstance(serviceInstance);
-        }
-
-        public ScopedObject<RpcObjectRef<TService>> PublishServiceInstance<TService>(TService serviceInstance, bool takeOwnership = false) where TService : class
-        {
-            return this.ServicePublisher.PublishInstance(serviceInstance, takeOwnership);
-        }
-
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>() where TService : class where TServiceImpl : class, TService
-        {
-            return this.ServicePublisher.PublishSingleton<TServiceImpl, TService>();
-        }
-
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<TService> singletonFactory) where TService : class
-            => this.ServicePublisher.PublishSingleton<TService>(singletonFactory);
-
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> singletonFactory) where TService : class
-            => this.ServicePublisher.PublishSingleton(singletonFactory);
-
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class
-        {
-            return this.ServicePublisher.PublishSingleton(singletonService, takeOwnership);
-        }
-
-
-
-        public void UnpublishInstance(RpcObjectId serviceInstanceId)
-        {
-            this.ServicePublisher.UnpublishInstance(serviceInstanceId);
-        }
-
-        public void UnpublishSingleton<TService>() where TService : class
-        {
-            this.ServicePublisher.UnpublishSingleton<TService>();
-        }
 
 
         protected virtual void CheckCanStart()
@@ -200,5 +164,6 @@ namespace SciTech.Rpc.Server
             //    }
             //}
         }
+
     }
 }

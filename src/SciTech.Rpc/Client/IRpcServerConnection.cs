@@ -10,6 +10,8 @@
 #endregion
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
@@ -32,7 +34,6 @@ namespace SciTech.Rpc.Client
     /// </remarks>
     public interface IRpcServerConnection : IRpcChannel
     {
-
         event EventHandler? Connected;
 
         event EventHandler? ConnectionFailed;
@@ -45,5 +46,7 @@ namespace SciTech.Rpc.Client
 
 
         RpcConnectionState ConnectionState { get; }
+
+        Task ConnectAsync(CancellationToken cancellationToken);
     }
 }

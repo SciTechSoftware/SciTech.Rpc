@@ -78,8 +78,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "analyzers", "analyzers", "{
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SciTech.Rpc.Analyzer", "src\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj", "{01717D51-2736-456D-AF2F-BC410EAEC41C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SciTech.Rpc.Analyzer.Vsix", "src\analyzer\SciTech.Rpc.Analyzer.Vsix\SciTech.Rpc.Analyzer.Vsix.csproj", "{05F63B0E-5B17-4070-83EE-AEAAAD09FE98}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -189,12 +187,6 @@ Global
 		{01717D51-2736-456D-AF2F-BC410EAEC41C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{01717D51-2736-456D-AF2F-BC410EAEC41C}.VS|Any CPU.ActiveCfg = Debug|Any CPU
 		{01717D51-2736-456D-AF2F-BC410EAEC41C}.VS|Any CPU.Build.0 = Debug|Any CPU
-		{05F63B0E-5B17-4070-83EE-AEAAAD09FE98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{05F63B0E-5B17-4070-83EE-AEAAAD09FE98}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{05F63B0E-5B17-4070-83EE-AEAAAD09FE98}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{05F63B0E-5B17-4070-83EE-AEAAAD09FE98}.Release|Any CPU.Build.0 = Release|Any CPU
-		{05F63B0E-5B17-4070-83EE-AEAAAD09FE98}.VS|Any CPU.ActiveCfg = Release|Any CPU
-		{05F63B0E-5B17-4070-83EE-AEAAAD09FE98}.VS|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -222,7 +214,6 @@ Global
 		{0A017FCE-651B-45B2-8CAD-1E9466DAEFBC} = {99206CFB-B5B3-4F58-A28B-2E00E96B8228}
 		{B7AE80AA-76CB-426C-A360-026560114686} = {99206CFB-B5B3-4F58-A28B-2E00E96B8228}
 		{01717D51-2736-456D-AF2F-BC410EAEC41C} = {B7AE80AA-76CB-426C-A360-026560114686}
-		{05F63B0E-5B17-4070-83EE-AEAAAD09FE98} = {B7AE80AA-76CB-426C-A360-026560114686}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FDB676FA-C3D7-4415-B518-C0285B6C67A8}

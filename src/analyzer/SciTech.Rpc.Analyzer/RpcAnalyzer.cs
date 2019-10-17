@@ -55,7 +55,7 @@ namespace SciTech.Rpc.Analyzer
         private static DiagnosticDescriptor RpcOperationMbrReturnRule = new DiagnosticDescriptor(
             RpcOperationMbrReturnId,
             "MarshalByRefObject cannot be returned from an RPC operation.",
-            "MarshalByRefObject '{0}' cannot be return from RPC operation.",
+            "MarshalByRefObject '{0}' cannot be returned from RPC operation.",
             Category,
             DiagnosticSeverity.Error,
             isEnabledByDefault: true,
@@ -99,7 +99,8 @@ namespace SciTech.Rpc.Analyzer
             }
         }
 
-        public static IEnumerable<RpcOperation> EnumRpcOperations(ITypeSymbol rpcTypeSymbol)
+
+        private static IEnumerable<RpcOperation> EnumRpcOperations(ITypeSymbol rpcTypeSymbol)
         {
             if (rpcTypeSymbol is ITypeSymbol serverTypeSymbol)
             {
@@ -176,6 +177,12 @@ namespace SciTech.Rpc.Analyzer
             }
 
             return null;
+        }
+        
+        internal static AttributeData? GetRpcOperationAttribute(ISymbol symbol)
+        {
+            var typeAttributes = symbol.GetAttributes();
+            return typeAttributes.FirstOrDefault(ad => ad.AttributeClass.ToString() == "SciTech.Rpc.RpcOperationAttribute");
         }
 
         internal static bool IsMarshalByRef(INamedTypeSymbol type)
@@ -436,6 +443,13 @@ namespace SciTech.Rpc.Analyzer
         {
             if (symbol.DeclaredAccessibility == Accessibility.Public)
             {
+                var opAttribute = GetRpcOperationAttribute(symbol);
+                var opNameArg = opAttribute != null ? (opAttribute.NamedArguments.FirstOrDefault(pair => pair.Key == "Name").Value ): default;
+                if( !opNameArg.IsNull && opNameArg.Value is string opName )
+                {
+                    return opName;
+                }
+
                 if (symbol is IMethodSymbol methodSymbol)
                 {
                     string methodName = methodSymbol.Name;

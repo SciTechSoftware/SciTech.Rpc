@@ -50,6 +50,7 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
 
 
   <ItemGroup>
+    <ProjectReference Include="..\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
   </ItemGroup>
 

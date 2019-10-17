@@ -11,9 +11,8 @@
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.</Description>
     <PackageProjectUrl>https://github.com/SciTechSoftware/SciTech.Rpc</PackageProjectUrl>
     <RepositoryUrl>https://github.com/SciTechSoftware/SciTech.Rpc</RepositoryUrl>
-    <PackageReleaseNotes>* Added SSL support to Lightweight TCP client connection and server end point.
-* Fixed an error where default values were sometimes returned in case of an undeclared exception in handler (instead of RpcFailureException).
-* Several other improvements and fixes.     
+    <PackageReleaseNotes>
+      * A lot of new functionality and significant refactoring, getting close to 1.0 release.      
     </PackageReleaseNotes>
   </PropertyGroup>
 

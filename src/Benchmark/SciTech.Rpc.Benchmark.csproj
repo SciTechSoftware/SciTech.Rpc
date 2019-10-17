@@ -43,9 +43,9 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.11.5" />
     <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.11.5" />
-    <PackageReference Include="Google.Protobuf" Version="3.10.0" />
-    <PackageReference Include="Grpc.Core" Version="2.24.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.24.0">
+    <PackageReference Include="Google.Protobuf" Version="3.9.2" />
+    <PackageReference Include="Grpc.Core" Version="2.23.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.23.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

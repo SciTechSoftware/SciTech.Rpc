@@ -75,11 +75,14 @@ namespace SciTech.Rpc
 
         /// <summary>
         /// Indicates whether the service interface defines the server side, client side, or both sides of the RPC service. If <see cref="ServerDefinitionType"/>
-        /// is specified, this property will be <see cref="RpcServiceDefinitionSide.Client"/> by default; otherwise it will be <see cref="RpcServiceDefinitionSide.Both"/>.
+        /// or <see cref="ServerDefinitionTypeName"/> is specified, this property will be <see cref="RpcServiceDefinitionSide.Client"/> by default; 
+        /// otherwise it will be <see cref="RpcServiceDefinitionSide.Both"/>.
         /// </summary>
         public RpcServiceDefinitionSide ServiceDefinitionSide
         {
-            get => this.serviceDefinitionType ?? (this.ServerDefinitionType != null ? RpcServiceDefinitionSide.Client : RpcServiceDefinitionSide.Both);
+            get => this.serviceDefinitionType 
+                ?? (this.ServerDefinitionType != null || !string.IsNullOrEmpty(this.ServerDefinitionTypeName) 
+                ? RpcServiceDefinitionSide.Client : RpcServiceDefinitionSide.Both);
             set => this.serviceDefinitionType = value;
         }
     }

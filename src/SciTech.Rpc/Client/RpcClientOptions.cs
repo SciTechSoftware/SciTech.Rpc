@@ -123,12 +123,14 @@ namespace SciTech.Rpc.Client
         }
     }
 
-    /// <summary>
-    /// Specialization of <see cref="RpcClientOptions"/> than can be used to configure
-    /// service specific client options.
-    /// </summary>
-    /// <typeparam name="T">Type of the service interface.</typeparam>
-    public class RpcClientServiceOptions<T> : RpcClientOptions
-    {
-    }
+    // RpcClientServiceOptions<T> not implemented yet. Client options can only be specified
+    // at connection level.
+    ///// <summary>
+    ///// Specialization of <see cref="RpcClientOptions"/> than can be used to configure
+    ///// service specific client options.
+    ///// </summary>
+    ///// <typeparam name="T">Type of the service interface.</typeparam>
+    //public class RpcClientServiceOptions<T> : RpcClientOptions
+    //{
+    //}
 }

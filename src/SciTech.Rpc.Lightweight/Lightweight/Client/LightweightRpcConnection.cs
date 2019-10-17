@@ -78,6 +78,7 @@ namespace SciTech.Rpc.Lightweight.Client
         public override Task ConnectAsync(CancellationToken cancellationToken)
             => this.ConnectClientAsync(cancellationToken).AsTask();
 
+        /// <inheritdoc/>
         public override async Task ShutdownAsync()
         {
             var prevClient = this.ResetConnection(RpcConnectionState.Disconnected, null);

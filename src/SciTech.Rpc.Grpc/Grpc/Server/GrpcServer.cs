@@ -204,6 +204,8 @@ namespace SciTech.Rpc.Grpc.Server
 
         private IGrpcServiceStubBuilder CreateServiceStubBuilder<TService>() where TService : class
         {
+            // TODO: Try to abstract IOptions away somehow. My idea was that SciTech.Rpc should not depend 
+            // on Microsoft.Extensions (except SciTech.Rpc.NetGrpc and SciTech.Rpc.DependencyInjection (of course)).
             IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
 
             return new GrpcServiceStubBuilder<TService>(options?.Value);

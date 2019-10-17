@@ -42,7 +42,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore.Server" Version="2.23.2" />
     
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.4">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -50,6 +50,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
 
   <ItemGroup>
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc.DependencyInjection\SciTech.Rpc.DependencyInjection.csproj" />
     <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>

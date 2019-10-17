@@ -9,7 +9,7 @@
 //
 #endregion
 
-using Microsoft.Extensions.Options;
+//using Microsoft.Extensions.Options;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using System;
@@ -50,26 +50,25 @@ namespace SciTech.Rpc.Lightweight.Client
             this.lightweightOpions = lightweightOpions;
         }
 
-        public LightweightConnectionProvider(
-            IOptions<RpcClientOptions> options,
-            LightweightOptions? lightweightOpions = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null)
-            : this(null, options?.Value, lightweightOpions, definitionsProvider)
-        {
-        }
+        //public LightweightConnectionProvider(
+        //    IOptions<RpcClientOptions> options,
+        //    LightweightOptions? lightweightOpions = null,
+        //    IRpcProxyDefinitionsProvider? definitionsProvider = null)
+        //    : this(null, options?.Value, lightweightOpions, definitionsProvider)
+        //{
+        //}
 
-        public LightweightConnectionProvider(
-            SslClientOptions? sslOptions,
-            IOptions<RpcClientOptions> options,
-            LightweightOptions? lightweightOpions = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null)
-            : this(sslOptions, options?.Value, lightweightOpions, definitionsProvider)
-        {
-        }
+        //public LightweightConnectionProvider(
+        //    SslClientOptions? sslOptions,
+        //    IOptions<RpcClientOptions> options,
+        //    LightweightOptions? lightweightOpions = null,
+        //    IRpcProxyDefinitionsProvider? definitionsProvider = null)
+        //    : this(sslOptions, options?.Value, lightweightOpions, definitionsProvider)
+        //{
+        //}
 
         public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
-        {
-            
+        {            
             return connectionInfo?.HostUrl?.Scheme is string scheme 
                 &&  ( scheme == WellKnownRpcSchemes.LightweightTcp 
                 || scheme == WellKnownRpcSchemes.LightweightPipe );
@@ -77,13 +76,26 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public IRpcChannel CreateConnection(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider )
         {
-            if (connectionInfo?.HostUrl?.Scheme == LightweightTcpScheme)
+            var scheme = connectionInfo?.HostUrl?.Scheme;
+            if (scheme == LightweightTcpScheme)
             {
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
 
                 return new TcpRpcConnection(
-                    connectionInfo, this.sslOptions,
+                    connectionInfo!, this.sslOptions,
+                    ImmutableRpcClientOptions.Combine(options, this.options),
+                    proxyGenerator,
+                    this.lightweightOpions);
+            }
+
+            if( scheme == WellKnownRpcSchemes.LightweightPipe)
+            {
+                var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
+                var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
+
+                return new NamedPipeRpcConnection(
+                    connectionInfo!, 
                     ImmutableRpcClientOptions.Combine(options, this.options),
                     proxyGenerator,
                     this.lightweightOpions);

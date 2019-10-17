@@ -52,18 +52,18 @@ namespace SciTech.Rpc.Lightweight.Client
 
         //public LightweightConnectionProvider(
         //    IOptions<RpcClientOptions> options,
-        //    LightweightOptions? lightweightOpions = null,
+        //    LightweightOptions? lightweightOptions = null,
         //    IRpcProxyDefinitionsProvider? definitionsProvider = null)
-        //    : this(null, options?.Value, lightweightOpions, definitionsProvider)
+        //    : this(null, options?.Value, lightweightOptions, definitionsProvider)
         //{
         //}
 
         //public LightweightConnectionProvider(
         //    SslClientOptions? sslOptions,
         //    IOptions<RpcClientOptions> options,
-        //    LightweightOptions? lightweightOpions = null,
+        //    LightweightOptions? lightweightOptions = null,
         //    IRpcProxyDefinitionsProvider? definitionsProvider = null)
-        //    : this(sslOptions, options?.Value, lightweightOpions, definitionsProvider)
+        //    : this(sslOptions, options?.Value, lightweightOptions, definitionsProvider)
         //{
         //}
 
@@ -79,6 +79,7 @@ namespace SciTech.Rpc.Lightweight.Client
             var scheme = connectionInfo?.HostUrl?.Scheme;
             if (scheme == LightweightTcpScheme)
             {
+                // TODO: Shouldn't the definition providers be combined instead?
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
 
@@ -91,6 +92,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
             if( scheme == WellKnownRpcSchemes.LightweightPipe)
             {
+                // TODO: Shouldn't the definition providers be combined instead?
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
 

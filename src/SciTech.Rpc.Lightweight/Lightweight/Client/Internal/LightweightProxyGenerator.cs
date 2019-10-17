@@ -27,7 +27,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private readonly object syncRoot = new object();
 
-        internal LightweightProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider = null) : base(proxyServicesProvider)
+        internal LightweightProxyGenerator(IRpcProxyDefinitionsProvider? proxyDefinitionsProvider = null) : base(proxyDefinitionsProvider)
         {
         }
 

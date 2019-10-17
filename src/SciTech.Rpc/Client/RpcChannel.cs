@@ -107,9 +107,9 @@ namespace SciTech.Rpc.Client
         {
             if (disposing)
             {
-
                 // Shut down connection in case it's still connected, but let's 
                 // not wait for it to finish (to avoid dead-locks).
+                // TODO: Implement IAsyncDisposable
                 this.ShutdownAsync().Forget();
             }
         }

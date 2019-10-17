@@ -23,12 +23,19 @@ namespace SciTech.Rpc.Server
 
         IRpcServiceDefinitionsBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter);
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="serviceType"></param>
+        /// <param name="implementationType">Optional type of the service implementation. This type will be used when retrieving attributes for the 
+        /// service, e.g. related to authorization.</param>
+        /// <param name="options"></param>
+        /// <returns></returns>
         IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType, RpcServerOptions? options = null);
 
         IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, RpcServerOptions? options = null);
-
-
     }
+
     public interface IRpcServiceDefinitionsProvider
     {
         event EventHandler<RpcServicesEventArgs> ServicesRegistered;

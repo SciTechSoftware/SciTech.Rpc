@@ -13,14 +13,13 @@
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
 This package contains the core SciTech.Rpc implementation and should normally not be added separately. 
-Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.Pipelines.
+Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.Pipelines.
   </Description>
   </PropertyGroup>
 
-
-  <!--<PropertyGroup>
-    <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>-->
+  <ItemGroup>
+    <Compile Include="..\SciTech.Core\System\Diagnostics\CodeAnalysis\NullableAttributes.cs" Link="System\Diagnostics\CodeAnalysis\NullableAttributes.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\LICENSE">
@@ -38,12 +37,11 @@ Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="3.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="3.0.0" />
-    <PackageReference Include="protobuf-net" Version="3.0.0-alpha.174.gc21f7fafd1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="3.0.0" />
     <PackageReference Include="System.Buffers" Version="4.5.0" />
     <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
     <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
+    <PackageReference Include="System.ServiceModel.Primitives" Version="4.6.0" />
     <PackageReference Include="System.Text.Json" Version="4.6.0" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
     <PackageReference Include="System.Reflection.Emit" Version="4.6.0" />
@@ -52,6 +50,7 @@ Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc
 
 
   <ItemGroup>
+    <ProjectReference Include="..\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
   </ItemGroup>
 
@@ -64,4 +63,7 @@ Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Extensions\" />
+  </ItemGroup>
 </Project>

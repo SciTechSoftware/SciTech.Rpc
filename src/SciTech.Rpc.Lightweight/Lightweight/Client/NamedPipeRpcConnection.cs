@@ -94,6 +94,7 @@ namespace SciTech.Rpc.Lightweight.Client
                         // this is not performed by the pipe returned by StreamConnection.
                         connection = new OwnerDuplexPipe(connection, pipeClientStream);
                     }
+
                     pipeClientStream = null;    // Prevent disposal
 
                     return connection;

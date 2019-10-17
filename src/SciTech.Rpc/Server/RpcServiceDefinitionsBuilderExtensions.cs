@@ -22,6 +22,17 @@ namespace SciTech.Rpc.Server
             return builder.RegisterService(typeof(TService), null, options);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="TServiceImpl">The type of the service implementation. This type will be used when retrieving attributes for the 
+        /// service, e.g. related to authorization.
+        /// </typeparam>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="builder"></param>
+        /// <param name="options"></param>
+        /// <returns></returns>
+
         public static IRpcServiceDefinitionsBuilder RegisterService<TServiceImpl,TService>(this IRpcServiceDefinitionsBuilder builder, RpcServerOptions? options = null)
             where TServiceImpl : TService
         {
@@ -43,6 +54,5 @@ namespace SciTech.Rpc.Server
 
             return builder.RegisterImplementation(typeof(TServiceImpl), options);
         }
-
     }
 }

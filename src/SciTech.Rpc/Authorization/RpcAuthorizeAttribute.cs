@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Authorization
     /// requires the specified authorization.
     /// </para>
     /// <para>
-    /// <b>NOTE.</b> Authorization attributes are currently only implemented for the <c>NetGrpc</c>
+    /// <b>Note:</b> Authorization attributes are currently only implemented for the <c>NetGrpc</c>
     /// implementation of <c>SciTech.Rpc</c>. The attributes will be ignored by other
     /// implementations.</para>
     /// </summary>

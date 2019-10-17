@@ -18,7 +18,7 @@ package is currently not intended for other use.</Description>
 
   <Import Project="..\Platform.props" />
   
-  <PropertyGroup >
+  <PropertyGroup>
     <NoWarn>NU5105;$(NoWarn)</NoWarn>
   </PropertyGroup>
 
@@ -46,7 +46,7 @@ package is currently not intended for other use.</Description>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.4">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

@@ -41,11 +41,11 @@ This package contains the client communication layer for the fully managed ASP.N
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.Core.Api" Version="2.24.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.23.2" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 

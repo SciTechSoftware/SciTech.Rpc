@@ -41,9 +41,9 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         private Dictionary<string, int>? definedProxyTypes;
 
-        protected RpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider)
+        protected RpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyDefinitionsProvider)
         {
-            this.ProxyServicesProvider = proxyServicesProvider ?? new RpcProxyDefinitionsBuilder();
+            this.ProxyServicesProvider = proxyDefinitionsProvider ?? new RpcProxyDefinitionsBuilder();
         }
 
         protected IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }

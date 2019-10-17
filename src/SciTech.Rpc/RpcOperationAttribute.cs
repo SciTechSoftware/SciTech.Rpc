@@ -18,11 +18,11 @@ namespace SciTech.Rpc
     public class RpcOperationAttribute : Attribute
     {
         /// <summary>
-        /// Indicates whether it is allowed to execute the operation inline, e.g. in the directly on the communucation 
+        /// Indicates whether it is allowed to execute the operation inline, e.g. in the directly on the communication 
         /// thread instead of using the associated synchronization context (the thread pool by default).
         /// </summary>
         /// <remarks>This property should only be set to <c>true</c> on fast-running performance critical
-        /// methods and propreties.</remarks>
+        /// methods and properties.</remarks>
         public bool AllowInlineExecution { get; set; }
 
         public bool? AllowFault { get; set; }

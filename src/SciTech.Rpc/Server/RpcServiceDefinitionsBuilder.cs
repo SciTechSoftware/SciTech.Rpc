@@ -224,11 +224,6 @@ namespace SciTech.Rpc.Server
             return this;
         }
 
-        public IRpcServiceDefinitionsBuilder RegisterService<TService>(RpcServerOptions? options = null)
-        {
-            return this.RegisterService(typeof(TService), null, options);
-        }
-
         public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType = null, RpcServerOptions? options = null)
         {
             if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));

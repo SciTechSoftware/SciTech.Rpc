@@ -9,7 +9,6 @@
 //
 #endregion
 
-using Microsoft.Extensions.Options;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -41,17 +40,10 @@ namespace SciTech.Rpc.Client
 
         // Constructor overload currently removed, since it causes ambiguity when using 
         // dependency injection.
-        //public RpcServerConnectionManager(params IRpcConnectionProvider[] connectionProviders)
-        //    : this( (IEnumerable<IRpcConnectionProvider>)connectionProviders )
-        //{           
-        //}
-
-        // Constructor overload currently removed, since it causes ambiguity when using 
-        // dependency injection.
-        //public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IOptions<RpcClientOptions>? options, IRpcProxyDefinitionsProvider? definitionsProvider = null) 
-        //    : this( connectionProviders, options?.Value, definitionsProvider)
-        //{
-        //}
+        public RpcServerConnectionManager(params IRpcConnectionProvider[] connectionProviders)
+            : this((IEnumerable<IRpcConnectionProvider>)connectionProviders)
+        {
+        }
 
 
         public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IRpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null)

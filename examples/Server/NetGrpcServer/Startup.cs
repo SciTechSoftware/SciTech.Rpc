@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using SciTech.Rpc.NetGrpc.Server;
 using SciTech.Rpc.Server;
+using SciTech.Rpc;
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;

@@ -32,7 +32,7 @@ This package contains the communication layer for the native/.NET implementation
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.4">
+    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.6">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -42,6 +42,7 @@ This package contains the communication layer for the native/.NET implementation
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 

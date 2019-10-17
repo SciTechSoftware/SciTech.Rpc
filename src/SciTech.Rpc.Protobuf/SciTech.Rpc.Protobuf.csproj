@@ -13,6 +13,9 @@ From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy
 
 This package contains a Protobuf serializer (SciTech.Rpc.Serialization.ProtobufSerializer) that is used as the default serializer by the Grpc and NetGrpc implementations of SciTech.Rpc.
     </Description>
+
+    <!-- Still alpha, since it uses alpha protobuf-net library -->
+    <Version>1.0.0-alpha.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

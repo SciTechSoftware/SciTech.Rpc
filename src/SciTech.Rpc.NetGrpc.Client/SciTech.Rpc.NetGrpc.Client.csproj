@@ -46,6 +46,7 @@ This package contains the client communication layer for the fully managed ASP.N
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 

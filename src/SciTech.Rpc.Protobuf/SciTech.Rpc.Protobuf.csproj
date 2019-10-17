@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472</TargetFrameworks>
+  </PropertyGroup>
+
+
+  <Import Project="..\Package.props" />
+  <Import Project="..\Platform.props" />
+
+  <PropertyGroup>
+    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
+This package contains a Protobuf serializer (SciTech.Rpc.Serialization.ProtobufSerializer) that is used as the default serializer by the Grpc and NetGrpc implementations of SciTech.Rpc.
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SciTech.Core\System\Diagnostics\CodeAnalysis\NullableAttributes.cs" Link="System\Diagnostics\CodeAnalysis\NullableAttributes.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="protobuf-net" Version="3.0.0-alpha.174.gc21f7fafd1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
+
+
+  
+</Project>

@@ -50,6 +50,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
 
   <ItemGroup>
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 

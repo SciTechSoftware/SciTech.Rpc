@@ -1,0 +1,41 @@
+﻿  <Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+      <!--<TargetFramework>netcoreapp3.0</TargetFramework>-->
+      <TargetFrameworks>netstandard2.0;netstandard2.1;netcoreapp3.0;net461;net472</TargetFrameworks>
+    </PropertyGroup>
+
+    <Import Project="..\Package.props" />
+    <Import Project="..\Platform.props" />
+
+    <PropertyGroup>
+      <Description>
+        SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+        From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
+        This package contains the core SciTech.Rpc implementation and should normally not be added separately.
+        Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.Pipelines.
+      </Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <None Include="..\..\LICENSE">
+        <Pack>True</Pack>
+        <PackagePath></PackagePath>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.6">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="System.ServiceModel.Primitives" Version="4.6.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
+    </ItemGroup>
+
+
+  </Project>

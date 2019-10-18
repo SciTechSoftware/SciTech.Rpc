@@ -20,10 +20,9 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerBase : IRpcServerImpl
     {
-
         private volatile IRpcSerializer? serializer;
 
-        protected RpcServerBase(RpcServicePublisher servicePublisher, RpcServerOptions? options) :
+        protected RpcServerBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,
@@ -31,7 +30,7 @@ namespace SciTech.Rpc.Server
         {
         }
 
-        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, RpcServerOptions? options) :
+        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options) :
             this(new RpcServicePublisher(definitionsProvider, serverId), options)
         {
         }
@@ -44,7 +43,7 @@ namespace SciTech.Rpc.Server
         /// <param name="definitionsProvider"></param>
         protected RpcServerBase(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
-            IRpcServiceDefinitionsProvider definitionsProvider, RpcServerOptions? options)
+            IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options)
         {
             this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
             this.ServiceImplProvider = serviceImplProvider ?? throw new ArgumentNullException(nameof(serviceImplProvider));
@@ -52,7 +51,7 @@ namespace SciTech.Rpc.Server
 
             this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
             this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;
-            this.serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Options.Serializer;
+            this.serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Serializer;
 
             if (options != null)
             {
@@ -119,14 +118,9 @@ namespace SciTech.Rpc.Server
             GC.SuppressFinalize(this);
         }
 
-
-
         protected virtual void CheckCanStart()
         {
-            this.CheckConnectionInfo();
         }
-
-
 
         protected abstract IRpcSerializer CreateDefaultSerializer();
 
@@ -137,10 +131,7 @@ namespace SciTech.Rpc.Server
                 this.IsDisposed = true;
             }
         }
-        //protected void Init(HashSet<string> registeredServices)
-        //{
-        //    this.registeredServices = registeredServices ?? throw new ArgumentNullException(nameof(registeredServices));
-        //}
+
 
         protected RpcServicesQueryResponse QueryServices(RpcObjectId objectId)
         {
@@ -152,18 +143,5 @@ namespace SciTech.Rpc.Server
 
             throw new RpcServiceUnavailableException($"Service object '{objectId}' not published.");
         }
-
-
-        private void CheckConnectionInfo()
-        {
-            //lock (this.syncRoot)
-            //{
-            //    if (this.connectionInfo == null)
-            //    {
-            //        throw new InvalidOperationException("ConnectionInfo not initialized.");
-            //    }
-            //}
-        }
-
     }
 }

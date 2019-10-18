@@ -18,7 +18,7 @@ namespace SciTech.Rpc
 {
     public interface IRpcServiceRegistration
     {
-        public RpcServerOptions? ServerOptions { get; }
+        public IRpcServerOptions? ServerOptions { get; }
 
         /// <summary>
         /// Gets a collection of interface types that implement RPC services.
@@ -30,14 +30,14 @@ namespace SciTech.Rpc
     public struct RegisteredServiceType
 #pragma warning restore CA1815 // Override equals and operator equals on value types
     {
-        internal RegisteredServiceType(Type serviceType, Type? implementationType, RpcServerOptions? serverOptions)
+        internal RegisteredServiceType(Type serviceType, Type? implementationType, IRpcServerOptions? serverOptions)
         {
             this.ServiceType = serviceType;
             this.ServerOptions = serverOptions;
             this.ImplementationType = implementationType;
         }
 
-        public RpcServerOptions? ServerOptions { get; }
+        public IRpcServerOptions? ServerOptions { get; }
 
         public Type ServiceType { get; }
 
@@ -69,13 +69,13 @@ namespace SciTech.Rpc
             this.ServiceType = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
         }
 
-        public RpcServiceRegistration(Type serviceType, RpcServerOptions? serverOptions)
+        public RpcServiceRegistration(Type serviceType, IRpcServerOptions? serverOptions)
         {
             this.ServiceType = serviceType ?? throw new ArgumentNullException(nameof(serviceType));
             this.ServerOptions = serverOptions;
         }
 
-        public RpcServerOptions? ServerOptions { get; }
+        public IRpcServerOptions? ServerOptions { get; }
 
         public Type ServiceType { get; }
 
@@ -94,13 +94,13 @@ namespace SciTech.Rpc
 
     public class RpcServicesAssemblyRegistration : IRpcServiceRegistration
     {
-        public RpcServicesAssemblyRegistration(Assembly servicesAssembly, RpcServerOptions? serverOptions = null)
+        public RpcServicesAssemblyRegistration(Assembly servicesAssembly, IRpcServerOptions? serverOptions = null)
         {
             this.ServicesAssembly = servicesAssembly;
             this.ServerOptions = serverOptions;
         }
 
-        public RpcServerOptions? ServerOptions { get; }
+        public IRpcServerOptions? ServerOptions { get; }
 
         public Assembly ServicesAssembly { get; }
 

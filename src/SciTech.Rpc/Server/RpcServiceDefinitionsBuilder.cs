@@ -40,9 +40,9 @@ namespace SciTech.Rpc.Server
         private struct RegisteredServiceType
         {
             internal Type? ImplementationType;
-            internal RpcServerOptions? Options;
+            internal IRpcServerOptions? Options;
 
-            internal RegisteredServiceType(Type? implementationType, RpcServerOptions? options)
+            internal RegisteredServiceType(Type? implementationType, IRpcServerOptions? options)
             {
                 this.ImplementationType = implementationType;
                 this.Options = options;
@@ -50,12 +50,11 @@ namespace SciTech.Rpc.Server
         }
 
         public RpcServiceDefinitionsBuilder(
-            RpcServerOptions? options = null,
+            IRpcSerializer? serializer=null,
             IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null,
             IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
         {
-            this.Options = new ImmutableRpcServerOptions(options);
-
+            this.Serializer = serializer;
             if (serviceRegistrations != null)
             {
                 foreach (var registration in serviceRegistrations)
@@ -67,18 +66,6 @@ namespace SciTech.Rpc.Server
                 }
             }
 
-            if (options != null)
-            {
-                foreach (var exceptionConverter in options.ExceptionConverters)
-                {
-                    this.RegisterExceptionConverter(exceptionConverter);
-                }
-
-                if (options.Interceptors.Count > 0)
-                {
-                    this.CallInterceptors = options.Interceptors.ToImmutableArray();
-                }
-            }
             if (exceptionConverters != null)
             {
                 foreach (var exceptionConverter in exceptionConverters)
@@ -126,9 +113,7 @@ namespace SciTech.Rpc.Server
 
         public bool IsFrozen => this.isFrozen;
 
-        public ImmutableRpcServerOptions Options { get; }
-
-        public IRpcSerializer? Serializer => this.Options.Serializer;
+        public IRpcSerializer? Serializer { get; }
 
         public void Freeze()
         {
@@ -158,7 +143,7 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        public RpcServerOptions? GetServiceOptions(Type serviceType)
+        public IRpcServerOptions? GetServiceOptions(Type serviceType)
         {
             if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
 
@@ -212,7 +197,7 @@ namespace SciTech.Rpc.Server
             return this;
         }
 
-        public IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, RpcServerOptions? options = null)
+        public IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, IRpcServerOptions? options = null)
         {
             var allServices = RpcBuilderUtil.GetAllServices(implementationType, true);
             foreach (var serviceInfo in allServices)
@@ -223,7 +208,7 @@ namespace SciTech.Rpc.Server
             return this;
         }
 
-        public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType = null, RpcServerOptions? options = null)
+        public IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType = null, IRpcServerOptions? options = null)
         {
             if (serviceType is null) throw new ArgumentNullException(nameof(serviceType));
             if (implementationType != null && !serviceType.IsAssignableFrom(implementationType))

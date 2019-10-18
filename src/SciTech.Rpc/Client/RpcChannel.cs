@@ -26,6 +26,8 @@ namespace SciTech.Rpc.Client
     {
         //private static readonly ILog Logger = LogProvider.For<RpcChannel>();
 
+        private readonly Dictionary<string, IRpcClientExceptionConverter> exceptionConverters = new Dictionary<string, IRpcClientExceptionConverter>();
+
         private readonly IRpcProxyGenerator proxyGenerator;
 
         private readonly Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>> serviceInstances
@@ -43,6 +45,12 @@ namespace SciTech.Rpc.Client
             this.ConnectionInfo = connectionInfo;
             this.proxyGenerator = proxyGenerator;
             this.Options = options?.AsImmutable() ?? ImmutableRpcClientOptions.Empty;
+
+            foreach (var exceptionConverter in this.Options.ExceptionConverters)
+            {
+                // TODO: Add or set? Should it be possible to override exception converter registrations?
+                this.exceptionConverters.Add(exceptionConverter.FaultCode, exceptionConverter);
+            }
         }
 
         /// <inheritdoc/>
@@ -74,6 +82,12 @@ namespace SciTech.Rpc.Client
 
                 this.isDisposed = true;
             }
+        }
+
+        public IRpcClientExceptionConverter? GetExceptionConverter(string faultCode)
+        {
+            this.exceptionConverters.TryGetValue(faultCode, out var converter);
+            return converter;
         }
 
 

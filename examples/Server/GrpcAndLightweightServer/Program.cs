@@ -40,15 +40,10 @@ namespace GrpcAndLightweightServer
             RegisterServiceDefinitions(definitionsBuilder);
             PublishServices(rpcPublisher);
 
-            var options = new RpcServerOptions
-            {
-                Serializer = new ProtobufRpcSerializer(),
-            };
-            
-            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider, options);
+            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider);
             grpcServer.AddEndPoint(CreateGrpcEndPoint(50051));
 
-            var lightweightServer = new LightweightRpcServer(rpcPublisher, serviceProvider, options);
+            var lightweightServer = new LightweightRpcServer(rpcPublisher, serviceProvider);
 
             var sslOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
             lightweightServer.AddEndPoint(

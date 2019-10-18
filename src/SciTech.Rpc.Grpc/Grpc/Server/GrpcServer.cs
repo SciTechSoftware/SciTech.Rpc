@@ -78,13 +78,13 @@ namespace SciTech.Rpc.Grpc.Server
 
             List<GrpcCore.ChannelOption> channelOptions = new List<GrpcCore.ChannelOption>();
 
-            var maxReceiveMessageSize = options?.ReceiveMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.ReceiveMaxMessageSize;
+            var maxReceiveMessageSize = options?.ReceiveMaxMessageSize;
             if (maxReceiveMessageSize != null)
             {
                 channelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxReceiveMessageLength, maxReceiveMessageSize.Value));
             }
 
-            var maxSendMessageSize = options?.SendMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.SendMaxMessageSize;
+            var maxSendMessageSize = options?.SendMaxMessageSize;
             if (maxSendMessageSize != null)
             {
                 channelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxSendMessageLength, maxSendMessageSize.Value));

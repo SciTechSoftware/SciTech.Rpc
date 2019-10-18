@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerHostBase : RpcServerBase, IRpcServerHost
     {
-        protected RpcServerHostBase(RpcServicePublisher servicePublisher, RpcServerOptions? options) :
+        protected RpcServerHostBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,
@@ -27,7 +27,7 @@ namespace SciTech.Rpc.Server
         {
         }
 
-        protected RpcServerHostBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, RpcServerOptions? options) :
+        protected RpcServerHostBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options) :
             this(new RpcServicePublisher(definitionsProvider, serverId), options)
         {
         }
@@ -40,7 +40,7 @@ namespace SciTech.Rpc.Server
         /// <param name="definitionsProvider"></param>
         protected RpcServerHostBase(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
-            IRpcServiceDefinitionsProvider definitionsProvider, RpcServerOptions? options)
+            IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
 

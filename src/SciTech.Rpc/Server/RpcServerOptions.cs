@@ -15,10 +15,42 @@ using System.Collections.Generic;
 
 namespace SciTech.Rpc.Server
 {
+
     /// <summary>
-    /// Contains options for the server side implementation of RPC services.
+    /// Defines options for the server side implementation of RPC services.
     /// </summary>
-    public class RpcServerOptions
+    public interface IRpcServerOptions
+    {
+        /// <summary>
+        /// Gets or sets a value indicating whether service instances may be automatically published
+        /// when returned from a service implementation method.
+        /// </summary>
+        bool? AllowAutoPublish { get; }
+
+        IReadOnlyList<IRpcServerExceptionConverter> ExceptionConverters { get; }
+
+        IReadOnlyList<RpcServerCallInterceptor> Interceptors { get; }
+
+        bool IsEmpty { get; }
+
+        /// <summary>
+        /// Gets or sets the maximum message size in bytes that can be received by the server.
+        /// </summary>
+        int? ReceiveMaxMessageSize { get; }
+
+        /// <summary>
+        /// Gets or sets the maximum message size in bytes that can be sent from the server.
+        /// </summary>
+        int? SendMaxMessageSize { get; }
+
+        IRpcSerializer? Serializer { get; }
+    }
+
+    /// <summary>
+    /// Mutable implementation of <see cref="IRpcServerOptions"/>, for providing options for 
+    /// the server side implementation of RPC services.
+    /// </summary>
+    public class RpcServerOptions : IRpcServerOptions
     {
         private List<IRpcServerExceptionConverter>? exceptionConverters;
 
@@ -78,6 +110,10 @@ namespace SciTech.Rpc.Server
         public int? SendMaxMessageSize { get; set; }
 
         public IRpcSerializer? Serializer { get; set; }
+
+        IReadOnlyList<IRpcServerExceptionConverter> IRpcServerOptions.ExceptionConverters => this.ExceptionConverters;
+
+        IReadOnlyList<RpcServerCallInterceptor> IRpcServerOptions.Interceptors => this.Interceptors;
     }
 
     /// <summary>

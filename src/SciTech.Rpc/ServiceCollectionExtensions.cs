@@ -65,7 +65,7 @@ namespace SciTech.Rpc
         /// Registers an RPC service interface that could be used to implement an RPC service.
         /// </summary>
         /// <typeparam name="TService">The service interface type. Must be an interface with the <see cref="RpcServiceAttribute"/> 
-        /// or the <see cref="ServiceContractAttribute"/> applied.</typeparam>
+        /// or the <c>System.ServiceModel.ServiceContractAttribute</c> applied.</typeparam>
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <param name="configureOptions">Optional delegate that can be used to configure server side options.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
@@ -82,7 +82,7 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <param name="type">The service interface type. Must be an interface with the <see cref="RpcServiceAttribute"/> 
-        /// or the <see cref="ServiceContractAttribute"/> applied.</param>
+        /// or the <c>System.ServiceModel.ServiceContractAttribute</c> applied.</param>
         /// <param name="configureOptions">Optional delegate that can be used to configure server side options.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
         public static IServiceCollection RegisterRpcService(this IServiceCollection services, Type type,
@@ -97,7 +97,7 @@ namespace SciTech.Rpc
         /// Registers all RPC service interface that are defined in the specified <paramref name="assembly"/>.
         /// </para>
         /// <para>All exported interface types in the assembly with the <see cref="RpcServiceAttribute"/> applied 
-        /// will be registered (types with only the <see cref="ServiceContractAttribute"/> applied will not be registered).
+        /// will be registered (types with only the <c>System.ServiceModel.ServiceContractAttribute</c> applied will not be registered).
         /// </para>
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>

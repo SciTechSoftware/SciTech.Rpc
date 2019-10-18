@@ -14,9 +14,13 @@ namespace Mailer
         Forwarded
     }
 
-    [ProtoContract(SkipConstructor =true)]
+    [ProtoContract]
     public class MailboxMessage
     {
+        public MailboxMessage()
+        {
+        }
+
         public MailboxMessage(int newCount, int forwardedCount, Reason reason)
         {
             this.New = newCount;

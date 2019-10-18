@@ -15,7 +15,7 @@ namespace SciTech.Rpc.Server
 {
     public static class RpcServiceDefinitionsBuilderExtensions
     {
-        public static IRpcServiceDefinitionsBuilder RegisterService<TService>(this IRpcServiceDefinitionsBuilder builder, RpcServerOptions? options = null)
+        public static IRpcServiceDefinitionsBuilder RegisterService<TService>(this IRpcServiceDefinitionsBuilder builder, IRpcServerOptions? options = null)
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
 
@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Server
         /// <param name="options"></param>
         /// <returns></returns>
 
-        public static IRpcServiceDefinitionsBuilder RegisterService<TServiceImpl,TService>(this IRpcServiceDefinitionsBuilder builder, RpcServerOptions? options = null)
+        public static IRpcServiceDefinitionsBuilder RegisterService<TServiceImpl,TService>(this IRpcServiceDefinitionsBuilder builder, IRpcServerOptions? options = null)
             where TServiceImpl : TService
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
@@ -41,14 +41,14 @@ namespace SciTech.Rpc.Server
             return builder.RegisterService(typeof(TService), typeof(TServiceImpl), options);
         }
 
-        public static IRpcServiceDefinitionsBuilder RegisterService(this IRpcServiceDefinitionsBuilder builder, Type serviceType, RpcServerOptions? options = null)
+        public static IRpcServiceDefinitionsBuilder RegisterService(this IRpcServiceDefinitionsBuilder builder, Type serviceType, IRpcServerOptions? options = null)
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
 
             return builder.RegisterService(serviceType, null, options);
         }
 
-        public static IRpcServiceDefinitionsBuilder RegisterImplementation<TServiceImpl>(this IRpcServiceDefinitionsBuilder builder, RpcServerOptions? options = null)
+        public static IRpcServiceDefinitionsBuilder RegisterImplementation<TServiceImpl>(this IRpcServiceDefinitionsBuilder builder, IRpcServerOptions? options = null)
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
 

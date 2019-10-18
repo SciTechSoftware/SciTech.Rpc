@@ -33,6 +33,13 @@ namespace SciTech.Rpc.Client
         TService UnsafeCast<TService>() where TService : class;
 
         Task WaitForPendingEventHandlers();
+
+        /// <summary>
+        /// Invoked when the communication has failed for a remote <c>EventHandler</c>. 
+        /// Normally this occurs if the connection is lost while an event handler has 
+        /// been added to the remote service.
+        /// </summary>
+        event EventHandler EventHandlerFailed;
     }
 
     public static class RpcServiceExtensions

@@ -53,13 +53,4 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
     <ProjectReference Include="..\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Update="ca.pem">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="server.key">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
 </Project>

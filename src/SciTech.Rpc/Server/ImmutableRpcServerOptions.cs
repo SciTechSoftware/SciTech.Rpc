@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Serialization;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 
@@ -21,7 +22,7 @@ namespace SciTech.Rpc.Server
     /// assigned to an RPC server or associated with a service they should no longer be modified and
     /// will only be accessible through this class.
     /// </summary>
-    public class ImmutableRpcServerOptions
+    public class ImmutableRpcServerOptions : IRpcServerOptions
     {
         public static readonly ImmutableRpcServerOptions Empty = new ImmutableRpcServerOptions(null);
 
@@ -36,6 +37,18 @@ namespace SciTech.Rpc.Server
 
         public ImmutableArray<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
 
+        public bool IsEmpty
+        {
+            get => this.ExceptionConverters.IsDefaultOrEmpty
+                && this.Interceptors.IsDefaultOrEmpty
+                && this.AllowAutoPublish == null
+                && this.Serializer == null
+                && this.ReceiveMaxMessageSize == null
+                && this.SendMaxMessageSize == null
+                && this.Serializer != null;
+        }
+
+
         public int? ReceiveMaxMessageSize { get; private set; }
 
         public int? SendMaxMessageSize { get; private set; }
@@ -44,7 +57,11 @@ namespace SciTech.Rpc.Server
 
         public TimeSpan? StreamingCallTimeout { get; private set; }
 
-        public static ImmutableRpcServerOptions Combine(params RpcServerOptions?[] options)
+        IReadOnlyList<IRpcServerExceptionConverter> IRpcServerOptions.ExceptionConverters => this.ExceptionConverters;
+
+        IReadOnlyList<RpcServerCallInterceptor> IRpcServerOptions.Interceptors => this.Interceptors;
+
+        public static ImmutableRpcServerOptions Combine(params IRpcServerOptions?[] options)
         {
             if (options != null)
             {
@@ -64,7 +81,7 @@ namespace SciTech.Rpc.Server
             return Empty;
         }
 
-        private void Assign(RpcServerOptions? options)
+        private void Assign(IRpcServerOptions? options)
         {
             if (options != null)
             {

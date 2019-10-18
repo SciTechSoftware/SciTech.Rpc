@@ -21,13 +21,8 @@ namespace SciTech.Rpc.Client
 
         private readonly Dictionary<string, List<Type>> knownServices = new Dictionary<string, List<Type>>();
 
-        public RpcProxyDefinitionsBuilder()
+        public RpcProxyDefinitionsBuilder(IEnumerable<IRpcServiceRegistration>? registrations=null, IEnumerable<IRpcClientExceptionConverter>? exceptionConverters=null)
         {
-        }
-
-        public RpcProxyDefinitionsBuilder(IRpcClientOptions? options, IEnumerable<IRpcServiceRegistration> registrations)
-        {
-            // TODO: Options and call interceptors configuration must be reviewed. It's a bit of a mess.
             if (registrations != null)
             {
                 foreach (var registration in registrations)
@@ -39,27 +34,13 @@ namespace SciTech.Rpc.Client
                 }
             }
 
-            if (options != null)
+            if (exceptionConverters != null)
             {
-                foreach (var exceptionConverter in options.ExceptionConverters)
+                foreach (var converter in exceptionConverters)
                 {
-                    this.RegisterExceptionConverter(exceptionConverter);
+                    this.RegisterExceptionConverter(converter);
                 }
-
-                //if (options.Interceptors.Count > 0)
-                //{
-                //    this.CallInterceptors = options.Interceptors.ToImmutableArray();
-                //}
             }
-
-            //if (exceptionConverters != null)
-            //{
-            //    foreach (var converter in exceptionConverters)
-            //    {
-            //        this.RegisterExceptionConverter(converter);
-            //    }
-            //}
-
         }
 
         public IRpcClientExceptionConverter? GetExceptionConverter(string faultCode)
@@ -84,6 +65,7 @@ namespace SciTech.Rpc.Client
         {
             if (exceptionConverter is null) throw new ArgumentNullException(nameof(exceptionConverter));
 
+            // TODO: Add or set? Should it be possible to override exception converter registrations?
             this.exceptionConverters.Add(exceptionConverter.FaultCode, exceptionConverter);
         }
 

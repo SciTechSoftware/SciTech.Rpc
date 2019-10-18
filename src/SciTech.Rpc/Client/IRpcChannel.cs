@@ -32,6 +32,8 @@ namespace SciTech.Rpc.Client
         /// </summary>
         ImmutableRpcClientOptions Options { get; }
 
+        IRpcClientExceptionConverter? GetExceptionConverter(string faultCode);
+
         TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class;
 
         TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class;

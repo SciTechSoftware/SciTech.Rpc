@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -31,9 +32,9 @@ namespace SciTech.Rpc.Server
         /// service, e.g. related to authorization.</param>
         /// <param name="options"></param>
         /// <returns></returns>
-        IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType, RpcServerOptions? options = null);
+        IRpcServiceDefinitionsBuilder RegisterService(Type serviceType, Type? implementationType, IRpcServerOptions? options = null);
 
-        IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, RpcServerOptions? options = null);
+        IRpcServiceDefinitionsBuilder RegisterImplementation(Type implementationType, IRpcServerOptions? options = null);
     }
 
     public interface IRpcServiceDefinitionsProvider
@@ -59,14 +60,14 @@ namespace SciTech.Rpc.Server
         ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
         bool IsFrozen { get; }
-
-        ImmutableRpcServerOptions Options { get; }
+        
+        IRpcSerializer? Serializer { get; }
 
         void Freeze();
 
         IImmutableList<Type> GetRegisteredServiceTypes();
 
-        RpcServerOptions? GetServiceOptions(Type serviceType);
+        IRpcServerOptions? GetServiceOptions(Type serviceType);
 
         bool IsServiceRegistered(Type serviceType);
         

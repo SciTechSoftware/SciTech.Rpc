@@ -23,29 +23,27 @@ namespace SciTech.Rpc.Server
 
         private readonly Dictionary<Type, List<IRpcServerExceptionConverter>>? faultGenerators;
 
-        internal RpcServerFaultHandler(IEnumerable<IRpcServerExceptionConverter> errorGenerators)//, IRpcSerializer serializer)
+        internal RpcServerFaultHandler(IEnumerable<IRpcServerExceptionConverter> exceptionConverters)
         {
-            //this.Serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
-
-            if (errorGenerators != null)
+            if (exceptionConverters != null)
             {
                 this.faultGenerators = new Dictionary<Type, List<IRpcServerExceptionConverter>>();
                 this.declaredFaults = new HashSet<string>();
 
-                foreach (var errorGenerator in errorGenerators)
+                foreach (var exceptionConverter in exceptionConverters)
                 {
-                    if (!this.declaredFaults.Add(errorGenerator.FaultCode))
+                    if (!this.declaredFaults.Add(exceptionConverter.FaultCode))
                     {
-                        throw new RpcDefinitionException($"Fault contract for fault code '{errorGenerator.FaultCode}' has already been added.");
+                        throw new RpcDefinitionException($"Fault contract for fault code '{exceptionConverter.FaultCode}' has already been added.");
                     }
 
-                    if (!this.faultGenerators.TryGetValue(errorGenerator.ExceptionType, out var convertersList))
+                    if (!this.faultGenerators.TryGetValue(exceptionConverter.ExceptionType, out var convertersList))
                     {
                         convertersList = new List<IRpcServerExceptionConverter>();
-                        this.faultGenerators.Add(errorGenerator.ExceptionType, convertersList);
+                        this.faultGenerators.Add(exceptionConverter.ExceptionType, convertersList);
                     }
 
-                    convertersList.Add(errorGenerator);
+                    convertersList.Add(exceptionConverter);
                 }
             }
         }
@@ -55,7 +53,6 @@ namespace SciTech.Rpc.Server
         }
 
         public bool IsFaultDeclared(string faultCode) => this.declaredFaults?.Contains(faultCode) == true;
-        //internal IRpcSerializer? Serializer { get; }
 
         public bool TryGetExceptionConverter(Exception e, out IReadOnlyList<IRpcServerExceptionConverter>? converters)
         {
@@ -68,13 +65,5 @@ namespace SciTech.Rpc.Server
             converters = default;
             return false;
         }
-        //public ConvertedFault HandleException(Exception e, IRpcSerializer serializer)
-        //{
-        //    if (this.faultGenerators != null && this.faultGenerators.TryGetValue(e.GetType(), out var faultGenerator))
-        //    {
-        //        return faultGenerator.CreateFault(e);
-        //    }
-        //    return null;
-        //}
     }
 }

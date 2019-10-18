@@ -66,8 +66,8 @@ namespace SciTech.Rpc.Lightweight.Server
         /// <param name="servicePublisher"></param>
         public LightweightRpcServer(
             RpcServicePublisher servicePublisher,
-            IServiceProvider? serviceProvider,
-            RpcServerOptions? options,
+            IServiceProvider? serviceProvider=null,
+            RpcServerOptions? options=null,
             LightweightOptions? lightweightOptions = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
@@ -81,7 +81,7 @@ namespace SciTech.Rpc.Lightweight.Server
             IServiceProvider? serviceProvider = null,
             RpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
-            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(options), serverId),
+            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(), serverId),
                   serviceProvider, options, lightweightOptions)
         {
         }
@@ -99,8 +99,8 @@ namespace SciTech.Rpc.Lightweight.Server
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
-            this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.ReceiveMaxMessageSize ?? DefaultMaxRequestMessageSize;
-            this.MaxResponseSize = options?.SendMaxMessageSize ?? this.ServiceDefinitionsProvider.Options.SendMaxMessageSize ?? DefaultMaxResponseMessageSize;
+            this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? DefaultMaxRequestMessageSize;
+            this.MaxResponseSize = options?.SendMaxMessageSize ?? DefaultMaxResponseMessageSize;
 
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
         }

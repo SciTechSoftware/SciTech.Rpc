@@ -15,10 +15,5 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
-    public interface IRpcClientCallMetadata
-    {
-        void AddValue(string key, string value);
-    }
-
-    public delegate Task RpcClientCallInterceptor(IRpcClientCallMetadata metadata);
+    public delegate Task RpcClientCallInterceptor(IRpcClientCallContext metadata);
 }

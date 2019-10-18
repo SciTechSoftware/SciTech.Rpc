@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
-    internal class LightweightCallContext : IRpcCallContext, IRpcServerCallMetadata
+    internal class LightweightCallContext : IRpcCallContextWithCancellation
     {
         private readonly IReadOnlyCollection<KeyValuePair<string, string>>? headers;
 
@@ -35,9 +35,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public CancellationToken CancellationToken { get; }
 
-        public IRpcServerCallMetadata RequestHeaders => this;
-
-        public string? GetValue(string key)
+        public string? GetHeaderString(string key)
         {
             if (this.headers != null && this.headers.Count > 0)
             {

@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 
         protected override void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContextWithCancellation, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             IGrpcMethodBinder binder)
         {

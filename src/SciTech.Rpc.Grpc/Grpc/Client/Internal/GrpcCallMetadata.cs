@@ -9,7 +9,7 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 namespace SciTech.Rpc.Grpc.Client.Internal
 #endif
 {
-    public class GrpcCallMetadata : IRpcClientCallMetadata
+    public class GrpcCallMetadata : IRpcClientCallContext
     {
         private readonly GrpcCore.Metadata metadata;
 
@@ -18,9 +18,23 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             this.metadata = metadata;
         }
 
-        public void AddValue(string key, string value)
+        public void AddHeader(string key, string value)
         {
             this.metadata.Add(key, value);
+        }
+
+        public string? GetHeaderString(string key)
+        {
+            for (int i = 0; i < this.metadata.Count; i++)
+            {
+                var entry = metadata[i];
+                if (entry.Key == key)
+                {
+                    return entry.Value;
+                }
+            }
+
+            return null;
         }
     }
 }

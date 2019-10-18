@@ -230,15 +230,21 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return headers;
         }
 
-        private class LightweightCallMetadata : IRpcClientCallMetadata
+        private class LightweightCallMetadata : IRpcClientCallContext
         {
             private Dictionary<string, string> headersDictionary = new Dictionary<string, string>();
 
             internal IReadOnlyDictionary<string, string> Headers => this.headersDictionary;
 
-            public void AddValue(string key, string value)
+            public void AddHeader(string key, string value)
             {
                 this.headersDictionary.Add(key, value);
+            }
+
+            public string? GetHeaderString(string key)
+            {
+                this.headersDictionary.TryGetValue(key, out string? value);
+                return value;
             }
         }
     }

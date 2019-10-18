@@ -15,10 +15,5 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
-    public delegate Task<IDisposable> RpcServerCallInterceptor(IRpcServerCallMetadata metadata);
-
-    public interface IRpcServerCallMetadata
-    {
-        string? GetValue(string key);
-    }
+    public delegate Task<IDisposable> RpcServerCallInterceptor(IRpcCallContext metadata);
 }

@@ -6,7 +6,7 @@ using System.Threading;
 
 namespace SciTech.Rpc.Grpc.Server.Internal
 {
-    internal class GrpcCallContext : IRpcCallContext, IRpcServerCallMetadata
+    internal class GrpcCallContext : IRpcCallContextWithCancellation
     {
         private readonly ServerCallContext callContext;
 
@@ -17,9 +17,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 
         public CancellationToken CancellationToken => this.callContext.CancellationToken;
 
-        public IRpcServerCallMetadata RequestHeaders => this;
-
-        public string? GetValue(string key)
+        public string? GetHeaderString(string key)
         {
             var metadata = this.callContext.RequestHeaders;
             for (int i = 0; i < metadata.Count; i++)

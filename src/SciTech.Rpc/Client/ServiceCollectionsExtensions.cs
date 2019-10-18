@@ -17,7 +17,7 @@ using MSOptions = Microsoft.Extensions.Options.Options;
 
 namespace SciTech.Rpc.Client
 {
-    public static class RpcClientServiceCollectionsExtensions
+    public static class ServiceCollectionsExtensions
     {
 
         /// <summary>

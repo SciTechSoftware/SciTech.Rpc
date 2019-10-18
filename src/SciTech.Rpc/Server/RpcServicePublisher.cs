@@ -15,6 +15,7 @@ using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 
@@ -285,11 +286,12 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>()
-            where TServiceImpl : class, TService
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
             where TService : class
         {
-            this.PublishSingletonFactoryCore(ServiceActivator<TServiceImpl, TService>.CreateActivatedService);
+            this.PublishSingletonFactoryCore(factory);
 
             return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
                 this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
@@ -829,32 +831,6 @@ namespace SciTech.Rpc.Server
             }
 
         }
-
-        private sealed class ServiceActivator<TServiceImpl, TService>
-            where TServiceImpl : class, TService
-            where TService : class
-        {
-
-            private static readonly Lazy<ObjectFactory> Factory = new Lazy<ObjectFactory>(() => ActivatorUtilities.CreateFactory(typeof(TServiceImpl), Type.EmptyTypes));
-
-            internal static ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
-            {
-                if (services == null)
-                {
-                    throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
-                }
-
-                TService service = services.GetService<TServiceImpl>();
-                if (service != null)
-                {
-                    return new ActivatedService<TService>(service, false);
-                }
-
-                service = (TService)Factory.Value(services, Array.Empty<object>());
-                return new ActivatedService<TService>(service, true);
-            }
-        }
-
     }
 
 
@@ -862,61 +838,6 @@ namespace SciTech.Rpc.Server
     {
 
         public RpcServerId ServerId { get; set; }
-
-    }
-
-    public static class ServicePublisherExtensions
-    {
-
-        public static IList<RpcObjectRef<TService>?> GetPublishedServiceInstances<TService>(this IRpcServicePublisher servicePublisher,
-            IReadOnlyList<TService> serviceInstances, bool allowUnpublished) where TService : class
-        {
-            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
-
-            if (serviceInstances == null)
-            {
-                return null!;
-            }
-
-            var publishedServices = new List<RpcObjectRef<TService>?>();
-            foreach (var s in serviceInstances)
-            {
-                if (s != null)
-                {
-                    var publishedService = s != null ? servicePublisher.GetPublishedInstance<TService>(s) : null;
-                    if (publishedService != null)
-                    {
-                        publishedServices.Add(publishedService);
-                    }
-                    else if (!allowUnpublished)
-                    {
-                        throw new InvalidOperationException("Service has not been published.");
-                    }
-                }
-                else
-                {
-                    publishedServices.Add(null);
-                }
-            }
-
-            return publishedServices;
-        }
-
-        /// <summary>
-        /// Publishes an RPC singleton under the service name of the <typeparamref name="TService"/> RPC interface.
-        /// The service instance will be created using the <see cref="IServiceProvider"/> associated with the RPC call.
-        /// </summary>
-        /// <typeparam name="TService">The interface of the service type. Must be an interface type with the <see cref="RpcServiceAttribute"/> (or <c>ServiceContractAttribute)</c>) 
-        /// applied.</typeparam>
-        /// <returns>A scoped object including the <see cref="RpcSingletonRef{TService}"/> identifying the published singleton. The scoped object will unpublish 
-        /// the service singleton when disposed.</returns>
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher publisher)
-            where TService : class
-        {
-            if (publisher is null) throw new ArgumentNullException(nameof(publisher));
-
-            return publisher.PublishSingleton<TService, TService>();
-        }
 
     }
 }

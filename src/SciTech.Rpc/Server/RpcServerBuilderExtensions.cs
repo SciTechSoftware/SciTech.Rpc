@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Server
 
             rpcBuilder.Services.Configure(configure);
 
-            RpcServiceCollectionExtensions.NotifyServiceRegistered<TService>(rpcBuilder.Services);
+            Rpc.ServiceCollectionExtensions.NotifyServiceRegistered<TService>(rpcBuilder.Services);
             return rpcBuilder;
         }
     }

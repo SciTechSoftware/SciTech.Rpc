@@ -22,13 +22,13 @@ namespace SciTech.Rpc
     /// Provides extension methods that can be user to register types and services that
     /// used by SciTech RPC services and RPC serialization.
     /// </summary>
-    public static class RpcServiceCollectionExtensions
+    public static class ServiceCollectionExtensions
     {
         private static MethodInfo ConfigureOptionsMethod =
-            typeof(RpcServiceCollectionExtensions)
+            typeof(ServiceCollectionExtensions)
             .GetMethod(nameof(ConfigureOptions), BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new NotImplementedException(
-                $"{nameof(ConfigureOptions)} not correctly implemented on {nameof(RpcServiceCollectionExtensions)}");
+                $"{nameof(ConfigureOptions)} not correctly implemented on {nameof(ServiceCollectionExtensions)}");
 
         /// <summary>
         /// Invoked when a service type has been registered. Can be used by

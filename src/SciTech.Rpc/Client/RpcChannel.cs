@@ -51,7 +51,6 @@ namespace SciTech.Rpc.Client
         /// <inheritdoc/>
         public ImmutableRpcClientOptions Options { get; }
 
-
         protected internal IRpcSerializer Serializer
         {
             get

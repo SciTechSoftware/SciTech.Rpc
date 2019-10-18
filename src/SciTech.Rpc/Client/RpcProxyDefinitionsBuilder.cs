@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Client
         {
         }
 
-        public RpcProxyDefinitionsBuilder(IRpcClientOptions? options, IEnumerable<IRpcServiceRegistration> registrations, IEnumerable<IRpcClientExceptionConverter> exceptionConverters)
+        public RpcProxyDefinitionsBuilder(IRpcClientOptions? options, IEnumerable<IRpcServiceRegistration> registrations)
         {
             // TODO: Options and call interceptors configuration must be reviewed. It's a bit of a mess.
             if (registrations != null)
@@ -52,13 +52,13 @@ namespace SciTech.Rpc.Client
                 //}
             }
 
-            if (exceptionConverters != null)
-            {
-                foreach (var converter in exceptionConverters)
-                {
-                    this.RegisterExceptionConverter(converter);
-                }
-            }
+            //if (exceptionConverters != null)
+            //{
+            //    foreach (var converter in exceptionConverters)
+            //    {
+            //        this.RegisterExceptionConverter(converter);
+            //    }
+            //}
 
         }
 

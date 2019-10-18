@@ -79,7 +79,6 @@ namespace SciTech.Rpc.Server
                     this.CallInterceptors = options.Interceptors.ToImmutableArray();
                 }
             }
-
             if (exceptionConverters != null)
             {
                 foreach (var exceptionConverter in exceptionConverters)

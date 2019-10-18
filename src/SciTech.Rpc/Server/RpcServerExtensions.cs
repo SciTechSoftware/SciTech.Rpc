@@ -11,11 +11,19 @@
 
 using System;
 using System.Linq;
+using SciTech.Rpc.Server;
 
 namespace SciTech.Rpc.Server
 {
     public static class RpcServerExtensions
     {
+        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
+        {
+            if (server is null) throw new ArgumentNullException(nameof(server));
+
+            return server.ServicePublisher.PublishSingleton<TServiceImpl, TService>();
+        }
+
         public static RpcObjectRef<TService>? GetPublishedServiceInstance<TService>(this IRpcServer server, TService serviceInstance) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
@@ -27,12 +35,6 @@ namespace SciTech.Rpc.Server
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
             return server.ServicePublisher.PublishInstance(serviceInstance, takeOwnership);
-        }
-
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
-        {
-            if (server is null) throw new ArgumentNullException(nameof(server));
-            return server.ServicePublisher.PublishSingleton<TServiceImpl, TService>();
         }
 
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, Func<TService> singletonFactory) where TService : class

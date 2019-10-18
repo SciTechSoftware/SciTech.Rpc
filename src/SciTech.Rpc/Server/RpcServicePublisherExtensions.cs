@@ -1,15 +1,56 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿#region Copyright notice and license
+// Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License. 
+// You may obtain a copy of the License at:
+//
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+#endregion
+
+using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc.Server.Internal;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace SciTech.Rpc.Server
 {
     public static class RpcServicePublisherExtensions
     {
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
+        public static IList<RpcObjectRef<TService>?> GetPublishedServiceInstances<TService>(this IRpcServicePublisher servicePublisher,
+            IReadOnlyList<TService> serviceInstances, bool allowUnpublished) where TService : class
         {
-            if (server is null) throw new ArgumentNullException(nameof(server));
-            return server.ServicePublisher.PublishSingleton<TServiceImpl, TService>();
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            if (serviceInstances == null)
+            {
+                return null!;
+            }
+
+            var publishedServices = new List<RpcObjectRef<TService>?>();
+            foreach (var s in serviceInstances)
+            {
+                if (s != null)
+                {
+                    var publishedService = s != null ? servicePublisher.GetPublishedInstance(s) : null;
+                    if (publishedService != null)
+                    {
+                        publishedServices.Add(publishedService);
+                    }
+                    else if (!allowUnpublished)
+                    {
+                        throw new InvalidOperationException("Service has not been published.");
+                    }
+                }
+                else
+                {
+                    publishedServices.Add(null);
+                }
+            }
+
+            return publishedServices;
         }
 
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>(this IRpcServicePublisher publisher)
@@ -62,5 +103,6 @@ namespace SciTech.Rpc.Server
                 return new ActivatedService<TService>(service, true);
             }
         }
+
     }
 }

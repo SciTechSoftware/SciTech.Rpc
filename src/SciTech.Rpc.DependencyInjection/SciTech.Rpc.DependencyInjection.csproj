@@ -30,4 +30,9 @@ This package contains a Protobuf serializer (SciTech.Rpc.Serialization.ProtobufS
     <PackageReference Include="Microsoft.Extensions.Options" Version="3.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Client\" />
+    <Folder Include="Server\" />
+  </ItemGroup>
+
 </Project>

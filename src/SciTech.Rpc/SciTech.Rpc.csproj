@@ -12,9 +12,9 @@
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
-This package contains the core SciTech.Rpc implementation and should normally not be added separately. 
-Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.Pipelines.
-  </Description>
+This package contains the core SciTech.Rpc implementation and should normally not be added separately.
+Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.NetGrpc.Client, SciTech.Rpc.Lightweight.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,6 +37,7 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Options" Version="3.0.0" />
     <!--<PackageReference Include="System.ServiceModel.Primitives" Version="4.6.0" />-->
   </ItemGroup>
   
@@ -60,9 +61,5 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
     <None Update="server.key">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Extensions\" />
   </ItemGroup>
 </Project>

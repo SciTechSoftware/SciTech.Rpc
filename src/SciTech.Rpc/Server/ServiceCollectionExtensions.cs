@@ -8,7 +8,7 @@ using System.Text;
 
 namespace SciTech.Rpc.Server
 {
-    public static class RpcServerServiceCollectionExtensions
+    public static class ServiceCollectionExtensions
     {
         /// <summary>
         /// <para>

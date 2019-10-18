@@ -34,7 +34,7 @@ namespace SciTech.Rpc.NetGrpc.Server
     {
         static NetGrpcServiceCollectionExtensions()
         {
-            RpcServiceCollectionExtensions.ServiceRegistered += RpcServiceCollectionExtensions_ServiceRegistered;
+            ServiceCollectionExtensions.ServiceRegistered += RpcServiceCollectionExtensions_ServiceRegistered;
         }
 
         /// <summary>

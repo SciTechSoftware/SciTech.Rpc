@@ -68,7 +68,7 @@ namespace SciTech.Rpc.Client.Internal
             this.objectId = proxyArgs.ObjectId;
             this.Connection = proxyArgs.Connection;
             this.serializer = proxyArgs.Serializer;
-            this.ProxyServicesProvider = proxyArgs.ProxyServicesProvider;
+            this.ProxyDefinitionsProvider = proxyArgs.ProxyServicesProvider;
             this.SyncContext = proxyArgs.SyncContext;
             if (proxyArgs.ImplementedServices?.Count > 0)
             {
@@ -95,7 +95,7 @@ namespace SciTech.Rpc.Client.Internal
 
         public SynchronizationContext? SyncContext { get; }
 
-        protected IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }
+        protected IRpcProxyDefinitionsProvider ProxyDefinitionsProvider { get; }
 
         protected object SyncRoot { get; } = new object();
 
@@ -763,7 +763,7 @@ namespace SciTech.Rpc.Client.Internal
                 Exception exception;
 
                 // First check whether there's a custom converter for this fault.
-                if (this.ProxyServicesProvider.GetExceptionConverter(error.FaultCode!) is IRpcClientExceptionConverter customConverter)
+                if (this.ProxyDefinitionsProvider.GetExceptionConverter(error.FaultCode!) is IRpcClientExceptionConverter customConverter)
                 {
                     if (!Equals(customConverter.FaultDetailsType, faultConverter.FaultDetailsType))
                     {

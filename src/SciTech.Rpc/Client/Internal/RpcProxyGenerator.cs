@@ -99,10 +99,17 @@ namespace SciTech.Rpc.Client.Internal
             return (this.moduleBuilder,this.definedProxyTypes!);
         }
 
+        /// <summary>
+        /// Gets all services that should be implemented by the proxy, based on information about the requested <typeparamref name="TService"/>,
+        /// the implemented services on the server side, and registered proxy types.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="implementedServices"></param>
+        /// <returns></returns>
         internal List<RpcServiceInfo> GetAllServices<TService>(IReadOnlyCollection<string>? implementedServices)
         {
             var interfaceServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Client, false);
-            if (implementedServices != null && implementedServices.Count > 0)
+            if (implementedServices?.Count > 0)
             {
                 // We have information about implemented services on the server side.
                 // Make sure that the interfaceServices are actually implemented

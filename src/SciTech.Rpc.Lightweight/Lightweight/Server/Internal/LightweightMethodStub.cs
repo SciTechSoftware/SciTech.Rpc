@@ -159,7 +159,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 //    this);
                 //)
                 return Task.Factory.StartNew(
-                    oStub => ExecuteOperation((LightweightMethodStub<TRequest, TResponse>)oStub, pipeline, request, messageNumber, operation, serviceProvider, context),
+                    oStub => ExecuteOperation((LightweightMethodStub<TRequest, TResponse>)oStub!, pipeline, request, messageNumber, operation, serviceProvider, context),
                     this,
                     context.CancellationToken,
                     TaskCreationOptions.DenyChildAttach, scheduler).Unwrap();

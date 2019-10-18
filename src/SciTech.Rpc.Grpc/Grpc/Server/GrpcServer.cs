@@ -33,7 +33,9 @@ namespace SciTech.Rpc.Grpc.Server
     /// </summary>
     public sealed class GrpcServer : RpcServerHostBase
     {
-        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(GrpcServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(GrpcServer)
+            .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new NotImplementedException($"Method {nameof(CreateServiceStubBuilder)} not found on type '{typeof(GrpcServer)}'.");
 
         private List<GrpcServerEndPoint> endPoints = new List<GrpcServerEndPoint>();
 
@@ -140,7 +142,7 @@ namespace SciTech.Rpc.Grpc.Server
             var server = this.grpcServer ?? throw new InvalidOperationException("BuildServiceStub should not be called after shutdown");
 
             var typedMethod = CreateServiceStubBuilderMethod.MakeGenericMethod(serviceType);
-            var stubBuilder = (IGrpcServiceStubBuilder)typedMethod.Invoke(this, null);
+            var stubBuilder = (IGrpcServiceStubBuilder)typedMethod.Invoke(this, null)!;
             var serviceDef = stubBuilder.Build(this);
 
             server.Services.Add(serviceDef);

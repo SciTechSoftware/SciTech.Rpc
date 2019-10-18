@@ -170,7 +170,7 @@ namespace SciTech.Rpc.Lightweight.Server
                             // write the response. Most likely we will not succeed now either (and the 
                             // pipe will be closed). Maybe the handler should close the pipe instead 
                             // and not propagate the error?
-                            await this.WriteErrorResponseAsync(messageId, operationName, t.Exception.InnerException ?? t.Exception).ContextFree();
+                            await this.WriteErrorResponseAsync(messageId, operationName, t.Exception!.InnerException ?? t.Exception).ContextFree();
                         }
                     }
                     catch (Exception e)

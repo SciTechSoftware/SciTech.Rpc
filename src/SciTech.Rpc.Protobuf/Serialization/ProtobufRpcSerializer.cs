@@ -55,7 +55,7 @@ namespace SciTech.Rpc.Serialization
         private IRpcSerializer ReflectionCreateTyped(Type type)
         {
             Console.WriteLine("Creating typed ProtobufSerializer:  " + type);
-            var typed = (IRpcSerializer)Activator.CreateInstance(typeof(ProtobufSerializer<>).MakeGenericType(type), this.typeModel);
+            var typed = (IRpcSerializer)Activator.CreateInstance(typeof(ProtobufSerializer<>).MakeGenericType(type), this.typeModel)!;
             Console.WriteLine("Created typed ProtobufSerializer:  " + type);
 
             return typed;

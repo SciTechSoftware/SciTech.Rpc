@@ -36,7 +36,8 @@ namespace SciTech.Rpc.Lightweight.Server
         public const int DefaultMaxResponseMessageSize = 4 * 1024 * 1024;
 
         private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(LightweightRpcServer)
-            .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+            .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new NotImplementedException($"Method {nameof(CreateServiceStubBuilder)} not found on type '{typeof(LightweightRpcServer)}'.");
 
         private static ILog Logger = LogProvider.For<LightweightRpcServer>();
 
@@ -143,7 +144,7 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        internal LightweightMethodStub GetMethodDefinition(string rpcOperation)
+        internal LightweightMethodStub? GetMethodDefinition(string rpcOperation)
         {
             this.methodDefinitions.TryGetValue(rpcOperation, out var methodStub);
             return methodStub;
@@ -152,7 +153,7 @@ namespace SciTech.Rpc.Lightweight.Server
         protected override void BuildServiceStub(Type serviceType)
         {
             var typedMethod = CreateServiceStubBuilderMethod.MakeGenericMethod(serviceType);
-            var stubBuilder = (ILightweightServiceStubBuilder)typedMethod.Invoke(this, null);
+            var stubBuilder = (ILightweightServiceStubBuilder)typedMethod.Invoke(this, null)!;
             var serviceDef = stubBuilder.Build(this);
 
             this.AddServiceDef(serviceDef);

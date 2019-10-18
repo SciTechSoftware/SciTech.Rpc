@@ -199,11 +199,9 @@ namespace SciTech.Rpc.Lightweight.Client
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected virtual void OnConnectionResetSynchronized()
         {
-
         }
 
-
-        private void ConnectedClient_ReceiveLoopFaulted(object sender, ExceptionEventArgs e)
+        private void ConnectedClient_ReceiveLoopFaulted(object? sender, ExceptionEventArgs e)
         {
             this.ResetConnection(RpcConnectionState.ConnectionLost, e.Exception);
 

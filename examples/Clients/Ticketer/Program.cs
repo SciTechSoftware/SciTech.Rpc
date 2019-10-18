@@ -24,7 +24,7 @@ namespace TicketerClient
             {
                 if (token != null)
                 {
-                    metadata.AddValue("Authorization", $"Bearer {token}");
+                    metadata.AddHeader("Authorization", $"Bearer {token}");
                 }
 
                 return Task.CompletedTask;

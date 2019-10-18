@@ -193,7 +193,7 @@ namespace SciTech.Rpc.Lightweight.Client
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected override IRpcSerializer CreateDefaultSerializer()
         {
-            return new DataContractRpcSerializer();
+            return new JsonRpcSerializer();
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]

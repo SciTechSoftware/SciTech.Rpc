@@ -172,7 +172,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected override IRpcSerializer CreateDefaultSerializer()
         {
-            return new DataContractRpcSerializer();
+            return new JsonRpcSerializer();
         }
 
         protected override void Dispose(bool disposing)

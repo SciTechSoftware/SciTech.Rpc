@@ -1,8 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!--<TargetFrameworks>netcoreapp3.0</TargetFrameworks>-->
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.0</TargetFrameworks>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -50,7 +49,10 @@ package is currently not intended for other use.</Description>
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
     <PackageReference Include="System.IO.Pipelines" Version="4.6.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework) != 'netcoreapp3.0'">
+    <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
   </ItemGroup>
 </Project>

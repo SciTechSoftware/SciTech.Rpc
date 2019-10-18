@@ -7,3 +7,4 @@
 [assembly: InternalsVisibleTo("SciTech.Rpc.NetGrpc")]
 [assembly: InternalsVisibleTo("SciTech.Rpc.NetGrpc.Client")]
 [assembly: InternalsVisibleTo("SciTech.Rpc.Lightweight")]
+[assembly: InternalsVisibleTo("SciTech.Rpc.DataContract")]

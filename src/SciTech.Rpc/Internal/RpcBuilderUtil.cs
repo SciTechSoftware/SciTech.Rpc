@@ -18,7 +18,6 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.ServiceModel;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -646,7 +645,7 @@ namespace SciTech.Rpc.Internal
             return metadata;
         }
 
-        private static MethodInfo? GetImplementationMethod(RpcServiceInfo serviceInfo, MethodInfo method)
+        private static MethodInfo? GetImplementationMethod(RpcServiceInfo serviceInfo, MethodInfo? method)
         {
             MethodInfo? implMethod = null;
 
@@ -772,13 +771,13 @@ namespace SciTech.Rpc.Internal
             return rpcAttribute;
         }
 
-        private static ServiceContractAttribute? GetServiceContractAttribute(Type serviceType)
+        private static Attribute? GetServiceContractAttribute(Type serviceType)
         {
-            ServiceContractAttribute? contractAttribute = null;
+            Attribute? contractAttribute = null;
 #pragma warning disable CA1031 // Do not catch general exception types
             try
             {
-                contractAttribute = serviceType.GetCustomAttribute<ServiceContractAttribute>();
+                contractAttribute = serviceType.GetCustomAttributes().FirstOrDefault(a=>a.GetType().FullName == "System.ServiceModel.ServiceContractAttribute" );
             }
             catch (Exception e)
             {
@@ -789,7 +788,7 @@ namespace SciTech.Rpc.Internal
             return contractAttribute;
         }
 
-        private static RpcServiceInfo GetServiceInfoFromContractAttribute(Type serviceType, Type? implementationType, ServiceContractAttribute contractAttribute)
+        private static RpcServiceInfo GetServiceInfoFromContractAttribute(Type serviceType, Type? implementationType, Attribute contractAttribute)
         {
             string serviceName;
             string serviceNamespace;
@@ -831,7 +830,7 @@ namespace SciTech.Rpc.Internal
                     serviceName = GetServiceName(rpcAttribute.ServerDefinitionType, serverRpcAttribute);
                     serviceNamespace = GetServiceNamespace(rpcAttribute.ServerDefinitionType, serverRpcAttribute);
                 }
-                else if (GetServiceContractAttribute(rpcAttribute.ServerDefinitionType) is ServiceContractAttribute contractAttribute)
+                else if (GetServiceContractAttribute(rpcAttribute.ServerDefinitionType) is Attribute contractAttribute)
                 {
                     serviceName = GetServiceName(rpcAttribute.ServerDefinitionType, contractAttribute);
                     serviceNamespace = rpcAttribute.ServerDefinitionType.Namespace ?? "";
@@ -893,7 +892,7 @@ namespace SciTech.Rpc.Internal
                 }
 
                 // Let's try with a ServiceContract attribute
-                ServiceContractAttribute? contractAttribute = GetServiceContractAttribute(serviceType);
+                Attribute? contractAttribute = GetServiceContractAttribute(serviceType);
                 if (contractAttribute != null)
                 {
                     return GetServiceInfoFromContractAttribute(serviceType, implementationType, contractAttribute);
@@ -925,9 +924,9 @@ namespace SciTech.Rpc.Internal
             return serviceName!;
         }
 
-        private static string GetServiceName(Type serviceType, ServiceContractAttribute? contractAttribute)
+        private static string GetServiceName(Type serviceType, Attribute? contractAttribute)
         {
-            var serviceName = contractAttribute?.Name;
+            var serviceName = contractAttribute?.GetType().GetProperty("Name")?.GetValue(contractAttribute) as string;
             if (string.IsNullOrEmpty(serviceName))
             {
                 serviceName = GetDefaultServiceName(serviceType);

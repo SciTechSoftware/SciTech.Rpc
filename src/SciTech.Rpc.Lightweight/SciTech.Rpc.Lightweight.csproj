@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;netcoreapp3.0;net461;net472</TargetFrameworks>
   </PropertyGroup>
 
   <Import Project="..\Package.props" />
@@ -34,14 +34,15 @@ This package contains the communication layer for the lightweight implementation
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Options" Version="3.0.0" />
     <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.25" />
-    <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
+    
+    <PackageReference Include="System.IO.Pipelines" Version="4.6.0" />
     <PackageReference Include="System.IO.Pipes.AccessControl" Version="4.5.1" />
+    <!--<PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
 
     <PackageReference Include="System.Memory" Version="4.5.3" />
     <PackageReference Include="System.Buffers" Version="4.5.0" />
-    <PackageReference Include="System.IO.Pipelines" Version="4.6.0" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
-    <PackageReference Include="System.Reflection.Emit" Version="4.6.0" />
+    <PackageReference Include="System.Reflection.Emit" Version="4.6.0" />-->
 
   </ItemGroup>
 

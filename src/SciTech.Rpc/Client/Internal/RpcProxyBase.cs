@@ -186,7 +186,7 @@ namespace SciTech.Rpc.Client.Internal
             this.proxyMethods = proxyMethods;
         }
 
-        public event EventHandler EventHandlerFailed;
+        public event EventHandler? EventHandlerFailed;
 
         public TService Cast<TService>() where TService : class
         {

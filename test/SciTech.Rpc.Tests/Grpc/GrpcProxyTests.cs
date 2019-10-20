@@ -179,7 +179,7 @@ namespace SciTech.Rpc.Tests.Grpc
             };
 
             serviceInstance.ValueChanged += eventHandler;
-            await ((IRpcService)serviceInstance).WaitForPendingEventHandlers();
+            await ((IRpcService)serviceInstance).WaitForPendingEventHandlersAsync();
 
             serviceInstance.DetailedValueChanged += detailedEventHandler;
 

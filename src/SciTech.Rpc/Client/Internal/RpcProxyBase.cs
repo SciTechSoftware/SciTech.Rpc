@@ -34,7 +34,7 @@ namespace SciTech.Rpc.Client.Internal
             IRpcProxyDefinitionsProvider proxyServicesProvider,
             SynchronizationContext? syncContext)
         {
-            this.Connection = connection ?? throw new ArgumentNullException(nameof(connection));
+            this.Channel = connection ?? throw new ArgumentNullException(nameof(connection));
             this.ObjectId = objectId;
             this.Serializer = serializer;
             this.ImplementedServices = implementedServices;
@@ -42,7 +42,7 @@ namespace SciTech.Rpc.Client.Internal
             this.SyncContext = syncContext;
         }
 
-        public IRpcChannel Connection { get; }
+        public IRpcChannel Channel { get; }
 
         /// <summary>
         /// The services implemented by the server side of this proxy. May be <c>null</c> or empty if
@@ -66,7 +66,7 @@ namespace SciTech.Rpc.Client.Internal
             if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
 
             this.objectId = proxyArgs.ObjectId;
-            this.Connection = proxyArgs.Connection;
+            this.Channel = proxyArgs.Channel;
             this.serializer = proxyArgs.Serializer;
             this.ProxyDefinitionsProvider = proxyArgs.ProxyServicesProvider;
             this.SyncContext = proxyArgs.SyncContext;
@@ -83,7 +83,7 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        public IRpcChannel Connection { get; }
+        public IRpcChannel Channel { get; }
 
         /// <summary>
         /// The services implemented by the server side this proxy. May be empty if
@@ -190,7 +190,7 @@ namespace SciTech.Rpc.Client.Internal
 
         public TService Cast<TService>() where TService : class
         {
-            return this.Connection.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
+            return this.Channel.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
         }
 
         public void Dispose()
@@ -281,10 +281,10 @@ namespace SciTech.Rpc.Client.Internal
 
         public TService UnsafeCast<TService>() where TService : class
         {
-            return this.Connection.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
+            return this.Channel.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
         }
 
-        public Task WaitForPendingEventHandlers()
+        public Task WaitForPendingEventHandlersAsync()
         {
             Task[] pendingEventTasksCopy;
             lock (this.SyncRoot)
@@ -579,7 +579,7 @@ namespace SciTech.Rpc.Client.Internal
         {
             this.ClearEventHandlers();
             // TODO: Use IAsyncDisposable when available.
-            this.WaitForPendingEventHandlers().AwaiterResult();
+            this.WaitForPendingEventHandlersAsync().AwaiterResult();
             // TODO: Dispose (and end) owning RPC call.
         }
 
@@ -745,7 +745,7 @@ namespace SciTech.Rpc.Client.Internal
                 Exception exception;
 
                 // First check whether there's a custom converter for this fault.
-                var customConverter = this.Connection.GetExceptionConverter(error.FaultCode!)
+                var customConverter = this.Channel.GetExceptionConverter(error.FaultCode!)
                     ?? this.ProxyDefinitionsProvider.GetExceptionConverter(error.FaultCode!);
 
                 if (customConverter != null)
@@ -1044,7 +1044,7 @@ namespace SciTech.Rpc.Client.Internal
         {
             if (input is RpcObjectRef serviceRef)
             {
-                return proxy.Connection.GetServiceInstance<TService>(serviceRef, proxy.SyncContext);
+                return proxy.Channel.GetServiceInstance<TService>(serviceRef, proxy.SyncContext);
             }
 
             if (input != null)
@@ -1061,7 +1061,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 var services = new TService?[serviceRefs.Length];
 
-                var connection = proxy.Connection;
+                var connection = proxy.Channel;
                 for (int i = 0; i < services.Length; i++)
                 {
                     var serviceRef = serviceRefs[i];
@@ -1091,7 +1091,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 var typedServiceRefs = new RpcObjectRef<TService>?[serviceRefs.Length];
 
-                _ = proxy.Connection;
+                _ = proxy.Channel;
                 for (int i = 0; i < typedServiceRefs.Length; i++)
                 {
                     var serviceRef = serviceRefs[i];

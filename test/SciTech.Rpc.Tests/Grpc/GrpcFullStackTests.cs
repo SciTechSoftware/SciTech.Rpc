@@ -144,7 +144,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
                     clientService.DetailedValueChanged += detailedHandler;
 
-                    await ((IRpcService)clientService).WaitForPendingEventHandlers();
+                    await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
 
                     clientService.SetValueAsync(12).Forget();
 
@@ -155,7 +155,7 @@ namespace SciTech.Rpc.Tests.Grpc
                     var detailedArgs = detailedTcs.Task.Result;
 
                     clientService.DetailedValueChanged -= detailedHandler;
-                    await ((IRpcService)clientService).WaitForPendingEventHandlers();
+                    await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
                     clientService.SetValueAsync(13).Forget();
 
                     await Task.Delay(200);

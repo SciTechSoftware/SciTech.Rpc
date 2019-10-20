@@ -44,7 +44,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         internal IReadOnlyList<RpcClientCallInterceptor> CallInterceptors { get; }
 
-        internal new LightweightRpcConnection Connection => (LightweightRpcConnection)base.Connection;
+        internal new LightweightRpcConnection Channel => (LightweightRpcConnection)base.Channel;
 
         internal LightweightSerializersCache MethodSerializersCache { get; }
     }
@@ -62,7 +62,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) : base(proxyArgs, proxyMethods)
         {
-            this.connection = proxyArgs.Connection;
+            this.connection = proxyArgs.Channel;
             this.callTimeout = ((int?)this.connection.Options.CallTimeout?.TotalMilliseconds) ?? 0;
             this.streamingCallTimeout = ((int?)this.connection.Options.StreamingCallTimeout?.TotalMilliseconds) ?? 0;
             this.methodSerializersCache = proxyArgs.MethodSerializersCache;

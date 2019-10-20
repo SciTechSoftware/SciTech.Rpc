@@ -167,7 +167,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         private DateTime? GetCallDeadline()
         {
-            var callTimeOut = this.Connection.Options.CallTimeout;
+            var callTimeOut = this.Channel.Options.CallTimeout;
             if (callTimeOut != null)
             {
                 return DateTime.UtcNow + callTimeOut;
@@ -178,7 +178,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         private DateTime? GetStreamingCallDeadline()
         {
-            var callTimeOut = this.Connection.Options.StreamingCallTimeout;
+            var callTimeOut = this.Channel.Options.StreamingCallTimeout;
             if (callTimeOut != null)
             {
                 return DateTime.UtcNow + callTimeOut;

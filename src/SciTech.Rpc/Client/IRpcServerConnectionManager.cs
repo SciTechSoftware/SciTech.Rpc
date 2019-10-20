@@ -17,14 +17,14 @@ namespace SciTech.Rpc.Client
 {
     public interface IRpcConnectionProvider
     {
-        bool CanCreateConnection(RpcServerConnectionInfo connectionInfo);
+        bool CanCreateChannel(RpcServerConnectionInfo connectionInfo);
 
-        IRpcChannel CreateConnection(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider);
+        IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider);
     }
 
     public interface IRpcServerConnectionManager
     {
-        void AddKnownConnection(IRpcChannel connection);
+        void AddKnownChannel(IRpcChannel channel);
 
         TService GetServiceInstance<TService>(RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class;
 
@@ -32,7 +32,7 @@ namespace SciTech.Rpc.Client
 
         IRpcChannel GetServerConnection(RpcServerConnectionInfo connectionInfo);
         
-        bool RemoveKnownConnection(IRpcChannel channel);
+        bool RemoveKnownChannel(IRpcChannel channel);
 
         ImmutableRpcClientOptions Options { get; }
 

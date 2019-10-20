@@ -25,8 +25,7 @@ namespace SciTech.Rpc.Client
     }
 
     /// <summary>
-    /// Defines methods and properties for a server connection, e.g. for retrieving proxies to
-    /// remote services. 
+    /// Extends <see cref="IRpcChannel"/> with methods and properties for a connection oriented channel.
     /// </summary>
     /// <remarks>
     /// A server connection represents an established connection to a server process. <see cref="RpcServerConnectionInfo"/> is

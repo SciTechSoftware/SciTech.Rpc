@@ -40,12 +40,12 @@ namespace SciTech.Rpc.Grpc.Client
             this.definitionsProvider = definitionsProvider;
         }
 
-        public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
+        public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
         {
             return connectionInfo?.HostUrl?.Scheme == GrpcScheme;
         }
 
-        public IRpcChannel CreateConnection(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
+        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
         {
             if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
             {

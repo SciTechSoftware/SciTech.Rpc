@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Client
 
         public IRpcProxyDefinitionsProvider? DefinitionsProvider { get; }
 
-        public void AddKnownConnection(IRpcChannel connection)
+        public void AddKnownChannel(IRpcChannel connection)
         {
             if (connection == null || connection.ConnectionInfo == null)
             {
@@ -162,7 +162,7 @@ namespace SciTech.Rpc.Client
             return serverConnection.GetServiceSingleton<TService>(syncContext);
         }
 
-        public bool RemoveKnownConnection(IRpcChannel connection)
+        public bool RemoveKnownChannel(IRpcChannel connection)
         {
             var connectionInfo = connection?.ConnectionInfo;
             if (connectionInfo == null)
@@ -230,9 +230,9 @@ namespace SciTech.Rpc.Client
         {
             foreach (var connectionProvider in this.connectionProviders)
             {
-                if (connectionProvider.CanCreateConnection(serverConnectionInfo))
+                if (connectionProvider.CanCreateChannel(serverConnectionInfo))
                 {
-                    return connectionProvider.CreateConnection(serverConnectionInfo, this.Options, this.DefinitionsProvider);
+                    return connectionProvider.CreateChannel(serverConnectionInfo, this.Options, this.DefinitionsProvider);
                 }
             }
 

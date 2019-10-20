@@ -18,6 +18,9 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IRpcService : IEquatable<IRpcService>, IDisposable
     {
         /// <summary>
@@ -26,7 +29,8 @@ namespace SciTech.Rpc.Client
         /// been added to the remote service.
         /// </summary>
         event EventHandler? EventHandlerFailed;
-        IRpcChannel Connection { get; }
+
+        IRpcChannel Channel { get; }
 
         RpcObjectId ObjectId { get; }
 
@@ -36,7 +40,7 @@ namespace SciTech.Rpc.Client
 
         TService UnsafeCast<TService>() where TService : class;
 
-        Task WaitForPendingEventHandlers();
+        Task WaitForPendingEventHandlersAsync();
     }
 
     public static class RpcServiceExtensions
@@ -67,7 +71,7 @@ namespace SciTech.Rpc.Client
         {
             if (rpcService is RpcProxyBase proxyBase)
             {
-                return proxyBase.Connection.GetServiceInstance<TService>(proxyBase.ObjectId, proxyBase.ImplementedServices, syncContext);
+                return proxyBase.Channel.GetServiceInstance<TService>(proxyBase.ObjectId, proxyBase.ImplementedServices, syncContext);
             }
 
             throw new ArgumentException("Can only set synchronization context on services retrieved using IRpcServerConnection.");

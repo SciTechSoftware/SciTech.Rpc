@@ -23,12 +23,12 @@ namespace SciTech.Rpc.NetGrpc.Client
             this.definitionsProvider = definitionsProvider;
         }
 
-        public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
+        public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
         {
             return connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc;
         }
 
-        public IRpcChannel CreateConnection(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
+        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
         {
             if (connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc)
             {

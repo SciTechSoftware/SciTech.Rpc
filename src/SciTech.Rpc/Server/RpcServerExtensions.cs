@@ -17,11 +17,11 @@ namespace SciTech.Rpc.Server
 {
     public static class RpcServerExtensions
     {
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
+        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
-            return server.ServicePublisher.PublishSingleton<TServiceImpl, TService>();
+            return server.ServicePublisher.PublishSingleton<TService, TServiceImpl>();
         }
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server) where TService : class
         {

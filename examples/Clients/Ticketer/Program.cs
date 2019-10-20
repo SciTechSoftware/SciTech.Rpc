@@ -64,7 +64,7 @@ namespace TicketerClient
                         {
                             Console.WriteLine("Starting ticket purchase tracking...");
                             client.TicketsPurchased += purchasedHandler;
-                            await client.WaitForPendingEventHandlers();
+                            await client.WaitForPendingEventHandlersAsync();
 
                             Console.WriteLine("Successfully started ticket purchase tracking.");
                         }
@@ -78,7 +78,7 @@ namespace TicketerClient
                         {
                             Console.WriteLine("Stopping ticket purchase tracking...");
                             client.TicketsPurchased -= purchasedHandler;
-                            await client.WaitForPendingEventHandlers();
+                            await client.WaitForPendingEventHandlersAsync();
 
                             Console.WriteLine("Successfully stopped ticket purchase tracking.");
                         }

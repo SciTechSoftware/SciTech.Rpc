@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Server
         /// <param name="options"></param>
         /// <returns></returns>
 
-        public static IRpcServiceDefinitionsBuilder RegisterService<TServiceImpl,TService>(this IRpcServiceDefinitionsBuilder builder, IRpcServerOptions? options = null)
+        public static IRpcServiceDefinitionsBuilder RegisterService<TService, TServiceImpl>(this IRpcServiceDefinitionsBuilder builder, IRpcServerOptions? options = null)
             where TServiceImpl : TService
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));

@@ -182,7 +182,7 @@ namespace SciTech.Rpc.Tests
         {
             var (host, connection) = CreateServerAndConnection(configureServices: s => { });
 
-            host.PublishSingleton<DisposableActivationTestService, IActivationTestService>();
+            host.PublishSingleton<IActivationTestService, DisposableActivationTestService>();
             host.Start();
             try
             {
@@ -212,7 +212,7 @@ namespace SciTech.Rpc.Tests
 
             var (host, connection) = CreateServerAndConnection(configureServices: ConfigureServices);
 
-            host.PublishSingleton<ActivationTestServiceWithDependency, IActivationTestService>();
+            host.PublishSingleton<IActivationTestService, ActivationTestServiceWithDependency>();
             host.Start();
             try
             {
@@ -241,7 +241,7 @@ namespace SciTech.Rpc.Tests
 
             var (host, connection) = CreateServerAndConnection(configureServices: s => { });
 
-            host.PublishSingleton<ActivationTestService, IActivationTestService>();
+            host.PublishSingleton<IActivationTestService,ActivationTestService>();
             host.Start();
             try
             {

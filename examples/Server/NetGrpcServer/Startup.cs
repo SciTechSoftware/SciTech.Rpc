@@ -111,9 +111,9 @@ namespace NetGrpcServer
             // unless MapNetGrpcServices has been called.
             // If services have already been mapped and an unregistered interface is published,
             // then an exception will be thrown.
-            app.PublishRpcSingleton<GreeterServiceImpl, IGreeterService>();
-            app.PublishRpcSingleton<MailBoxManager, IMailBoxManagerService>();
-            app.PublishRpcSingleton<TicketerImpl, ITicketerService>();
+            app.PublishRpcSingleton<IGreeterService, GreeterServiceImpl>();
+            app.PublishRpcSingleton<IMailBoxManagerService, MailBoxManager>();
+            app.PublishRpcSingleton<ITicketerService, TicketerImpl>();
 
             app.UseEndpoints(endpoints =>
             {

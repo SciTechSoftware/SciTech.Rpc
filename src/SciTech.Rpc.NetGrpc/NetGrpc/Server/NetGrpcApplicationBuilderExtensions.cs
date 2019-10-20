@@ -45,14 +45,14 @@ namespace SciTech.Rpc.NetGrpc.Server
         /// <typeparam name="TService">The interface type defining the RPC service.</typeparam>
         /// <param name="builder"></param>
         /// <returns></returns>
-        public static IApplicationBuilder PublishRpcSingleton<TServiceImpl, TService>(this IApplicationBuilder builder)
+        public static IApplicationBuilder PublishRpcSingleton<TService, TServiceImpl>(this IApplicationBuilder builder)
             where TService : class
             where TServiceImpl : class, TService
         {
             if (builder is null) throw new ArgumentNullException(nameof(builder));
 
             var publisher = builder.ApplicationServices.GetRequiredService<IRpcServicePublisher>();
-            publisher.PublishSingleton<TServiceImpl, TService>();
+            publisher.PublishSingleton<TService, TServiceImpl>();
 
             return builder;
 

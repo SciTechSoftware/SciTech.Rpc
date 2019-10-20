@@ -110,8 +110,8 @@ namespace GrpcAndLightweightServer
             // unless the gRPC server has already been started.
             // If the server has already been started and an unregistered interface is published,
             // then an exception will be thrown.
-            publisher.PublishSingleton<GreeterServiceImpl, IGreeterService>();
-            publisher.PublishSingleton<MailBoxManager, IMailBoxManagerService>();
+            publisher.PublishSingleton<IGreeterService, GreeterServiceImpl>();
+            publisher.PublishSingleton<IMailBoxManagerService, MailBoxManager>();
         }
 
         private static void RegisterServiceDefinitions(RpcServiceDefinitionsBuilder definitionsBuilder)

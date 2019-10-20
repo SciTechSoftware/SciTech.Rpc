@@ -53,13 +53,13 @@ namespace SciTech.Rpc.Server
             return publishedServices;
         }
 
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>(this IRpcServicePublisher publisher)
+        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServicePublisher publisher)
             where TServiceImpl : class, TService
             where TService : class
         {
             if (publisher is null) throw new ArgumentNullException(nameof(publisher));
 
-            return publisher.PublishSingleton(ServiceActivator<TServiceImpl, TService>.CreateActivatedService);
+            return publisher.PublishSingleton(ServiceActivator<TService, TServiceImpl>.CreateActivatedService);
         }
 
         /// <summary>
@@ -75,7 +75,7 @@ namespace SciTech.Rpc.Server
             =>PublishSingleton<TService, TService>(publisher);
 
 
-        private sealed class ServiceActivator<TServiceImpl, TService>
+        private sealed class ServiceActivator<TService, TServiceImpl>
             where TServiceImpl : class, TService
             where TService : class
         {

@@ -30,6 +30,7 @@ namespace SciTech.Rpc.Tests.Grpc
             this.RequestType = requestType;
             this.ResponseType = responseType;
             this.Metadata = metadata;
+            
         }
 
         internal GrpcCore.IMethod Method { get; }

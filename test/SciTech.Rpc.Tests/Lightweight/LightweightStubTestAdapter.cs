@@ -3,6 +3,7 @@ using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests.Lightweight
 {
@@ -32,6 +33,14 @@ namespace SciTech.Rpc.Tests.Lightweight
         public Type GetResponseType(object method)
         {
             return ((LightweightMethodStub)method).ResponseType;
+        }
+
+        public Task<TResponse> CallMethodAsync<TRequest,TResponse>(object method, TRequest request)
+            where TRequest : class
+            where TResponse : class
+        {
+            var lwMethod = (LightweightMethodStub)method;
+            return LightweightStubTests.SendReceiveAsync<TRequest,TResponse>(lwMethod, request);
         }
     }
 }

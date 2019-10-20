@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using SciTech.Rpc.Tests.Grpc;
 using SciTech.Rpc.Serialization;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.DependencyInjection;
 
 #if NETCOREAPP3_0
 using SciTech.Rpc.NetGrpc.Server.Internal;
@@ -26,7 +27,6 @@ using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 #endif
 
 namespace SciTech.Rpc.Tests
@@ -89,15 +89,17 @@ namespace SciTech.Rpc.Tests
         }
 
         /// <summary>
-        /// TODO: Make this virtual instead of using this.connnectionType.
+        /// TODO: Use factories instead of using this.connnectionType.
         /// </summary>
         /// <param name="serviceDefinitionsProvider"></param>
-        /// <param name="proxyServicesProvider"></param>
+        /// <param name="proxyDefinitionsProvider"></param>
         /// <returns></returns>
-        protected (IRpcServerHost, IRpcChannel) CreateServerAndConnection(IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
+        protected (IRpcServerHost, IRpcChannel) CreateServerAndConnection(
+            IRpcServiceDefinitionsProvider serviceDefinitionsProvider = null,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null,
-            IRpcProxyDefinitionsProvider proxyServicesProvider = null)
+            IRpcProxyDefinitionsProvider proxyDefinitionsProvider = null,
+            Action<IServiceCollection> configureServices = null )
         {
             var rpcServerId = RpcServerId.NewId();
 
@@ -111,7 +113,9 @@ namespace SciTech.Rpc.Tests
                 case RpcConnectionType.LightweightTcp:
                 case RpcConnectionType.LightweightSslTcp:
                     {
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options, this.LightweightOptions);
+                        IServiceProvider services = GetServiceProvider(configureServices);
+
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, options, this.LightweightOptions);
 
                         SslServerOptions sslServerOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)
@@ -131,20 +135,22 @@ namespace SciTech.Rpc.Tests
                             new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
                             sslClientOptions,
                             clientOptions.AsImmutable(),
-                            proxyServicesProvider,
+                            proxyDefinitionsProvider,
                             this.LightweightOptions);
 
                         return (host, connection);
                     }
                 case RpcConnectionType.LightweightNamedPipe:
                     {
-                        var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options, this.LightweightOptions);
+                        IServiceProvider services = GetServiceProvider(configureServices);
+
+                        var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, options, this.LightweightOptions);
                         server.AddEndPoint(new NamedPipeRpcEndPoint("testpipe"));
 
                         var connection = new NamedPipeRpcConnection(
                             new RpcServerConnectionInfo(new Uri("lightweight.pipe://./testpipe")),
                             clientOptions.AsImmutable(),
-                            proxyServicesProvider,
+                            proxyDefinitionsProvider,
                             this.LightweightOptions);
 
                         return (server, connection);
@@ -154,27 +160,29 @@ namespace SciTech.Rpc.Tests
                         Pipe requestPipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.ThreadPool));
                         Pipe responsePipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
 
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, null, options);
+                        IServiceProvider services = GetServiceProvider(configureServices);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, options);
                         host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                         var connection = new InprocRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
-                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), proxyServicesProvider);
+                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), proxyDefinitionsProvider);
                         return (host, connection);
                     }
                 case RpcConnectionType.Grpc:
                     {
-                        var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, null, options);
+                        IServiceProvider services = GetServiceProvider(configureServices);
+                        var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, services, options);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
                         var connection = new GrpcServerConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyServicesProvider);
+                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyDefinitionsProvider);
                         return (host, connection);
                     }
 #if NETCOREAPP3_0
                 case RpcConnectionType.NetGrpc:
                     {
-                        var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, options);
+                        var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, options, configureServices);
                         //var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
                         //host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
@@ -193,7 +201,7 @@ namespace SciTech.Rpc.Tests
                             
                         var connection = new NetGrpcServerConnection(
                             new RpcServerConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            clientOptions.AsImmutable(), proxyServicesProvider, channelOptions);
+                            clientOptions.AsImmutable(), proxyDefinitionsProvider, channelOptions);
                         return (server, connection);
                     }
 #endif
@@ -202,9 +210,26 @@ namespace SciTech.Rpc.Tests
             throw new NotSupportedException();
         }
 
+        private static IServiceProvider GetServiceProvider(Action<IServiceCollection> configureServices)
+        {
+            IServiceProvider services = null;
+            if (configureServices != null)
+            {
+                var serviceBuilder = new ServiceCollection();
+                configureServices(serviceBuilder);
+                services = serviceBuilder.BuildServiceProvider();
+            }
+
+            return services;
+        }
+
 
 #if NETCOREAPP3_0
-        private static IRpcServerHost CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
+        private static IRpcServerHost CreateNetGrpcServer(
+            IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
+            RpcServerId serverId,
+            RpcServerOptions options,
+            Action<IServiceCollection> configureServices)
         {
             var hostBuilder = WebHost.CreateDefaultBuilder()
                 .ConfigureKestrel(options =>
@@ -221,9 +246,11 @@ namespace SciTech.Rpc.Tests
                 })
                 .ConfigureServices(s =>
                 {
-                    s.AddSingleton(serviceDefinitionsProvider);
+                    s.AddSingleton(serviceDefinitionsProvider ?? new RpcServiceDefinitionsBuilder());
                     s.Configure<RpcServicePublisherOptions>(o => o.ServerId = serverId);
                     s.AddSingleton<IOptions<RpcServerOptions>>(new OptionsWrapper<RpcServerOptions>(options));
+
+                    configureServices?.Invoke(s);
                 })
                 .UseStartup<NetStartup>();
 

@@ -264,7 +264,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }
 
-        private async Task<TResponse> SendReceiveAsync<TRequest, TResponse>(LightweightMethodStub methodStub, TRequest request)
+        internal static async Task<TResponse> SendReceiveAsync<TRequest, TResponse>(LightweightMethodStub methodStub, TRequest request)
             where TRequest : class
             where TResponse : class
         {

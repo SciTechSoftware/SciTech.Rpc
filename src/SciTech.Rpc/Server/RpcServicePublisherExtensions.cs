@@ -72,11 +72,7 @@ namespace SciTech.Rpc.Server
         /// the service singleton when disposed.</returns>
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher publisher)
             where TService : class
-        {
-            if (publisher is null) throw new ArgumentNullException(nameof(publisher));
-
-            return publisher.PublishSingleton<TService, TService>();
-        }
+            =>PublishSingleton<TService, TService>(publisher);
 
 
         private sealed class ServiceActivator<TServiceImpl, TService>

@@ -41,7 +41,7 @@ namespace SciTech.Rpc.Grpc.Server
 
         private GrpcCore.Server? grpcServer;
 
-        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
+        public GrpcServer(IRpcServiceDefinitionsProvider? definitionsProvider = null, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
             : this(RpcServerId.Empty, definitionsProvider, serviceProvider, options)
         {
         }
@@ -54,8 +54,8 @@ namespace SciTech.Rpc.Grpc.Server
         {
         }
 
-        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
-            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
+        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider? definitionsProvider=null, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
+            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(), serverId), serviceProvider, options)
         {
         }
 

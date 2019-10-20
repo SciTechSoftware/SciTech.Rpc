@@ -62,22 +62,6 @@ namespace SciTech.Rpc.Server
         /// the service instance when disposed.</returns>
         ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false) where TService : class;
 
-        ///// <summary>
-        ///// Publishes an RPC singleton under the service name of the <typeparamref name="TService"/> RPC interface.
-        ///// The service instance will be created using the <see cref="IServiceProvider"/> associated with the RPC call.
-        ///// </summary>
-        ///// <typeparam name="TServiceImpl">The type of the service implementation. This type will be used when resolving the service implementation using 
-        ///// the <see cref="IServiceProvider"/> associated with the RPC call.
-        ///// </typeparam>
-        ///// <typeparam name="TService">The interface of the service type. Must be an interface type with the <see cref="RpcServiceAttribute"/> (or <c>ServiceContractAttribute)</c>)
-        ///// applied.</typeparam>
-        ///// <returns>A scoped object including the <see cref="RpcSingletonRef{TService}"/> identifying the published singleton. The scoped object will unpublish 
-        ///// the service singleton when disposed.</returns>
-        ///// <exception cref="InvalidOperationException"></exception>
-        //ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TServiceImpl, TService>()
-        //    where TService : class
-        //    where TServiceImpl : class, TService;
-
         ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> factory)
             where TService : class;
 

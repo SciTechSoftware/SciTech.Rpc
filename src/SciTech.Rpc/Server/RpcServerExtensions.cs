@@ -23,6 +23,12 @@ namespace SciTech.Rpc.Server
 
             return server.ServicePublisher.PublishSingleton<TServiceImpl, TService>();
         }
+        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server) where TService : class
+        {
+            if (server is null) throw new ArgumentNullException(nameof(server));
+
+            return server.ServicePublisher.PublishSingleton<TService>();
+        }
 
         public static RpcObjectRef<TService>? GetPublishedServiceInstance<TService>(this IRpcServer server, TService serviceInstance) where TService : class
         {

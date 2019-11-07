@@ -776,28 +776,18 @@ namespace SciTech.Rpc.Client.Internal
             where TEventHandler : Delegate
             where TEventArgs : class
         {
-            try
+            if (eventHandler is EventHandler<TEventArgs> genericHandler)
             {
-                if (eventHandler is EventHandler<TEventArgs> genericHandler)
-                {
-                    genericHandler.Invoke(this, eventArgs);
-                }
-                else if (eventHandler is EventHandler plainHandler)
-                {
-                    plainHandler.Invoke(this, (eventArgs as EventArgs)!);
-                }
-                else
-                {
-                    Debug.Fail("RPC events only support EventHandler and EventHandler<>.");
-                }
+                genericHandler.Invoke(this, eventArgs);
             }
-#pragma warning disable CA1031 // Do not catch general exception types
-            catch (Exception e)
+            else if (eventHandler is EventHandler plainHandler)
             {
-                // Why is this exception swallowed? Shouldn't it just be forwarded?
-                Logger.Warn(e, "Failed to invoke event delegate.");
+                plainHandler.Invoke(this, (eventArgs as EventArgs)!);
             }
-#pragma warning restore CA1031 // Do not catch general exception types
+            else
+            {
+                Debug.Fail("RPC events only support EventHandler and EventHandler<>.");
+            }
         }
 
         private bool IsEventActiveSynchronized(EventData eventData)

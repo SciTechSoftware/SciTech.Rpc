@@ -366,21 +366,109 @@ namespace SciTech.Rpc.Server.Internal
 
                 try
                 {
-                    // Call the actual implementation method.
-                    var result = implCaller(activatedService.Service, request, context.CancellationToken);
-                    await foreach (var ret in result.ConfigureAwait(false))
-                    {
-                        context.CancellationToken.ThrowIfCancellationRequested();
-                        var response = CreateResponseWithError(responseConverter, ret);
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                    var enumCts = new CancellationTokenSource();
+                    var combinedCts = context.CancellationToken.CanBeCanceled
+                        ? CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, enumCts.Token)
+                        : enumCts;
+#pragma warning restore CA2000 // Dispose objects before losing scope
+                    IAsyncEnumerator<TResult>? asyncEnum = null;
+                    Task<bool>? taskHasNext = null;
 
-                        if (response.Error == null)
+                    try
+                    { 
+                        // Call the actual implementation method.
+                        var result = implCaller(activatedService.Service, request, combinedCts.Token);
+                        if (!activatedService.ShouldDispose || !(activatedService.Service is IDisposable))
                         {
-                            await responseWriter.WriteAsync(response.Result).ContextFree();
+                            // Avoid keeping a reference to the activated service unless it needs to be disposed.
+                            // This will allow auto-published services to be GCed while running a long-running
+                            // streaming call.
+                            activatedService = default;
                         }
-                        else
+
+                        // Async enumerator implementation is a bit complicated, since we want to end  the 
+                        // loop if the service is unpublished or if an auto-published instance is GCed.
+                        // Cannot use await foreach because we need a timeout for each MoveNextAsync and 
+                        // not just for the whole numerator. Furthermore the timeout should not actually end
+                        // the enumeration, it should just wake it up so that we can check if the service
+                        // is still published.
+                        asyncEnum = result.GetAsyncEnumerator(combinedCts.Token);
+
+                        while (true)
                         {
-                            // TODO: Implement
-                            throw new RpcFailureException(RpcFailure.Unknown);
+                            if (taskHasNext == null)
+                            {
+                                taskHasNext = asyncEnum.MoveNextAsync().AsTask();
+                            }
+
+                            using (var moveNextCts = new CancellationTokenSource())
+                            {
+                                var taskTimeOut = Task.Delay(RpcStubOptions.StreamingResponseWaitTime, moveNextCts.Token);
+                                var finishedTask = await Task.WhenAny(taskHasNext, taskTimeOut).ContextFree();
+
+                                context.CancellationToken.ThrowIfCancellationRequested();
+                                this.CheckPublished(request.Id);
+
+                                if (finishedTask == taskHasNext)
+                                {
+                                    // We don't wan't any lingering delay timers.
+                                    moveNextCts.Cancel();
+
+                                    bool hasNext = await taskHasNext.ContextFree();
+                                    taskHasNext = null;
+
+                                    if (!hasNext)
+                                    {
+                                        break;
+                                    }
+
+
+                                    var response = CreateResponseWithError(responseConverter, asyncEnum.Current);
+
+                                    if (response.Error == null)
+                                    {
+                                        await responseWriter.WriteAsync(response.Result).ContextFree();
+                                    }
+                                    else
+                                    {
+                                        // TODO: Implement
+                                        throw new RpcFailureException(RpcFailure.Unknown);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        async Task CleanupAsyncEnum()
+                        {
+                            if (asyncEnum != null)
+                            {
+                                try { await asyncEnum.DisposeAsync().ContextFree(); } catch { }
+                            }
+
+                            if (combinedCts != enumCts)
+                            {
+                                combinedCts.Dispose();
+                            }
+                            enumCts.Dispose();
+                        }
+
+                        if ( taskHasNext != null )
+                        {
+                            // Still waiting for next enumerator item so the enumerator cannot be disposed yet.
+                            // Let's cancel the enumerator and dispose once finished. Let's not 
+                            // wait for cancellation to finish, since it may take awhile for the enumerator to notice it.
+                            enumCts.Cancel();
+
+                            taskHasNext.ContinueWith(t =>
+                               {
+                                   CleanupAsyncEnum().Forget();
+                               }, TaskScheduler.Default).Forget();
+                        } else
+                        {
+                            await CleanupAsyncEnum().ContextFree();
                         }
                     }
                 }
@@ -688,10 +776,20 @@ namespace SciTech.Rpc.Server.Internal
             return rpcError;
         }
 
+        private void CheckPublished(RpcObjectId objectId)
+        {
+            if (!this.serviceImplProvider.CanGetActivatedService<TService>(objectId))
+            {
+                throw CreateServiceUnavailableException(objectId);
+            }
+        }
+
         /// <summary>
+        /// <para>
         /// Prepares a call to the RPC implementation method. Must be combined with a corresponding call to 
         /// <see cref="EndCall(in ActivatedService{TService}, CompactList{IDisposable?})"/>.
-        /// <para>IMPORTANT! This method must not be an async method, since it likely that an interceptor will update
+        /// </para>
+        /// <para>IMPORTANT! This method must not be an async method, since it's likely that an interceptor will update
         /// an AsyncLocal (e.g. session or security token). Changes to AsyncLocals will not propagate out of an async 
         /// method.</para>
         /// </summary>
@@ -824,7 +922,12 @@ namespace SciTech.Rpc.Server.Internal
                 return activatedService.Value;
             }
 
-            throw new RpcServiceUnavailableException(objectId != RpcObjectId.Empty
+            throw CreateServiceUnavailableException(objectId);
+        }
+
+        private static RpcServiceUnavailableException CreateServiceUnavailableException(RpcObjectId objectId)
+        {
+            return new RpcServiceUnavailableException(objectId != RpcObjectId.Empty
                 ? $"Service object '{objectId}' ({typeof(TService).Name}) not available."
                 : $"Singleton service '{typeof(TService).Name}' not available.");
         }
@@ -899,5 +1002,7 @@ namespace SciTech.Rpc.Server.Internal
         /// Should only be set to true when running tests.
         /// </summary>
         internal static bool TestDelayEventHandlers = false;
+
+        internal static TimeSpan StreamingResponseWaitTime = TimeSpan.FromSeconds(1);
     }
 }

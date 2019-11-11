@@ -304,7 +304,6 @@ namespace SciTech.Rpc.Client.Internal
                         throw new RpcDefinitionException($"Client side service definition includes fault declaration '{clientFaultAttribute.FaultCode}' which is not applied on server side definition.");
                     }
                 }
-
             }
             else
             {

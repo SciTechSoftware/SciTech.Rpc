@@ -17,9 +17,9 @@ namespace SciTech.Rpc.Tests
     [RpcService]
     public interface ISequenceService
     {
-        IAsyncEnumerable<SequenceData> GetSequenceAsEnumerable(int count, TimeSpan delay, int delayFrequency);
+        IAsyncEnumerable<SequenceData> GetSequenceAsEnumerable(int count, TimeSpan delay, int delayFrequency,bool initialDelay = true);
         
-        IAsyncEnumerable<SequenceData> GetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, CancellationToken cancellationToken);
+        IAsyncEnumerable<SequenceData> GetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, bool initialDelay, CancellationToken cancellationToken);
     }
 
     public abstract class AsyncSequenceTests : ClientServerTestsBase
@@ -142,7 +142,7 @@ namespace SciTech.Rpc.Tests
 
                     Assert.CatchAsync<OperationCanceledException>( async ()=>
                     {
-                        await foreach (var sequenceData in sequenceService.GetSequenceAsCancellableEnumerable(1000,  TimeSpan.FromMilliseconds(20), 10, cts.Token))
+                        await foreach (var sequenceData in sequenceService.GetSequenceAsCancellableEnumerable(1000,  TimeSpan.FromMilliseconds(20), 10, true, cts.Token))
                         {
                             Assert.AreEqual(lastNo + 1, sequenceData.SequenceNo);
                             lastNo = sequenceData.SequenceNo;
@@ -172,6 +172,145 @@ namespace SciTech.Rpc.Tests
                 }
             }
         }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task StreamingCall_UnpublishedInstance_ShouldThrow(bool cancellable)
+        {
+            var (server, connection) = this.CreateServerAndConnection();
+
+            var serviceImpl = new SequenceServiceImpl();
+            var isCancelledTask = serviceImpl.GetIsCancelledAsync();
+
+            var publishedInstance = server.PublishServiceInstance<ISequenceService>(serviceImpl, true);
+            server.Start();
+            try
+            {
+                var client = connection.GetServiceInstance(publishedInstance.Value);
+
+                IAsyncEnumerable<SequenceData> sequence;
+                if (cancellable)
+                {
+                    sequence = client.GetSequenceAsCancellableEnumerable(2, TimeSpan.FromSeconds(10), 1, false, CancellationToken.None);
+                }
+                else
+                {
+                    sequence = client.GetSequenceAsEnumerable(2, TimeSpan.FromSeconds(10), 1, false);
+                }
+
+                var sequenceEnum = sequence.GetAsyncEnumerator();
+                await sequenceEnum.MoveNextAsync();
+                var first = sequenceEnum.Current;
+
+                // Unpublish the server side service after the first data has been received
+                publishedInstance.Dispose();
+
+                Assert.NotNull(first);
+                // Should be  RpcServiceUnavailableException, but streaming calls currently doesn't 
+                // support detailed errors.
+                Assert.ThrowsAsync<RpcFailureException>(async () =>
+                {
+                    await sequenceEnum.MoveNextAsync().AsTask().TimeoutAfter(TimeSpan.FromSeconds(2));
+                }
+                );
+
+                if (cancellable)
+                {
+                    Assert.IsTrue(await isCancelledTask.DefaultTimeout());
+                }
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task StreamingCall_UnpublishedAutoInstance_ShouldThrow(bool cancellable)
+        {
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
+            definitionsBuilder.RegisterService<ISequenceService>();
+            var (server, connection) = this.CreateServerAndConnection(
+                definitionsBuilder,
+                configServerOptions: o=>
+                {
+                    o.AllowAutoPublish = true;
+                });
+            
+            var providerImpl = new SequenceServiceProviderImpl();
+            var isCancelledTask = ((SequenceServiceImpl)providerImpl.SequenceService).GetIsCancelledAsync();
+
+            var publishedProvider = server.PublishServiceInstance((ISequenceServiceProvider)providerImpl, true);
+            server.Start();
+            try
+            {
+                var providerClient = connection.GetServiceInstance(publishedProvider.Value);
+                var sequenceClient = providerClient.SequenceService;
+
+                IAsyncEnumerable<SequenceData> sequence;
+                if (cancellable)
+                {
+                    sequence = sequenceClient.GetSequenceAsCancellableEnumerable(2, TimeSpan.FromSeconds(10), 1, false, CancellationToken.None);
+                }
+                else
+                {
+                    sequence = sequenceClient.GetSequenceAsEnumerable(2, TimeSpan.FromSeconds(10), 1, false);
+                }
+
+                var sequenceEnum = sequence.GetAsyncEnumerator();
+                await sequenceEnum.MoveNextAsync();
+                var first = sequenceEnum.Current;
+
+                // Unpublish the server side service after the first data has been received
+                providerImpl.ReleaseSequenceService();
+                // Make sure that the auto-published instance is GCed (and thus unpublished).
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+
+                Assert.NotNull(first);
+
+                // Should be  RpcServiceUnavailableException, but streaming calls currently doesn't 
+                // support detailed errors.
+                Assert.ThrowsAsync<RpcFailureException>(async () =>
+                {
+                    await sequenceEnum.MoveNextAsync().AsTask().DefaultTimeout();
+                });
+
+                if ( cancellable )
+                {
+                    Assert.IsTrue(await isCancelledTask.DefaultTimeout());
+                }                
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+    }
+
+    [RpcService]
+    public interface ISequenceServiceProvider
+    {
+        ISequenceService SequenceService { get; }
+    }
+
+    public class SequenceServiceProviderImpl : ISequenceServiceProvider
+    {
+        internal WeakReference wrService;
+        public SequenceServiceProviderImpl()
+        {
+            this.SequenceService = new SequenceServiceImpl();
+            wrService = new WeakReference(this.SequenceService);
+        }
+
+        public ISequenceService SequenceService { get; private set; }
+
+        internal void ReleaseSequenceService()
+        {
+            this.SequenceService = null;
+
+        }
     }
 
     [DataContract]
@@ -195,31 +334,38 @@ namespace SciTech.Rpc.Tests
         internal Task<bool> GetIsCancelledAsync() => this.cancelledTcs.Task;
 
 
-        public async IAsyncEnumerable<SequenceData> GetSequenceAsEnumerable(int count, TimeSpan delay, int delayFrequency)
+        public IAsyncEnumerable<SequenceData> GetSequenceAsEnumerable(int count, TimeSpan delay, int delayFrequency, bool initialDelay)
         {
-            for (int i = 0; i < count; i++)
+            static async IAsyncEnumerable<SequenceData> StaticGetSequence(int count, TimeSpan delay, int delayFrequency, bool initialDelay)
             {
-                if( delayFrequency != 0 && i % delayFrequency == 0 )
+                for (int i = 0; i < count; i++)
                 {
-                    await Task.Delay(delay);
-                } else
-                {
-                    await Task.Yield();
-                }
+                    if (( i > 0 || initialDelay ) && delayFrequency != 0 && i % delayFrequency == 0)
+                    {
+                        await Task.Delay(delay);
+                    }
+                    else
+                    {
+                        await Task.Yield();
+                    }
 
-                yield return new SequenceData(i + 1);
+                    yield return new SequenceData(i + 1);
+                }
             }
+
+            return StaticGetSequence(count, delay, delayFrequency, initialDelay);
         }
 
-        public async IAsyncEnumerable<SequenceData> GetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, [EnumeratorCancellation]CancellationToken cancellationToken)
+        static async IAsyncEnumerable<SequenceData> StaticGetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, bool initialDelay, TaskCompletionSource<bool> cancelledTcs,  [EnumeratorCancellation]CancellationToken cancellationToken)
         {
+
             for (int i = 0; i < count; i++)
             {
                 try
                 {
-                    if (delayFrequency != 0 && i % delayFrequency == 0)
+                    if ((i > 0 || initialDelay) && delayFrequency != 0 && i % delayFrequency == 0)
                     {
-                        await Task.Delay(delay);
+                        await Task.Delay(delay, cancellationToken);
                     }
                     else
                     {
@@ -229,14 +375,19 @@ namespace SciTech.Rpc.Tests
                 }
                 catch (OperationCanceledException)
                 {
-                    this.cancelledTcs.TrySetResult(cancellationToken.IsCancellationRequested);
+                    cancelledTcs.TrySetResult(cancellationToken.IsCancellationRequested);
                     throw;
                 }
 
-                yield return new SequenceData(i + 1); 
+                yield return new SequenceData(i + 1);
             }
-            
-            this.cancelledTcs.TrySetResult(cancellationToken.IsCancellationRequested);
+
+            cancelledTcs.TrySetResult(cancellationToken.IsCancellationRequested);
+        }
+
+        public IAsyncEnumerable<SequenceData> GetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, bool initialDelay, CancellationToken cancellationToken)
+        {
+            return StaticGetSequenceAsCancellableEnumerable(count, delay, delayFrequency, initialDelay, this.cancelledTcs, cancellationToken);
         }
     }
 }

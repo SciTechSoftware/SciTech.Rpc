@@ -557,7 +557,13 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         var response = this.serializer.Deserialize(frame.Payload);
                         this.responseStream.Enqueue(response);
                         return false;
-
+                    case RpcFrameType.ErrorResponse:
+                        // TODO: Exception details if enabled).
+                        string? message = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorMessageHeaderKey).Value;
+                        string? errorCode = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorCodeHeaderKey).Value;
+                        var failure = RpcFailureException.GetFailureFromFaultCode(errorCode);
+                        responseStream.Complete(new RpcFailureException(failure, message ?? $"Error occured in server handler of '{frame.RpcOperation}'"));
+                        return true;
                     case RpcFrameType.StreamingEnd:
                         // TODO Handle exceptions.
                         this.responseStream.Complete();

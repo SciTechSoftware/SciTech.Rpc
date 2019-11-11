@@ -258,13 +258,15 @@ namespace SciTech.Rpc.Server
             where TService : class
         {
             if (serviceInstance is null) throw new ArgumentNullException(nameof(serviceInstance));
+            var allServices = RpcBuilderUtil.GetAllServices(serviceInstance.GetType(), true);
+            this.TryRegisterServiceDefinitions(allServices, null);
 
             var connectionInfo = this.RetrieveConnectionInfo();
             lock (this.syncRoot)
             {
                 var serviceInstanceId = RpcObjectId.NewId();
 
-                var allServices = RpcBuilderUtil.GetAllServices(serviceInstance.GetType(), true);
+
                 var publishedServices = this.PublishInstanceCore_Locked(allServices, serviceInstance, serviceInstanceId, false, takeOwnership);
 
                 Action disposeAction;
@@ -333,8 +335,8 @@ namespace SciTech.Rpc.Server
             if (singletonService == null) throw new ArgumentNullException(nameof(singletonService));
 
             var allServices = RpcBuilderUtil.GetAllServices(typeof(TService), false);
-
             this.TryRegisterServiceDefinitions(allServices, null);
+
             var publishedServices = this.VerifyPublishedServices(allServices);
 
             var connectionInfo = this.RetrieveConnectionInfo();
@@ -547,6 +549,25 @@ namespace SciTech.Rpc.Server
             return null;
         }
 
+        bool IRpcServiceActivator.CanGetActivatedService<TService>(RpcObjectId id) where TService : class
+        {
+            var key = new ServiceImplKey(id, typeof(TService));
+            lock (this.syncRoot)
+            {
+                if (id != RpcObjectId.Empty)
+                {
+                    return 
+                        (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService )
+                        || this.idToServiceFactory.ContainsKey(key);
+                }
+                else
+                {
+                    return (this.singletonTypeToServiceImpl.TryGetValue(typeof(TService), out var serviceImpl) && serviceImpl.GetInstance() is TService )
+                        || this.singletonTypeToFactory.ContainsKey(typeof(TService));
+                }
+            }
+        }
+
         private void InitServerId()
         {
             if (this.serverId == RpcServerId.Empty)
@@ -613,7 +634,6 @@ namespace SciTech.Rpc.Server
         {
             // Getting the ServiceInfo validates that TService is actually an RPC service interface.
             RpcBuilderUtil.GetServiceInfoFromType(typeof(TService));
-
             this.TryRegisterServiceDefinition(typeof(TService));
 
             var allServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Server, true);

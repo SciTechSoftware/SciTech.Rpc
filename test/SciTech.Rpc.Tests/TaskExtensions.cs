@@ -39,7 +39,6 @@ namespace SciTech.Rpc.Tests
         {
             return task.TimeoutAfter(TimeSpan.FromSeconds(5), filePath, lineNumber);
         }
-
         public static async Task<T> TimeoutAfter<T>(this Task<T> task, TimeSpan timeout,
             [CallerFilePath] string filePath = null,
             [CallerLineNumber] int lineNumber = default)
@@ -86,6 +85,7 @@ namespace SciTech.Rpc.Tests
                 throw new TimeoutException(CreateMessage(timeout, filePath, lineNumber));
             }
         }
+
 
         private static string CreateMessage(TimeSpan timeout, string filePath, int lineNumber)
             => string.IsNullOrEmpty(filePath)

@@ -2,13 +2,42 @@
 
 namespace SciTech.Rpc
 {
+    /// <summary>
+    /// Defines the failure codes that may be reported through an <see cref="RpcFailureException"/>.
+    /// </summary>
     public enum RpcFailure
     {
+        /// <summary>
+        /// Indicates that an unknown failure has occurred.
+        /// </summary>
         Unknown,
+
+        /// <summary>
+        /// Indicates that an RPC operation has failed due to a message size limitation (i.e.
+        /// request or response message is larger than the configured maximum message size).
+        /// </summary>
         SizeLimitExceeded,
+
+        /// <summary>
+        /// Indicates that a  service object returned from a service method or property has
+        /// not been published and auto-publishing is not enabled.
+        /// </summary>
         ServiceNotPublished,
+
+        /// <summary>
+        /// Indicates an error in the server side definition of an RPC service.
+        /// </summary>
         RemoteDefinitionError,
+
+        /// <summary>
+        /// Indicates that invalid data has been received in an RPC request or response.
+        /// </summary>
         InvalidData,
+
+        /// <summary>
+        /// Indicates that an end point address is already in use, e.g. that some other service or process is 
+        /// listening to the same network interface and port.
+        /// </summary>
         AddressInUse
     }
 

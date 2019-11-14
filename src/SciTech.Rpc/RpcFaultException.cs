@@ -30,7 +30,10 @@ namespace SciTech.Rpc
         public string FaultCode { get; }
     }
 
-    public class RpcFaultException : Exception
+    /// <summary>
+    /// Thrown when an undeclared exception occurs within an  operation handler.
+    /// </summary>
+    public class RpcFaultException : RpcBaseException
     {
         private string? assignedFaultCode;
 

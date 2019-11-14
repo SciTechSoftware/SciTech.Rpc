@@ -10,6 +10,7 @@
 #endregion
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 
 namespace SciTech.Rpc.Client
@@ -57,6 +58,7 @@ namespace SciTech.Rpc.Client
             throw new ArgumentException("Invalid serviceRef connection.");
         }
 
+        [return: NotNullIfNotNull("serviceRef")]
         public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));

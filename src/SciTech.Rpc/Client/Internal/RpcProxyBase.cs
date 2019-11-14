@@ -752,7 +752,7 @@ namespace SciTech.Rpc.Client.Internal
                 {
                     if (!Equals(customConverter.FaultDetailsType, faultConverter.FaultDetailsType))
                     {
-                        throw new RpcDefinitionException("Custom exception converter must have the same details type as the default exception converter.");
+                        throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "Custom exception converter must have the same details type as the default exception converter.");
                     }
 
                     exception = customConverter.CreateException(error.Message ?? "", details);

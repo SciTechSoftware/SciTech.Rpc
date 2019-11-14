@@ -86,7 +86,7 @@ namespace SciTech.Rpc.Server
             {
                 if (services == null)
                 {
-                    throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
+                    throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
                 }
 
                 TService service = services.GetService<TServiceImpl>();

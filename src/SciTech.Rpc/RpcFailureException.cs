@@ -25,7 +25,7 @@ namespace SciTech.Rpc
         ServiceNotPublished,
 
         /// <summary>
-        /// Indicates an error in the server side definition of an RPC service.
+        /// Indicates an error or mismatch in the server side definition of an RPC service.
         /// </summary>
         RemoteDefinitionError,
 
@@ -41,14 +41,13 @@ namespace SciTech.Rpc
         AddressInUse
     }
 
-#pragma warning disable CA2237 // Mark ISerializable types with serializable
-#pragma warning disable CA1032 // Implement standard exception constructors
-    public class RpcFailureException : Exception
-#pragma warning restore CA1032 // Implement standard exception constructors
-#pragma warning restore CA2237 // Mark ISerializable types with serializable
+    /// <summary>
+    /// The exception that is thrown when an RPC operation fails.
+    /// </summary>
+    public class RpcFailureException : RpcBaseException
     {
         /// <summary>Initializes a new instance of the <see cref="RpcFailureException"></see> class.</summary>
-        public RpcFailureException(RpcFailure failure)
+        public RpcFailureException(RpcFailure failure) : base( $"RPC failure '{failure}' has occured.")
         {
             this.Failure = failure;
         }
@@ -69,6 +68,9 @@ namespace SciTech.Rpc
             this.Failure = failure;
         }
 
+        /// <summary>
+        /// Gets the code of the RPC failure.
+        /// </summary>
         public RpcFailure Failure { get; }
 
         internal static RpcFailure GetFailureFromFaultCode(string? faultCode)

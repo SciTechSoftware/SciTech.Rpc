@@ -67,7 +67,7 @@ namespace SciTech.Rpc.Client
             throw new InvalidCastException($"Cannot cast RPC service to {typeof(TService)}.");
         }
 
-        public static TService SetSyncContext<TService>(this TService rpcService, SynchronizationContext syncContext) where TService : class, IRpcService
+        public static TService SetSyncContext<TService>(this TService rpcService, SynchronizationContext? syncContext) where TService : class, IRpcService
         {
             if (rpcService is RpcProxyBase proxyBase)
             {

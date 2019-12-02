@@ -188,11 +188,6 @@ namespace SciTech.Rpc.Client.Internal
 
         public event EventHandler? EventHandlerFailed;
 
-        public TService Cast<TService>() where TService : class
-        {
-            return this.Channel.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
-        }
-
         public void Dispose()
         {
             this.Dispose(true);

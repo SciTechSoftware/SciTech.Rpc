@@ -69,7 +69,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
 
         /// <summary>
-        /// Gets a value indicating  if the connection should be kept alive even if the size of a message
+        /// Gets a value indicating if the connection should be kept alive even if the size of a message
         /// exceeds the limits specified by <see cref="RpcClientOptions"/> and <see cref="RpcServerOptions"/>. 
         /// </summary>
         public bool KeepSizeLimitedConnectionAlive { get; }
@@ -121,7 +121,7 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 async ValueTask<RpcPipelineClient> AwaitConnection()
                 {
-                    return await activeConnectionTask.ContextFree();
+                    return await activeConnectionTask!.ContextFree();
                 }
 
                 return AwaitConnection();

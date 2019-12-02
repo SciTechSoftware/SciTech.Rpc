@@ -12,6 +12,7 @@
 using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SciTech.Rpc.Client
 {
@@ -25,12 +26,10 @@ namespace SciTech.Rpc.Client
         {
             if (registrations != null)
             {
-                foreach (var registration in registrations)
+                var allProxyTypes = registrations.SelectMany(r => r.GetServiceTypes(RpcServiceDefinitionSide.Client)).ToList();
+                foreach (var registeredType in allProxyTypes)
                 {
-                    foreach (var registeredType in registration.GetServiceTypes(RpcServiceDefinitionSide.Client))
-                    {
-                        this.RegisterKnownService(registeredType.ServiceType);
-                    }
+                    this.RegisterKnownService(registeredType.ServiceType);
                 }
             }
 

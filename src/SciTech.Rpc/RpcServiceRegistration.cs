@@ -42,6 +42,11 @@ namespace SciTech.Rpc
         public Type ServiceType { get; }
 
         public Type? ImplementationType { get; }
+
+        public override string ToString()
+        {
+            return this.ImplementationType != null ? $"{this.ServiceType} ({this.ImplementationType})" : $"{this.ServiceType}";
+        }
     }
 
     public class KnownSerializationType

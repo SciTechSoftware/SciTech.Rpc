@@ -321,7 +321,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 else
                 {
                     // TODO: Implement IncludeExceptionDetailInFaults
-                    string message = "The server was unable to process the request due to an internal error. "
+                    string message = $"The server was unable to process the request for operation '{operationName}' due to an internal error. "
                         + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
                     return this.WriteErrorResponseAsync(messageId, operationName, message, RpcFailure.Unknown);
                 }

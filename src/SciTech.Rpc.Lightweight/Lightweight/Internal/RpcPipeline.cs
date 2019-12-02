@@ -404,7 +404,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             var header = responseHeader;
             async ValueTask<BufferWriterStream?> AwaitSingleWriter()
             {
-                await writerMutex.WaitAsync().ContextFree();
+                await writerMutex!.WaitAsync().ContextFree();
                 try
                 {
                     var writer = this.frameWriterStream;

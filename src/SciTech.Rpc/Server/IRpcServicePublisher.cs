@@ -17,12 +17,32 @@ using System.Linq;
 namespace SciTech.Rpc.Server
 {
     /// <summary>
+    /// <para>
     /// Provides functionality to publish RPC service object instances and singleton instances. 
+    /// </para>
+    /// <para>Normally it is only necessary to user this interface when publishing the same set of services on
+    /// multiple <see cref="IRpcServer"/>s. The <see cref="RpcServerExtensions"/> class provides extensions methods
+    /// that can be used to publish RPC services directly on an <see cref="IRpcServer"/> interface.
+    /// </para>
+    /// <para>
+    /// NOTE! <see cref="RpcServicePublisherExtensions"/> provides extension methods necessary for publishing RPC 
+    /// singletons and instances using factory methods. Include the namespace <c>SciTech.Rpc.Server</c> for full
+    /// functionality when publishing RPC services.
+    /// </para>
     /// </summary>
     public interface IRpcServicePublisher
     {
+        /// <summary>
+        /// Gets the connection information associated with this publisher. This will be used
+        /// to provide connection information for <see cref="RpcObjectRef"/>s and <see cref="RpcSingletonRef{TService}"/>s
+        /// returned from the server.
+        /// </summary>
         RpcServerConnectionInfo? ConnectionInfo { get; }
 
+        /// <summary>
+        /// Gets the server id with this publisher. If <see cref="ConnectionInfo"/> has been initialized this
+        /// will be the same id as <see cref="RpcServerConnectionInfo.ServerId">ConnectionInfo.ServerId</see>.
+        /// </summary>
         RpcServerId ServerId { get; }
 
         RpcObjectRef<TService> GetOrPublishInstance<TService>(TService serviceInstance) where TService : class;
@@ -31,26 +51,27 @@ namespace SciTech.Rpc.Server
 
         void InitConnectionInfo(RpcServerConnectionInfo connectionInfo);
 
+
         /// <summary>
-        /// Publishes an RPC service instance with the help of a service provider factory.
+        /// <para>
+        /// Publishes an RPC service instance with the help of an <see cref="ActivatedService{TService}"/>  factory.
+        /// </para>
+        /// <para>
+        /// NOTE! The <see cref="ActivatedService{TService}"/> factory is an implementation detail. It is recommended that 
+        /// the extension methods <see cref="RpcServicePublisherExtensions.PublishInstance{TService}(IRpcServicePublisher, Func{IServiceProvider, RpcObjectId, TService})"/> 
+        /// or <see cref="RpcServicePublisherExtensions.PublishInstance{TService}(IRpcServicePublisher, Func{RpcObjectId, TService})"/>
+        /// are used instead of this method.
+        /// </para>
         /// </summary>
         /// <typeparam name="TService">The type of the published instance.</typeparam>
         /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>
         /// with the help of the provided <see cref="IServiceProvider"/>.</param>
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
-        ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider, RpcObjectId, TService> factory) where TService : class;
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, ActivatedService<TService>> factory)
+            where TService : class;
 
-        /// <summary>
-        /// Publishes an RPC service instance using an instance factory.
-        /// </summary>
-        /// <typeparam name="TService">The type of the published instance.</typeparam>
-        /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>. If the created
-        /// instance implements <see cref="IDisposable"/> the instance will be disposed when the RPC call has finished.
-        /// </param>    
-        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
-        /// the service instance when disposed.</returns>
-        ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<RpcObjectId, TService> factory) where TService : class;
 
         /// <summary>
         /// Publishes an RPC service instance.
@@ -62,14 +83,8 @@ namespace SciTech.Rpc.Server
         /// the service instance when disposed.</returns>
         ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false) where TService : class;
 
-        ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> factory)
-            where TService : class;
-
         [EditorBrowsable(EditorBrowsableState.Never)]
         ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
-            where TService : class;
-
-        ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<TService> factory)
             where TService : class;
 
         ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class;

@@ -49,7 +49,7 @@ namespace SciTech.Rpc.Tests.Grpc
             try
             {
                 var serviceImpl = new TestBlockingSimpleServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
 
@@ -95,7 +95,7 @@ namespace SciTech.Rpc.Tests.Grpc
             try
             {
                 var serviceImpl = new ThermostatServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
                     GrpcServerConnection connection = this.CreateGrpcConnection(null);
@@ -128,7 +128,7 @@ namespace SciTech.Rpc.Tests.Grpc
             try
             {
                 var serviceImpl = new TestServiceWithEventsImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
 
@@ -192,7 +192,7 @@ namespace SciTech.Rpc.Tests.Grpc
             try
             {
                 var serviceImpl = new ThermostatServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
                     var connection = this.CreateGrpcConnection(null);
@@ -260,7 +260,7 @@ namespace SciTech.Rpc.Tests.Grpc
             try
             {
                 var serviceImpl = new TestSimpleServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
                     var connection = this.CreateGrpcConnection(null);

@@ -182,7 +182,7 @@ namespace SciTech.Rpc.Tests
             var serviceImpl = new SequenceServiceImpl();
             var isCancelledTask = serviceImpl.GetIsCancelledAsync();
 
-            var publishedInstance = server.PublishServiceInstance<ISequenceService>(serviceImpl, true);
+            var publishedInstance = server.PublishInstance<ISequenceService>(serviceImpl, true);
             server.Start();
             try
             {
@@ -241,7 +241,7 @@ namespace SciTech.Rpc.Tests
             var providerImpl = new SequenceServiceProviderImpl();
             var isCancelledTask = ((SequenceServiceImpl)providerImpl.SequenceService).GetIsCancelledAsync();
 
-            var publishedProvider = server.PublishServiceInstance((ISequenceServiceProvider)providerImpl, true);
+            var publishedProvider = server.PublishInstance((ISequenceServiceProvider)providerImpl, true);
             server.Start();
             try
             {

@@ -19,6 +19,85 @@ namespace SciTech.Rpc.Server
 {
     public static class RpcServicePublisherExtensions
     {
+        /// <summary>
+        /// Publishes an RPC service instance with the help of a service provider factory.
+        /// </summary>
+        /// <typeparam name="TService">The type of the published instance.</typeparam>
+        /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>
+        /// with the help of the provided <see cref="IServiceProvider"/>.</param>
+        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
+        /// the service instance when disposed.</returns>
+        public static ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServicePublisher servicePublisher, Func<IServiceProvider, RpcObjectId, TService> factory) 
+            where TService : class
+        {
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
+            {
+                if (services == null)
+                {
+                    throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
+                }
+
+                return new ActivatedService<TService>(factory(services, objectId), false);
+            }
+
+            return servicePublisher.PublishInstance(CreateActivatedService);
+        }
+
+        /// <summary>
+        /// Publishes an RPC service instance using an instance factory.
+        /// </summary>
+        /// <typeparam name="TService">The type of the published instance.</typeparam>
+        /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>. If the created
+        /// instance implements <see cref="IDisposable"/> the instance will be disposed when the RPC call has finished.
+        /// </param>    
+        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
+        /// the service instance when disposed.</returns>
+        public static ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServicePublisher servicePublisher, Func<RpcObjectId, TService> factory) 
+            where TService : class
+        {
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
+            {
+                return new ActivatedService<TService>(factory(objectId), true);
+            }
+
+            return servicePublisher.PublishInstance(CreateActivatedService);
+        }
+
+
+        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, Func<IServiceProvider, TService> factory)
+            where TService : class
+        {
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
+            {
+                if (services == null)
+                {
+                    throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
+                }
+
+                return new ActivatedService<TService>(factory(services), false);
+            }
+
+            return servicePublisher.PublishSingleton(CreateActivatedService);
+        }
+
+        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, Func<TService> factory)
+            where TService : class
+        {
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            ActivatedService<TService> CreateActivatedService(IServiceProvider? _) => new ActivatedService<TService>(factory(), true);
+
+            return servicePublisher.PublishSingleton(CreateActivatedService);
+        }
+
         public static IList<RpcObjectRef<TService>?> GetPublishedServiceInstances<TService>(this IRpcServicePublisher servicePublisher,
             IReadOnlyList<TService> serviceInstances, bool allowUnpublished) where TService : class
         {

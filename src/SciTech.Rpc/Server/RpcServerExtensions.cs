@@ -11,7 +11,6 @@
 
 using System;
 using System.Linq;
-using SciTech.Rpc.Server;
 
 namespace SciTech.Rpc.Server
 {
@@ -37,7 +36,7 @@ namespace SciTech.Rpc.Server
             return server.ServicePublisher.GetPublishedInstance(serviceInstance);
         }
 
-        public static ScopedObject<RpcObjectRef<TService>> PublishServiceInstance<TService>(this IRpcServer server, TService serviceInstance, bool takeOwnership = false) where TService : class
+        public static ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServer server, TService serviceInstance, bool takeOwnership = false) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
             return server.ServicePublisher.PublishInstance(serviceInstance, takeOwnership);
@@ -54,7 +53,7 @@ namespace SciTech.Rpc.Server
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
-            return server.ServicePublisher.PublishSingleton(singletonFactory);
+            return server.ServicePublisher.PublishSingleton<TService>(singletonFactory);
         }
 
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, TService singletonService, bool takeOwnership = false) where TService : class

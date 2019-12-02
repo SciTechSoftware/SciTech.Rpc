@@ -15,7 +15,7 @@ namespace SciTech.Rpc.Server
         /// Adds SciTech.Rpc server services to the specified <see cref="IServiceCollection" />.
         /// </para>
         /// <para>
-        /// Note: This method tries to register common RPC services, like <see cref="IRpcServiceDefinitionsBuilder"/>
+        /// NOTE! This method tries to register common RPC services, like <see cref="IRpcServiceDefinitionsBuilder"/>
         /// and <see cref="IRpcServicePublisher"/>. To provide specific implementations of these interfaces, add them 
         /// to the service collection prior to calling this method.
         /// </para>
@@ -45,13 +45,14 @@ namespace SciTech.Rpc.Server
         }
 
 
-        /// <summary>
-        /// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
-        /// </summary>
-        /// <inheritdoc/>
-        /// <param name="options"></param>
-        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
-        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
+        ///// <summary>
+        ///// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
+        ///// </summary>
+        ///// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
+        ///// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
+
+        /// <inheritdoc cref="AddRpcServer{TRpcServer}(IServiceCollection)"/>
+        /// <param name="options">The action used to configure the server options.</param>
         public static IRpcServerBuilder AddRpcServer<TRpcServer>(this IServiceCollection services, Action<RpcServerOptions> options)
             where TRpcServer : class, IRpcServer
         {

@@ -217,7 +217,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 if (this.implementedServices != null)
                 {
-                    // return this.implementedServices;
+                    return this.implementedServices;
                 }
 
                 if (this.servicesTcs == null)
@@ -260,6 +260,16 @@ namespace SciTech.Rpc.Client.Internal
             return implementedServices;
         }
 
+        /// <summary>
+        /// <para>
+        /// Tries to cast this proxy to a type that implements the service <typeparamref name="TService"/>. 
+        /// </para>
+        /// <para>
+        /// NOTE. If information about implemented services are not available for this proxy, 
+        /// a remote call to the RPC server will be performed to retrieve this information.</para>
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <returns></returns>
         public async Task<TService?> TryCastAsync<TService>() where TService : class
         {
             string serviceName = GetServiceName<TService>();

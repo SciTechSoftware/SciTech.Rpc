@@ -34,10 +34,23 @@ namespace SciTech.Rpc.Client
 
         IRpcClientExceptionConverter? GetExceptionConverter(string faultCode);
 
+        /// <summary>
+        /// Gets a proxy to the service instance specified by <paramref name="objectId"/>.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="objectId"></param>
+        /// <param name="implementedServices">Optional information about the services that 
+        /// are implemented on the server side. </param>
+        /// <param name="syncContext">Optional synchronization context to use </param>
+        /// <returns></returns>
         TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class;
 
         TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class;
 
+        /// <summary>
+        /// Disconnects this connection and cleans up any used resources.
+        /// </summary>
+        /// <returns></returns>
         Task ShutdownAsync();
     }
 }

@@ -22,28 +22,57 @@ namespace SciTech.Rpc.Client
     /// </summary>
     public interface IRpcClientOptions
     {
+        /// <summary>
+        /// Gets the call timeout of RPC operations. If not specifed, the 
+        /// default timeout of the RPC channel implementation will be used, which is normally infinite.
+        /// </summary>
         TimeSpan? CallTimeout { get; }
 
+        /// <summary>
+        /// Gets a list of exceptions converters. An exception converter can be used to convert an RPC fault to a client side exception. For
+        /// more information, see <see cref="IRpcClientExceptionConverter"/>.
+        /// </summary>
         IReadOnlyList<IRpcClientExceptionConverter> ExceptionConverters { get; }
 
+        /// <summary>
+        /// Gets a list of call interceptors. A call interceptor can be used to modify the call metadata
+        /// before sending the request to the server.
+        /// </summary>
         IReadOnlyList<RpcClientCallInterceptor> Interceptors { get; }
 
+        /// <summary>
+        /// Gets a value indicating whether the options are empty, i.e. all options properties are <c>null</c> or empty.
+        /// </summary>
         bool IsEmpty { get; }
 
         /// <summary>
-        /// Gets the maximum message size in bytes that can be received by the client.
+        /// Gets the maximum message size in bytes that can be received by the client. If not specifed, the 
+        /// default maximum size of the RPC channel implementation will be used.
         /// </summary>
         int? ReceiveMaxMessageSize { get; }
 
         /// <summary>
-        /// Gets the maximum message size in bytes that can be sent from the client.
+        /// Gets the maximum message size in bytes that can be sent from the client. If not specifed, the 
+        /// default maximum size of the RPC channel implementation will be used.
         /// </summary>
         int? SendMaxMessageSize { get; }
 
+        /// <summary>
+        /// Gets the serializer to use when serializing RPC requests and responses. If not specifed, the 
+        /// default serializer of the RPC channel implementation will be used.
+        /// </summary>
         IRpcSerializer? Serializer { get; }
 
+        /// <summary>
+        /// Gets the call timeout of for streaming RPC operations (including events). If not specifed, the 
+        /// default timeout of the RPC channel implementation will be used, which is normally infinite.
+        /// </summary>
         TimeSpan? StreamingCallTimeout { get; }
 
+        /// <summary>
+        /// Gets or creates an immutable version of these options.
+        /// </summary>
+        /// <returns></returns>
         ImmutableRpcClientOptions AsImmutable();
     }
 
@@ -56,8 +85,10 @@ namespace SciTech.Rpc.Client
 
         private List<RpcClientCallInterceptor>? interceptors;
 
+        /// <inheritdoc/>
         public TimeSpan? CallTimeout { get; set; }
 
+        /// <inheritdoc cref="IRpcClientOptions.ExceptionConverters"/>
         public List<IRpcClientExceptionConverter> ExceptionConverters
         {
             get
@@ -71,6 +102,7 @@ namespace SciTech.Rpc.Client
             }
         }
 
+        /// <inheritdoc cref="IRpcClientOptions.Interceptors"/>
         public List<RpcClientCallInterceptor> Interceptors
         {
             get
@@ -84,6 +116,7 @@ namespace SciTech.Rpc.Client
             }
         }
 
+        /// <inheritdoc/>
         public bool IsEmpty
         {
             get
@@ -99,24 +132,25 @@ namespace SciTech.Rpc.Client
             }
         }
 
-        /// <summary>
-        /// Gets or sets the maximum message size in bytes that can be received by the client.
-        /// </summary>
+        /// <inheritdoc/>
         public int? ReceiveMaxMessageSize { get; set; }
 
-        /// <summary>
-        /// Gets or sets the maximum message size in bytes that can be sent from the client.
-        /// </summary>
+        /// <inheritdoc/>
         public int? SendMaxMessageSize { get; set; }
 
+        /// <inheritdoc/>
         public IRpcSerializer? Serializer { get; set; }
 
+        /// <inheritdoc/>
         public TimeSpan? StreamingCallTimeout { get; set; }
 
+        /// <inheritdoc/>
         IReadOnlyList<IRpcClientExceptionConverter> IRpcClientOptions.ExceptionConverters => this.ExceptionConverters;
 
+        /// <inheritdoc/>
         IReadOnlyList<RpcClientCallInterceptor> IRpcClientOptions.Interceptors => this.Interceptors;
 
+        /// <inheritdoc/>
         public ImmutableRpcClientOptions AsImmutable()
         {
             return new ImmutableRpcClientOptions(this);

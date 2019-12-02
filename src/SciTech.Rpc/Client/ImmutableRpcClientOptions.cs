@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Client
 {
     /// <summary>
     /// Immutable variant of <see cref="RpcClientOptions"/>. Once client options have been 
-    /// assigned to a connection or associated with a service they should no longer be modified and
+    /// assigned to a channel or associated with a service they should no longer be modified and
     /// will only be accessible through this class.
     /// </summary>
     public sealed class ImmutableRpcClientOptions : IRpcClientOptions
@@ -31,14 +31,18 @@ namespace SciTech.Rpc.Client
             this.Assign(options);
         }
 
+        /// <inheritdoc/>
         public TimeSpan? CallTimeout { get; private set; }
 
+        /// <inheritdoc cref="IRpcClientOptions.ExceptionConverters"/>
         public ImmutableArray<IRpcClientExceptionConverter> ExceptionConverters { get; private set; }
             = ImmutableArray<IRpcClientExceptionConverter>.Empty;
 
+        /// <inheritdoc cref="IRpcClientOptions.Interceptors"/>
         public ImmutableArray<RpcClientCallInterceptor> Interceptors { get; private set; }
             = ImmutableArray<RpcClientCallInterceptor>.Empty;
 
+        /// <inheritdoc/>
         public bool IsEmpty
         {
             get
@@ -53,24 +57,25 @@ namespace SciTech.Rpc.Client
             }
         }
 
-        /// <summary>
-        /// Gets the maximum message size in bytes that can be received by the client.
-        /// </summary>
+        /// <inheritdoc/>
         public int? ReceiveMaxMessageSize { get; private set; }
 
-        /// <summary>
-        /// Gets the maximum message size in bytes that can be sent from the client.
-        /// </summary>
+        /// <inheritdoc/>
         public int? SendMaxMessageSize { get; private set; }
 
+        /// <inheritdoc/>
         public IRpcSerializer? Serializer { get; private set; }
 
+        /// <inheritdoc/>
         public TimeSpan? StreamingCallTimeout { get; private set; }
 
+        /// <inheritdoc/>
         IReadOnlyList<IRpcClientExceptionConverter> IRpcClientOptions.ExceptionConverters => this.ExceptionConverters;
 
+        /// <inheritdoc/>
         IReadOnlyList<RpcClientCallInterceptor> IRpcClientOptions.Interceptors => this.Interceptors;
 
+        /// <inheritdoc/>
         ImmutableRpcClientOptions IRpcClientOptions.AsImmutable() => this;
 
         internal static ImmutableRpcClientOptions Combine(params IRpcClientOptions?[] options)

@@ -90,7 +90,7 @@ namespace SciTech.Rpc.Client
             return converter;
         }
 
-
+        /// <inheritdoc/>
         public TService GetServiceInstance<TService>(RpcObjectId objectId,
             IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class
         {
@@ -107,10 +107,7 @@ namespace SciTech.Rpc.Client
             return GetServiceInstanceCore<TService>(RpcObjectId.Empty, syncContext);
         }
 
-        /// <summary>
-        /// Disconnects this connection and cleans up any used resources.
-        /// </summary>
-        /// <returns></returns>
+        /// <inheritdoc/>
         public abstract Task ShutdownAsync();
 
 

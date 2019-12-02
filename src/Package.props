@@ -27,7 +27,7 @@
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>1573;1591;$(NoWarn)</NoWarn>
+    <NoWarn>IDT002;1573;1591;$(NoWarn)</NoWarn>
   </PropertyGroup>
 
 

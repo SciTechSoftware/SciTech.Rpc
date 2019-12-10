@@ -17,6 +17,14 @@ namespace SciTech.Rpc.Client
 {
     public static class RpcChannelExtensions
     {
+        /// <summary>
+        /// Gets a proxy to the service instance specified by <paramref name="objectId"/>.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="objectId"></param>
+        /// <param name="useSyncContext">Indicates that the current synchronization context should be used for the service intance.</param>
+        /// <returns>The service proxy.</returns>
+        /// <exception cref="RpcDefinitionException">Thrown if the RPC definition of <typeparamref name="TService"/> is not correct.</exception>
         public static TService GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectId objectId, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
@@ -24,6 +32,14 @@ namespace SciTech.Rpc.Client
             return connection.GetServiceInstance<TService>(objectId, default, useSyncContext ? SynchronizationContext.Current : null);
         }
 
+        /// <summary>
+        /// Gets a proxy to the service instance specified by <paramref name="serviceRef"/>.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="serviceRef">An RPC object ref identifying the service instance.</param>
+        /// <param name="useSyncContext">Indicates that the current synchronization context should be used for the service intance.</param>
+        /// <returns>The service proxy.</returns>
+        /// <exception cref="RpcDefinitionException">Thrown if the RPC definition of <typeparamref name="TService"/> is not correct.</exception>
         public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef<TService> serviceRef, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
@@ -41,6 +57,14 @@ namespace SciTech.Rpc.Client
             throw new ArgumentException("Invalid serviceRef connection.");
         }
 
+        /// <summary>
+        /// Gets a proxy to the service instance specified by <paramref name="serviceRef"/>.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="serviceRef">An RPC object ref identifying the service instance.</param>
+        /// <param name="syncContext">Optional synchronization context to use </param>
+        /// <returns>The service proxy.</returns>
+        /// <exception cref="RpcDefinitionException">Thrown if the RPC definition of <typeparamref name="TService"/> is not correct.</exception>
         public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef<TService> serviceRef, SynchronizationContext syncContext) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));

@@ -42,9 +42,17 @@ namespace SciTech.Rpc.Client
         /// <param name="implementedServices">Optional information about the services that 
         /// are implemented on the server side. </param>
         /// <param name="syncContext">Optional synchronization context to use </param>
-        /// <returns></returns>
+        /// <returns>The service proxy.</returns>
+        /// <exception cref="RpcDefinitionException">Thrown if the RPC definition of <typeparamref name="TService"/> is not correct.</exception>
         TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class;
 
+        /// <summary>
+        /// Gets a proxy to the service singleton identified by <typeparamref name="TService"/>.
+        /// </summary>
+        /// <typeparam name="TService">The service contract type.</typeparam>
+        /// <param name="syncContext">Optional synchronization context to use </param>
+        /// <returns>The service proxy.</returns>
+        /// <exception cref="RpcDefinitionException">Thrown if the RPC definition of <typeparamref name="TService"/> is not correct.</exception>
         TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class;
 
         /// <summary>

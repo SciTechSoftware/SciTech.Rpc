@@ -488,9 +488,19 @@ namespace SciTech.Rpc.Server
             {
                 if (id != RpcObjectId.Empty)
                 {
-                    if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) && serviceImpl.GetInstance() is TService service)
+                    if (this.idToServiceImpl.TryGetValue(key, out var serviceImpl) )
                     {
-                        return new ActivatedService<TService>(service, false);
+                        if( RpcStubOptions.ForceCollectActivatedInstance && serviceImpl.IsWeak && serviceImpl.GetInstance() != null  )
+                        {
+                            GC.Collect();
+                        }
+
+                        if (serviceImpl.GetInstance() is TService service)
+                        {
+                            return new ActivatedService<TService>(service, false);
+                        }
+
+                        return null;
                     }
 
                     if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
@@ -724,6 +734,8 @@ namespace SciTech.Rpc.Server
 
                 return this.instance;
             }
+
+            internal bool IsWeak => this.instance is WeakReference;
         }
 
         private readonly struct PublishedServices

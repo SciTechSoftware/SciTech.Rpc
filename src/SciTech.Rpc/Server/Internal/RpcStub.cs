@@ -1004,5 +1004,11 @@ namespace SciTech.Rpc.Server.Internal
         internal static bool TestDelayEventHandlers = false;
 
         internal static TimeSpan StreamingResponseWaitTime = TimeSpan.FromSeconds(1);
+
+        /// <summary>
+        /// Forces a garbage collection before returning a weakly registered instance.
+        /// <b>NOTE!</b> This may cause the service activation to become very slow.
+        /// </summary>
+        internal static bool ForceCollectActivatedInstance = false;
     }
 }

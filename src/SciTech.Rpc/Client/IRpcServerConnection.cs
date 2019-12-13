@@ -43,9 +43,10 @@ namespace SciTech.Rpc.Client
 
         event EventHandler? Disconnected;
 
-
         RpcConnectionState ConnectionState { get; }
 
         Task ConnectAsync(CancellationToken cancellationToken);
+
+
     }
 }

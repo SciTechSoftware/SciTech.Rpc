@@ -62,6 +62,7 @@ namespace SciTech.Rpc.Lightweight.Client
             : base(connectionInfo, options, proxyGenerator)
         {
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
+            this.AllowReconnect = lightweightOptions?.AllowReconnect ?? false;
         }
 
         /// <inheritdoc/>
@@ -73,6 +74,13 @@ namespace SciTech.Rpc.Lightweight.Client
         /// exceeds the limits specified by <see cref="RpcClientOptions"/> and <see cref="RpcServerOptions"/>. 
         /// </summary>
         public bool KeepSizeLimitedConnectionAlive { get; }
+
+
+        /// <summary>
+        /// Gets a value indicating if the connection should try to reconnect after it has been lost.
+        /// </summary>
+        public bool AllowReconnect { get; }
+
 
         /// <inheritdoc/>
         public override Task ConnectAsync(CancellationToken cancellationToken)
@@ -91,6 +99,7 @@ namespace SciTech.Rpc.Lightweight.Client
             this.NotifyDisconnected();
         }
 
+
         internal ValueTask<RpcPipelineClient> ConnectClientAsync(CancellationToken cancellationToken)
         {
             Task<RpcPipelineClient>? activeConnectionTask = null;
@@ -105,7 +114,15 @@ namespace SciTech.Rpc.Lightweight.Client
                 {
                     throw new ObjectDisposedException(this.ToString());
                 }
+                if (this.ConnectionState == RpcConnectionState.ConnectionFailed || this.ConnectionState == RpcConnectionState.ConnectionLost)
+                {
+                    if (!this.AllowReconnect)
+                    {
+                        throw new RpcCommunicationException(this.ConnectionState == RpcConnectionState.ConnectionLost
+                            ? RpcCommunicationStatus.ConnectionLost : RpcCommunicationStatus.Unavailable);
+                    }
 
+                }
 
                 if (this.connectionTcs != null)
                 {
@@ -239,10 +256,25 @@ namespace SciTech.Rpc.Lightweight.Client
             if (connectedClient != null)
             {
                 connectedClient.ReceiveLoopFaulted -= this.ConnectedClient_ReceiveLoopFaulted;
-                connectedClient.Close(ex);
+                connectedClient.Close(TranslateConnectionException(ex, state));
             }
 
             return connectedClient;
+        }
+
+        private static Exception? TranslateConnectionException(Exception? ex, RpcConnectionState newState)
+        {
+            if (ex != null)
+            {
+                return newState switch
+                {
+                    RpcConnectionState.ConnectionLost => new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, "Lightweight connection lost.", ex),
+                    RpcConnectionState.ConnectionFailed => new RpcCommunicationException(RpcCommunicationStatus.Unavailable, "Failed to connect.", ex),
+                    _ => new RpcCommunicationException(RpcCommunicationStatus.Unknown, "Lightweight connection lost.", ex)
+                };
+            }
+
+            return null;
         }
     }
 }

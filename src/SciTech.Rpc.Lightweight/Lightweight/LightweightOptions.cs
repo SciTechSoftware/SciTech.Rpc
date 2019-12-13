@@ -32,5 +32,11 @@ namespace SciTech.Rpc.Lightweight
         /// including streaming calls and active event handlers.
         /// </remarks>
         public bool? KeepSizeLimitedConnectionAlive { get; set; }
+
+        /// <summary>
+        /// If <c>true</c> indicates that it is allowed for a connection to reconnect to the server if possible. By defaut
+        /// this setting is <c>false</c>.
+        /// </summary>
+        public bool? AllowReconnect { get; set; }
     }
 }

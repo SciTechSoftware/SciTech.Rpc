@@ -578,7 +578,11 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         TimeoutResponse,
 
-        ErrorResponse
+        ErrorResponse,
+
+        ServiceDiscoveryRequest,
+
+        ServiceDiscoveryResponse
     }
 
     [Flags]

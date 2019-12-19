@@ -94,7 +94,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
-                var streamingCallTask = client.BeginStreamingServerCall<TRequest, TResponse>(
+                var streamingCallTask = client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
                     headers,
@@ -109,7 +109,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             async ValueTask<IAsyncStreamingServerCall<TResponse>> AwaitConnectAndCall(ValueTask<RpcPipelineClient> pendingClientTask)
             {
                 var client = await pendingClientTask.ContextFree();
-                var streamingCall = await client.BeginStreamingServerCall<TRequest, TResponse>(
+                var streamingCall = await client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
                     headers,

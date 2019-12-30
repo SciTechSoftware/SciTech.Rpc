@@ -33,6 +33,21 @@ namespace SciTech.Rpc.Client
         }
 
         /// <summary>
+        /// Gets a proxy to the service instance specified by <paramref name="objectId"/>.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="objectId"></param>
+        /// <param name="syncContext">Optional synchronization context to use.</param>
+        /// <returns>The service proxy.</returns>
+        /// <exception cref="RpcDefinitionException">Thrown if the RPC definition of <typeparamref name="TService"/> is not correct.</exception>
+        public static TService GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectId objectId, SynchronizationContext? syncContext ) where TService : class
+        {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
+            return connection.GetServiceInstance<TService>(objectId, default, syncContext );
+        }
+
+        /// <summary>
         /// Gets a proxy to the service instance specified by <paramref name="serviceRef"/>.
         /// </summary>
         /// <typeparam name="TService"></typeparam>

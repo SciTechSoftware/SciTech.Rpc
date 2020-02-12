@@ -271,7 +271,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
             }
 
-            return new WriteState(headerLength, payloadLengthSpan, frameLengthSpan);
+            return new WriteState(headerLength, payloadLengthSpan, frameLengthSpan, writer);
         }
 
         private static bool IsValidVersion(short version) => version == CurrentVersion;
@@ -534,12 +534,17 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             internal readonly Memory<byte> FrameLengthSpan;
 
-            internal WriteState(int headerLength, in Memory<byte> payloadLengthSpan, in Memory<byte> frameLengthSpan)
+            internal readonly BufferWriterStream Writer;
+
+            internal WriteState(int headerLength, in Memory<byte> payloadLengthSpan, in Memory<byte> frameLengthSpan, BufferWriterStream writer)
             {
                 this.HeaderLength = headerLength;
                 this.PayloadLengthSpan = payloadLengthSpan;
                 this.FrameLengthSpan = frameLengthSpan;
+                this.Writer = writer;
             }
+
+            internal bool IsEmpty => this.Writer != null;
         }
         //public override bool Equals(object obj)
         //{

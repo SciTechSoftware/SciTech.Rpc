@@ -20,6 +20,8 @@ namespace SciTech.Rpc.Tests
         IAsyncEnumerable<SequenceData> GetSequenceAsEnumerable(int count, TimeSpan delay, int delayFrequency,bool initialDelay = true);
         
         IAsyncEnumerable<SequenceData> GetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, bool initialDelay, CancellationToken cancellationToken);
+
+        void SimpleCall();
     }
 
     public abstract class AsyncSequenceTests : ClientServerTestsBase
@@ -85,8 +87,6 @@ namespace SciTech.Rpc.Tests
 
                 var sequenceService = connection.GetServiceSingleton<ISequenceService>();
 
-                DateTime start = DateTime.UtcNow;
-                int lastNo = 0;
 
                 var exceptionExpression = Is.InstanceOf<TimeoutException>();
                 if( this.ConnectionType == RpcConnectionType.NetGrpc)
@@ -95,7 +95,17 @@ namespace SciTech.Rpc.Tests
                     // it also seems a bit timing dependent). Let's allow both exceptions.
                     exceptionExpression = exceptionExpression.Or.InstanceOf<OperationCanceledException>();
                 }
-                
+
+                DateTime connectStart = DateTime.UtcNow;
+                // Force connection
+//                sequenceService.SimpleCall();
+
+                var connectDuration = DateTime.UtcNow - connectStart;
+                Console.WriteLine("Connect duration: " + connectDuration);
+
+                DateTime start = DateTime.UtcNow;
+                int lastNo = 0;
+
                 Assert.ThrowsAsync(exceptionExpression, async () =>
                 {
                     async Task GetSequence()
@@ -388,6 +398,10 @@ namespace SciTech.Rpc.Tests
         public IAsyncEnumerable<SequenceData> GetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, bool initialDelay, CancellationToken cancellationToken)
         {
             return StaticGetSequenceAsCancellableEnumerable(count, delay, delayFrequency, initialDelay, this.cancelledTcs, cancellationToken);
+        }
+
+        public void SimpleCall() 
+        {
         }
     }
 }

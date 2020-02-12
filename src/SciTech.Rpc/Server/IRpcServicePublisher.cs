@@ -20,7 +20,7 @@ namespace SciTech.Rpc.Server
     /// <para>
     /// Provides functionality to publish RPC service object instances and singleton instances. 
     /// </para>
-    /// <para>Normally it is only necessary to user this interface when publishing the same set of services on
+    /// <para>Normally it is only necessary to use this interface when publishing the same set of services on
     /// multiple <see cref="IRpcServer"/>s. The <see cref="RpcServerExtensions"/> class provides extensions methods
     /// that can be used to publish RPC services directly on an <see cref="IRpcServer"/> interface.
     /// </para>

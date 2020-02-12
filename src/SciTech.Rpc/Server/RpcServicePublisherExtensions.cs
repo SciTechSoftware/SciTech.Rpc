@@ -132,6 +132,16 @@ namespace SciTech.Rpc.Server
             return publishedServices;
         }
 
+        /// <summary>
+        /// Publishes an RPC singleton under the service name of the <typeparamref name="TService"/> RPC interface,
+        /// using <typeparamref name="TServiceImpl"/> as the implementation.
+        /// The service instance will be created using the <see cref="IServiceProvider"/> associated with the RPC call.
+        /// </summary>
+        /// <typeparam name="TService">The interface of the service type. Must be an interface type with the <see cref="RpcServiceAttribute"/> (or <c>ServiceContractAttribute</c>) 
+        /// applied.</typeparam>
+        /// <typeparam name="TServiceImpl">The type that implements the service interface.</typeparam>
+        /// <returns>A scoped object including the <see cref="RpcSingletonRef{TService}"/> identifying the published singleton. The scoped object will unpublish 
+        /// the service singleton when disposed.</returns>
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServicePublisher publisher)
             where TServiceImpl : class, TService
             where TService : class
@@ -145,13 +155,13 @@ namespace SciTech.Rpc.Server
         /// Publishes an RPC singleton under the service name of the <typeparamref name="TService"/> RPC interface.
         /// The service instance will be created using the <see cref="IServiceProvider"/> associated with the RPC call.
         /// </summary>
-        /// <typeparam name="TService">The interface of the service type. Must be an interface type with the <see cref="RpcServiceAttribute"/> (or <c>ServiceContractAttribute)</c>) 
+        /// <typeparam name="TService">The interface of the service type. Must be an interface type with the <see cref="RpcServiceAttribute"/> (or <c>ServiceContractAttribute</c>) 
         /// applied.</typeparam>
         /// <returns>A scoped object including the <see cref="RpcSingletonRef{TService}"/> identifying the published singleton. The scoped object will unpublish 
         /// the service singleton when disposed.</returns>
         public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher publisher)
             where TService : class
-            =>PublishSingleton<TService, TService>(publisher);
+            => PublishSingleton<TService, TService>(publisher);
 
 
         private sealed class ServiceActivator<TService, TServiceImpl>

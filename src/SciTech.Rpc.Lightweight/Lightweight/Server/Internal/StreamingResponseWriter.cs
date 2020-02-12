@@ -24,13 +24,13 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     {
         private int messageNumber;
 
-        private RpcPipeline pipelineClient;
+        private ILightweightRpcFrameWriter pipelineClient;
 
         private string rpcOperation;
 
         private IRpcSerializer<TResponse> serializer;
 
-        public StreamingResponseWriter(RpcPipeline pipelineClient, IRpcSerializer<TResponse> serializer, int messageNumber, string rpcOperation)
+        public StreamingResponseWriter(ILightweightRpcFrameWriter pipelineClient, IRpcSerializer<TResponse> serializer, int messageNumber, string rpcOperation)
         {
             this.pipelineClient = pipelineClient ?? throw new ArgumentNullException(nameof(pipelineClient));
             this.serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
@@ -44,18 +44,18 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 RpcFrameType.StreamingResponse, this.messageNumber, this.rpcOperation,
                 ImmutableArray<KeyValuePair<string, string>>.Empty);
 
-            var responseStream = await this.pipelineClient.BeginWriteAsync(responseHeader).ContextFree();
+            var writeState = this.pipelineClient.BeginWrite(responseHeader);
             try
             {
-                this.serializer.Serialize(responseStream, response);
+                this.serializer.Serialize(writeState.Writer, response);
             }
             catch
             {
-                this.pipelineClient.AbortWrite();
+                this.pipelineClient.AbortWrite(writeState);
                 throw;
             }
 
-            await this.pipelineClient.EndWriteAsync().ContextFree();
+            await this.pipelineClient.EndWriteAsync(writeState, false).ContextFree();
         }
 
         internal async Task EndAsync()
@@ -64,13 +64,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 RpcFrameType.StreamingEnd, this.messageNumber, this.rpcOperation,
                 ImmutableArray<KeyValuePair<string, string>>.Empty);
 
-            var responseStream = await this.pipelineClient.TryBeginWriteAsync(responseHeader).ContextFree();
-            if (responseStream != null)
-            {
-                // Response data is ignored when frame is StreamingEnd,
-                // and we have not suitable response to write anyway.
-                await this.pipelineClient.EndWriteAsync().ContextFree();
-            }
+            var writeState = this.pipelineClient.BeginWrite(responseHeader);
+            // Response data is ignored when frame is StreamingEnd,
+            // and we have not suitable response to write anyway.
+            await this.pipelineClient.EndWriteAsync(writeState,false).ContextFree();        
         }
     }
 }

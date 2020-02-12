@@ -15,7 +15,9 @@ using SciTech.Rpc.Server;
 using System;
 using System.IO;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -26,90 +28,105 @@ namespace SciTech.Rpc.Lightweight.Server
         private readonly SslServerOptions? sslOptions;
 
         public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
+            : this( hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces ), sslOptions )
         {
-            this.BindToAllInterfaces = bindToAllInterfaces;
+        }
+
+        public TcpRpcEndPoint(string hostName, string endPointAddress, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
+            : this(hostName, CreateNetEndPoint(endPointAddress, port, bindToAllInterfaces), sslOptions )
+        {
+        }
+
+        public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, SslServerOptions? sslOptions = null)
+        {
             this.HostName = hostName ?? throw new ArgumentNullException(nameof(hostName));
             this.DisplayName = hostName;
-            this.Port = port;
+            this.EndPoint = endPoint;
 
             this.sslOptions = sslOptions;
         }
-
-        public bool BindToAllInterfaces { get; }
 
         public override string DisplayName { get; }
 
         public override string HostName { get; }
 
-        public int Port { get; }
+        public IPEndPoint EndPoint { get; }
+
+        public int Port => this.EndPoint.Port;
 
         public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId hostId)
         {
             return new RpcServerConnectionInfo(this.DisplayName, new Uri($"lightweight.tcp://{this.HostName}:{this.Port}"), hostId);
         }
 
-        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
+        protected internal override ILightweightRpcListener CreateListener(            
+            IRpcConnectionHandler connectionHandler,
+            int maxRequestSize, int maxResponseSize)
         {
             ILightweightRpcListener socketServer;
 
-            var endPoint = this.CreateNetEndPoint();
-
             if (this.sslOptions != null)
             {
-                socketServer = new RpcSslSocketServer(endPoint, clientConnectedCallback, maxRequestSize, this.sslOptions);
+                socketServer = new RpcSslSocketServer(this, connectionHandler, maxRequestSize, this.sslOptions);
             }
             else
             {
-                socketServer = new RpcSocketServer(endPoint, clientConnectedCallback, maxRequestSize);
+                socketServer = new RpcSocketServer(this, connectionHandler, maxRequestSize);
             }
 
             return socketServer;
         }
 
-        private EndPoint CreateNetEndPoint()
+        private static IPEndPoint CreateNetEndPoint(string serverAddress, int port, bool bindToAllInterfaces )
         {
-            EndPoint endPoint;
-
-            if (this.BindToAllInterfaces)
+            if (bindToAllInterfaces)
             {
-                endPoint = new IPEndPoint(IPAddress.Any, this.Port);
+                return new IPEndPoint(IPAddress.Any, port);
             }
-            else if (IPAddress.TryParse(this.HostName, out var ipAddress))
+            else if (IPAddress.TryParse(serverAddress, out var ipAddress))
             {
-                endPoint = new IPEndPoint(ipAddress, this.Port);
+                return new IPEndPoint(ipAddress, port);
             }
             else
             {
-                // TODO: This must be improved. Or it should not be allowed to provide a DNS host name?
-                var addresses = Dns.GetHostAddresses(this.HostName);
+                // TODO: Should this really be allowed? If there's more than one matching address 
+                // it's not possible to know which one is selected.
+                var addresses = Dns.GetHostAddresses(serverAddress);
+                
                 if (addresses?.Length > 0)
                 {
-                    endPoint = new IPEndPoint(addresses[0], this.Port);
+                    var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+                    foreach( var address in addresses )
+                    {
+                        var ni = networkInterfaces.FirstOrDefault(i => i.GetIPProperties().UnicastAddresses.Any(a => Equals(a.Address, address)));
+                        if( ni?.OperationalStatus == OperationalStatus.Up )
+                        {
+                            // This interface looks usable. (But maybe we should see if there's more than one usable interface?)
+                            return new IPEndPoint(address, port);
+                        }
+                    }
+                    
                 }
-                else
-                {
-                    throw new IOException($"Failed to lookup IP for '{this.HostName}'.");
-                }
-            }
 
-            return endPoint;
+                throw new IOException($"Failed to lookup IP address for '{serverAddress}'.");
+            }
         }
 
         private class RpcSocketServer : SocketServer, ILightweightRpcListener
         {
-            private readonly EndPoint endPoint;
+            private readonly TcpRpcEndPoint rpcEndPoint;
 
             private readonly int maxRequestSize;
 
-            private Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
+            private readonly IRpcConnectionHandler connectionHandler;
 
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSocketServer(EndPoint endPoint, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize)
+            internal RpcSocketServer(TcpRpcEndPoint rpcEndPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize)
             {
-                this.clientConnectedCallback = clientConnectedCallback;
-                this.endPoint = endPoint;
+                this.connectionHandler = connectionHandler;
+                this.rpcEndPoint = rpcEndPoint;
                 this.maxRequestSize = maxRequestSize;
             }
 
@@ -124,7 +141,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 var sendOptions = new PipeOptions(
                     readerScheduler: PipeScheduler.ThreadPool,
                     useSynchronizationContext: false);
-                this.Listen(this.endPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
+                this.Listen(this.rpcEndPoint.EndPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
             }
 
             public Task StopAsync()
@@ -137,7 +154,7 @@ namespace SciTech.Rpc.Lightweight.Server
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
                 // TODO: Implement CancellationToken
-                return this.clientConnectedCallback(client.Transport, CancellationToken.None);
+                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, CancellationToken.None);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)
@@ -153,20 +170,20 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private class RpcSslSocketServer : SslSocketServer, ILightweightRpcListener
         {
-            private readonly Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
+            private readonly IRpcConnectionHandler connectionHandler;
 
-            private readonly EndPoint endPoint;
+            private readonly TcpRpcEndPoint rpcEndPoint;
 
             private readonly int maxRequestSize;
 
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSslSocketServer(EndPoint endPoint, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, SslServerOptions? sslOptions = null)
+            internal RpcSslSocketServer(TcpRpcEndPoint rpcEndPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize, SslServerOptions? sslOptions = null)
                 : base(sslOptions)
             {
-                this.clientConnectedCallback = clientConnectedCallback;
-                this.endPoint = endPoint;
+                this.connectionHandler = connectionHandler;
+                this.rpcEndPoint = rpcEndPoint;
                 this.maxRequestSize = maxRequestSize;
             }
 
@@ -187,7 +204,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     readerScheduler: PipeScheduler.ThreadPool,
                     useSynchronizationContext: false);
 
-                this.Listen(this.endPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
+                this.Listen(this.rpcEndPoint.EndPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
             }
 
             public Task StopAsync()
@@ -200,7 +217,7 @@ namespace SciTech.Rpc.Lightweight.Server
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
                 // TODO: Implement CancellationToken
-                return this.clientConnectedCallback(client.Transport, CancellationToken.None);
+                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, CancellationToken.None);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)

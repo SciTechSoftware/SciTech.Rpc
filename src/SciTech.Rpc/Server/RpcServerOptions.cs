@@ -22,10 +22,16 @@ namespace SciTech.Rpc.Server
     public interface IRpcServerOptions
     {
         /// <summary>
-        /// Gets or sets a value indicating whether service instances may be automatically published
+        /// Gets a value indicating whether service instances may be automatically published
         /// when returned from a service implementation method.
         /// </summary>
         bool? AllowAutoPublish { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the singleton services can be discovered.
+        /// </summary>
+        public bool? AllowDiscovery { get; }
+
 
         IReadOnlyList<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
@@ -61,6 +67,11 @@ namespace SciTech.Rpc.Server
         /// when returned from a service implementation method.
         /// </summary>
         public bool? AllowAutoPublish { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the singleton services can be discovered.
+        /// </summary>
+        public bool? AllowDiscovery { get; set; }
 
         public List<IRpcServerExceptionConverter> ExceptionConverters
         {

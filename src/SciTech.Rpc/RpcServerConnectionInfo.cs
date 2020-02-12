@@ -81,7 +81,7 @@ namespace SciTech.Rpc
     }
 
     /// <summary>
-    /// The RpcServerConnectionInfo class contains base information about a connection 
+    /// The RpcServerConnectionInfo class contains information about a connection 
     /// to an RPC server. 
     /// </summary>
     [DataContract]

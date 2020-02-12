@@ -81,7 +81,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return new LightweightMethodDef<TRequest, TResponse>(methodType, $"{serviceName}.{methodName}", serializer, faultHandler);
         }
 
-
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Not owner")]
         protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(
             TRequest request, LightweightMethodDef method, CancellationToken ct)
         {
@@ -94,7 +94,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
-                var streamingCallTask = client.BeginStreamingServerCall(
+                var streamingCall = client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
                     headers,
@@ -103,20 +103,20 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     this.streamingCallTimeout,
                     ct);
 
-                return streamingCallTask;
+                return new ValueTask<IAsyncStreamingServerCall<TResponse>>(streamingCall);
             }
 
             async ValueTask<IAsyncStreamingServerCall<TResponse>> AwaitConnectAndCall(ValueTask<RpcPipelineClient> pendingClientTask)
             {
                 var client = await pendingClientTask.ContextFree();
-                var streamingCall = await client.BeginStreamingServerCall(
+                var streamingCall = client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
                     headers,
                     request,
                     actualSerializers,
                     this.streamingCallTimeout,
-                    ct).ContextFree();
+                    ct);
 
                 return streamingCall;
             }

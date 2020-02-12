@@ -76,15 +76,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// Start listening as a server
         /// </summary>
         public void Listen(EndPoint endPoint,
-            AddressFamily addressFamily = AddressFamily.InterNetwork,
+            AddressFamily? addressFamily = null,
             SocketType socketType = SocketType.Stream,
             ProtocolType protocolType = ProtocolType.Tcp,
             int listenBacklog = 20,
             PipeOptions? sendOptions = null, PipeOptions? receiveOptions = null)
         {
             if (this.listener != null) throw new InvalidOperationException("Server is already running");
-
-            Socket listener = new Socket(addressFamily, socketType, protocolType);
+            Socket listener = new Socket(addressFamily ?? endPoint.AddressFamily, socketType, protocolType);
             listener.Bind(endPoint);
             listener.Listen(listenBacklog);
 

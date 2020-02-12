@@ -60,7 +60,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         }
 
 #pragma warning disable CA2000 // Dispose objects before losing scope
-        public async ValueTask<IAsyncStreamingServerCall<TResponse>> BeginStreamingServerCall<TRequest, TResponse>(
+        public IAsyncStreamingServerCall<TResponse> BeginStreamingServerCall<TRequest, TResponse>(
             RpcFrameType frameType,
             string operation,
             IReadOnlyCollection<KeyValuePair<string, string>>? headers,
@@ -91,8 +91,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
                 var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)callTimeout, headers);
 
-                var payloadStream = await this.BeginWriteAsync(frame).ContextFree();
-                this.WriteRequest(request, serializers.RequestSerializer, payloadStream);
+                var writeState = this.BeginWrite(frame);
+                this.WriteRequest(request, serializers.RequestSerializer, writeState);
 
                 return streamingCall;
             }
@@ -116,7 +116,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             this.receiveLoopTask = this.StartReceiveLoopAsync(cancellationToken);
         }
 
-#pragma warning disable CA2000 // Dispose objects before losing scope
         public Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
             RpcFrameType frameType,
             string operation,
@@ -130,33 +129,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             if (TraceEnabled)
             {
                 Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
-            }
-
-            async Task<TResponse> Awaited(int messageId, ValueTask<BufferWriterStream> pendingWriteTask, Task<TResponse> response)
-            {
-                try
-                {
-                    if (TraceEnabled)
-                    {
-                        Logger.Trace("Awaiting writer for '{Operation}'.", operation);
-                    }
-
-                    this.WriteRequest(request, requestSerializer, await pendingWriteTask.ContextFree());
-
-                    var awaitedResponse = await response.ContextFree();
-
-                    if (TraceEnabled)
-                    {
-                        Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
-                    }
-
-                    return awaitedResponse;
-                }
-                catch (Exception ex)
-                {
-                    this.HandleCallError(messageId, ex);
-                    throw;
-                }
             }
 
             var tcs = new ResponseCompletionSource<TResponse>(responseSerializer);
@@ -174,37 +146,31 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
                 var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, 0, headers);
 
-                var writeTask = this.BeginWriteAsync(frame);
+                var writeState = this.BeginWrite(frame);
+                this.WriteRequest(request, requestSerializer, writeState);
 
-                if (writeTask.IsCompletedSuccessfully)
+                if (TraceEnabled)
                 {
-                    this.WriteRequest(request, requestSerializer, writeTask.Result);
-
-                    if (TraceEnabled)
+                    tcs.Task.ContinueWith(t =>
                     {
-                        tcs.Task.ContinueWith(t =>
+                        switch (t.Status)
                         {
-                            switch (t.Status)
-                            {
-                                case TaskStatus.RanToCompletion:
-                                    Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
-                                    break;
-                                case TaskStatus.Canceled:
-                                    Logger.Trace("SendReceiveFrameAsync cancelled '{Operation}'.", operation);
-                                    break;
-                                case TaskStatus.Faulted:
-                                    Logger.TraceException("SendReceiveFrameAsync error '{Operation}'.", t.Exception);
-                                    break;
-                            }
+                            case TaskStatus.RanToCompletion:
+                                Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
+                                break;
+                            case TaskStatus.Canceled:
+                                Logger.Trace("SendReceiveFrameAsync cancelled '{Operation}'.", operation);
+                                break;
+                            case TaskStatus.Faulted:
+                                Logger.TraceException("SendReceiveFrameAsync error '{Operation}'.", t.Exception);
+                                break;
+                        }
 
-                            return Task.CompletedTask;
-                        }, TaskScheduler.Default).Forget();
-                    }
-
-                    return tcs.Task;
+                        return Task.CompletedTask;
+                    }, TaskScheduler.Default).Forget();
                 }
 
-                return Awaited(messageId, writeTask, tcs.Task);
+                return tcs.Task;
             }
             catch (Exception ex)
             {
@@ -213,7 +179,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
         }
 
-#pragma warning restore CA2000 // Dispose objects before losing scope
 
         internal Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
             RpcFrameType frameType,
@@ -238,14 +203,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 }
             }
 
-
-            async Task<TResponse> AwaitRequestStreamAndWrite(ValueTask<BufferWriterStream> requestStreamTask, Task<TResponse> responseTask)
-            {
-                var requestStream = await requestStreamTask.ContextFree();
-                var writeTask = this.WriteRequestAsync(request, serializers.RequestSerializer, requestStream);
-
-                return await AwaitWrite(writeTask, responseTask).ContextFree();
-            }
 
             async Task<TResponse> AwaitWrite(ValueTask writeTask, Task<TResponse> responseTask)
             {
@@ -281,28 +238,24 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
                 var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)timeout, headers);
 
-                var requestStreamTask = this.BeginWriteAsync(frame);
-                if( requestStreamTask.IsCompletedSuccessfully)
+                var writeState = this.BeginWrite(frame);
+
+                var writeTask = this.WriteRequestAsync(request, serializers.RequestSerializer, writeState );
+                if (writeTask.IsCompletedSuccessfully)
                 {
-                    var writeTask = this.WriteRequestAsync(request, serializers.RequestSerializer, requestStreamTask.Result);
-                    if (writeTask.IsCompletedSuccessfully)
+                    if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
                     {
-                        if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
-                        {
-                            return tcs.Task;
-                        }
-                        else
-                        {
-                            return AwaitTimeoutResponse(tcs.Task, operation, timeout);
-                        }
+                        return tcs.Task;
                     }
                     else
                     {
-                        return AwaitWrite(writeTask, tcs.Task);
+                        return AwaitTimeoutResponse(tcs.Task, operation, timeout);
                     }
                 }
-
-                return AwaitRequestStreamAndWrite(requestStreamTask, tcs.Task);
+                else
+                {
+                    return AwaitWrite(writeTask, tcs.Task);
+                }
             }
             catch (Exception ex)
             {
@@ -421,7 +374,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return messageId;
         }
 
-        private async void CancelCall(int messageId, string operation)
+        private void CancelCall(int messageId, string operation)
         {
             IResponseHandler? responseHandler;
             lock (this.awaitingResponses)
@@ -443,11 +396,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 }
 
                 var frame = new LightweightRpcFrame(RpcFrameType.CancelRequest, messageId, operation, RpcOperationFlags.None, 0, null);
-                var payloadStream = await this.BeginWriteAsync(frame).ContextFree();
-                if (payloadStream != null)
-                {
-                    this.EndWriteAsync().Forget();
-                }
+                var writeState = this.BeginWrite(frame);
+                this.EndWriteAsync(writeState, false).Forget();
             }
         }
 
@@ -482,34 +432,34 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
         }
 
-        private void WriteRequest<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, BufferWriterStream payloadStream) where TRequest : class
+        private void WriteRequest<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, in LightweightRpcFrame.WriteState writeState ) where TRequest : class
         {
             try
             {
-                serializer.Serialize(payloadStream, request);
+                serializer.Serialize(writeState.Writer, request);
             }
             catch
             {
-                this.AbortWrite();
+                this.AbortWrite(writeState);
                 throw;
             }
 
-            this.EndWriteAsync().Forget();
+            this.EndWriteAsync(writeState, false).Forget();
         }
 
-        private ValueTask WriteRequestAsync<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, BufferWriterStream payloadStream) where TRequest : class
+        private ValueTask WriteRequestAsync<TRequest>(TRequest request, IRpcSerializer<TRequest> serializer, in LightweightRpcFrame.WriteState writeState) where TRequest : class
         {
             try
             {
-                serializer.Serialize(payloadStream, request);
+                serializer.Serialize(writeState.Writer, request);
             }
             catch
             {
-                this.AbortWrite();
+                this.AbortWrite(writeState);
                 throw;
             }
 
-            return this.EndWriteAsync();
+            return this.EndWriteAsync(writeState,false);
         }
 
         private class AsyncStreamingServerCall<TResponse> : IAsyncStreamingServerCall<TResponse>, IResponseHandler

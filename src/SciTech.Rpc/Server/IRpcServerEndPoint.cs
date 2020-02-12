@@ -13,6 +13,9 @@ using System;
 
 namespace SciTech.Rpc.Server
 {
+    /// <summary>
+    /// Represents a connction end point for an RPC server.
+    /// </summary>
     public interface IRpcServerEndPoint
     {
         string DisplayName { get; }

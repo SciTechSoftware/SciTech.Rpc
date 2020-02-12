@@ -12,6 +12,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.ObjectPool;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Serialization.Internal;
@@ -33,7 +34,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         public Exception Exception { get; }
     }
 
-    internal abstract class RpcPipeline : IDisposable
+    internal abstract class RpcPipeline : ILightweightRpcFrameWriter, IDisposable
     {
         private static readonly ILog Logger = LogProvider.For<RpcPipeline>();
 
@@ -43,19 +44,15 @@ namespace SciTech.Rpc.Lightweight.Internal
         /// the <see cref="Close"/> method can be called concurrently, there's no easy way 
         /// of disposing the mutex correctly.
         /// </summary>
-#pragma warning disable CA2213 // Disposable fields should be disposed
         private readonly SemaphoreSlim singleWriter = new SemaphoreSlim(1);
-
-#pragma warning restore CA2213 // Disposable fields should be disposed
-
 
         private readonly bool skipLargeFrames;
 
         private readonly object syncRoot = new object();
 
-        private LightweightRpcFrame.WriteState currentWriteState;
+        //private LightweightRpcFrame.WriteState currentWriteState;
 
-        private BufferWriterStream? frameWriterStream;
+        //private BufferWriterStream? frameWriterStream;
 
 
         protected RpcPipeline(IDuplexPipe pipe, int? maxSendFrameLength, int? maxReceiveFrameLength, bool skipLargeFrames)
@@ -64,7 +61,6 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.MaxSendFrameLength = maxSendFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.MaxReceiveFrameLength = maxReceiveFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.skipLargeFrames = skipLargeFrames;
-            this.frameWriterStream = new BufferWriterStreamImpl();
         }
 
         public event EventHandler<ExceptionEventArgs>? ReceiveLoopFaulted;
@@ -87,16 +83,16 @@ namespace SciTech.Rpc.Lightweight.Internal
         protected IDuplexPipe? Pipe { get; private set; }
 
 
-        public void AbortWrite()
+        public void AbortWrite( in LightweightRpcFrame.WriteState writeState)
         {
-            this.ReleaseWriteStream();
+            writeState.Writer.Reset();
+            BufferWriterPool.Return((BufferWriterStreamImpl)writeState.Writer);
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         public void Close(Exception? ex = null)
         {
             IDuplexPipe? pipe;
-            BufferWriterStream? frameWriterStream;
-
 
             this.singleWriter.Wait();
 
@@ -106,12 +102,8 @@ namespace SciTech.Rpc.Lightweight.Internal
                 this.Pipe = null;
             }
 
-            frameWriterStream = this.frameWriterStream;
-            this.frameWriterStream = null;
-
             this.singleWriter.Release();
 
-#pragma warning disable CA1031 // Do not catch general exception types
             if (pipe != null)
             {
                 // burn the pipe to the ground
@@ -125,11 +117,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
 
                 this.OnClosed(ex);
-            }
-
-            frameWriterStream?.Dispose();
-
-#pragma warning restore CA1031 // Do not catch general exception types
+            }            
         }
 
         public void Dispose()
@@ -137,16 +125,45 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.Dispose(true);
         }
 
-        public ValueTask EndWriteAsync()
+        public ValueTask EndWriteAsync(in LightweightRpcFrame.WriteState writeState, bool throwOnError )
         {
-            var pipeWriter = this.Pipe?.Output;
-            var frameWriter = this.frameWriterStream;
-            if (frameWriter == null || pipeWriter == null)
+            var frameWriter = writeState.Writer;
+
+            try
             {
-                throw new InvalidOperationException();
+                var messageLength = frameWriter.Length;
+                if (messageLength > this.MaxSendFrameLength)
+                {
+                    throw new RpcFailureException(RpcFailure.SizeLimitExceeded, $"RPC send message too large (messageSize={messageLength}, maxSize={this.MaxSendFrameLength}.");
+                }
+
+                LightweightRpcFrame.EndWrite((int)messageLength, writeState);
+            }
+            catch
+            {
+                this.AbortWrite(writeState);
+                throw;
             }
 
-            static async ValueTask AwaitWriteAndRelease(RpcPipeline self, ValueTask<FlushResult> flushTask )
+            SemaphoreSlim writerMutex = this.singleWriter;
+            var waitTask = writerMutex.WaitAsync();
+            if (waitTask.Status == TaskStatus.RanToCompletion )
+            {
+                FinalizeWrite(this, frameWriter);
+                return default;
+            }
+            else
+            {
+                return AwaitWriterAndFinalize(this, waitTask, frameWriter);
+            }
+
+            static async ValueTask AwaitWriterAndFinalize(RpcPipeline self, Task writerWaitTask, BufferWriterStream frameWriter)
+            {
+                await writerWaitTask.ContextFree();
+                await FinalizeWrite(self, frameWriter).ContextFree();
+            }
+
+            static async ValueTask AwaitWriteAndRelease(RpcPipeline self, ValueTask<FlushResult> flushTask, BufferWriterStream frameWriter)
             {
                 try
                 {
@@ -154,62 +171,39 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
                 finally
                 {
-                    self.ReleaseWriteStream();
+                    self.ReleaseWriteStream(frameWriter);
                 }
             }
 
-            bool writeStreamReleased = false;
-            try
+            static ValueTask FinalizeWrite(RpcPipeline self, BufferWriterStream frameWriter)
             {
                 try
                 {
-                    int messageLength = checked((int)frameWriter.Length);
-
-                    LightweightRpcFrame.EndWrite(messageLength, this.currentWriteState);
-                    if (messageLength > this.MaxSendFrameLength)
+                    var pipeWriter = self.Pipe?.Output;
+                    if (pipeWriter == null)
                     {
-                        throw new RpcFailureException(RpcFailure.SizeLimitExceeded, $"RPC send message too large (messageSize={messageLength}, maxSize={this.MaxSendFrameLength}.");
+                        throw new ObjectDisposedException(nameof(RpcPipeline));
+                    }
+
+                    frameWriter.CopyTo(pipeWriter);
+                    var flushTask = pipeWriter.FlushAsync();
+
+                    if (flushTask.IsCompletedSuccessfully)
+                    {
+                        self.ReleaseWriteStream(frameWriter);
+                        return default;
+                    }
+                    else
+                    {
+                        return AwaitWriteAndRelease(self, flushTask, frameWriter);
                     }
                 }
                 catch
                 {
-                    frameWriter.Reset();
+                    self.ReleaseWriteStream(frameWriter);
                     throw;
                 }
-
-                frameWriter.CopyTo(pipeWriter);
-                var flushTask = pipeWriter.FlushAsync();
-                writeStreamReleased = true; // It will be soon
-
-                if ( flushTask.IsCompletedSuccessfully)
-                {
-                    this.ReleaseWriteStream();
-                    return default;
-
-                } else
-                {
-                    return AwaitWriteAndRelease(this, flushTask);
-                }
             }
-            finally
-            {
-                if (!writeStreamReleased)
-                {
-                    this.ReleaseWriteStream();
-                }
-            }
-        }
-
-
-
-        protected internal ValueTask<BufferWriterStream> BeginWriteAsync(in LightweightRpcFrame responseHeader)
-        {
-            return this.BeginWriteAsync(responseHeader, true)!;
-        }
-
-        protected internal ValueTask<BufferWriterStream?> TryBeginWriteAsync(in LightweightRpcFrame responseHeader)
-        {
-            return this.BeginWriteAsync(responseHeader, false);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -255,9 +249,9 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         protected virtual ValueTask OnStartReceiveLoopAsync() => default;
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Silent receive loop.")]
         protected async Task StartReceiveLoopAsync(CancellationToken cancellationToken = default)
         {
-#pragma warning disable CA1031 // Do not catch general exception types
             var reader = this.Pipe?.Input ?? throw new ObjectDisposedException(this.ToString());
             try
             {
@@ -349,7 +343,6 @@ namespace SciTech.Rpc.Lightweight.Internal
             {
                 try { await this.OnEndReceiveLoopAsync().ContextFree(); } catch { }
             }
-#pragma warning restore CA1031 // Do not catch general exception types
         }
 
         private static async Task SkipSequenceBytes(PipeReader reader, int bytesToSkip, CancellationToken cancellationToken)
@@ -373,62 +366,68 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
         }
 
+        private static readonly ObjectPool<BufferWriterStreamImpl> BufferWriterPool = ObjectPool.Create<BufferWriterStreamImpl>();
+
         /// <summary>
         /// Begins writing a response frame. <see cref="EndWriteAsync"/> or <see cref="AbortWrite"/> must be called to finalize the write.
         /// </summary>
         /// <param name="responseHeader"></param>
         /// <returns></returns>
-        private ValueTask<BufferWriterStream?> BeginWriteAsync(in LightweightRpcFrame responseHeader, bool throwOnError)
+        public LightweightRpcFrame.WriteState BeginWrite(in LightweightRpcFrame responseHeader)
         {
-            SemaphoreSlim? writerMutex = this.singleWriter;
-            if (writerMutex.Wait(0))
-            {
-                try
-                {
-                    var writer = this.frameWriterStream;
-                    if (writer == null)
-                    {
-                        return !throwOnError ? new ValueTask<BufferWriterStream?>((BufferWriterStream?)null) : throw new ObjectDisposedException(this.ToString());
-                    }
+            var writer = BufferWriterPool.Get();
+            return responseHeader.BeginWrite(writer);
+            //SemaphoreSlim? writerMutex = this.singleWriter;
+            //if (writerMutex.Wait(0))
+            //{
+            //    try
+            //    {
+            //        var writer = this.frameWriterStream;
+            //        if (writer == null)
+            //        {
+            //            return !throwOnError ? new LightweightRpcFrame.WriteState() : throw new ObjectDisposedException(this.ToString());
+            //        }
 
-                    this.currentWriteState = responseHeader.BeginWrite(writer);
-                    writerMutex = null; // Prevent mutex from being released (will be released in EndWrite/AbortWrite
-                    return new ValueTask<BufferWriterStream?>(writer);
-                }
-                finally
-                {
-                    writerMutex?.Release();
-                }
-            }
+            //        var writeState = responseHeader.BeginWrite(writer);
+            //        writerMutex = null; // Prevent mutex from being released (will be released in EndWrite/AbortWrite
+            //        return writeState;
+            //    }
+            //    finally
+            //    {
+            //        writerMutex?.Release();
+            //    }
+            //}
 
-            var header = responseHeader;
-            async ValueTask<BufferWriterStream?> AwaitSingleWriter()
-            {
-                await writerMutex!.WaitAsync().ContextFree();
-                try
-                {
-                    var writer = this.frameWriterStream;
-                    if (writer == null)
-                    {
-                        return !throwOnError ? (BufferWriterStream?)null : throw new ObjectDisposedException(this.ToString());
-                    }
+            //var header = responseHeader;
+            //async ValueTask<BufferWriterStream?> AwaitSingleWriter()
+            //{
+            //    await writerMutex!.WaitAsync().ContextFree();
+            //    try
+            //    {
+            //        var writer = this.frameWriterStream;
+            //        if (writer == null)
+            //        {
+            //            return !throwOnError ? (BufferWriterStream?)null : throw new ObjectDisposedException(this.ToString());
+            //        }
 
-                    this.currentWriteState = header.BeginWrite(writer);
-                    writerMutex = null; // Prevent mutex from being released (will be released in EndWrite/AbortWrite
-                    return writer;
-                }
-                finally
-                {
-                    writerMutex?.Release();
-                }
-            }
+            //        this.currentWriteState = header.BeginWrite(writer);
+            //        writerMutex = null; // Prevent mutex from being released (will be released in EndWrite/AbortWrite
+            //        return writer;
+            //    }
+            //    finally
+            //    {
+            //        writerMutex?.Release();
+            //    }
+            //}
 
-            return AwaitSingleWriter();
+            //return AwaitSingleWriter();
         }
 
-        private void ReleaseWriteStream()
+        private void ReleaseWriteStream(BufferWriterStream writerStream)
         {
-            this.frameWriterStream!.Reset();
+            writerStream.Reset();
+            BufferWriterPool.Return((BufferWriterStreamImpl)writerStream);
+
             this.singleWriter.Release();
         }
     }

@@ -9,6 +9,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.Logging;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
@@ -19,16 +20,16 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerHostBase : RpcServerBase, IRpcServerHost
     {
-        protected RpcServerHostBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options) :
+        protected RpcServerHostBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options, ILogger<RpcServerHostBase>? logger=null) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,
-                options)
+                options, logger )
         {
         }
 
-        protected RpcServerHostBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options) :
-            this(new RpcServicePublisher(definitionsProvider, serverId), options)
+        protected RpcServerHostBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options, ILogger<RpcServerHostBase>? logger = null) :
+            this(new RpcServicePublisher(definitionsProvider, serverId), options, logger)
         {
         }
 
@@ -40,8 +41,9 @@ namespace SciTech.Rpc.Server
         /// <param name="definitionsProvider"></param>
         protected RpcServerHostBase(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
-            IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options)
-            : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
+            IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options,
+            ILogger<RpcServerHostBase>? logger = null )
+            : base(servicePublisher, serviceImplProvider, definitionsProvider, options, logger)
         {
 
         }

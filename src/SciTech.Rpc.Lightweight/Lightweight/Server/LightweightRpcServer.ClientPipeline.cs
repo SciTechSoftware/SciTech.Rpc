@@ -36,14 +36,17 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private readonly LightweightRpcServer server;
 
+            private LightweightRpcEndPoint endPoint;
+
             private readonly object syncRoot = new object();
 
             private IRpcSerializer serializer;
 
-            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
+            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, LightweightRpcEndPoint endPoint, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
                 : base(pipe, maxResponseSize, maxRequestSize, skipLargeFrames)
             {
                 this.server = server;
+                this.endPoint = endPoint;
                 this.serializer = server.Serializer;
             }
 
@@ -69,6 +72,24 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
             }
 
+            //private async ValueTask HandleDiscoveryRequest(LightweightRpcFrame frame)
+            //{
+            //    IRpcDiscoveryHandler discoveryHandler;
+
+            //    var response = discoveryHandler.HandleDiscoveryRequest(frame);
+
+            //    var writer = await this.BeginWriteAsync(response);
+            //    try
+            //    {
+            //        await writer.WriteAsync(response.Payload.).ContextFree();
+            //        await this.EndWriteAsync();
+            //    }
+            //    catch
+            //    {
+            //        this.AbortWrite();
+            //    }
+            //}
+
             protected override sealed ValueTask OnReceiveAsync(in LightweightRpcFrame frame)
             {
                 ValueTask handleRequestTask;
@@ -78,6 +99,10 @@ namespace SciTech.Rpc.Lightweight.Server
                     case RpcFrameType.StreamingRequest:
                         handleRequestTask = this.HandleRequestAsync(frame);
                         break;
+                    //case RpcFrameType.ServiceDiscoveryRequest:
+                    //    handleRequestTask = HandleDiscoveryRequest(frame);
+                    //    break;
+                        
                     //case RpcFrameType.StreamingRequest:
                     //handleRequestTask = this.HandleStreamingRequestAsync(frame);
                     //break;
@@ -236,7 +261,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                         Task messageTask;
 
-                        var context = new LightweightCallContext(frame.Headers, cancellationSource?.Token ?? default);
+                        var context = new LightweightCallContext(this.endPoint, frame.Headers, cancellationSource?.Token ?? default);
                         scope = this.server.ServiceProvider?.CreateScope();
 
                         switch (frame.FrameType)
@@ -304,8 +329,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
                 var cancelFrame = new LightweightRpcFrame(RpcFrameType.CancelResponse, messageId, operationName, headers);
 
-                await this.BeginWriteAsync(cancelFrame).ContextFree();
-                await this.EndWriteAsync().ContextFree();
+                var writeState = this.BeginWrite(cancelFrame);
+                await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
             private Task WriteErrorResponseAsync(int messageId, string operationName, Exception e)
@@ -338,8 +363,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 var errorFrame = new LightweightRpcFrame(RpcFrameType.ErrorResponse, messageId, operationName, headers);
 
-                await this.BeginWriteAsync(errorFrame).ContextFree();
-                await this.EndWriteAsync().ContextFree();
+                var writeState = this.BeginWrite(errorFrame);
+                await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
             private async Task WriteTimeoutResponseAsync(int messageId, string operationName)
@@ -348,8 +373,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
                 var cancelFrame = new LightweightRpcFrame(RpcFrameType.TimeoutResponse, messageId, operationName, headers);
 
-                await this.BeginWriteAsync(cancelFrame).ContextFree();
-                await this.EndWriteAsync().ContextFree();
+                var writeState = this.BeginWrite(cancelFrame);
+                await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
             private sealed class ActiveOperation

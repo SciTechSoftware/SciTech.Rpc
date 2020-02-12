@@ -3,6 +3,7 @@ using NUnit.Framework;
 using SciTech.IO;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
@@ -270,7 +271,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             TResponse response;
 
-            var context = new LightweightCallContext(ImmutableArray<KeyValuePair<string, string>>.Empty, CancellationToken.None);
+            var context = new LightweightCallContext(new TestRpcEndPoint(), ImmutableArray<KeyValuePair<string, string>>.Empty, CancellationToken.None);
             var requestPipe = new Pipe();
             var responsePipe = new Pipe();
             var duplexPipe = new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer);
@@ -331,4 +332,20 @@ namespace SciTech.Rpc.Tests.Lightweight
         }
     }
 
+    internal class TestRpcEndPoint : LightweightRpcEndPoint
+    {
+        public override string DisplayName => "Test";
+
+        public override string HostName => "test";
+
+        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        {
+            return new RpcServerConnectionInfo(serverId);
+        }
+
+        protected internal override ILightweightRpcListener CreateListener(IRpcConnectionHandler discoveryHandler, int maxRequestSize, int maxResponseSize)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

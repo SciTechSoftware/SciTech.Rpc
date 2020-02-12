@@ -42,7 +42,9 @@ namespace SciTech.Rpc.Lightweight.Server
             return new RpcServerConnectionInfo("Direct", new Uri("direct://localhost"), serverId);
         }
 
-        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
+        protected internal override ILightweightRpcListener CreateListener(
+            IRpcConnectionHandler connectionHandler,
+            int maxRequestSize, int maxResponseSize)
         {
             IDuplexPipe pipe;
             lock (this.syncRoot)
@@ -55,12 +57,14 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.clientPipe = null;
             }
 
-            return new DirectListener(pipe, clientConnectedCallback);
+            return new DirectListener(this, pipe, connectionHandler);
         }
 
         private class DirectListener : ILightweightRpcListener
         {
-            private Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
+            private readonly InprocRpcEndPoint endPoint;
+
+            private readonly IRpcConnectionHandler connectionHandler;
 
             private CancellationTokenSource? clientCts;
 
@@ -70,10 +74,11 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private IDuplexPipe? pipe;
 
-            internal DirectListener(IDuplexPipe pipe, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback)
+            internal DirectListener(InprocRpcEndPoint endPoint, IDuplexPipe pipe, IRpcConnectionHandler connectionHandler)
             {
+                this.endPoint = endPoint;
                 this.pipe = pipe;
-                this.clientConnectedCallback = clientConnectedCallback;
+                this.connectionHandler = connectionHandler;
             }
 
             public void Dispose()
@@ -98,7 +103,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 if (this.isListening || this.pipe == null) throw new InvalidOperationException("DirectListener is already listening or has been stopped.");
                 this.isListening = true;
                 this.clientCts = new CancellationTokenSource();
-                this.clientTask = this.clientConnectedCallback(this.pipe, this.clientCts.Token);
+                this.clientTask = this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, this.clientCts.Token);
             }
 
             public async Task StopAsync()

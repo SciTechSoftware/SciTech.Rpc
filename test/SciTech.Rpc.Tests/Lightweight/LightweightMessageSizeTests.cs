@@ -19,7 +19,11 @@ namespace SciTech.Rpc.Tests.Lightweight
         public LightweightMessageSizeTests(IRpcSerializer serializer, RpcConnectionType connectionType, bool keepConnectionAlive)
             : base(serializer, connectionType, keepConnectionAlive)
         {
-            this.LightweightOptions = new Rpc.Lightweight.LightweightOptions { KeepSizeLimitedConnectionAlive = keepConnectionAlive };
+            this.LightweightOptions = new Rpc.Lightweight.LightweightOptions 
+            { 
+                KeepSizeLimitedConnectionAlive = keepConnectionAlive,
+                AllowReconnect = !keepConnectionAlive
+            };
         }
     }
 }

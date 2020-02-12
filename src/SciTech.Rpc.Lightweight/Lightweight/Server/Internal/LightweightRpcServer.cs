@@ -12,6 +12,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
@@ -29,6 +30,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
+
     public partial class LightweightRpcServer : RpcServerHostBase
     {
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
@@ -47,12 +49,20 @@ namespace SciTech.Rpc.Lightweight.Server
         private readonly Dictionary<string, LightweightMethodStub> methodDefinitions
             = new Dictionary<string, LightweightMethodStub>();
 
+        private List<LightweightDiscoveryEndPoint> discoveryEndPoints = new List<LightweightDiscoveryEndPoint>();
         private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
-
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
 
         public LightweightRpcServer(
-            IRpcServiceDefinitionsProvider? definitionsProvider = null,
+            IServiceProvider? serviceProvider = null,
+            RpcServerOptions? options = null,
+            LightweightOptions? lightweightOptions = null)
+            : this(RpcServerId.NewId(), null, serviceProvider, options, lightweightOptions)
+        {
+        }
+
+        public LightweightRpcServer(
+            IRpcServiceDefinitionsProvider? definitionsProvider,
             IServiceProvider? serviceProvider = null,
             RpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
@@ -66,8 +76,8 @@ namespace SciTech.Rpc.Lightweight.Server
         /// <param name="servicePublisher"></param>
         public LightweightRpcServer(
             RpcServicePublisher servicePublisher,
-            IServiceProvider? serviceProvider=null,
-            RpcServerOptions? options=null,
+            IServiceProvider? serviceProvider = null,
+            RpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
@@ -117,10 +127,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public void AddEndPoint(LightweightRpcEndPoint endPoint)
         {
-            if (endPoint == null)
-            {
-                throw new ArgumentNullException(nameof(endPoint));
-            }
+            if (endPoint == null) throw new ArgumentNullException(nameof(endPoint));
 
             lock (this.SyncRoot)
             {
@@ -129,7 +136,17 @@ namespace SciTech.Rpc.Lightweight.Server
             }
 
             this.ServicePublisher.TryInitConnectionInfo(endPoint.GetConnectionInfo(this.ServicePublisher.ServerId));
+        }
 
+        public void AddEndPoint(LightweightDiscoveryEndPoint endPoint)
+        {
+            if (endPoint == null) throw new ArgumentNullException(nameof(endPoint));
+
+            lock (this.SyncRoot)
+            {
+                this.CheckIsInitializing();
+                this.discoveryEndPoints.Add(endPoint);
+            }
         }
 
         public override void AddEndPoint(IRpcServerEndPoint endPoint)
@@ -138,9 +155,12 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 this.AddEndPoint(lightweightEndPoint);
             }
-            else
+            else if (endPoint is LightweightDiscoveryEndPoint discoveryEndPoint)
             {
-                throw new ArgumentException($"End point must implement {nameof(LightweightRpcEndPoint)}.");
+
+            }
+            {
+                throw new ArgumentException($"End point must implement {nameof(LightweightRpcEndPoint)} or {nameof(LightweightDiscoveryEndPoint)}.");
             }
         }
 
@@ -161,12 +181,17 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected override void BuildServiceStubs()
         {
-            var methodStub = new LightweightMethodStub<RpcObjectRequest, RpcServicesQueryResponse>(
+            var queryServicesStub = new LightweightMethodStub<RpcObjectRequest, RpcServicesQueryResponse>(
                 "SciTech.Rpc.RpcService.QueryServices",
                 (request, _, context) => new ValueTask<RpcServicesQueryResponse>(this.QueryServices(request.Id)),
-            this.Serializer, null, false);
+                this.Serializer, null, false);
+            this.AddMethodDef(queryServicesStub);
 
-            this.methodDefinitions.Add("SciTech.Rpc.RpcService.QueryServices", methodStub);
+            if (this.AllowDiscovery)
+            {
+                var discovery = new ServiceDiscovery(this, this.CreateDefaultSerializer());
+                discovery.AddDiscoveryMethods(new MethodBinder(this));
+            }
 
             base.BuildServiceStubs();
         }
@@ -176,15 +201,14 @@ namespace SciTech.Rpc.Lightweight.Server
             return new JsonRpcSerializer();
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         protected override void Dispose(bool disposing)
         {
             if (!this.IsDisposed)
             {
                 foreach (var client in this.clients)
                 {
-#pragma warning disable CA1031 // Do not catch general exception types
                     try { client.Key.Dispose(); } catch (Exception x) { Logger.Warn(x, "Error when disposing client."); }
-#pragma warning restore CA1031 // Do not catch general exception types
                 }
                 this.clients.Clear();
 
@@ -199,9 +223,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected virtual ValueTask OnReceiveAsync(IMemoryOwner<byte> message) => default;
 
-        protected async Task RunClientAsync(IDuplexPipe pipe, CancellationToken cancellationToken = default)
+        protected async Task RunClientAsync(IDuplexPipe pipe, LightweightRpcEndPoint endPoint, CancellationToken cancellationToken = default)
         {
-            using (var client = new ClientPipeline(pipe, this, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive))
+            using (var client = new ClientPipeline(pipe, this, endPoint, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive))
             {
                 try
                 {
@@ -230,14 +254,11 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected override void StartCore()
         {
-            Task ConnectedCallback(IDuplexPipe clientPipe, CancellationToken cancellationToken)
-            {
-                return this.RunClientAsync(clientPipe, cancellationToken);
-            }
-
+            var connectionHandler = new ConnectionHandler(this);
             foreach (var endPoint in this.endPoints)
             {
-                var listener = endPoint.CreateListener(ConnectedCallback, this.MaxRequestSize, this.MaxResponseSize);
+                var listener = endPoint.CreateListener(connectionHandler,
+                    this.MaxRequestSize, this.MaxResponseSize);
                 this.startedEndpoints.Add(listener);
 
                 listener.Listen();
@@ -254,6 +275,11 @@ namespace SciTech.Rpc.Lightweight.Server
             this.clients.TryAdd(client, client);
         }
 
+        private void AddMethodDef(LightweightMethodStub methodStub)
+        {
+            this.methodDefinitions.Add(methodStub.OperationName, methodStub);
+        }
+
         private void AddServiceDef(/*HashSet<string> registeredServices, */LightweightServerServiceDefinition serviceDef)
         {
             //if (!registeredServices.Add(serviceDef.ServiceName))
@@ -264,7 +290,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
             foreach (var methodStub in serviceDef.MethodStubs)
             {
-                this.methodDefinitions.Add(methodStub.OperationName, methodStub);
+                this.AddMethodDef(methodStub);
             }
         }
 
@@ -277,5 +303,38 @@ namespace SciTech.Rpc.Lightweight.Server
         }
 
         private void RemoveClient(ClientPipeline client) => this.clients.TryRemove(client, out _);
+
+        private class ConnectionHandler : IRpcConnectionHandler
+        {
+            private readonly LightweightRpcServer server;
+
+            public ConnectionHandler(LightweightRpcServer server)
+            {
+                this.server = server;
+            }
+
+            public ValueTask<byte[]?> HandleDatagramAsync(LightweightRpcEndPoint endPoint, byte[] data, CancellationToken cancellationToken)
+            {
+                throw new NotImplementedException();
+            }
+
+            public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, CancellationToken cancellationToken)
+                => this.server.RunClientAsync(clientPipe, endPoint, cancellationToken);
+        }
+
+        private class MethodBinder : ILightweightMethodBinder
+        {
+            private LightweightRpcServer server;
+
+            internal MethodBinder(LightweightRpcServer server)
+            {
+                this.server = server;
+            }
+
+            public void AddMethod(LightweightMethodStub methodStub)
+            {
+                this.server.AddMethodDef(methodStub);
+            }
+        }
     }
 }

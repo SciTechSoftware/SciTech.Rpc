@@ -33,6 +33,8 @@ namespace SciTech.Rpc.Server
 
         public bool? AllowAutoPublish { get; private set; }
 
+        public bool? AllowDiscovery { get; private set; }
+
         public ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; private set; } = ImmutableArray<IRpcServerExceptionConverter>.Empty;
 
         public ImmutableArray<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
@@ -42,6 +44,7 @@ namespace SciTech.Rpc.Server
             get => this.ExceptionConverters.IsDefaultOrEmpty
                 && this.Interceptors.IsDefaultOrEmpty
                 && this.AllowAutoPublish == null
+                && this.AllowDiscovery == null
                 && this.Serializer == null
                 && this.ReceiveMaxMessageSize == null
                 && this.SendMaxMessageSize == null
@@ -86,6 +89,7 @@ namespace SciTech.Rpc.Server
             if (options != null)
             {
                 this.AllowAutoPublish = options.AllowAutoPublish ?? this.AllowAutoPublish;
+                this.AllowDiscovery = options.AllowDiscovery ?? this.AllowDiscovery;
                 this.ExceptionConverters = options.ExceptionConverters?.ToImmutableArray() ?? this.ExceptionConverters;
                 this.Interceptors = options.Interceptors?.ToImmutableArray() ?? this.Interceptors;
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;

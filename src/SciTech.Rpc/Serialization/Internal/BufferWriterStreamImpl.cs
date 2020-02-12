@@ -14,14 +14,19 @@ using System.Buffers;
 
 namespace SciTech.Rpc.Serialization.Internal
 {
-#pragma warning disable CA1710 // Identifiers should have correct suffix
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix")]
     public sealed class BufferWriterStreamImpl : BufferWriterStream
-#pragma warning restore CA1710 // Identifiers should have correct suffix
     {
         public BufferWriterStreamImpl(int chunkSize = 16384, ArrayPool<byte>? arrayPool = null)
             : base(chunkSize, arrayPool)
         {
         }
+
+        public BufferWriterStreamImpl()
+            : base(16384, null)
+        {
+        }
+
 
         public new void Reset() => base.Reset();
     }

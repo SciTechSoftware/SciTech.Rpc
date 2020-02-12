@@ -213,6 +213,7 @@ namespace SciTech.Rpc.Serialization
             this.availableBufferSize = this.activeBuffer?.Length ?? 0;
             this.length = 0;
         }
+
         private void AllocateBuffer(int sizeHint)
         {
             if (this.availableBufferSize == 0 || this.availableBufferSize < sizeHint)

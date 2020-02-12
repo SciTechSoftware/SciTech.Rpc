@@ -9,11 +9,13 @@
 //
 #endregion
 
+using Microsoft.Extensions.Logging;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Linq;
 
 namespace SciTech.Rpc.Server
@@ -22,16 +24,17 @@ namespace SciTech.Rpc.Server
     {
         private volatile IRpcSerializer? serializer;
 
-        protected RpcServerBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options) :
+        protected RpcServerBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options, ILogger<RpcServerBase>? logger) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,
-                options)
+                options,
+                logger)
         {
         }
 
-        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options) :
-            this(new RpcServicePublisher(definitionsProvider, serverId), options)
+        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options, ILogger<RpcServerBase>? logger) :
+            this(new RpcServicePublisher(definitionsProvider, serverId), options, logger)
         {
         }
 
@@ -41,9 +44,11 @@ namespace SciTech.Rpc.Server
         /// <param name="servicePublisher"></param>
         /// <param name="serviceImplProvider"></param>
         /// <param name="definitionsProvider"></param>
+        [EditorBrowsable(EditorBrowsableState.Never)]
         protected RpcServerBase(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
-            IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options)
+            IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options,
+            ILogger<RpcServerBase>? logger)
         {
             this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
             this.ServiceImplProvider = serviceImplProvider ?? throw new ArgumentNullException(nameof(serviceImplProvider));
@@ -76,6 +81,8 @@ namespace SciTech.Rpc.Server
 
 
         public bool AllowAutoPublish { get; set; }
+
+        public bool AllowDiscovery { get; set; }
 
         public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
 

@@ -20,14 +20,15 @@ namespace SciTech.Rpc.Server.Internal
     {
         ImmutableArray<string> GetPublishedServices(RpcObjectId objectId);
 
+        IImmutableList<Type> GetPublishedSingletons();
+
         ActivatedService<TService>? GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
 
         bool CanGetActivatedService<TService>(RpcObjectId id) where TService : class;
     }
 
-#pragma warning disable CA1815 // Override equals and operator equals on value types
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "Internal")]
     public readonly struct ActivatedService<TService> where TService : class
-#pragma warning restore CA1815 // Override equals and operator equals on value types
     {
         public ActivatedService(TService service, bool shouldDispose)
         {

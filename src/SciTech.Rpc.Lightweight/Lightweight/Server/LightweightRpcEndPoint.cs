@@ -29,6 +29,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public abstract RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId);
 
-        protected internal abstract ILightweightRpcListener CreateListener(Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize);
+        protected internal abstract ILightweightRpcListener CreateListener(
+            IRpcConnectionHandler discoveryHandler,
+            int maxRequestSize, int maxResponseSize);
     }
 }

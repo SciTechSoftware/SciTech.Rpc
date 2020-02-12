@@ -48,24 +48,29 @@ namespace SciTech.Rpc.Lightweight.Server
             return new RpcServerConnectionInfo(this.DisplayName, this.uri, hostId);
         }
 
-        protected internal override ILightweightRpcListener CreateListener(Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize, int maxResponseSize)
+        protected internal override ILightweightRpcListener CreateListener(
+            IRpcConnectionHandler connectionHandler,
+            int maxRequestSize, int maxResponseSize)
         {
-            return new RpcPipeServer(this.uri, clientConnectedCallback, maxRequestSize);
+            return new RpcPipeServer(this, connectionHandler, maxRequestSize);
         }
 
         private class RpcPipeServer : NamedPipeServer, ILightweightRpcListener
         {
-            private Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback;
+            private readonly NamedPipeRpcEndPoint endPoint;
             
+            private readonly IRpcConnectionHandler connectionHandler;
+
             private readonly int maxRequestSize;
             
             /// <summary>
             /// Create a new instance of a named pipe server
             /// </summary>
-            internal RpcPipeServer(Uri uri, Func<IDuplexPipe, CancellationToken, Task> clientConnectedCallback, int maxRequestSize) 
-                : base(uri)
+            internal RpcPipeServer(NamedPipeRpcEndPoint endPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize) 
+                : base(endPoint.uri)
             {
-                this.clientConnectedCallback = clientConnectedCallback;
+                this.endPoint = endPoint;
+                this.connectionHandler= connectionHandler;
                 this.maxRequestSize = maxRequestSize;
             }
 
@@ -93,7 +98,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
-                return this.clientConnectedCallback(client.Transport, client.CancellationToken);
+                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.endPoint, client.CancellationToken);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)

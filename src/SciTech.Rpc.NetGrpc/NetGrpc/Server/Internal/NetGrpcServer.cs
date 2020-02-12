@@ -10,6 +10,7 @@
 #endregion
 
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
@@ -25,12 +26,10 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// The ASP.NET Core gRPC implementation of <see cref="RpcServerBase"/>. Will not be directly used by client code, instead it is 
     /// registered using <see cref="NetGrpcEndpointRouteBuilderExtensions.MapNetGrpcServices"/>.
     /// </summary>
-#pragma warning disable CA1812 // Internal class is apparently never instantiated.
     internal sealed class NetGrpcServer : RpcServerBase
-#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
-        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServerOptions> options)
-            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value)
+        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServerOptions> options, ILogger<NetGrpcServer>? logger)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value, logger)
         {
         }
 
@@ -39,8 +38,9 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             //ServiceMethodProviderContext<NetGrpcServiceActivator>? context,
-            RpcServerOptions? options)
-            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
+            RpcServerOptions? options,
+            ILogger<NetGrpcServer>? logger)
+            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options, logger)
         {
         }
 

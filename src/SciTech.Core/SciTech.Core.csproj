@@ -27,6 +27,7 @@ package is currently not intended for other use.</Description>
 
   <PropertyGroup>
     <Nullable>enable</Nullable>
+    <RootNamespace>SciTech</RootNamespace>
   </PropertyGroup>
 
   <!--<PropertyGroup Condition="'$(HasNullableAttributes)' == 'true'">
@@ -49,10 +50,11 @@ package is currently not intended for other use.</Description>
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="System.IO.Pipelines" Version="4.6.0" />
+    <PackageReference Include="System.IO.Pipelines" Version="4.7.0" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework) != 'netcoreapp3.0'">
-    <PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
+    <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />
   </ItemGroup>
 </Project>

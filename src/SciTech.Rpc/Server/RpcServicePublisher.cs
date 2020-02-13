@@ -712,7 +712,10 @@ namespace SciTech.Rpc.Server
 
         IImmutableList<Type> IRpcServiceActivator.GetPublishedSingletons()
         {
-            throw new NotImplementedException();
+            lock( this.syncRoot)
+            {
+                return this.singletonTypeToPublishedServices.Keys.ToImmutableArray();
+            }
         }
 
         private struct PublishedInstance

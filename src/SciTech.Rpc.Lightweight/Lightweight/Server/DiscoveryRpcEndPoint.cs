@@ -3,6 +3,8 @@ using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Buffers;
+using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +13,11 @@ namespace SciTech.Rpc.Lightweight.Server
 {
     public class LightweightDiscoveryEndPoint : LightweightRpcEndPoint
     {
+        public static readonly IPAddress DefaultMulticastAddress = IPAddress.Parse("239.255.250.129");
+        public static readonly IPAddress DefaultMulticastAddressV6 = IPAddress.Parse("ff18::0732");
+        public static readonly IPAddress DefaultMulticastAddressV6_2 = IPAddress.Parse("ff18::9832");
+        public const int DefaultDiscoveryPort = 39159;
+
         private readonly RpcServerConnectionInfo connectionInfo;
 
         private readonly ILogger? logger;
@@ -69,9 +76,37 @@ namespace SciTech.Rpc.Lightweight.Server
                     throw new InvalidOperationException($"{nameof(DiscoveryRpcListener)} is already listening.");
                 }
 
-                var udpClient = this.udpClient = new UdpClient();
+                var udpClient = this.udpClient = new UdpClient(AddressFamily.InterNetwork);
+                var socket = udpClient.Client;
+                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
+                socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
+                udpClient.JoinMulticastGroup(DefaultMulticastAddress);
 
-                //this.udpClient.JoinMulticastGroup();
+                //var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+                //foreach( var networkInterface in networkInterfaces)
+                //{
+                //    if( networkInterface.OperationalStatus == OperationalStatus.Up 
+                //        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                //        && networkInterface.SupportsMulticast )
+                //    {
+                //        int ifIndex = networkInterface.GetIPProperties().GetIPv4Properties().Index;
+                //        this.udpClient.JoinMulticastGroup(DefaultMulticastAddress);
+
+                //        //don't set this socket option if the socket is bound to the 
+                //        //loopback adapter because it will throw an argument exception.
+                //        //if (!isLoopbackAdapter)
+                //        //{
+                //        //    socket.SetSocketOption(ipOptionLevel, SocketOptionName.MulticastLoopback, allowMulticastLoopback);
+                //        //}
+
+                //        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
+                //        //this.udpClient.JoinMulticastGroup(DefaultMulticastAddressV6);
+                //        //this.udpClient.JoinMulticastGroup(DefaultMulticastAddressV6_2);
+                //        break;
+                //    }
+                //}
+
+                
 
                 this.listenerCts = new CancellationTokenSource();
                 this.listenerTask = Task.Run(() => this.RunListener(udpClient, this.listenerCts.Token));

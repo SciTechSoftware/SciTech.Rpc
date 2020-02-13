@@ -304,6 +304,8 @@ namespace SciTech.Rpc.Tests
 
         public IRpcServicePublisher ServicePublisher => this.server.ServicePublisher;
 
+        public RpcServerId ServerId => this.server.ServicePublisher.ServerId;
+
         public void AddEndPoint(IRpcServerEndPoint endPoint)
         {
             

@@ -31,6 +31,22 @@ namespace SciTech.Rpc.Serialization
             return serializer.Deserialize(new ReadOnlySequence<byte>(input), type);
         }
 
+        public static T? Deserialize<T>(this IRpcSerializer serializer, byte[] input)
+            where T : class
+        {
+            if (serializer is null) throw new ArgumentNullException(nameof(serializer));
+
+            return (T?)serializer.Deserialize(new ReadOnlySequence<byte>(input), typeof(T));
+        }
+
+        public static T? Deserialize<T>(this IRpcSerializer serializer, ReadOnlySequence<byte> input)
+            where T : class
+        {
+            if (serializer is null) throw new ArgumentNullException(nameof(serializer));
+
+            return (T?)serializer.Deserialize(input, typeof(T));
+        }
+
         public static byte[] Serialize<T>(this IRpcSerializer<T> serializer, T input)
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));

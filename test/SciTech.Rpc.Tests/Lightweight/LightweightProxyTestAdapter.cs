@@ -1,6 +1,7 @@
 ﻿using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Lightweight.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Linq;
 
@@ -8,6 +9,10 @@ namespace SciTech.Rpc.Tests.Lightweight
 {
     public class LightweightProxyTestAdapter : IProxyTestAdapter<LightweightMethodDef>
     {
+        public LightweightProxyTestAdapter()
+        {
+        }
+
         public RpcProxyBase<LightweightMethodDef> CreateProxy<TService>() where TService : class
         {
             var generator = new LightweightProxyGenerator();

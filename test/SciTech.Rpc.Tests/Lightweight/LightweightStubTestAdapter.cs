@@ -1,4 +1,5 @@
 ﻿using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
@@ -9,6 +10,13 @@ namespace SciTech.Rpc.Tests.Lightweight
 {
     internal class LightweightStubTestAdapter : IStubTestAdapter
     {
+        private IRpcSerializer serializer;
+
+        public LightweightStubTestAdapter(IRpcSerializer serializer)
+        {
+            this.serializer = serializer;
+        }
+
         public IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerImpl rpcServer) where TService : class
         {
             var builder = new LightweightServiceStubBuilder<TService>(null);
@@ -40,7 +48,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             where TResponse : class
         {
             var lwMethod = (LightweightMethodStub)method;
-            return LightweightStubTests.SendReceiveAsync<TRequest,TResponse>(lwMethod, request);
+            return LightweightStubHelper.SendReceiveAsync<TRequest,TResponse>(lwMethod, request, this.serializer);
         }
     }
 }

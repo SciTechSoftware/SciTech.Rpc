@@ -60,6 +60,7 @@ namespace SciTech.Rpc.Server
 
             if (options != null)
             {
+                this.AllowDiscovery = options.AllowDiscovery ?? true;
                 this.AllowAutoPublish = options.AllowAutoPublish ?? false;
 
                 if (options.Interceptors != null)
@@ -80,9 +81,12 @@ namespace SciTech.Rpc.Server
         }
 
 
-        public bool AllowAutoPublish { get; set; }
+        public bool AllowAutoPublish { get; }
 
-        public bool AllowDiscovery { get; set; }
+        public bool AllowDiscovery { get; } = true;
+
+        /// <inheritdoc/>
+        public RpcServerId ServerId => this.ServicePublisher.ServerId;
 
         public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
 

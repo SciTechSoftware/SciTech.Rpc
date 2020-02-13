@@ -26,7 +26,7 @@ namespace SciTech.Rpc.Serialization
     {
         internal static readonly ILog Logger = LogProvider.For<JsonRpcSerializer>();
 
-        internal static readonly bool TraceEnabled = Logger.IsTraceEnabled();
+        internal static readonly bool TraceEnabled = true;// Logger.IsTraceEnabled();
         
         private readonly JsonSerializerOptions? options;
 

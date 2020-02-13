@@ -234,6 +234,12 @@ namespace SciTech.Rpc.Lightweight.Internal
             return RpcFrameState.Full;
         }
 
+        public static RpcFrameState TryRead(ReadOnlyMemory<byte> input, int maxFrameLength, out LightweightRpcFrame message)
+        {
+            var sequence = new ReadOnlySequence<byte>(input);
+            return TryRead( ref sequence, maxFrameLength, out message);
+        }
+
         internal static void EndWrite(int frameLength, in WriteState state)
         {
             int payloadLength = frameLength - state.HeaderLength;

@@ -132,7 +132,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// </summary>
         internal Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TResponse>, LightweightCallContext, ValueTask>? StreamHandler { get; }
 
-        public override Task HandleMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
+        public override Task HandleMessage(ILightweightRpcFrameWriter frameWriter, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
             if (this.Handler == null)
             {
@@ -140,18 +140,30 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             }
 
             TRequest request = this.requestSerializer.Deserialize(frame.Payload, null);
+            
+            if (this.AllowInlineExecution)
+            {
+                // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even 
+                // higher risk of dead-lock. AllowInlineExecution and PipeScheduler.Inline should
+                // be used with caution.
+                return ExecuteOperation(this, frameWriter, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
+            }
+            else
+            {
+                return StartHandleMessage(frameWriter, frame, serviceProvider, context, request);
+            }
 
             static Task ExecuteOperation(
                 LightweightMethodStub<TRequest, TResponse> stub,
-                ILightweightRpcFrameWriter pipeline, TRequest request, int messageNumber, string operation,
+                ILightweightRpcFrameWriter frameWriter, TRequest request, int messageNumber, string operation,
                 IServiceProvider? serviceProvider, LightweightCallContext context)
             {
                 var responseTask = stub.Handler!(request, serviceProvider, context);
 
-                return stub.HandleResponse(messageNumber, operation, pipeline, responseTask);
+                return stub.HandleResponse(messageNumber, operation, frameWriter, responseTask);
             }
 
-            Task StartHandleMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context, TRequest request)
+            Task StartHandleMessage(ILightweightRpcFrameWriter frameWriter, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context, TRequest request)
             {
                 var messageNumber = frame.MessageNumber;
                 var operation = frame.RpcOperation;
@@ -162,25 +174,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 //    this);
                 //)
                 return Task.Factory.StartNew(
-                    oStub => ExecuteOperation((LightweightMethodStub<TRequest, TResponse>)oStub!, pipeline, request, messageNumber, operation, serviceProvider, context),
+                    oStub => ExecuteOperation((LightweightMethodStub<TRequest, TResponse>)oStub!, frameWriter, request, messageNumber, operation, serviceProvider, context),
                     this,
                     context.CancellationToken,
                     TaskCreationOptions.DenyChildAttach, scheduler).Unwrap();
             }
-
-
-            if (this.AllowInlineExecution)
-            {
-                // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even 
-                // higher risk of dead-lock. AllowInlineExecution and PipeScheduler.Inline should
-                // be used with caution.
-                return ExecuteOperation(this, pipeline, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
-            }
-            else
-            {
-                return StartHandleMessage(pipeline, frame, serviceProvider, context, request);
-            }
-
         }
 
         public override Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
@@ -205,7 +203,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
         
 
-        private Task HandleResponse(int messageNumber, string operation, ILightweightRpcFrameWriter pipeline, ValueTask<TResponse> responseTask)
+        private Task HandleResponse(int messageNumber, string operation, ILightweightRpcFrameWriter frameWriter, ValueTask<TResponse> responseTask)
         {
             // Try to return response from synchronous methods directly.
             if (responseTask.IsCompletedSuccessfully)
@@ -214,7 +212,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
                 var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
 
-                var writeState = pipeline.BeginWrite(responseHeader);
+                var writeState = frameWriter.BeginWrite(responseHeader);
                 BufferWriterStream responseStream = writeState.Writer;
                 
                 try
@@ -223,11 +221,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 }
                 catch
                 {
-                    pipeline.AbortWrite(writeState);
+                    frameWriter.AbortWrite(writeState);
                     throw;
                 }
                 
-                var endWriteTask = pipeline.EndWriteAsync(writeState, false);
+                var endWriteTask = frameWriter.EndWriteAsync(writeState, false);
                 if (!endWriteTask.IsCompletedSuccessfully)
                 {
                     return AwaitValueTaskAsTask(endWriteTask);
@@ -245,7 +243,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
                     var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
 
-                    var writeState = pipeline.BeginWrite(responseHeader);
+                    var writeState = frameWriter.BeginWrite(responseHeader);
                     BufferWriterStream responseStream = writeState.Writer;
                     try
                     {
@@ -253,11 +251,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     }
                     catch
                     {
-                        pipeline.AbortWrite(writeState);
+                        frameWriter.AbortWrite(writeState);
                         throw;
                     }
 
-                    await pipeline.EndWriteAsync(writeState, false).ContextFree();
+                    await frameWriter.EndWriteAsync(writeState, false).ContextFree();
                 }
 
                 return AwaitAndWriteResponse(messageNumber, operation);

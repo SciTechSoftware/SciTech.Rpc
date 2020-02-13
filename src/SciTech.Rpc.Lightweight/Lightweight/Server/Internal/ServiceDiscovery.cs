@@ -23,31 +23,32 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         internal void AddDiscoveryMethods(ILightweightMethodBinder binder)
         {
-            var getPublishedSingletonsStub = new LightweightMethodStub<RpcRequest, RpcPublishedSingletonsResponse>(
-                "SciTech.Rpc.ServiceDiscovery.GetPublishedSingletons",
-                (request, serviceProvider, context) => this.GetPublishedSingletonsAsync(serviceProvider, context),
+            var getPublishedSingletonsStub = new LightweightMethodStub<RpcDiscoveryRequest, RpcPublishedSingletonsResponse>(
+                ServiceDiscoveryOperations.GetPublishedSingletons,
+                (request, serviceProvider, context) => this.GetPublishedSingletonsAsync(request, serviceProvider, context),
                 this.discoverySerializer, null, false);
             binder.AddMethod(getPublishedSingletonsStub);
 
-            var getConnectionInfoStub = new LightweightMethodStub<RpcRequest, RpcConnectionInfoResponse>(
-                "SciTech.Rpc.ServiceDiscovery.GetConnectionInfo",
-                (request, serviceProvider, context) => this.GetConnectionInfoAsync(context),
+            var getConnectionInfoStub = new LightweightMethodStub<RpcDiscoveryRequest, RpcConnectionInfoResponse>(
+                ServiceDiscoveryOperations.GetConnectionInfo,
+                (request, serviceProvider, context) => this.GetConnectionInfoAsync(request, context),
                 this.discoverySerializer, null, false);
             binder.AddMethod(getConnectionInfoStub);
         }
 
-        private ValueTask<RpcConnectionInfoResponse> GetConnectionInfoAsync(LightweightCallContext context)
+        private ValueTask<RpcConnectionInfoResponse> GetConnectionInfoAsync(RpcDiscoveryRequest request, LightweightCallContext context)
         {
             var connectionInfo = context.EndPoint.GetConnectionInfo(this.server.ServicePublisher.ServerId);
-            return new ValueTask<RpcConnectionInfoResponse>(new RpcConnectionInfoResponse { ConnectionInfo = connectionInfo });
+            return new ValueTask<RpcConnectionInfoResponse>(new RpcConnectionInfoResponse { ClientId = request.ClientId, ConnectionInfo = connectionInfo });
         }
 
-        private ValueTask<RpcPublishedSingletonsResponse> GetPublishedSingletonsAsync(IServiceProvider? serviceProvider, LightweightCallContext context)
+        private ValueTask<RpcPublishedSingletonsResponse> GetPublishedSingletonsAsync(RpcDiscoveryRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
             var connectionInfo = context.EndPoint.GetConnectionInfo(this.server.ServicePublisher.ServerId);
             var publishedSingletons = this.GetPublishedSingletonsList(serviceProvider);
             return new ValueTask<RpcPublishedSingletonsResponse>(new RpcPublishedSingletonsResponse
             {
+                ClientId = request.ClientId,
                 ConnectionInfo = connectionInfo,
                 Services = publishedSingletons.ToArray()
             });
@@ -76,7 +77,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     {
                         publishedSingletons.Add(new RpcPublishedSingleton
                         {
-                            ServiceName = serviceInfo.FullName
+                            Name = serviceInfo.FullName
                         });
                     }
                 }

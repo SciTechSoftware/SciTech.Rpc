@@ -24,5 +24,10 @@ namespace SciTech.Rpc.Server
         bool AllowAutoPublish { get; }
 
         IRpcServicePublisher ServicePublisher { get; }
+
+        /// <summary>
+        /// Gets the server id associated with this RPC server.
+        /// </summary>
+        RpcServerId ServerId { get; }
     }
 }

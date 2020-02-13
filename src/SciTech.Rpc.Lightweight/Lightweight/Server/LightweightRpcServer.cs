@@ -10,12 +10,14 @@
 #endregion
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Serialization.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
@@ -41,7 +43,7 @@ namespace SciTech.Rpc.Lightweight.Server
             .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new NotImplementedException($"Method {nameof(CreateServiceStubBuilder)} not found on type '{typeof(LightweightRpcServer)}'.");
 
-        private static ILog Logger = LogProvider.For<LightweightRpcServer>();
+        private readonly ILogger logger;
 
         private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients
             = new ConcurrentDictionary<ClientPipeline, ClientPipeline>();
@@ -49,8 +51,8 @@ namespace SciTech.Rpc.Lightweight.Server
         private readonly Dictionary<string, LightweightMethodStub> methodDefinitions
             = new Dictionary<string, LightweightMethodStub>();
 
-        private List<LightweightDiscoveryEndPoint> discoveryEndPoints = new List<LightweightDiscoveryEndPoint>();
         private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
+
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
 
         public LightweightRpcServer(
@@ -61,14 +63,14 @@ namespace SciTech.Rpc.Lightweight.Server
         {
         }
 
-        public LightweightRpcServer(
-            IRpcServiceDefinitionsProvider? definitionsProvider,
-            IServiceProvider? serviceProvider = null,
-            RpcServerOptions? options = null,
-            LightweightOptions? lightweightOptions = null)
-            : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options, lightweightOptions)
-        {
-        }
+        //public LightweightRpcServer(
+        //    IRpcServiceDefinitionsProvider? definitionsProvider,
+        //    IServiceProvider? serviceProvider = null,
+        //    RpcServerOptions? options = null,
+        //    LightweightOptions? lightweightOptions = null)
+        //    : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options, lightweightOptions)
+        //{
+        //}
 
         /// <summary>
         /// 
@@ -105,14 +107,19 @@ namespace SciTech.Rpc.Lightweight.Server
             IRpcServiceDefinitionsProvider definitionsProvider,
             IServiceProvider? serviceProvider,
             RpcServerOptions? options,
-            LightweightOptions? lightweightOptions = null)
+            LightweightOptions? lightweightOptions = null,
+            ILogger<LightweightRpcServer>? logger=null)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
+            this.logger = (ILogger?)logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+
             this.ServiceProvider = serviceProvider;
             this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? DefaultMaxRequestMessageSize;
             this.MaxResponseSize = options?.SendMaxMessageSize ?? DefaultMaxResponseMessageSize;
 
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
+
+
         }
 
         public int ClientCount => this.clients.Count;
@@ -138,27 +145,13 @@ namespace SciTech.Rpc.Lightweight.Server
             this.ServicePublisher.TryInitConnectionInfo(endPoint.GetConnectionInfo(this.ServicePublisher.ServerId));
         }
 
-        public void AddEndPoint(LightweightDiscoveryEndPoint endPoint)
-        {
-            if (endPoint == null) throw new ArgumentNullException(nameof(endPoint));
-
-            lock (this.SyncRoot)
-            {
-                this.CheckIsInitializing();
-                this.discoveryEndPoints.Add(endPoint);
-            }
-        }
 
         public override void AddEndPoint(IRpcServerEndPoint endPoint)
         {
             if (endPoint is LightweightRpcEndPoint lightweightEndPoint)
             {
                 this.AddEndPoint(lightweightEndPoint);
-            }
-            else if (endPoint is LightweightDiscoveryEndPoint discoveryEndPoint)
-            {
-
-            }
+            } else
             {
                 throw new ArgumentException($"End point must implement {nameof(LightweightRpcEndPoint)} or {nameof(LightweightDiscoveryEndPoint)}.");
             }
@@ -208,7 +201,7 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 foreach (var client in this.clients)
                 {
-                    try { client.Key.Dispose(); } catch (Exception x) { Logger.Warn(x, "Error when disposing client."); }
+                    try { client.Key.Dispose(); } catch (Exception x) { this.logger.LogWarning(x, "Error when disposing client."); }
                 }
                 this.clients.Clear();
 
@@ -238,6 +231,62 @@ namespace SciTech.Rpc.Lightweight.Server
                     this.RemoveClient(client);
                 }
             }
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Returns null on failure")]
+        private async ValueTask<byte[]?> HandleDatagramAsync(LightweightRpcEndPoint endPoint, byte[] data, CancellationToken cancellationToken)
+        {
+            if (LightweightRpcFrame.TryRead(data, this.MaxRequestSize, out var frame) == RpcFrameState.Full)
+            {
+                if (frame.FrameType != RpcFrameType.UnaryRequest)
+                {
+                    this.logger.LogWarning("Datagram only handles unary requests.");
+                    return null;
+                }
+
+                var methodStub = this.GetMethodDefinition(frame.RpcOperation);
+                if (methodStub == null)
+                {
+                    this.logger.LogWarning("Unknown operation '{Operation}' in datagram frame.", frame.RpcOperation);
+                    return null;
+                }
+
+                CancellationTokenSource? cancellationSource = null;
+                if (frame.Timeout > 0)
+                {
+                    cancellationSource = new CancellationTokenSource();
+
+                    if (frame.Timeout > 0)
+                    {
+                        cancellationSource.CancelAfter((int)frame.Timeout);
+                    }
+                }
+
+
+                try
+                {
+                    var context = new LightweightCallContext(endPoint, frame.Headers, cancellationSource?.Token ?? default);
+                    using IServiceScope? scope = this.ServiceProvider?.CreateScope();
+                    using var frameWriter = new LightweightRpcFrameWriter(65536);
+                    await methodStub.HandleMessage(frameWriter, frame, scope?.ServiceProvider, context).ContextFree();
+
+                    return frameWriter.GetFrameData();
+                }
+                catch( Exception x )
+                {
+                    this.logger.LogWarning(x, "Error occurred in HandleDatagramAsync.");
+                }
+                finally
+                {
+                    cancellationSource?.Dispose();
+                }
+            }
+            else
+            {
+                this.logger.LogInformation("Received incomplete datagram frame.");
+            }
+
+            return null;
         }
 
         protected override async Task ShutdownCoreAsync()
@@ -314,13 +363,13 @@ namespace SciTech.Rpc.Lightweight.Server
             }
 
             public ValueTask<byte[]?> HandleDatagramAsync(LightweightRpcEndPoint endPoint, byte[] data, CancellationToken cancellationToken)
-            {
-                throw new NotImplementedException();
-            }
+                => this.server.HandleDatagramAsync(endPoint, data, cancellationToken);
+
 
             public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, CancellationToken cancellationToken)
                 => this.server.RunClientAsync(clientPipe, endPoint, cancellationToken);
         }
+
 
         private class MethodBinder : ILightweightMethodBinder
         {

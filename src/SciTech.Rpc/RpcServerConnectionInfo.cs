@@ -11,6 +11,7 @@
 
 using System;
 using System.Runtime.Serialization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace SciTech.Rpc
@@ -80,12 +81,73 @@ namespace SciTech.Rpc
         }
     }
 
+    public class RpcServerConnectionInfoConverter : JsonConverter<RpcServerConnectionInfo>
+    {
+        public RpcServerConnectionInfoConverter()
+        {
+        }
+
+        public override void Write(Utf8JsonWriter writer, RpcServerConnectionInfo value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("DisplayName", value.DisplayName);
+            writer.WriteString("HostUrl", value.HostUrl?.ToString() ?? "");
+            writer.WriteString("ServerId", value.ServerId.ToGuid());
+            writer.WriteEndObject();
+        }
+
+        public override RpcServerConnectionInfo Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType != JsonTokenType.StartObject)
+            {
+                throw new JsonException();
+            }
+
+
+            string displayName = "";
+            string hostUrl = "";
+            Guid serverId = Guid.Empty;
+            while (reader.Read())
+            {
+                switch (reader.TokenType)
+                {
+                    case JsonTokenType.PropertyName:
+                        {
+                            string propertyName = reader.GetString();
+                            reader.Read();
+                            switch (propertyName)
+                            {
+                                case "DisplayName":
+                                    displayName = reader.GetString();
+                                    break;
+                                case "HostUrl":
+                                    hostUrl = reader.GetString();
+                                    break;
+                                case "ServerId":
+                                    serverId = reader.GetGuid();
+                                    break;
+                            }
+                            reader.Skip();
+                            break;
+                        }
+                    case JsonTokenType.EndObject:
+                        return new RpcServerConnectionInfo(displayName, !string.IsNullOrEmpty(hostUrl) ? new Uri(hostUrl) : null, new RpcServerId(serverId));
+                    default:
+                        throw new JsonException();
+                }
+            }
+
+            throw new JsonException();
+        }
+    }
+
     /// <summary>
     /// The RpcServerConnectionInfo class contains information about a connection 
     /// to an RPC server. 
     /// </summary>
     [DataContract]
     [Serializable]
+    [JsonConverter(typeof(RpcServerConnectionInfoConverter))]
     public sealed class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
     {
         [NonSerialized]
@@ -182,7 +244,10 @@ namespace SciTech.Rpc
 
         public bool Equals(RpcServerConnectionInfo other)
         {
-            if (other != null && this.GetType() == other.GetType())
+            // TODO: Equals should check all properties, but there are components
+            // that currently assume that connection infos are equal as long as they refer to the 
+            // same server id. Add a Matches method or similar instead.
+            if (other != null )
             {
                 return other.ServerId == this.ServerId;
             }

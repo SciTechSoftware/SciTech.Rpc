@@ -111,7 +111,7 @@ namespace SciTech.Rpc.Lightweight.Server
             ILogger<LightweightRpcServer>? logger=null)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
         {
-            this.logger = (ILogger?)logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance;
+            this.logger = logger ?? RpcLogger.CreateLogger<LightweightRpcServer>();
 
             this.ServiceProvider = serviceProvider;
             this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? DefaultMaxRequestMessageSize;

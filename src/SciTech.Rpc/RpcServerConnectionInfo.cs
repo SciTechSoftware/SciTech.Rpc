@@ -81,7 +81,7 @@ namespace SciTech.Rpc
         }
     }
 
-    public class RpcServerConnectionInfoConverter : JsonConverter<RpcServerConnectionInfo>
+    internal class RpcServerConnectionInfoConverter : JsonConverter<RpcServerConnectionInfo>
     {
         public RpcServerConnectionInfoConverter()
         {
@@ -102,7 +102,6 @@ namespace SciTech.Rpc
             {
                 throw new JsonException();
             }
-
 
             string displayName = "";
             string hostUrl = "";
@@ -244,12 +243,11 @@ namespace SciTech.Rpc
 
         public bool Equals(RpcServerConnectionInfo other)
         {
-            // TODO: Equals should check all properties, but there are components
-            // that currently assume that connection infos are equal as long as they refer to the 
-            // same server id. Add a Matches method or similar instead.
             if (other != null )
             {
-                return other.ServerId == this.ServerId;
+                return other.ServerId == this.ServerId 
+                    && this.DisplayName == other.DisplayName 
+                    && this.HostUrl == other.HostUrl;
             }
 
             return false;
@@ -257,7 +255,7 @@ namespace SciTech.Rpc
 
         public override int GetHashCode()
         {
-            return this.ServerId.GetHashCode();
+            return this.ServerId.GetHashCode() + ( this.HostUrl?.GetHashCode() ?? 0 );
         }
 
         /// <summary>

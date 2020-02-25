@@ -165,7 +165,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     {
                         if (!cancellationToken.IsCancellationRequested)
                         {
-                            this.logger.LogError(x, $"Error occurred when running {nameof(DiscoveryRpcListener)}.");
+                            this.logger?.LogError(x, $"Error occurred when running {nameof(DiscoveryRpcListener)}.");
                         }
                     }
 

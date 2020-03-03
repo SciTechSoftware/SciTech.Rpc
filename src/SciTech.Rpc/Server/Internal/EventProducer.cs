@@ -53,7 +53,11 @@ namespace SciTech.Rpc.Server.Internal
 
                 while (true)
                 {
-                    await Task.WhenAny(this.pendingTask, this.CancellationToken.AsTask()).ContextFree();
+                    var tcs = new TaskCompletionSource<bool>();
+                    using (this.CancellationToken.Register(() => tcs.SetResult(true)))
+                    {
+                        await Task.WhenAny(this.pendingTask, tcs.Task).ContextFree();
+                    }
                     // this.CancellationToken.ThrowIfCancellationRequested();
                     if (this.CancellationToken.IsCancellationRequested)
                     {

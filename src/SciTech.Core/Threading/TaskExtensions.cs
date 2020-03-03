@@ -58,15 +58,6 @@ namespace SciTech.Threading
             }
         }
 
-        public static Task AsTask(this CancellationToken token)
-        {
-            var tcs = new TaskCompletionSource<bool>();
-
-            token.Register(() => tcs.SetResult(true));
-
-            return tcs.Task;
-        }
-
         public static void AwaiterResult(this Task task)
         {
             if (task is null) throw new ArgumentNullException(nameof(task));
@@ -78,16 +69,6 @@ namespace SciTech.Threading
         {
             if (task is null) throw new ArgumentNullException(nameof(task));
 
-            return task.GetAwaiter().GetResult();
-        }
-
-        public static void AwaiterResult(this ValueTask task)
-        {
-            task.GetAwaiter().GetResult();
-        }
-
-        public static T AwaiterResult<T>(this ValueTask<T> task)
-        {
             return task.GetAwaiter().GetResult();
         }
 

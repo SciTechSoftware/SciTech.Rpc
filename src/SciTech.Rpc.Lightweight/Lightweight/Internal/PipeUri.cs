@@ -180,7 +180,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                     }
                     else
                     {
-                        // Not found the the local or global namespace, let's 
+                        // Not found in the local or global namespace, let's 
                         // give up.
                         break;
                     }

@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SciTech.Collections.Immutable;
 
 namespace SciTech.Collections
 {
@@ -27,12 +28,11 @@ namespace SciTech.Collections
             return list as IImmutableList<T> ?? ImmutableArray.CreateRange(list);
         }
 
-        public static IImmutableList<T> AsImmutableArrayList<T>(this IEnumerable<T> list)
+        public static ImmutableArrayList<T> AsImmutableArrayList<T>(this IEnumerable<T> list)
         {
-            if (list == null)
-                throw new ArgumentNullException(nameof(list));
+            if (list == null) throw new ArgumentNullException(nameof(list));
 
-            return list is ImmutableArray<T> ? (IImmutableList<T>)list : ImmutableArray.CreateRange(list);
+            return ImmutableArrayList.CreateRange(list);
         }
 
 

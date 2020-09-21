@@ -95,7 +95,7 @@ namespace SciTech.Rpc.Serialization
         public T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value)
         {
             using var state = ProtoBuf.ProtoReader.State.Create(input, this.typeModel);
-            return state.DeserializeRoot<T>(value);
+            return state.DeserializeRoot<T>(value!);
         }
 
 

@@ -242,11 +242,11 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 if (!string.IsNullOrEmpty(service?.Service))
                 {
-                    var oldService = oldServices.FirstOrDefault(s => s.Service == service.Service);
+                    var oldService = oldServices.FirstOrDefault(s => s.Service == service!.Service);
                     if (oldService == null)
                     {
                         // It's a new one.
-                        this.RaiseEvent(this.ServiceDiscovered, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service.Service)));
+                        this.RaiseEvent(this.ServiceDiscovered, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service!.Service)));
                     }
                 }
             }
@@ -255,11 +255,11 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 if (!string.IsNullOrEmpty(service?.Service))
                 {
-                    var newService = services.FirstOrDefault(s => s.Service == service.Service);
+                    var newService = services.FirstOrDefault(s => s.Service == service!.Service);
                     if (newService == null)
                     {
                         // It's a lost one.
-                        this.RaiseEvent(this.ServiceLost, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service.Service)));
+                        this.RaiseEvent(this.ServiceLost, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service!.Service)));
                     }
                 }
             }
@@ -350,10 +350,10 @@ namespace SciTech.Rpc.Lightweight.Client
                     {
                         if (!string.IsNullOrEmpty(newService?.Name))
                         {
-                            var service = this.Services.FirstOrDefault(s => s.Service == newService.Name);
+                            var service = this.Services.FirstOrDefault(s => s.Service == newService!.Name);
                             if (service == null)
                             {
-                                service = new DiscoveredService(this.ConnectionInfo, newService.Name);
+                                service = new DiscoveredService(this.ConnectionInfo, newService!.Name!);
                                 changed = true;
                             }
 

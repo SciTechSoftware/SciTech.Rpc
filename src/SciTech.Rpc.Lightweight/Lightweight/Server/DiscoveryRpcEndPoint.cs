@@ -15,6 +15,7 @@ namespace SciTech.Rpc.Lightweight.Server
     {
         public static readonly IPAddress DefaultMulticastAddress = IPAddress.Parse("239.255.250.129");
         public static readonly IPAddress DefaultMulticastAddressV6 = IPAddress.Parse("ff18::0732");
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
         public static readonly IPAddress DefaultMulticastAddressV6_2 = IPAddress.Parse("ff18::9832");
         public const int DefaultDiscoveryPort = 39159;
 

@@ -19,13 +19,13 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.maxFrameSize = maxFrameSize;
         }
 
-        private void AbortWrite(in LightweightRpcFrame.WriteState state)
+        private void AbortWrite()
         {
             this.isWriting = this.hasFrameData = false;
         }
 
         void ILightweightRpcFrameWriter.AbortWrite(in LightweightRpcFrame.WriteState state)
-            => this.AbortWrite(state);
+            => this.AbortWrite();
 
 
         internal byte[] WriteFrame<T>(in LightweightRpcFrame frameHeader, T payload, IRpcSerializer serializer)
@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
             catch
             {
-                this.AbortWrite(state);
+                this.AbortWrite();
                 throw;
             }
         }
@@ -67,6 +67,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             return default;
         }
+
         ValueTask ILightweightRpcFrameWriter.EndWriteAsync(in LightweightRpcFrame.WriteState state, bool throwOnError)
             => this.EndWriteAsync(state, throwOnError);
 

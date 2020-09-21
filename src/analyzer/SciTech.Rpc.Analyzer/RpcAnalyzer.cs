@@ -272,7 +272,7 @@ namespace SciTech.Rpc.Analyzer
                             {
                                 AnalyzeServerSideOperation(context, propertySymbol.GetMethod, $"Get{propertySymbol.Name}", rpcServiceAttribute);
                             }
-                            if (propertySymbol.GetMethod != null)
+                            if (propertySymbol.SetMethod != null)
                             {
                                 AnalyzeServerSideOperation(context, propertySymbol.SetMethod, $"Set{propertySymbol.Name}", rpcServiceAttribute);
                             }

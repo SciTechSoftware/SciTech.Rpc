@@ -1,61 +1,33 @@
-﻿using System;
+﻿// #define PUBLIC_UTILITIES
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace SciTech.Collections
 {
-
-    public static class CompactList
-    {
-        public static CompactList<T> FromArray<T>(T[] array)
-        {
-            if (array != null)
-            {
-                return new CompactList<T>(array);
-            }
-
-            return CompactList<T>.Empty;
-        }
-
-
-        public static CompactList<T> Unbox<T>(object boxedCompacList)
-        {
-            return new CompactList<T>(boxedCompacList);
-        }
-    }
-
-#pragma warning disable CA1710 // Identifiers should have correct suffix
-#pragma warning disable CA1815 // Override equals and operator equals on value types
-
-    /// <summary>
-    /// Provides a list implementation that is intended for very short lists. It is very compact 
-    /// and allocation free for list of zero and one items. Storage is optimized for lists up to
-    /// the size of 4, after that it will fallback to use a standard <see cref="List{T}"/>.
-    /// </summary>
-    /// <remarks>
-    /// It is recommended that this list is used as an array, i.e. with a fixed size. Modifying the 
-    /// list with <see cref="Add"/>, <see cref="Remove"/> and similar methods is inefficient, since that
-    /// backing storage has to be re-allocated when the size changes (for list of size 4 and less).
-    /// </remarks>
-    /// <typeparam name="T"></typeparam>
     public struct CompactList<T> : IList<T>, IReadOnlyList<T>
     {
         public static readonly CompactList<T> Empty = new CompactList<T>();
 
-        private static readonly T[] EmptyArray = Array.Empty<T>();
+        private static readonly T[] EmptyArray = new T[0];
 
-        private static readonly SmallCollection<T>.CollectionCreator<List<T>> FullListCreator = () => new List<T>();
+        private static readonly SmallCollection<T>.CollectionCreator<List<T>> FullListCreator = (SmallCollection<T> smallCollection, int index, T newItem) =>
+        {
+            var list = new List<T>(smallCollection);
+            list.Insert(index, newItem);
+            return list;
+        };
 
         private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
 
-        private object? data;
+        private object data;
 
         public CompactList(IEnumerable<T> collection) : this()
         {
             this.AddRange(collection);
         }
 
-        public CompactList(CompactList<T> other ) : this()
+        public CompactList(CompactList<T> other) : this()
         {
             if (other.data is SmallCollection<T> smallCollection)
             {
@@ -64,20 +36,19 @@ namespace SciTech.Collections
             else if (other.data is List<T> otherList)
             {
                 this.data = new List<T>(otherList);
-            } else 
+            }
+            else
             {
                 Debug.Assert(other.data is T || other.data == null);
                 this.data = other.data;
             }
         }
 
-        internal CompactList(object data)
+        private CompactList(object data)
         {
             this.data = data;
         }
 
-        public bool IsEmpty => this.data == null;
-        
         public int Count
         {
             get
@@ -92,7 +63,7 @@ namespace SciTech.Collections
                     return shortList.Count;
                 }
 
-                if( this.data is List<T> list)
+                if (this.data is List<T> list)
                 {
                     return list.Count;
                 }
@@ -110,7 +81,7 @@ namespace SciTech.Collections
         public T this[int index]
         {
             get
-            {                
+            {
                 if (this.data is SmallCollection<T> shortList)
                 {
                     return shortList[index];
@@ -118,14 +89,16 @@ namespace SciTech.Collections
                 else if (this.data is List<T> list)
                 {
                     return list[index];
-                } else if (this.data is T singleItem && index == 0 )
+                }
+                else if (this.data is T singleItem)
                 {
-                    return singleItem;
+                    if (index == 0)
+                    {
+                        return singleItem;
+                    }
                 }
 
-#pragma warning disable CA1065 // Do not raise exceptions in unexpected locations
-                throw new ArgumentOutOfRangeException(nameof(index));
-#pragma warning restore CA1065 // Do not raise exceptions in unexpected locations
+                throw new IndexOutOfRangeException();
             }
             set
             {
@@ -137,26 +110,42 @@ namespace SciTech.Collections
                 {
                     list[index] = value;
                 }
-                else if (this.data is T singleItem && index == 0)
+                else if (this.data is T singleItem)
                 {
-                    if (value == null)
+                    if (index == 0)
                     {
-                        this.data = SmallCollection<T>.NullItem;
+                        if (value == null)
+                        {
+                            this.data = SmallCollection<T>.NullItem;
+                        }
+                        else
+                        {
+                            this.data = value;
+                        }
                     }
                     else
                     {
-                        this.data = value;
+                        throw new IndexOutOfRangeException();
                     }
                 }
-                else
-                {
-                    throw new ArgumentOutOfRangeException(nameof(index));
-                }
+
             }
         }
 
+        public static CompactList<T> FromArray(T[] array)
+        {
+            if (array != null)
+            {
+                return new CompactList<T>(array);
+            }
 
+            return CompactList<T>.Empty;
+        }
 
+        public static CompactList<T> Unbox(object boxedCompactSet)
+        {
+            return new CompactList<T>(boxedCompactSet);
+        }
 
         public void Add(T item)
         {
@@ -170,15 +159,16 @@ namespace SciTech.Collections
                 {
                     this.data = SmallCollection<T>.NullItem;
                 }
-            }            
+            }
             else if (this.data is SmallCollection<T> shortList)
             {
                 this.data = shortList.Add(item, FullListCreator);
             }
-            else if( this.data is List<T> list )
+            else if (this.data is List<T> list)
             {
                 list.Add(item);
-            } else
+            }
+            else
             {
                 Debug.Assert(this.data is T);
 
@@ -188,23 +178,21 @@ namespace SciTech.Collections
 
         public void Reset(int size)
         {
-            if (size <= SmallCollection<T>.MaxSize )
+            if (size <= SmallCollection<T>.MaxSize)
             {
                 this.data = SmallCollection<T>.Create(size);
                 return;
             }
 
             var list = new List<T>(size);
-            for(int i=0; i < size; i++)
+            for (int i = 0; i < size; i++)
             {
-                list.Add(default!);
+                list.Add(default);
             }
         }
 
         public void AddRange(IEnumerable<T> enumerable)
         {
-            if (enumerable is null) throw new ArgumentNullException(nameof(enumerable));
-
             if (enumerable is ICollection<T> collection)
             {
                 int totalCount = this.Count + collection.Count;
@@ -229,11 +217,12 @@ namespace SciTech.Collections
                         {
                             list.Capacity = totalCount;
                         }
-                        
+
                         if (this.data is SmallCollection<T> shortList)
                         {
                             list.AddRange(shortList);
-                        } else if (this.data is T singleItem)
+                        }
+                        else if (this.data is T singleItem)
                         {
                             list.Add(singleItem);
                         }
@@ -253,7 +242,7 @@ namespace SciTech.Collections
             }
         }
 
-        public object? Box()
+        public object Box()
         {
             return this.data;
         }
@@ -275,7 +264,7 @@ namespace SciTech.Collections
                 return shortList.Contains(item);
             }
 
-            if( this.data is List<T> list )
+            if (this.data is List<T> list)
             {
                 return list.Contains(item);
             }
@@ -287,16 +276,16 @@ namespace SciTech.Collections
         {
             if (this.data != null)
             {
-                if (array is null) throw new ArgumentNullException(nameof(array));
-
                 if (this.data is SmallCollection<T> shortList)
                 {
                     shortList.CopyTo(array, arrayIndex);
                 }
-                else if( this.data is List<T> list )
+                else if (this.data is List<T> list)
                 {
                     list.CopyTo(array, arrayIndex);
-                } else{
+                }
+                else
+                {
 
                     array[arrayIndex] = (T)this.data;
                 }
@@ -315,7 +304,7 @@ namespace SciTech.Collections
                 return shortSet.GetEnumerator();
             }
 
-            if( this.data is List<T> list )
+            if (this.data is List<T> list)
             {
                 return list.GetEnumerator();
             }
@@ -359,7 +348,8 @@ namespace SciTech.Collections
                         this.data = SmallCollection<T>.NullItem;
                     }
                 }
-            } else if (this.data is SmallCollection<T> shortList)
+            }
+            else if (this.data is SmallCollection<T> shortList)
             {
                 this.data = shortList.Insert(index, item, FullListCreator);
             }
@@ -379,7 +369,7 @@ namespace SciTech.Collections
                 }
             }
 
-            throw new ArgumentOutOfRangeException(nameof(index));
+            throw new ArgumentOutOfRangeException();
         }
 
         public bool Remove(T item)
@@ -392,7 +382,7 @@ namespace SciTech.Collections
 
             if (this.data is SmallCollection<T> shortList)
             {
-                if (shortList.Remove(item, out object? newSet))
+                if (shortList.Remove(item, out object newSet))
                 {
                     this.data = newSet;
                     return true;
@@ -429,7 +419,7 @@ namespace SciTech.Collections
         {
             if (this.data == null)
             {
-                throw new ArgumentOutOfRangeException(nameof(index));
+                throw new ArgumentOutOfRangeException();
             }
 
             if (this.data is SmallCollection<T> shortList)
@@ -452,18 +442,18 @@ namespace SciTech.Collections
                 }
                 else
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index));
+                    throw new ArgumentOutOfRangeException();
                 }
             }
         }
 
-        internal void RemoveRange(int index, int count)
+        public void RemoveRange(int index, int count)
         {
             if (this.data == null)
             {
                 if (index != 0 || count != 0)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index));
+                    throw new ArgumentOutOfRangeException();
                 }
 
                 return;
@@ -473,7 +463,7 @@ namespace SciTech.Collections
             {
                 if (index < 0 || index + count > shortList.Count)
                 {
-                    throw new ArgumentOutOfRangeException(nameof(index));
+                    throw new ArgumentOutOfRangeException();
                 }
 
                 for (int removeIndex = index + count - 1; removeIndex >= index; removeIndex--)
@@ -504,7 +494,7 @@ namespace SciTech.Collections
                     }
                 }
 
-                throw new ArgumentOutOfRangeException(nameof(index));
+                throw new ArgumentOutOfRangeException();
             }
 
         }
@@ -513,6 +503,9 @@ namespace SciTech.Collections
         {
             return this.GetEnumerator();
         }
+
+        public ReadOnlyCompactList<T> AsReadOnly()
+            => new ReadOnlyCompactList<T>(this);
 
         public IReadOnlyList<T> AsReadOnlyList()
         {
@@ -530,6 +523,4 @@ namespace SciTech.Collections
             return this;
         }
     }
-#pragma warning restore CA1815 // Override equals and operator equals on value types
-#pragma warning restore CA1710 // Identifiers should have correct suffix
 }

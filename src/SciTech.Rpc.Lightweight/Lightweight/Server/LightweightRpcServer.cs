@@ -25,6 +25,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.Reflection;
 using System.Threading;
@@ -233,7 +234,7 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Returns null on failure")]
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Returns null on failure")]
         private async ValueTask<byte[]?> HandleDatagramAsync(LightweightRpcEndPoint endPoint, byte[] data, CancellationToken cancellationToken)
         {
             if (LightweightRpcFrame.TryRead(data, this.MaxRequestSize, out var frame) == RpcFrameState.Full)
@@ -251,21 +252,29 @@ namespace SciTech.Rpc.Lightweight.Server
                     return null;
                 }
 
-                CancellationTokenSource? cancellationSource = null;
+                CancellationToken actualCancellationToken;
+                CancellationTokenSource? timeoutCts = null;
+                CancellationTokenSource? linkedCts = null;
                 if (frame.Timeout > 0)
                 {
-                    cancellationSource = new CancellationTokenSource();
-
-                    if (frame.Timeout > 0)
+                    timeoutCts = new CancellationTokenSource();
+                    timeoutCts.CancelAfter((int)frame.Timeout);
+                    if( cancellationToken.CanBeCanceled)
                     {
-                        cancellationSource.CancelAfter((int)frame.Timeout);
+                        linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
+                        actualCancellationToken = linkedCts.Token;
+                    } else
+                    {
+                        actualCancellationToken = timeoutCts.Token;
                     }
+                } else
+                {
+                    actualCancellationToken = cancellationToken;
                 }
-
 
                 try
                 {
-                    var context = new LightweightCallContext(endPoint, frame.Headers, cancellationSource?.Token ?? default);
+                    var context = new LightweightCallContext(endPoint, frame.Headers, actualCancellationToken );
                     using IServiceScope? scope = this.ServiceProvider?.CreateScope();
                     using var frameWriter = new LightweightRpcFrameWriter(65536);
                     await methodStub.HandleMessage(frameWriter, frame, scope?.ServiceProvider, context).ContextFree();
@@ -278,7 +287,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
                 finally
                 {
-                    cancellationSource?.Dispose();
+                    linkedCts?.Dispose();
+                    timeoutCts?.Dispose();
                 }
             }
             else

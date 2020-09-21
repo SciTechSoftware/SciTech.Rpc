@@ -16,7 +16,7 @@ This package contains the client communication layer for the fully managed ASP.N
     </Description>
 
     <!-- Still alpha, since it uses alpha protobuf-net library -->
-    <Version>1.0.0-alpha.1</Version>
+    <Version>1.0.0-alpha.2</Version>
   </PropertyGroup>
 
   <PropertyGroup>

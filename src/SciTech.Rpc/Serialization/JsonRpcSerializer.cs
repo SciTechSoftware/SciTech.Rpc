@@ -9,11 +9,10 @@
 //
 #endregion
 
-using SciTech.Rpc.Logging;
+using Microsoft.Extensions.Logging;
 using SciTech.Rpc.Serialization.Internal;
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -24,63 +23,71 @@ namespace SciTech.Rpc.Serialization
 {
     public class JsonRpcSerializer : RpcSerializerBase
     {
-        internal static readonly ILog Logger = LogProvider.For<JsonRpcSerializer>();
+        private readonly ILogger? logger;
 
-        internal static readonly bool TraceEnabled = true;// Logger.IsTraceEnabled();
-        
-        private readonly JsonSerializerOptions? options;
-
-        public JsonRpcSerializer(JsonSerializerOptions? options = null)
+        public JsonRpcSerializer(JsonSerializerOptions? options, ILogger? logger = null)
         {
-            this.options = options ?? new JsonSerializerOptions { IgnoreNullValues = true };
+            this.logger = logger;
+            this.TraceEnabled = this.logger?.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Trace) ?? false;
+
+            this.Options = options ?? new JsonSerializerOptions { IgnoreNullValues = true };
         }
+
+        public JsonRpcSerializer(ILogger? logger = null)
+            : this(null, logger )
+        {
+        }
+
+        internal JsonSerializerOptions Options { get; }
+
+        internal bool TraceEnabled { get; }
 
         public override IRpcSerializer<T> CreateTyped<T>()
         {
-            return (IRpcSerializer<T>)this.CreateTyped(typeof(T), _ => new JsonRpcSerializer<T>(this.options));
+            return (IRpcSerializer<T>)this.CreateTyped(typeof(T), _ => new JsonRpcSerializer<T>(this));
         }
 
         public override object? Deserialize(ReadOnlySequence<byte> input, Type type)
         {
-            if (TraceEnabled)
+            if (this.TraceEnabled)
             {
-                TraceDeserialize(input, type);
+                this.TraceDeserialize(input, type);
             }
 
             var readerOptions = new JsonReaderOptions();
 
-            if (this.options != null)
+            if (this.Options != null)
             {
-                readerOptions.AllowTrailingCommas = this.options.AllowTrailingCommas;
-                readerOptions.CommentHandling = this.options.ReadCommentHandling;
-                readerOptions.MaxDepth = this.options.MaxDepth;
+                readerOptions.AllowTrailingCommas = this.Options.AllowTrailingCommas;
+                readerOptions.CommentHandling = this.Options.ReadCommentHandling;
+                readerOptions.MaxDepth = this.Options.MaxDepth;
             };
 
             var reader = new Utf8JsonReader(input, readerOptions);
-            return JsonSerializer.Deserialize(ref reader, type, this.options);
+            return JsonSerializer.Deserialize(ref reader, type, this.Options);
         }
 
         public override void Serialize(BufferWriterStream bufferWriter, object? input, Type type)
         {
-            if( TraceEnabled)
+            if (this.TraceEnabled)
             {
-                TraceSerialize(input, type);
+                this.TraceSerialize(input, type);
             }
 
             var writerOptions = new JsonWriterOptions();
 
-            if (this.options != null)
+            if (this.Options != null)
             {
-                writerOptions.Encoder = this.options.Encoder;
-                writerOptions.Indented = this.options.WriteIndented;
+                writerOptions.Encoder = this.Options.Encoder;
+                writerOptions.Indented = this.Options.WriteIndented;
             };
 
             using var writer = new Utf8JsonWriter((IBufferWriter<byte>)bufferWriter, writerOptions);
-            JsonSerializer.Serialize(writer, input, type, this.options);
+            JsonSerializer.Serialize(writer, input, type, this.Options);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        internal static void TraceDeserialize(ReadOnlySequence<byte> input, Type type)
+        internal void TraceDeserialize(ReadOnlySequence<byte> input, Type type)
         {
             var readerOptions = new JsonReaderOptions
             {
@@ -91,17 +98,17 @@ namespace SciTech.Rpc.Serialization
             string text = Encoding.UTF8.GetString(input.ToArray());
             var reader = new Utf8JsonReader(input, readerOptions);
             var value = JsonSerializer.Deserialize(ref reader, type, new JsonSerializerOptions { AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip });
-            Logger.Trace("Json deserialized message '{SerializedText}' to '{Value}'", text, value);
+            this.logger?.LogTrace("Json deserialized message '{SerializedText}' to '{Value}'", text, value);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        internal static void TraceSerialize(object? input, Type type)
+        internal void TraceSerialize(object? input, Type type)
         {
             var writerOptions = new JsonWriterOptions();
             writerOptions.Indented = true;
 
             var text = JsonSerializer.Serialize(input, type, new JsonSerializerOptions { WriteIndented = true });
-            Logger.Trace("Json serialized message: {SerializedText}", text);
+            this.logger?.LogTrace("Json serialized message: {SerializedText}", text);
         }
     }
 
@@ -164,50 +171,46 @@ namespace SciTech.Rpc.Serialization
 
     internal class JsonRpcSerializer<T> : IRpcSerializer<T>
     {
-        private readonly JsonSerializerOptions? options;
+        private readonly JsonRpcSerializer baseSerializer;
 
-        internal JsonRpcSerializer(JsonSerializerOptions? options)
+        internal JsonRpcSerializer(JsonRpcSerializer baseSerializer)
         {
-            this.options = options;
+            this.baseSerializer = baseSerializer;
         }
 
         public T Deserialize(ReadOnlySequence<byte> input, T value)
         {
-            if (JsonRpcSerializer.TraceEnabled)
+            if (this.baseSerializer.TraceEnabled)
             {
-                JsonRpcSerializer.TraceDeserialize(input, typeof(T));
+                this.baseSerializer.TraceDeserialize(input, typeof(T));
             }
 
             var readerOptions = new JsonReaderOptions();
 
-            if(this.options != null  )
-            {
-                readerOptions.AllowTrailingCommas = this.options.AllowTrailingCommas;
-                readerOptions.CommentHandling = this.options.ReadCommentHandling;
-                readerOptions.MaxDepth = this.options.MaxDepth;
-            };
+            var options = this.baseSerializer.Options;
+            readerOptions.AllowTrailingCommas = options.AllowTrailingCommas;
+            readerOptions.CommentHandling = options.ReadCommentHandling;
+            readerOptions.MaxDepth = options.MaxDepth;
 
             var reader = new Utf8JsonReader(input, readerOptions);
-            return JsonSerializer.Deserialize<T>(ref reader, this.options);
+            return JsonSerializer.Deserialize<T>(ref reader, options);
         }
 
         public void Serialize(BufferWriterStream bufferWriter, T input)
         {
-            if (JsonRpcSerializer.TraceEnabled)
+            if (this.baseSerializer.TraceEnabled)
             {
-                JsonRpcSerializer.TraceSerialize(input, typeof(T));
+                this.baseSerializer.TraceSerialize(input, typeof(T));
             }
-            
+
             var writerOptions = new JsonWriterOptions();
 
-            if( this.options != null )
-            {
-                writerOptions.Encoder = this.options.Encoder;
-                writerOptions.Indented = this.options.WriteIndented;
-            };
+            var options = this.baseSerializer.Options;
+            writerOptions.Encoder = options.Encoder;
+            writerOptions.Indented = options.WriteIndented;
 
             using var writer = new Utf8JsonWriter((IBufferWriter<byte>)bufferWriter, writerOptions);
-            JsonSerializer.Serialize(writer, input, this.options);
+            JsonSerializer.Serialize(writer, input, options);
         }
     }
 }

@@ -22,6 +22,8 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerBase : IRpcServerImpl
     {
+        private readonly ILogger<RpcServerBase>? logger;
+
         private volatile IRpcSerializer? serializer;
 
         protected RpcServerBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options, ILogger<RpcServerBase>? logger) :
@@ -53,6 +55,7 @@ namespace SciTech.Rpc.Server
             this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
             this.ServiceImplProvider = serviceImplProvider ?? throw new ArgumentNullException(nameof(serviceImplProvider));
             this.ServiceDefinitionsProvider = definitionsProvider ?? throw new ArgumentNullException(nameof(definitionsProvider));
+            this.logger = logger;
 
             this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
             this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;

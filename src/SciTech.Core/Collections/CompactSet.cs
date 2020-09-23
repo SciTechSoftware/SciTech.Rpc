@@ -17,7 +17,7 @@ namespace SciTech.Collections
 
         private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
 
-        private object data;
+        private object? data;
 
         public CompactSet(T item)
         {
@@ -136,7 +136,7 @@ namespace SciTech.Collections
         }
 
 
-        public object Box()
+        public object? Box()
         {
             return this.data;
         }
@@ -201,7 +201,7 @@ namespace SciTech.Collections
 
             if (this.data is SmallCollection<T> smallSet)
             {
-                if (smallSet.Remove(item, out object newSet))
+                if (smallSet.Remove(item, out object? newSet))
                 {
                     this.data = newSet;
                     return true;

@@ -25,6 +25,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,11 +42,6 @@ This package contains the communication layer for the fully managed ASP.NET Core
 
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore.Server" Version="2.24.0" />
-    
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>

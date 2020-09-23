@@ -14,6 +14,7 @@ using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization.Internal;
 using System;
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
@@ -24,9 +25,8 @@ namespace SciTech.Rpc.Serialization
 {
     public class DataContractRpcSerializer : RpcSerializerBase
     {
-        private static readonly ILog Logger = LogProvider.For<DataContractRpcSerializer>();
-
-        private static readonly bool TraceEnabled = Logger.IsTraceEnabled();
+        [SuppressMessage("Performance", "CA1802:Use literals where appropriate", Justification = "Logging temporarily removed.")]
+        private static readonly bool TraceEnabled = false; // TODO: Logger.IsTraceEnabled();
 
         private readonly DataContractSerializerSettings? settings;
 
@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Serialization
             Serialize(bufferWriter, input, serializer);
         }
 
-        internal static object Deserialize(ReadOnlySequence<byte> input, DataContractSerializer serializer)
+        internal static object? Deserialize(ReadOnlySequence<byte> input, DataContractSerializer serializer)
         {
             using var stream = input.AsStream();
             using (var reader = XmlDictionaryReader.CreateBinaryReader(stream, XmlDictionaryReaderQuotas.Max))
@@ -89,7 +89,7 @@ namespace SciTech.Rpc.Serialization
             var bytes = memStream.ToArray();
 
             string text = Encoding.UTF8.GetString(bytes);
-            Logger.Trace("ToStream: {SerializedText}", text);
+            // TODO: Logger.Trace("ToStream: {SerializedText}", text);
         }
     }
 
@@ -102,12 +102,13 @@ namespace SciTech.Rpc.Serialization
             this.dataContractSerializer = settings != null ? new DataContractSerializer(typeof(T), settings) : new DataContractSerializer(typeof(T));
         }
 
-        public T Deserialize(ReadOnlySequence<byte> input, T value)
+        [return: MaybeNull]
+        public T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value)
         {
             return (T)DataContractRpcSerializer.Deserialize(input, this.dataContractSerializer);
         }
 
-        public void Serialize(BufferWriterStream bufferWriter, T input)
+        public void Serialize(BufferWriterStream bufferWriter, [AllowNull]T input)
         {
             DataContractRpcSerializer.Serialize(bufferWriter, input, this.dataContractSerializer);
         }

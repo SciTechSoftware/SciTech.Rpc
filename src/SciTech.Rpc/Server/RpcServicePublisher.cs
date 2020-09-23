@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace SciTech.Rpc.Server
@@ -820,7 +821,7 @@ namespace SciTech.Rpc.Server
                 }
             }
 
-            public bool Equals(InstanceKey other)
+            public bool Equals([AllowNull] InstanceKey other)
             {
                 return this == other
                     || (other != null && this.hashCode == other.hashCode && this.GetInstance() == other.GetInstance());

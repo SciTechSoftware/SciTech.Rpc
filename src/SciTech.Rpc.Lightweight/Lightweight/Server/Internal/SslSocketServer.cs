@@ -34,7 +34,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     /// </summary>
     internal abstract class SslSocketServer
     {
-        private readonly Action<object> RunClientAsync;
+        private readonly Action<object?> RunClientAsync;
 
         private readonly SslServerOptions? sslOptions;
 
@@ -47,24 +47,26 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             this.RunClientAsync = async boxed =>
             {
-                var client = (ClientConnection)boxed;
-                try
+                if (boxed is ClientConnection client)
                 {
-                    await this.OnClientConnectedAsync(client).ContextFree();
-                    try { client.Transport.Input.Complete(); } catch { }
-                    try { client.Transport.Output.Complete(); } catch { }
-                }
-                catch (Exception ex)
-                {
-                    try { client.Transport.Input.Complete(ex); } catch { }
-                    try { client.Transport.Output.Complete(ex); } catch { }
-                    this.OnClientFaulted(in client, ex);
-                }
-                finally
-                {
-                    if (client.Transport is IDisposable d)
+                    try
                     {
-                        try { d.Dispose(); } catch { }
+                        await this.OnClientConnectedAsync(client).ContextFree();
+                        try { client.Transport.Input.Complete(); } catch { }
+                        try { client.Transport.Output.Complete(); } catch { }
+                    }
+                    catch (Exception ex)
+                    {
+                        try { client.Transport.Input.Complete(ex); } catch { }
+                        try { client.Transport.Output.Complete(ex); } catch { }
+                        this.OnClientFaulted(in client, ex);
+                    }
+                    finally
+                    {
+                        if (client.Transport is IDisposable d)
+                        {
+                            try { d.Dispose(); } catch { }
+                        }
                     }
                 }
             };
@@ -127,7 +129,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// </summary>
         protected virtual void OnStarted(EndPoint endPoint) { }
 
-        private static void StartOnScheduler(PipeScheduler? scheduler, Action<object> callback, object? state)
+        private static void StartOnScheduler(PipeScheduler? scheduler, Action<object?> callback, object? state)
         {
             if (scheduler == PipeScheduler.Inline) scheduler = null;
             (scheduler ?? PipeScheduler.ThreadPool).Schedule(callback, state);
@@ -141,32 +143,39 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             {
                 while (true)
                 {
-                    var clientSocket = await this.listener.AcceptAsync().ContextFree();
-                    SocketConnection.SetRecommendedServerOptions(clientSocket);
+                    var listener = this.listener;
+                    if (listener == null) break;
 
-                    Stream socketStream = new NetworkStream(clientSocket, true);
-
-                    if (this.sslOptions?.ServerCertificate != null)
+                    var clientSocket = await listener.AcceptAsync().ContextFree();
+                    var remoteEndPoint = clientSocket.RemoteEndPoint;
+                    if (remoteEndPoint != null)
                     {
-                        var sslStream = new SslStream(socketStream);
-                        await sslStream.AuthenticateAsServerAsync(this.sslOptions.ServerCertificate,
-                            this.sslOptions.ClientCertificateRequired,
-                            this.sslOptions.EnabledSslProtocols,
-                            this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+                        SocketConnection.SetRecommendedServerOptions(clientSocket);
 
-                        socketStream = sslStream;
+                        Stream socketStream = new NetworkStream(clientSocket, true);
+
+                        if (this.sslOptions?.ServerCertificate != null)
+                        {
+                            var sslStream = new SslStream(socketStream);
+                            await sslStream.AuthenticateAsServerAsync(this.sslOptions.ServerCertificate,
+                                this.sslOptions.ClientCertificateRequired,
+                                this.sslOptions.EnabledSslProtocols,
+                                this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+
+                            socketStream = sslStream;
+                        }
+
+                        var pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);
+                        if (!(pipe is IDisposable))
+                        {
+                            // Rather dummy, we need to dispose the stream when pipe is disposed, but
+                            // this is not performed by the pipe returned by StreamConnection.
+                            pipe = new OwnerDuplexPipe(pipe, socketStream);
+                        }
+
+                        StartOnScheduler((receiveOptions ?? PipeOptions.Default).ReaderScheduler, this.RunClientAsync,
+                            new ClientConnection(pipe, remoteEndPoint)); // boxed, but only once per client
                     }
-
-                    var pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);
-                    if (!(pipe is IDisposable))
-                    {
-                        // Rather dummy, we need to dispose the stream when pipe is disposed, but
-                        // this is not performed by the pipe returned by StreamConnection.
-                        pipe = new OwnerDuplexPipe(pipe, socketStream);
-                    }
-
-                    StartOnScheduler((receiveOptions ?? PipeOptions.Default).ReaderScheduler, this.RunClientAsync,
-                        new ClientConnection(pipe, clientSocket.RemoteEndPoint)); // boxed, but only once per client
                 }
             }
             catch (NullReferenceException) { }

@@ -12,31 +12,33 @@
 using SciTech.Rpc.Serialization.Internal;
 using System;
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Rpc.Serialization
 {
     public static class RpcSerializerExtensions
     {
-        public static T Deserialize<T>(this IRpcSerializer<T> serializer, byte[] input)
+        [return: MaybeNull]
+        public static T Deserialize<T>(this IRpcSerializer<T> serializer, byte[]? input)
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
 
-            return serializer.Deserialize(new ReadOnlySequence<byte>(input));
+            return input != null ? serializer.Deserialize(new ReadOnlySequence<byte>(input)) : default;
         }
 
-        public static object? Deserialize(this IRpcSerializer serializer, byte[] input, Type type)
+        public static object? Deserialize(this IRpcSerializer serializer, byte[]? input, Type type)
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
 
-            return serializer.Deserialize(new ReadOnlySequence<byte>(input), type);
+            return input != null ? serializer.Deserialize(new ReadOnlySequence<byte>(input), type) : default;
         }
 
-        public static T? Deserialize<T>(this IRpcSerializer serializer, byte[] input)
+        public static T? Deserialize<T>(this IRpcSerializer serializer, byte[]? input)
             where T : class
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
 
-            return (T?)serializer.Deserialize(new ReadOnlySequence<byte>(input), typeof(T));
+            return input != null ? (T?)serializer.Deserialize(new ReadOnlySequence<byte>(input), typeof(T)) : null;
         }
 
         public static T? Deserialize<T>(this IRpcSerializer serializer, ReadOnlySequence<byte> input)
@@ -47,7 +49,7 @@ namespace SciTech.Rpc.Serialization
             return (T?)serializer.Deserialize(input, typeof(T));
         }
 
-        public static byte[] Serialize<T>(this IRpcSerializer<T> serializer, T input)
+        public static byte[]? Serialize<T>(this IRpcSerializer<T> serializer, [AllowNull]T input)
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
 
@@ -56,7 +58,8 @@ namespace SciTech.Rpc.Serialization
             return ms.ToArray();
         }
 
-        public static byte[] Serialize<T>(this IRpcSerializer serializer, T input)
+        [return:NotNullIfNotNull("input")]
+        public static byte[]? Serialize<T>(this IRpcSerializer serializer, [AllowNull]T input)
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
 

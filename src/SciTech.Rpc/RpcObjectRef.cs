@@ -10,6 +10,7 @@
 #endregion
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 
 namespace SciTech.Rpc
@@ -80,7 +81,7 @@ namespace SciTech.Rpc
             return this;
         }
 
-        public bool Equals(RpcObjectRef other)
+        public bool Equals([AllowNull]RpcObjectRef other)
         {
             return other != null && this.ObjectId == other.ObjectId;
         }

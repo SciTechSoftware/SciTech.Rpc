@@ -14,7 +14,6 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
-using SciTech.Rpc.Logging.LogProviders;
 using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;

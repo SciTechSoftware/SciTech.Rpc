@@ -23,6 +23,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -33,9 +34,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 {
     internal class RpcPipelineClient : RpcPipeline
     {
-        private static readonly ILog Logger = LogProvider.For<RpcPipelineClient>();
-        
-        private static readonly bool TraceEnabled = Logger.IsTraceEnabled();
+        [SuppressMessage("Performance", "CA1802:Use literals where appropriate", Justification = "Logging temporarily removed")]
+        private static readonly bool TraceEnabled = false; //  Logger.IsTraceEnabled();
 
         private readonly Dictionary<int, IResponseHandler> awaitingResponses
             = new Dictionary<int, IResponseHandler>();
@@ -197,7 +197,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         {
             if (TraceEnabled)
             {
-                Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
+                // TODO: Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
             }
 
             var tcs = new ResponseCompletionSource<TResponse>(serializers.Serializer, serializers.ResponseSerializer);
@@ -493,7 +493,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
 
         private class AsyncStreamingServerCall<TResponse> : IAsyncStreamingServerCall<TResponse>, IResponseHandler
-            where TResponse : class
         {
             private readonly StreamingResponseStream<TResponse> responseStream;
 
@@ -607,7 +606,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 {
                     case RpcFrameType.UnaryResponse:
                         var response = this.responseSerializer.Deserialize(frame.Payload);
-                        this.TrySetResult(response);
+                        this.TrySetResult(response!);
                         break;
                     case RpcFrameType.TimeoutResponse:
                         // This is not very likely, since the operation should have 
@@ -804,7 +803,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
 
 
-            internal void Enqueue(TResponse response)
+            internal void Enqueue([AllowNull]TResponse response)
             {
                 TaskCompletionSource<bool>? responseTcs = null;
                 lock (this.syncRoot)
@@ -825,7 +824,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     }
                     else
                     {
-                        this.responseQueue.Enqueue(response);
+                        this.responseQueue.Enqueue(response!);
                     }
 
                 }

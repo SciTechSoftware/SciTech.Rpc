@@ -19,7 +19,7 @@ namespace SciTech.Collections
 
         private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
 
-        private readonly object data;
+        private readonly object? data;
 
         public ReadOnlyCompactList(in CompactList<T> other)
         {
@@ -97,7 +97,7 @@ namespace SciTech.Collections
         }
 
 
-        public object Box()
+        public object? Box()
         {
             return this.data;
         }
@@ -159,7 +159,7 @@ namespace SciTech.Collections
 
             public T Current => this.compactList[index];
 
-            object IEnumerator.Current => this.compactList[index];
+            object? IEnumerator.Current => this.compactList[index];
 
             public void Dispose()
             {

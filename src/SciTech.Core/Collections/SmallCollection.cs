@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
@@ -13,7 +14,7 @@ namespace SciTech.Collections
 
         internal static readonly SmallCollection<T> NullItem = new NullItemCollection();
 
-        internal delegate TCollection CollectionCreator<out TCollection>(SmallCollection<T> smallCollection, int index, T newItem) where TCollection : ICollection<T>;
+        internal delegate TCollection CollectionCreator<out TCollection>(SmallCollection<T> smallCollection, int index, [AllowNull] T newItem) where TCollection : ICollection<T>;
 
         internal delegate IList<T> FullListCreator();
 
@@ -30,7 +31,7 @@ namespace SciTech.Collections
 
         public abstract IEnumerator<T> GetEnumerator();
 
-        internal static object Create(int size )
+        internal static object? Create(int size )
         {
             switch(size)
             {
@@ -49,7 +50,7 @@ namespace SciTech.Collections
             throw new ArgumentOutOfRangeException(nameof(size));
         }
 
-        internal static object Create(ICollection<T> collection)
+        internal static object? Create(ICollection<T> collection)
         {
             if( collection is IList<T> list )
             {
@@ -110,7 +111,7 @@ namespace SciTech.Collections
             //return new SixItemCollection(value_0, value_1, value_2, value_3, value_4, value_5);
         }
 
-        internal static object Create(IList<T> list)
+        internal static object? Create(IList<T> list)
         {
             int count = list.Count;
             Debug.Assert(count <= MaxSize);
@@ -185,7 +186,7 @@ namespace SciTech.Collections
 
         internal abstract object Insert(int index, T item, CollectionCreator<IList<T>> fullSetCreator);
 
-        internal virtual bool Remove(T item, out object newSet)
+        internal virtual bool Remove(T item, out object? newSet)
         {
             int index = this.IndexOf(item);
             if (index >= 0)
@@ -203,11 +204,11 @@ namespace SciTech.Collections
         /// <param name="index"></param>
         /// <exception cref="ArgumentOutOfRangeException"/>
         /// <returns></returns>
-        internal abstract object RemoveAt(int index);
+        internal abstract object? RemoveAt(int index);
 
-        internal abstract object SetAt(int index, T item);
+        internal abstract object? SetAt(int index, [AllowNull]T item);
 
-        internal abstract bool TryGet(T item, out T existingItem);
+        internal abstract bool TryGet(T item, [MaybeNull]out T existingItem);
 
         IEnumerator IEnumerable.GetEnumerator() { return this.GetEnumerator(); }
 
@@ -229,15 +230,19 @@ namespace SciTech.Collections
 
         private sealed class FourItemCollection : SmallCollection<T>
         {
+            [AllowNull]
             private T value_0;
 
+            [AllowNull]
             private T value_1;
 
+            [AllowNull]
             private T value_2;
 
+            [AllowNull]
             private T value_3;
 
-            internal FourItemCollection(T value_0, T value_1, T value_2, T value_3)
+            internal FourItemCollection([AllowNull]T value_0, [AllowNull]T value_1, [AllowNull]T value_2, [AllowNull]T value_3)
             {
                 this.value_0 = value_0;
                 this.value_1 = value_1;
@@ -383,7 +388,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException();
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull] T item)
             {
                 switch (index)
                 {
@@ -406,7 +411,7 @@ namespace SciTech.Collections
                 return this;
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull]out T existingItem)
             {
                 if (Comparer.Equals(this.value_0, item))
                 {
@@ -436,7 +441,7 @@ namespace SciTech.Collections
                 return false;
             }
 
-            private ICollection<T> CreateFullCollection(CollectionCreator<ICollection<T>> fullListCreator, T newItem)
+            private ICollection<T> CreateFullCollection(CollectionCreator<ICollection<T>> fullListCreator, [AllowNull]T newItem)
             {
                 return fullListCreator(this, 4, newItem);
             }
@@ -455,7 +460,7 @@ namespace SciTech.Collections
                 {
                     if (index == 0)
                     {
-                        return default;
+                        return default!;
                     }
 
                     throw new ArgumentOutOfRangeException();
@@ -493,7 +498,7 @@ namespace SciTech.Collections
 
             public override void CopyTo(T[] array, int arrayIndex)
             {
-                array[arrayIndex] = default;
+                array[arrayIndex] = default!;
             }
 
             public override int IndexOf(T item)
@@ -514,7 +519,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException();
             }
 
-            internal override bool Remove(T item, out object newSet)
+            internal override bool Remove(T item, out object? newSet)
             {
                 if (item == null)
                 {
@@ -526,7 +531,7 @@ namespace SciTech.Collections
                 return false;
             }
 
-            internal override object RemoveAt(int index)
+            internal override object? RemoveAt(int index)
             {
                 if (index == 0)
                 {
@@ -538,7 +543,7 @@ namespace SciTech.Collections
                 }
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull] T item)
             {
                 if (index == 0)
                 {
@@ -554,7 +559,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException();
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull] out T existingItem)
             {
                 existingItem = default;
                 return item == null;
@@ -886,13 +891,16 @@ namespace SciTech.Collections
         //}
         private sealed class ThreeItemCollection : SmallCollection<T>
         {
+            [AllowNull]
             private T value_0;
 
+            [AllowNull]
             private T value_1;
 
+            [AllowNull]
             private T value_2;
 
-            internal ThreeItemCollection(T value_0, T value_1, T value_2)
+            internal ThreeItemCollection([AllowNull]T value_0, [AllowNull]T value_1, [AllowNull]T value_2)
             {
                 this.value_0 = value_0;
                 this.value_1 = value_1;
@@ -998,7 +1006,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException();
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull]T item)
             {
                 switch (index)
                 {
@@ -1018,7 +1026,7 @@ namespace SciTech.Collections
                 return this;
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull] out T existingItem)
             {
                 if (Comparer.Equals(this.value_0, item))
                 {
@@ -1045,11 +1053,13 @@ namespace SciTech.Collections
 
         private sealed class TwoItemCollection : SmallCollection<T>
         {
+            [AllowNull] 
             private T value_0;
 
+            [AllowNull] 
             private T value_1;
 
-            internal TwoItemCollection(T value_0, T value_1)
+            internal TwoItemCollection([AllowNull]T value_0, [AllowNull] T value_1)
             {
                 this.value_0 = value_0;
                 this.value_1 = value_1;
@@ -1180,7 +1190,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException();
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull]T item)
             {
                 switch (index)
                 {
@@ -1197,7 +1207,7 @@ namespace SciTech.Collections
                 return this;
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull] out T existingItem)
             {
                 if (Comparer.Equals(this.value_0, item))
                 {

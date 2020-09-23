@@ -100,7 +100,8 @@ namespace SciTech.Rpc.Client.Internal
         /// <returns></returns>
         internal static Func<TProxyArgs, TMethodDef[], RpcProxyBase> CreateObjectProxyFactory<TProxyArgs>(Type proxyType) where TProxyArgs : RpcProxyArgs
         {
-            var proxyCtor = proxyType.GetConstructor(new Type[] { typeof(TProxyArgs), typeof(TMethodDef[]) });
+            var proxyCtor = proxyType.GetConstructor(new Type[] { typeof(TProxyArgs), typeof(TMethodDef[]) })
+                ?? throw new NotImplementedException($"Constructor not found on prox type '{proxyType.Name}'.");
 
             var proxyArgsParameter = Expression.Parameter(typeof(TProxyArgs), "proxyArgs");
             var methodsParameter = Expression.Parameter(typeof(TMethodDef[]), "proxyMethods");
@@ -210,7 +211,8 @@ namespace SciTech.Rpc.Client.Internal
                 {
                     var faultConverterType = typeof(RpcFaultExceptionConverter<>).MakeGenericType(faultAttribute.FaultType);
                     var defaultConverterField = faultConverterType.GetField(nameof(RpcFaultExceptionConverter<object>.Default), 
-                        BindingFlags.Static | BindingFlags.Public);
+                        BindingFlags.Static | BindingFlags.Public)
+                        ?? throw new NotImplementedException($"Default converter type field not found on {nameof(RpcFaultExceptionConverter)}.");
 
                     var converterFieldExpression = Expression.Field(null, defaultConverterField);
 
@@ -219,7 +221,8 @@ namespace SciTech.Rpc.Client.Internal
                 else
                 {
                     var faultConverterType = typeof(RpcFaultExceptionConverter);
-                    var converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) });
+                    var converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) }) 
+                        ?? throw new NotImplementedException($"{nameof(RpcFaultExceptionConverter)} constructor not found.");
                     var faultCodeExpression = Expression.Constant(faultAttribute.FaultCode);
                     var converterNewExpression = Expression.New(converterCtor, faultCodeExpression);
 
@@ -324,7 +327,8 @@ namespace SciTech.Rpc.Client.Internal
             if (faultGeneratorExpressions.Count > 0 || faultConverterExpressions.Count > 0)
             {
                 var faultHandlerCtor = typeof(RpcClientFaultHandler)
-                    .GetConstructor(new Type[] { typeof(IRpcClientExceptionConverter[]) });
+                    .GetConstructor(new Type[] { typeof(IRpcClientExceptionConverter[]) })
+                    ?? throw new NotImplementedException($"{nameof(RpcClientFaultHandler)} constructor not found.");
 
                 faultGeneratorExpressions.AddRange(faultConverterExpressions);
 

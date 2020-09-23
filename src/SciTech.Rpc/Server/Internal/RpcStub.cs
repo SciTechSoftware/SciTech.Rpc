@@ -146,8 +146,6 @@ namespace SciTech.Rpc.Server.Internal
 
     public sealed class RpcStub<TService> : RpcStub where TService : class
     {
-        private static readonly ILog Logger = LogProvider.GetLogger(typeof(RpcStub<>));
-
         private readonly IRpcServiceActivator serviceImplProvider;
 
         public RpcStub(IRpcServerImpl server, ImmutableRpcServerOptions options) : base(server, options)
@@ -171,16 +169,16 @@ namespace SciTech.Rpc.Server.Internal
             try
             {
                 await eventProducer.Run(service.Service!).ContextFree();
-                Logger.Trace("EventProducer.Run returned successfully.");
+                // TODO: Logger.Trace("EventProducer.Run returned successfully.");
             }
-            catch (OperationCanceledException oce)
+            catch (OperationCanceledException )
             {
-                Logger.Trace("EventProducer.Run cancelled.", oce);
+                // TODO: Logger.Trace("EventProducer.Run cancelled.", oce);
                 throw;
             }
-            catch (Exception e)
+            catch (Exception )
             {
-                Logger.Trace("EventProducer.Run error.", e);
+                // TODO: Logger.Trace("EventProducer.Run error.", e);
                 throw;
             }
             finally

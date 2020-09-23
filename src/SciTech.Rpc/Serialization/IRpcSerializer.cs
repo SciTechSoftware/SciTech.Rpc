@@ -27,8 +27,9 @@ namespace SciTech.Rpc.Serialization
 
     public interface IRpcSerializer<T> 
     {
+        [return: MaybeNull]
         T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value=default);
 
-        void Serialize(BufferWriterStream bufferWriter, T input);
+        void Serialize(BufferWriterStream bufferWriter, [AllowNull]T input);
     }
 }

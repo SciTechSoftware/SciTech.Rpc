@@ -36,15 +36,15 @@ namespace SciTech.Rpc.Lightweight.Internal
 
     internal abstract class RpcPipeline : ILightweightRpcFrameWriter, IDisposable
     {
-        private static readonly ILog Logger = LogProvider.For<RpcPipeline>();
-
         /// <summary>
         /// Mutex that provides single access for pipe writers. 
         /// NOTE: This mutex will not be disposed when the pipeline is disposed. Since 
         /// the <see cref="Close"/> method can be called concurrently, there's no easy way 
         /// of disposing the mutex correctly.
         /// </summary>
+#pragma warning disable CA2213
         private readonly SemaphoreSlim singleWriter = new SemaphoreSlim(1);
+#pragma warning restore CA2213
 
         private readonly bool skipLargeFrames;
 
@@ -334,7 +334,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
             catch (Exception ex)
             {
-                Logger.Warn(ex, "RpcPipeline receive loop ended with error '{Error}'", ex.Message);
+                // TODO: Logger.Warn(ex, "RpcPipeline receive loop ended with error '{Error}'", ex.Message);
 
                 try { reader.Complete(ex); } catch { }
                 try { this.OnReceiveLoopFaulted(new ExceptionEventArgs(ex)); } catch { }

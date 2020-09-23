@@ -156,12 +156,9 @@ namespace SciTech.Rpc.Client.Internal
 
         internal const string RemoveEventHandlerAsyncName = nameof(RemoveEventHandlerAsync);
 
-#pragma warning disable CA1051 // Do not declare visible instance fields
         protected internal readonly TMethodDef[] proxyMethods;
 
-#pragma warning restore CA1051 // Do not declare visible instance fields
-
-        private static readonly ILog Logger = LogProvider.For<RpcProxyBase<TMethodDef>>();
+        // private static readonly ILog Logger = LogProvider.For<RpcProxyBase<TMethodDef>>();
 
         private readonly List<Task> pendingEventTasks = new List<Task>();
 
@@ -190,7 +187,7 @@ namespace SciTech.Rpc.Client.Internal
             this.Dispose(true);
         }
 
-        public bool Equals(IRpcService other)
+        public bool Equals([AllowNull]IRpcService other)
         {
             return other != null && other.ObjectId == this.objectId;
         }
@@ -513,9 +510,9 @@ namespace SciTech.Rpc.Client.Internal
                 {
                 }
 #pragma warning disable CA1031 // Do not catch general exception types
-                catch (Exception x2)
+                catch (Exception)
                 {
-                    Logger.Warn(x2, "Error when removing event handler.");
+                    // TODO: Logger.Warn(x2, "Error when removing event handler.");
                 }
 #pragma warning restore CA1031 // Do not catch general exception types
             }

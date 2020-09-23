@@ -44,7 +44,7 @@ namespace SciTech.Collections.Immutable
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1033:Interface methods should be callable by child types")]
         IEnumerator<T> IEnumerable<T>.GetEnumerator() => ((IImmutableList<T>)this.data).GetEnumerator();
 
-        public int IndexOf(T item, int index, int count, IEqualityComparer<T> equalityComparer)
+        public int IndexOf(T item, int index, int count, IEqualityComparer<T>? equalityComparer)
             => this.data.IndexOf(item, index, count, equalityComparer);
 
 
@@ -52,10 +52,10 @@ namespace SciTech.Collections.Immutable
 
         public IImmutableList<T> InsertRange(int index, IEnumerable<T> items) => new ImmutableArrayList<T>(this.data.InsertRange(index, items));
 
-        public int LastIndexOf(T item, int index, int count, IEqualityComparer<T> equalityComparer)
+        public int LastIndexOf(T item, int index, int count, IEqualityComparer<T>? equalityComparer)
             => this.data.LastIndexOf(item, index, count, equalityComparer);
 
-        public IImmutableList<T> Remove(T value, IEqualityComparer<T> equalityComparer)
+        public IImmutableList<T> Remove(T value, IEqualityComparer<T>? equalityComparer)
             => new ImmutableArrayList<T>(this.data.Remove(value, equalityComparer));
 
 
@@ -65,13 +65,13 @@ namespace SciTech.Collections.Immutable
         public IImmutableList<T> RemoveAt(int index)
             => new ImmutableArrayList<T>(this.data.RemoveAt(index));
 
-        public IImmutableList<T> RemoveRange(IEnumerable<T> items, IEqualityComparer<T> equalityComparer)
+        public IImmutableList<T> RemoveRange(IEnumerable<T> items, IEqualityComparer<T>? equalityComparer)
             => new ImmutableArrayList<T>(this.data.RemoveRange(items, equalityComparer));
 
         public IImmutableList<T> RemoveRange(int index, int count)
             => new ImmutableArrayList<T>(this.data.RemoveRange(index, count));
 
-        public IImmutableList<T> Replace(T oldValue, T newValue, IEqualityComparer<T> equalityComparer)
+        public IImmutableList<T> Replace(T oldValue, T newValue, IEqualityComparer<T>? equalityComparer)
             => new ImmutableArrayList<T>(this.data.Replace(oldValue, newValue, equalityComparer));
 
         public IImmutableList<T> SetItem(int index, T value)

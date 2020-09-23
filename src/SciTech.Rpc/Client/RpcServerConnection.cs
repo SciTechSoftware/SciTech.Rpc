@@ -22,8 +22,6 @@ namespace SciTech.Rpc.Client
     /// </summary>
     public abstract class RpcServerConnection : RpcChannel, IRpcServerConnection
     {
-        private static readonly ILog Logger = LogProvider.For<RpcServerConnection>();
-
         private RpcConnectionState connectionState;
 
         private bool hasPendingStateChange;
@@ -73,7 +71,7 @@ namespace SciTech.Rpc.Client
         {
             if (this.IsConnected)
             {
-                Logger.Warn("Connection disposed while still connected.");
+                // TODO: Logger.Warn("Connection disposed while still connected.");
             }
 
             base.Dispose(disposing);

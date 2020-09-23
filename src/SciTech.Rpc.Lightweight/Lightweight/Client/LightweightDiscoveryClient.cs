@@ -85,7 +85,7 @@ namespace SciTech.Rpc.Lightweight.Client
         /// Occurs when a previously discovered RPC server is no longer available.
         /// <note>Will be invoked in the synchronization context of the <see cref="FindServicesAsync(CancellationToken)"/> caller.</note>
         /// </summary>
-        public event EventHandler<DiscoveredServerEventArgs>? ServerLost;
+        // public event EventHandler<DiscoveredServerEventArgs>? ServerLost;
 
         /// <summary>
         /// Occurs when a new RPC service has been discovered.

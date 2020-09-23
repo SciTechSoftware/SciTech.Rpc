@@ -34,7 +34,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             try
             {
                 serializer.Serialize(state.Writer, payload, typeof(T));
-                this.EndWriteAsync(state, true);
+                this.EndWriteAsync(state);
                 return this.GetFrameData()!; 
             }
             catch
@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         LightweightRpcFrame.WriteState ILightweightRpcFrameWriter.BeginWrite(in LightweightRpcFrame responseHeader)
             => this.BeginWrite(responseHeader);
 
-        private ValueTask EndWriteAsync(in LightweightRpcFrame.WriteState state, bool throwOnError)
+        private ValueTask EndWriteAsync(in LightweightRpcFrame.WriteState state)
         {
             if (!this.isWriting) throw new InvalidOperationException("EndWriteAsync called without a BeginWriteCall.");
 
@@ -69,7 +69,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         }
 
         ValueTask ILightweightRpcFrameWriter.EndWriteAsync(in LightweightRpcFrame.WriteState state, bool throwOnError)
-            => this.EndWriteAsync(state, throwOnError);
+            => this.EndWriteAsync(state);
 
         internal void Reset()
         {

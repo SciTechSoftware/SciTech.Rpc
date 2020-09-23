@@ -58,8 +58,6 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         : RpcServiceStubBuilder<TService, INetGrpcBinder<TService>> where TService : class
 #pragma warning restore CA1812
     {
-        private static readonly ILog Logger = LogProvider.For<NetGrpcServiceStubBuilder<TService>>();
-
         public NetGrpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
             : base(serviceInfo, options)
         {
@@ -221,7 +219,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             if ((registeredOptions?.ReceiveMaxMessageSize != null && registeredOptions?.ReceiveMaxMessageSize != o?.ReceiveMaxMessageSize)
                 || (registeredOptions?.SendMaxMessageSize != null && registeredOptions?.SendMaxMessageSize != o?.SendMaxMessageSize))
             {
-                Logger.Warn("Message settings in registered options do not match provided options. Registered settings will be ignored.");
+                // TODO: Logger.Warn("Message settings in registered options do not match provided options. Registered settings will be ignored.");
             }
 
             return ImmutableRpcServerOptions.Combine(this.Options, registeredOptions);

@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using SciTech.Rpc.Serialization.Internal;
 using System;
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -177,8 +178,9 @@ namespace SciTech.Rpc.Serialization
         {
             this.baseSerializer = baseSerializer;
         }
-
-        public T Deserialize(ReadOnlySequence<byte> input, T value)
+        
+        [return: MaybeNull]
+        public T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value)
         {
             if (this.baseSerializer.TraceEnabled)
             {
@@ -196,7 +198,7 @@ namespace SciTech.Rpc.Serialization
             return JsonSerializer.Deserialize<T>(ref reader, options);
         }
 
-        public void Serialize(BufferWriterStream bufferWriter, T input)
+        public void Serialize(BufferWriterStream bufferWriter, [AllowNull]T input)
         {
             if (this.baseSerializer.TraceEnabled)
             {

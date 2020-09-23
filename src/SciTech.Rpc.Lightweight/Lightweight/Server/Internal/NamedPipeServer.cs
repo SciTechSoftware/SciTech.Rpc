@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         private static readonly PipeSecurity DefaultSecurity = CreateDefaultSecurity();
 #endif
 
-        private readonly Action<object> RunClientAsync;
+        private readonly Action<object?> RunClientAsync;
 
 #pragma warning disable CA2213  // Disposable fields should be disposed
         // TODO: Try to dispose safely.
@@ -54,28 +54,30 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             this.RunClientAsync = async boxed =>
             {
-                var client = (ClientConnection)boxed;
+                if (boxed is ClientConnection client)
+                {
 #pragma warning disable CA1031 // Do not catch general exception types
-                try
-                {
-                    await this.OnClientConnectedAsync(client).ContextFree();
-                    try { client.Transport.Input.Complete(); } catch { }
-                    try { client.Transport.Output.Complete(); } catch { }
-                }
-                catch (Exception ex)
-                {
-                    try { client.Transport.Input.Complete(ex); } catch { }
-                    try { client.Transport.Output.Complete(ex); } catch { }
-                    this.OnClientFaulted(in client, ex);
-                }
-                finally
-                {
-                    if (client.Transport is IDisposable d)
+                    try
                     {
-                        try { d.Dispose(); } catch { }
+                        await this.OnClientConnectedAsync(client).ContextFree();
+                        try { client.Transport.Input.Complete(); } catch { }
+                        try { client.Transport.Output.Complete(); } catch { }
                     }
-                }
+                    catch (Exception ex)
+                    {
+                        try { client.Transport.Input.Complete(ex); } catch { }
+                        try { client.Transport.Output.Complete(ex); } catch { }
+                        this.OnClientFaulted(in client, ex);
+                    }
+                    finally
+                    {
+                        if (client.Transport is IDisposable d)
+                        {
+                            try { d.Dispose(); } catch { }
+                        }
+                    }
 #pragma warning restore CA1031 // Do not catch general exception types
+                }
             };
         }
 
@@ -163,7 +165,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 #endif
 
-        private static void StartOnScheduler(PipeScheduler? scheduler, Action<object> callback, object? state)
+        private static void StartOnScheduler(PipeScheduler? scheduler, Action<object?> callback, object? state)
         {
             if (scheduler == PipeScheduler.Inline) scheduler = null;
             (scheduler ?? PipeScheduler.ThreadPool).Schedule(callback, state);

@@ -149,7 +149,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         internal static string LookupPipeName(Uri uri)
         {
             var path = uri.AbsolutePath;
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 // See CreatePipeName
                 bool useGlobal = true;

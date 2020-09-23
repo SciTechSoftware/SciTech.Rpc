@@ -21,11 +21,11 @@ namespace SciTech.Rpc.Grpc.Internal
                 name: methodName,
                 requestMarshaller: GrpcCore.Marshallers.Create<TRequest>(
                     serializer: requestSerializer.Serialize,
-                    deserializer: requestSerializer.Deserialize
+                    deserializer: requestSerializer.Deserialize!
                 ),
                 responseMarshaller: GrpcCore.Marshallers.Create<TResponse>(
                     serializer: responseSerializer.Serialize,
-                    deserializer: responseSerializer.Deserialize
+                    deserializer: responseSerializer.Deserialize!
                 )
             );
         }

@@ -1,16 +1,18 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
     internal class SingleEnumerator<T> : IEnumerator<T>
     {
+        [AllowNull]
         private readonly T item;
 
         private int index;
 
-        internal SingleEnumerator(T item)
+        internal SingleEnumerator([AllowNull]T item)
         {
             this.item = item;
             this.index = -1;

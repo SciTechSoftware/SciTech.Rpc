@@ -155,8 +155,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Unary request handler is not initialized for '{frame.RpcOperation}'.");
             }
 
-            TRequest request = this.requestSerializer.Deserialize(frame.Payload, null);
-            
+            TRequest? request = this.requestSerializer.Deserialize(frame.Payload, null);
+            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData);
+
             if (this.AllowInlineExecution)
             {
                 // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even 
@@ -199,7 +200,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public override Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
-            TRequest request = this.requestSerializer.Deserialize(frame.Payload);
+            TRequest? request = this.requestSerializer.Deserialize(frame.Payload);
+            if( request == null ) throw new RpcFailureException(RpcFailure.InvalidData);
 
             var responseWriter = new StreamingResponseWriter<TResponse>(pipeline, this.responseSerializer, frame.MessageNumber, frame.RpcOperation);
 

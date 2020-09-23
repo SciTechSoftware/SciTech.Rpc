@@ -112,6 +112,11 @@ namespace SciTech.Rpc.Server.Internal
 
         internal void AddGenericEventHandler<TEventArgs>(RpcStub<TService> serviceStub, RpcEventInfo eventInfo, TMethodBinder binder) where TEventArgs : class
         {
+            if( eventInfo.Event.EventHandlerType == null || eventInfo.Event.AddMethod == null || eventInfo.Event.RemoveMethod == null )
+            {
+                throw new NotSupportedException($"Service event handler for '{eventInfo.DeclaringMember.Name}' must be full defined.");
+            }
+
             var serviceParameter = Expression.Parameter(typeof(TService));
             var delegateParameter = Expression.Parameter(typeof(Delegate));
 
@@ -406,6 +411,11 @@ namespace SciTech.Rpc.Server.Internal
 
         private void AddPlainEventHandler(RpcStub<TService> serviceStub, RpcEventInfo eventInfo, TMethodBinder binder)
         {
+            if (eventInfo.Event.EventHandlerType == null || eventInfo.Event.AddMethod == null || eventInfo.Event.RemoveMethod == null)
+            {
+                throw new NotSupportedException($"Service event handler for '{eventInfo.DeclaringMember.Name}' must be full defined.");
+            }
+
             var serviceParameter = Expression.Parameter(typeof(TService));
             var delegateParameter = Expression.Parameter(typeof(Delegate));
 

@@ -10,6 +10,7 @@
 #endregion
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -112,15 +113,15 @@ namespace SciTech.Rpc
                 {
                     case JsonTokenType.PropertyName:
                         {
-                            string propertyName = reader.GetString();
+                            string? propertyName = reader.GetString();
                             reader.Read();
                             switch (propertyName)
                             {
                                 case "DisplayName":
-                                    displayName = reader.GetString();
+                                    displayName = reader.GetString() ?? "";
                                     break;
                                 case "HostUrl":
-                                    hostUrl = reader.GetString();
+                                    hostUrl = reader.GetString() ?? "";
                                     break;
                                 case "ServerId":
                                     serverId = reader.GetGuid();
@@ -241,7 +242,7 @@ namespace SciTech.Rpc
             return obj is RpcServerConnectionInfo other && this.Equals(other);
         }
 
-        public bool Equals(RpcServerConnectionInfo other)
+        public bool Equals([AllowNull]RpcServerConnectionInfo other)
         {
             if (other != null )
             {

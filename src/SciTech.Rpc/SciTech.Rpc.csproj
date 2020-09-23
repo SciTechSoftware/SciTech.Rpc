@@ -15,6 +15,7 @@ From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy
 This package contains the core SciTech.Rpc implementation and should normally not be added separately.
 Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.NetGrpc.Client, SciTech.Rpc.Lightweight.
     </Description>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,20 +30,8 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="LibLog" Version="5.0.8">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.1" />
-    <PackageReference Include="SauceControl.InheritDoc" Version="0.4.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <!--<PackageReference Include="System.ServiceModel.Primitives" Version="4.6.0" />-->
   </ItemGroup>
   

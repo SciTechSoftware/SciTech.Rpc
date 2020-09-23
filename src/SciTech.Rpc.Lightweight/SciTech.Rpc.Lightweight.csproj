@@ -18,6 +18,7 @@ This package contains the communication layer for the lightweight implementation
 
   <PropertyGroup>
     <RootNamespace>SciTech.Rpc</RootNamespace>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,10 +29,6 @@ This package contains the communication layer for the lightweight implementation
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="3.1.1" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.1" />
     <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.1.1" />

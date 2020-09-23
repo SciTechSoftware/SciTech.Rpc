@@ -18,6 +18,7 @@ This package contains the communication layer for the native/.NET implementation
 
     <!-- Still alpha, since it uses alpha protobuf-net library -->
     <Version>1.0.0-alpha.2</Version>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
 
   <!--<PropertyGroup>
@@ -32,10 +33,6 @@ This package contains the communication layer for the native/.NET implementation
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.8">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="Grpc.Core" Version="2.24.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.1" />
   </ItemGroup>

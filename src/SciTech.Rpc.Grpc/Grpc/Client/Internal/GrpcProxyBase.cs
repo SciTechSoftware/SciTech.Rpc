@@ -18,6 +18,7 @@ using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -139,6 +140,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         protected override void HandleCallException(GrpcProxyMethod method, Exception e)
         {
+            Contract.Requires(method != null);
+            Contract.Requires(e != null);
+
             if (e is GrpcCore.RpcException rpcException)
             {
                 switch (rpcException.StatusCode)
@@ -152,7 +156,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     case GrpcCore.StatusCode.DeadlineExceeded:
                         throw new TimeoutException(e.Message, e);
                     default:
-                        this.HandleErrorException(method, e, rpcException);
+                        this.HandleErrorException(method!, e, rpcException);
                         break;
                 }                
             }

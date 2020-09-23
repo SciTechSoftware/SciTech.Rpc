@@ -24,8 +24,6 @@ namespace SciTech.Rpc.NetGrpc.Client
 {
     public class NetGrpcServerConnection : RpcChannel, IGrpcRpcChannel
     {
-        private static readonly ILog Logger = LogProvider.For<NetGrpcServerConnection>();
-
         private bool isSecure;
 
         public NetGrpcServerConnection(
@@ -190,7 +188,7 @@ namespace SciTech.Rpc.NetGrpc.Client
                 }
                 else
                 {
-                    Logger.Warn($"MaxSendMessageLength is already specified by ChannelOptions, ignoring {nameof(options.SendMaxMessageSize)} in {nameof(RpcClientOptions)}.");
+                    // TODO: Logger.Warn($"MaxSendMessageLength is already specified by ChannelOptions, ignoring {nameof(options.SendMaxMessageSize)} in {nameof(RpcClientOptions)}.");
                 }
             }
 
@@ -202,7 +200,7 @@ namespace SciTech.Rpc.NetGrpc.Client
                 }
                 else
                 {
-                    Logger.Warn($"MaxReceiveMessageLength is already specified by ChannelOptions, ignoring {nameof(options.ReceiveMaxMessageSize)} in {nameof(RpcClientOptions)}.");
+                    // TODO: Logger.Warn($"MaxReceiveMessageLength is already specified by ChannelOptions, ignoring {nameof(options.ReceiveMaxMessageSize)} in {nameof(RpcClientOptions)}.");
                 }
             }
 

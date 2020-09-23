@@ -78,9 +78,6 @@ namespace SciTech.Rpc.Internal
 #pragma warning disable CA1062 // Validate arguments of public methods
     public static class RpcBuilderUtil
     {
-
-        private static readonly ILog Logger = LogProvider.GetLogger(typeof(RpcBuilderUtil));
-
         /// <summary>
         /// Enumerates all declared RPC members in the service interface specified by <paramref name="serviceInfo"/>.
         /// </summary>
@@ -743,9 +740,9 @@ namespace SciTech.Rpc.Internal
             {
                 rpcAttribute = serviceType.GetCustomAttribute<RpcServiceAttribute>();
             }
-            catch (Exception e)
+            catch (Exception )
             {
-                Logger.Warn(e, "Failed to retrive RpcServiceAttribute for '{type}'", serviceType);
+                // TODO: Logger.Warn(e, "Failed to retrive RpcServiceAttribute for '{type}'", serviceType);
             }
 #pragma warning restore CA1031 // Do not catch general exception types
 
@@ -760,9 +757,9 @@ namespace SciTech.Rpc.Internal
             {
                 contractAttribute = serviceType.GetCustomAttributes().FirstOrDefault(a=>a.GetType().FullName == "System.ServiceModel.ServiceContractAttribute" );
             }
-            catch (Exception e)
+            catch (Exception )
             {
-                Logger.Warn(e, "Failed to retrive ServiceContractAttribute for '{type}'", serviceType);
+                // TODO: Logger.Warn(e, "Failed to retrive ServiceContractAttribute for '{type}'", serviceType);
             }
 #pragma warning restore CA1031 // Do not catch general exception types
 

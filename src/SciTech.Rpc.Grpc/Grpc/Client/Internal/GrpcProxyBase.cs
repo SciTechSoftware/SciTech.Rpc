@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Collections;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Grpc.Internal;
@@ -17,6 +18,7 @@ using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
@@ -135,9 +137,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             return CreateMethodDef<TRequest, TResponse>(RpcMethodType.Unary, serviceName, operationName, this.Serializer, null);
         }
 
-        protected override void HandleCallException(Exception e)
+        protected override void HandleCallException(GrpcProxyMethod method, Exception e)
         {
-            if (e != null && e is GrpcCore.RpcException rpcException)
+            if (e is GrpcCore.RpcException rpcException)
             {
                 switch (rpcException.StatusCode)
                 {
@@ -150,9 +152,64 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     case GrpcCore.StatusCode.DeadlineExceeded:
                         throw new TimeoutException(e.Message, e);
                     default:
-                        throw new RpcFailureException(RpcFailure.Unknown, e.Message, e);
+                        this.HandleErrorException(method, e, rpcException);
+                        break;
+                }                
+            }
+        }
+
+        private void HandleErrorException(GrpcProxyMethod method, Exception e, GrpcCore.RpcException rpcException)
+        {
+            string? errorType = null;
+            string? message = null;
+            string? faultCode = null; ;
+            byte[]? faultDetails = null;
+            byte[]? serializedErrorInfo = null;
+            foreach (var entry in rpcException.Trailers)
+            {
+                switch (entry.Key)
+                {
+                    case WellKnownHeaderKeys.ErrorType:
+                        errorType = entry.Value;
+                        break;
+                    case WellKnownHeaderKeys.ErrorMessage:
+                        message = entry.Value;
+                        break;
+                    case WellKnownHeaderKeys.ErrorCode:
+                        faultCode = entry.Value;
+                        break;
+                    case WellKnownHeaderKeys.ErrorDetails:
+                        faultDetails = entry.ValueBytes;
+                        break;
+                    case WellKnownHeaderKeys.ErrorInfo:
+                        serializedErrorInfo = entry.ValueBytes;
+                        break;
+                }
+
+                if (serializedErrorInfo != null)
+                {
+                    // Serialized error info takes precedence, so no need to look for other error keys.
+                    break;
                 }
             }
+
+            RpcError? rpcError = null;
+            if (serializedErrorInfo != null)
+            {
+                var actualSerializer = method.SerializerOverride ?? this.serializer;
+                rpcError = actualSerializer.Deserialize<RpcError>(serializedErrorInfo);
+            }
+            else if (!string.IsNullOrEmpty(errorType))
+            {
+                rpcError = new RpcError { ErrorType = errorType, ErrorCode = faultCode, Message = message, ErrorDetails = faultDetails };
+            }
+
+            if (rpcError != null)
+            {
+                this.HandleRpcError(method, rpcError);
+            }
+
+            throw new RpcFailureException(RpcFailure.Unknown, e.Message, e);
         }
 
         protected override bool IsCancellationException(Exception exception)

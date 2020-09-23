@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SciTech.Rpc.Tests.NetGrpc
 {
-#if NETCOREAPP3_0
+#if PLAT_NET_GRPC
     [TestFixture]
     public class NetGrpcCancellationTests : CancellationTests
     {

@@ -42,7 +42,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             var responseHeader = new LightweightRpcFrame(
                 RpcFrameType.StreamingResponse, this.messageNumber, this.rpcOperation,
-                ImmutableArray<KeyValuePair<string, string>>.Empty);
+                ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty);
 
             var writeState = this.pipelineClient.BeginWrite(responseHeader);
             try
@@ -62,7 +62,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             var responseHeader = new LightweightRpcFrame(
                 RpcFrameType.StreamingEnd, this.messageNumber, this.rpcOperation,
-                ImmutableArray<KeyValuePair<string, string>>.Empty);
+                ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty);
 
             var writeState = this.pipelineClient.BeginWrite(responseHeader);
             // Response data is ignored when frame is StreamingEnd,

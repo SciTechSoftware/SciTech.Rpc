@@ -18,7 +18,7 @@ using SciTech.Rpc.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 
-#if NETCOREAPP3_0
+#if PLAT_NET_GRPC
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.NetGrpc.Client;
 using SciTech.Rpc.NetGrpc.Server;
@@ -179,7 +179,7 @@ namespace SciTech.Rpc.Tests
                             TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyDefinitionsProvider);
                         return (host, connection);
                     }
-#if NETCOREAPP3_0
+#if PLAT_NET_GRPC
                 case RpcConnectionType.NetGrpc:
                     {
                         var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, options, configureServices);
@@ -224,7 +224,7 @@ namespace SciTech.Rpc.Tests
         }
 
 
-#if NETCOREAPP3_0
+#if PLAT_NET_GRPC
         private static IRpcServerHost CreateNetGrpcServer(
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             RpcServerId serverId,
@@ -286,7 +286,7 @@ namespace SciTech.Rpc.Tests
         }
     }
 
-#if NETCOREAPP3_0
+#if PLAT_NET_GRPC
     internal class NetGrpcTestServer : IRpcServerHost
     {
         private IWebHost webHost;

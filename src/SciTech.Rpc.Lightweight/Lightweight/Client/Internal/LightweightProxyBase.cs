@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -85,7 +86,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(
             TRequest request, LightweightMethodDef method, CancellationToken ct)
         {
-            IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
+            var context = this.CreateCallHeaders(ct);
 
             var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)method).LightweightSerializersOverride
                 ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(method);
@@ -97,11 +98,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var streamingCall = client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
-                    headers,
+                    context,
                     request,
                     actualSerializers,
-                    this.streamingCallTimeout,
-                    ct);
+                    this.streamingCallTimeout);
 
                 return new ValueTask<IAsyncStreamingServerCall<TResponse>>(streamingCall);
             }
@@ -112,11 +112,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var streamingCall = client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
-                    headers,
+                    context,
                     request,
                     actualSerializers,
-                    this.streamingCallTimeout,
-                    ct);
+                    this.streamingCallTimeout);
 
                 return streamingCall;
             }
@@ -131,7 +130,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         protected override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
+            var context = this.CreateCallHeaders(cancellationToken);
 
             var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)methodDef).LightweightSerializersOverride
                 ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(methodDef);
@@ -143,11 +142,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var responseTask = client.SendReceiveFrameAsync2<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
-                    headers,
+                    context,
                     request,
                     actualSerializers,
-                    this.callTimeout,
-                    cancellationToken);
+                    this.callTimeout);
 
                 return responseTask;
             }
@@ -158,11 +156,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 return await client.SendReceiveFrameAsync2<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
-                    headers,
+                    context,
                     request,
                     actualSerializers,
-                    this.callTimeout,
-                    cancellationToken).ContextFree();
+                    this.callTimeout).ContextFree();
             }
 
             return AwaitConnectAndCall(clientTask);
@@ -173,7 +170,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return CreateMethodDef<TRequest, TResponse>(RpcMethodType.Unary, serviceName, operationName, this.serializer, null);
         }
 
-        protected override void HandleCallException(Exception e)
+        protected override void HandleCallException(LightweightMethodDef methodDef, Exception e)
         {
             switch (e)
             {
@@ -202,6 +199,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     break;
                 case TimeoutException _:
                     break;
+                case RpcErrorException fre:
+                    this.HandleRpcError(methodDef, fre.Error);
+                    break;
                 default:
                     throw new RpcFailureException(RpcFailure.Unknown, $"Unexepected exception when calling RPC method. {e.Message}", e);
             }
@@ -212,55 +212,56 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return this.connection.ConnectClientAsync(cancellationToken);
         }
 
-        private IReadOnlyDictionary<string, string>? CreateCallHeaders()
+        private RpcRequestContext? CreateCallHeaders(CancellationToken cancellationToken)
         {
-            IReadOnlyDictionary<string, string>? headers = null;
+            RpcRequestContext? context = null;
             int nInterceptors = this.CallInterceptors.Length;
-            if (nInterceptors > 0)
+            if (nInterceptors > 0 || cancellationToken.CanBeCanceled)
             {
-                var metadata = new LightweightCallMetadata();
+                context = new RpcRequestContext(cancellationToken);
                 for (int interceptorIndex = 0; interceptorIndex < nInterceptors; interceptorIndex++)
                 {
-                    this.CallInterceptors[interceptorIndex](metadata);
+                    this.CallInterceptors[interceptorIndex](context);
                 }
-
-                headers = metadata.Headers;
             }
 
-            return headers;
+            return context;
         }
 
-        private class LightweightCallMetadata : IRpcClientCallContext
-        {
-            private Dictionary<string, string> headersDictionary = new Dictionary<string, string>();
+        //private class LightweightCallMetadata : IRpcRequestContext
+        //{
+        //    private Dictionary<string, string> headersDictionary = new Dictionary<string, string>();
 
-            internal IReadOnlyDictionary<string, string> Headers => this.headersDictionary;
+        //    internal IReadOnlyDictionary<string, string> Headers => this.headersDictionary;
 
-            public void AddHeader(string key, string value)
-            {
-                this.headersDictionary.Add(key, value);
-            }
+        //    public void AddHeader(string key, string value)
+        //    {
+        //        this.headersDictionary.Add(key, value);
+        //    }
 
-            public string? GetHeaderString(string key)
-            {
-                this.headersDictionary.TryGetValue(key, out string? value);
-                return value;
-            }
-        }
+        //    public string? GetHeaderString(string key)
+        //    {
+        //        this.headersDictionary.TryGetValue(key, out string? value);
+        //        return value;
+        //    }
+        //}
     }
 
 #pragma warning restore CA1062 // Validate arguments of public methods
 
     internal sealed class LightweightSerializers<TRequest, TResponse>
     {
+        internal readonly IRpcSerializer Serializer;
+
         internal readonly IRpcSerializer<TRequest> RequestSerializer;
 
         internal readonly IRpcSerializer<TResponse> ResponseSerializer;
 
-        public LightweightSerializers(IRpcSerializer<TRequest> requestSerializer, IRpcSerializer<TResponse> responseSerializer)
+        public LightweightSerializers(IRpcSerializer serializer)
         {
-            this.RequestSerializer = requestSerializer;
-            this.ResponseSerializer = responseSerializer;
+            this.Serializer = serializer;
+            this.RequestSerializer = serializer.CreateTyped<TRequest>();
+            this.ResponseSerializer = serializer.CreateTyped<TResponse>();
         }
     }
 
@@ -288,7 +289,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     return (LightweightSerializers<TRequest, TResponse>)serializers;
                 }
 
-                var newSerializers = new LightweightSerializers<TRequest, TResponse>(this.serializer.CreateTyped<TRequest>(), this.serializer.CreateTyped<TResponse>());
+                var newSerializers = new LightweightSerializers<TRequest, TResponse>(this.serializer);
                 this.proxyToSerializers.Add(proxyMethod, newSerializers);
 
                 return newSerializers;

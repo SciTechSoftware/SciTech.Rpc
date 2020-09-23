@@ -319,7 +319,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             TResponse response;
 
-            var context = new LightweightCallContext(new TestRpcEndPoint(), ImmutableArray<KeyValuePair<string, string>>.Empty, CancellationToken.None);
+            var context = new LightweightCallContext(new TestRpcEndPoint(), ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty, CancellationToken.None);
             var requestPipe = new Pipe();
             var responsePipe = new Pipe();
             var duplexPipe = new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer);

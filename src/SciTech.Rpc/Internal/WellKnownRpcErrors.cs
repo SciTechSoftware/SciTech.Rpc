@@ -21,4 +21,5 @@ namespace SciTech.Rpc.Internal
 
         public const string ServiceUnavailable = "SciTech.Rpc.RpcServiceUnavailableError";
     }
+
 }

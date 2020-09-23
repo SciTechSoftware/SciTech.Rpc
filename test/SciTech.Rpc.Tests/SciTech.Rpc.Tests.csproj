@@ -1,10 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;net472;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>
-    <!--<TargetFramework>netcoreapp3.0</TargetFramework>-->
+    <!--<TargetFrameworks>net461;net472;netcoreapp2.1;netcoreapp3.1;net5.0</TargetFrameworks>-->
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+
+  <Import Project="../../src/Platform.props" />
 
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
@@ -76,7 +78,7 @@
     <ProjectReference Include="..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)'=='netcoreapp3.0'">
+  <ItemGroup Condition="'$(HasNetGrpc)' == 'true'">
     <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc\SciTech.Rpc.NetGrpc.csproj" />
   </ItemGroup>

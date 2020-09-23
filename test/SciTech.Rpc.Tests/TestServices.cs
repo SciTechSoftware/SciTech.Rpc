@@ -403,9 +403,9 @@ namespace SciTech.Rpc.Tests
             return new DeclaredFaultException(message, details.Message);
         }
 
-        public override ConvertedFault CreateFault(DeclaredFaultException exception)
+        public override RpcFaultException CreateFault(DeclaredFaultException exception)
         {
-            return new ConvertedFault(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
+            return new RpcFaultException<DeclaredFault>(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
         }
     }
 
@@ -416,9 +416,9 @@ namespace SciTech.Rpc.Tests
             return new DeclaredFaultException2(message, details.Message);
         }
 
-        public override ConvertedFault CreateFault(DeclaredFaultException2 exception)
+        public override RpcFaultException CreateFault(DeclaredFaultException2 exception)
         {
-            return new ConvertedFault(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
+            return new RpcFaultException<DeclaredFault>(this.FaultCode, exception.Message, new DeclaredFault(exception.DetailedMessage));
         }
     }
 

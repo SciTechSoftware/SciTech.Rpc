@@ -10,30 +10,12 @@
 #endregion
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.Serialization;
 
 namespace SciTech.Rpc.Internal
 {
-    [DataContract]
-    public class RpcError
-    {
-        [DataMember(Order = 1)]
-        public string? ErrorType { get; set; }
-
-        [DataMember(Order = 2)]
-        public string? FaultCode { get; set; }
-
-        [DataMember(Order = 3)]
-#pragma warning disable CA1819 // Properties should not return arrays
-        public byte[]? FaultDetails { get; set; }
-#pragma warning restore CA1819 // Properties should not return arrays
-
-        [DataMember(Order = 4)]
-        public string? Message { get; set; }
-
-        public RpcError() { }
-    }
 
     [DataContract]
     public sealed class RpcResponse
@@ -44,16 +26,11 @@ namespace SciTech.Rpc.Internal
     [DataContract]
     public sealed class RpcResponse<T>
     {
-        /// <summary>
-        /// Result should be marked as nullable (?) since
-        /// it may return null reference types. 
-        /// </summary>
         [DataMember(Order = 1)]
+        [AllowNull]
         public T Result { get; set; }
 
-#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         public RpcResponse()
-#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         {
         }
 
@@ -90,11 +67,10 @@ namespace SciTech.Rpc.Internal
         /// it may return null reference types. 
         /// </summary>
         [DataMember(Order = 1)]
+        [AllowNull]
         public T Result { get; set; }
 
-#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         public RpcResponseWithError()
-#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         {
         }
 
@@ -103,9 +79,7 @@ namespace SciTech.Rpc.Internal
             this.Result = result;
         }
 
-#pragma warning disable CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         public RpcResponseWithError(RpcError error)
-#pragma warning restore CS8618 // Non-nullable field is uninitialized. Consider declaring as nullable.
         {
             this.Error = error;
         }

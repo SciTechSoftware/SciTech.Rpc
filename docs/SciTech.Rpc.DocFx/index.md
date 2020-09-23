@@ -224,7 +224,7 @@ By default, any exception thrown by the service operation will be propagated to 
 
 To allow an operation to provide more detailed error information, it is possible to tag the operation with an `[RpcFault]` attribute. This is similar to the `[OperationFault]` attribute in WCF. Unlike WCF, it is also possible to apply the fault attribute at the service definition level, in which case the attribute will apply to all operations in the service.
 
-The `RpcFault` attribute can be applied with just a fault code, or it can accept a serializable fault details type that can be used to provide additional details about the fault. If an operation is tagged with the RpcFault attribute, the service implementation can throw an `RpcFaultException`to propagate error information back to the client.
+The `RpcFault` attribute can be applied with just a fault code, or it can accept a serializable fault details type that can be used to provide additional details about the fault. If an operation is tagged with the RpcFault attribute, the service implementation can throw an `RpcFaultException` to propagate error information back to the client.
 
 _**NOTE!** The exception handling design is not fully finished yet. More details and examples about exception handling will be added soon._
 
@@ -242,7 +242,7 @@ To make RPC exception handling more streamlined and easier to use, it is also po
 
 Exceptions converts are implemented using the `IRpcServerExceptionConverter` and `IRpcClientExceptionConverter` interfaces. A default implementation is provided by the `RpcExceptionConverter<TException>` class. 
 
-Exception converters are applied to RPC operations by using the `[RpcExceptionConverter]`attribute (not implemented yet), or by registering it using the `IRpcServiceDefinitionBuilder` on the server side, or using the `IRpcProxyDefinitionsBuilder` on the client side.
+Exception converters are applied to RPC operations by using the `[RpcExceptionConverter]` attribute (not implemented yet), or by registering it using the `IRpcServiceDefinitionBuilder` on the server side, or using the `IRpcProxyDefinitionsBuilder` on the client side.
 
 _**NOTE!** The exception handling design is not fully finished yet. More details and examples about exception handling will be added soon._
 

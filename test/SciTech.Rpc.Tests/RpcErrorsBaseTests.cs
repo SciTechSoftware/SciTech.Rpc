@@ -54,7 +54,8 @@ namespace SciTech.Rpc.Tests
             TestOperationType.BlockingBlockingVoid,
             TestOperationType.AsyncBlockingVoid,
             TestOperationType.AsyncAsync,
-            TestOperationType.AsyncAsyncVoid };
+            TestOperationType.AsyncAsyncVoid
+        };
 
         protected RpcErrorsBaseTests(IRpcSerializer serializer, RpcConnectionType connectionType) : base(serializer, connectionType)
         {
@@ -89,7 +90,7 @@ namespace SciTech.Rpc.Tests
         }
 
         [TestCaseSource(nameof(OperationTypes))]
-        public async Task DeclaredFault_ShouldThreadRpcFaultException(TestOperationType operationType)
+        public async Task DeclaredFault_ShouldThrowRpcFaultException(TestOperationType operationType)
         {
             var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator

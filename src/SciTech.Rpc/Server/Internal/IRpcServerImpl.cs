@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Immutable;
@@ -52,5 +53,7 @@ namespace SciTech.Rpc.Server.Internal
         IRpcServiceActivator ServiceImplProvider { get; }
 
         IServiceProvider? ServiceProvider { get; }
+
+        void HandleCallException(Exception exception, IRpcSerializer? serializer);
     }
 }

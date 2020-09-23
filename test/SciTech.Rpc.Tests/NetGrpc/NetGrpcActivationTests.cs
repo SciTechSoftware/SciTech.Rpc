@@ -1,4 +1,4 @@
-﻿#if NETCOREAPP3_0
+﻿#if PLAT_NET_GRPC
 using System;
 using System.Collections.Generic;
 using System.Linq;

@@ -67,9 +67,13 @@ namespace SciTech.Rpc.Client.Internal
 
                 var (moduleBuilder, definedProxyTypes) = CreateModuleBuilder();
 
-                var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(serviceInterfaces, this.ProxyServicesProvider, moduleBuilder, definedProxyTypes);
+                var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(serviceInterfaces,
+                    this.ProxyServicesProvider, moduleBuilder, definedProxyTypes);
                 var (proxyCreator, createMethodsFunc) = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();
-                var proxyMethods = createMethodsFunc();
+                // Actually generating a create method instead of building a TMethodDef array directly
+                // is definitely unnecessary, but may be useful in the future. See remarks on BuildObjectProxyType.
+                TMethodDef[] methodDefs = createMethodsFunc();
+                var proxyMethods = methodDefs;
 
                 RpcObjectProxyFactory newFactory = this.CreateProxyFactory(proxyCreator, implementedServices, proxyMethods);
 

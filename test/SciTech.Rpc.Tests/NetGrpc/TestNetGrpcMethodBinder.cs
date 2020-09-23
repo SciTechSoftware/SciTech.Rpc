@@ -1,4 +1,4 @@
-﻿#if NETCOREAPP3_0
+﻿#if PLAT_NET_GRPC
 using Grpc.AspNetCore.Server.Model;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Tests.Grpc;

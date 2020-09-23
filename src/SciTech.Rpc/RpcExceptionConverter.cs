@@ -42,11 +42,11 @@ namespace SciTech.Rpc
             return (TException)this.exceptionCtor.Invoke(new object[] { message });
         }
 
-        public override ConvertedFault? CreateFault(TException exception)
+        public override RpcFaultException? CreateFault(TException exception)
         {
             if (exception is null) throw new ArgumentNullException(nameof(exception));
 
-            return new ConvertedFault(this.FaultCode, exception.Message);
+            return new RpcFaultException(this.FaultCode, exception.Message);
         }
     }
 
@@ -79,7 +79,7 @@ namespace SciTech.Rpc
 
         public abstract TException CreateException(string message, TFault details);
 
-        public abstract ConvertedFault? CreateFault(TException exception);
+        public abstract RpcFaultException? CreateFault(TException exception);
 
         Exception IRpcClientExceptionConverter.CreateException(string message, object? details)
         {
@@ -91,7 +91,7 @@ namespace SciTech.Rpc
             throw new ArgumentException($"Incorrect fault details, expected details of type '{typeof(TFault)}'.", nameof(details));
         }
 
-        ConvertedFault? IRpcServerExceptionConverter.CreateFault(Exception exception)
+        RpcFaultException? IRpcServerExceptionConverter.CreateFault(Exception exception)
         {
             return this.CreateFault((TException)exception);
         }
@@ -141,14 +141,14 @@ namespace SciTech.Rpc
 
         public abstract TException CreateException(string message);
 
-        public abstract ConvertedFault? CreateFault(TException exception);
+        public abstract RpcFaultException? CreateFault(TException exception);
 
         Exception IRpcClientExceptionConverter.CreateException(string message, object? details)
         {
             return this.CreateException(message);
         }
 
-        ConvertedFault? IRpcServerExceptionConverter.CreateFault(Exception exception)
+        RpcFaultException? IRpcServerExceptionConverter.CreateFault(Exception exception)
         {
             return this.CreateFault((TException)exception);
         }
@@ -166,13 +166,13 @@ namespace SciTech.Rpc
             return new RpcFaultException(this.FaultCode, message);
         }
 
-        public override ConvertedFault? CreateFault(RpcFaultException exception)
+        public override RpcFaultException? CreateFault(RpcFaultException exception)
         {
             if (exception is null) throw new ArgumentNullException(nameof(exception));
 
             if (exception.FaultCode == this.FaultCode)
             {
-                return new ConvertedFault(this.FaultCode, exception.Message);
+                return new RpcFaultException(this.FaultCode, exception.Message);
             }
 
             return null;
@@ -189,11 +189,11 @@ namespace SciTech.Rpc
             return new RpcFaultException<TFault>(message, details);
         }
 
-        public override ConvertedFault? CreateFault(RpcFaultException<TFault> exception)
+        public override RpcFaultException? CreateFault(RpcFaultException<TFault> exception)
         {
             if (exception is null) throw new ArgumentNullException(nameof(exception));
 
-            return new ConvertedFault(this.FaultCode, exception.Message, exception.Fault);
+            return new RpcFaultException<TFault>(exception.Message, exception.Fault);
         }
     }
 }

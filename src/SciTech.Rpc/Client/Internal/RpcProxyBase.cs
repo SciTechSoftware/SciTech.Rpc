@@ -16,6 +16,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -104,16 +105,21 @@ namespace SciTech.Rpc.Client.Internal
             return otherServices == null || otherServices.Count == 0
                 || (this.implementedServices != null && this.implementedServices.IsSupersetOf(otherServices));
         }
-#pragma warning disable CA1051 // Do not declare visible instance fields
+
+
         /// <summary>
         /// Protected to make it easier to use by dynamically generated code.
         /// </summary>
+        [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
         protected readonly RpcObjectId objectId;
 
+        /// <summary>
+        /// Protected to make it easier to use by dynamically generated code.
+        /// </summary>
+        [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
         protected readonly IRpcSerializer serializer;
 
         private HashSet<string>? implementedServices;
-#pragma warning restore CA1051 // Do not declare visible instance fields
 
     }
 
@@ -376,7 +382,7 @@ namespace SciTech.Rpc.Client.Internal
                 }
                 catch (Exception e)
                 {
-                    this.HandleCallException(e);
+                    this.HandleCallException(method, e);
                     throw;
                 }
 
@@ -404,7 +410,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -427,7 +433,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -459,7 +465,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -487,7 +493,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -510,7 +516,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
         }
@@ -526,7 +532,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
         }
@@ -543,7 +549,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -566,7 +572,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -588,7 +594,7 @@ namespace SciTech.Rpc.Client.Internal
             // TODO: Dispose (and end) owning RPC call.
         }
 
-        protected abstract void HandleCallException(Exception e);
+        protected abstract void HandleCallException(TMethodDef methodDef, Exception e);
 
         protected virtual bool IsCancellationException(Exception exception)
         {
@@ -719,39 +725,43 @@ namespace SciTech.Rpc.Client.Internal
             return null;
         }
 
-        private void HandleRpcError(TMethodDef methodDef, RpcError error)
+        protected void HandleRpcError(TMethodDef methodDef, RpcError error)
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+            if (error is null) throw new ArgumentNullException(nameof(error));
+
+            string message = error.Message ?? $"Error occured in server handler of 'xxx'";// {methodDef.Operation}'";
             switch (error.ErrorType)
             {
                 case WellKnownRpcErrors.ServiceUnavailable:
-                    throw new RpcServiceUnavailableException(error.Message ?? "");
+                    throw new RpcServiceUnavailableException(message);
                 case WellKnownRpcErrors.Failure:
-                    throw new RpcFailureException(RpcFailureException.GetFailureFromFaultCode(error.FaultCode), error.Message ?? "");
+                    throw new RpcFailureException(RpcFailureException.GetFailureFromFaultCode(error.ErrorCode), message);
                 case WellKnownRpcErrors.Fault:
                     // Just leave switch and handle fault below.
                     break;
                 default:
-                    throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {error.Message}");
+                    throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {message}");
             }
 
             if (methodDef.FaultHandler != null
-                && !string.IsNullOrEmpty(error.FaultCode)
-                && methodDef.FaultHandler.TryGetFaultConverter(error.FaultCode!, out var faultConverter))
+                && !string.IsNullOrEmpty(error.ErrorCode)
+                && methodDef.FaultHandler.TryGetFaultConverter(error.ErrorCode!, out var faultConverter))
             {
                 // It's a declared fault.
                 var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
 
                 object? details = null;
-                if (faultConverter!.FaultDetailsType != null)
+                if (faultConverter!.FaultDetailsType != null  )
                 {
-                    details = actualSerializer.Deserialize(error.FaultDetails ?? Array.Empty<byte>(), faultConverter.FaultDetailsType);
+                    details = actualSerializer.Deserialize(error.ErrorDetails, faultConverter.FaultDetailsType);
                 }
 
                 Exception exception;
 
                 // First check whether there's a custom converter for this fault.
-                var customConverter = this.Channel.GetExceptionConverter(error.FaultCode!)
-                    ?? this.ProxyDefinitionsProvider.GetExceptionConverter(error.FaultCode!);
+                var customConverter = this.Channel.GetExceptionConverter(error.ErrorCode!)
+                    ?? this.ProxyDefinitionsProvider.GetExceptionConverter(error.ErrorCode!);
 
                 if (customConverter != null)
                 {
@@ -760,19 +770,19 @@ namespace SciTech.Rpc.Client.Internal
                         throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "Custom exception converter must have the same details type as the default exception converter.");
                     }
 
-                    exception = customConverter.CreateException(error.Message ?? "", details);
+                    exception = customConverter.CreateException(message, details);
                 }
                 else
                 {
                     // No custom converter. Let's use the default converter function.
-                    exception = faultConverter.CreateException(error.Message ?? "", details);
+                    exception = faultConverter.CreateException(message, details);
                 }
 
                 throw exception;
             }
 
             // If we get here, no one handled the fault. Let's just handle it by throwing a plain RpcFaultException.
-            throw new RpcFaultException(error.FaultCode ?? "", error.Message ?? "");
+            throw new RpcFaultException(error.ErrorCode ?? "", message );
         }
 
 

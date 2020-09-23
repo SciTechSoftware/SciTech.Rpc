@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests.NetGrpc
 {
-#if NETCOREAPP3_0
+#if PLAT_NET_GRPC
     public class NetGrpcTimeoutTests : TimeoutTests
     {
         public NetGrpcTimeoutTests() : base(RpcConnectionType.NetGrpc)//, roundTripTimeout)

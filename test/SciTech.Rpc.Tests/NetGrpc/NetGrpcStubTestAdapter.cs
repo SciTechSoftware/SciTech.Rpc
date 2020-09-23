@@ -1,4 +1,4 @@
-﻿#if NETCOREAPP3_0
+﻿#if PLAT_NET_GRPC
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Server.Internal;

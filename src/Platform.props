@@ -8,6 +8,7 @@
     <HasReflectionEmit>true</HasReflectionEmit>
     <HasSystemSslProtocols>true</HasSystemSslProtocols>
     <HasCollectibleAssemblies>true</HasCollectibleAssemblies>
+    <HasNetGrpc>false</HasNetGrpc>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
@@ -47,11 +48,12 @@
     <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
     <HasAsyncEnum>true</HasAsyncEnum>
     <HasNullableAttributes>true</HasNullableAttributes>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
+    <HasNetGrpc>true</HasNetGrpc>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(HasPlatformSpanOverloads)' == 'true'">
@@ -71,5 +73,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(HasCollectibleAssemblies)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_SUPPORT_COLLECTIBLE_ASSEMBLIES</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasSystemSslProtocols)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_NET_GRPC</DefineConstants>
   </PropertyGroup>
 </Project>

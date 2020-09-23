@@ -13,15 +13,19 @@
 //
 #endregion
 
+using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO.Pipelines;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -63,20 +67,20 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         public IAsyncStreamingServerCall<TResponse> BeginStreamingServerCall<TRequest, TResponse>(
             RpcFrameType frameType,
             string operation,
-            IReadOnlyCollection<KeyValuePair<string, string>>? headers,
+            RpcRequestContext? context,
             TRequest request,
             LightweightSerializers<TRequest, TResponse> serializers,
-            int callTimeout,
-            CancellationToken cancellationToken)
+            int callTimeout)
             where TRequest : class
             where TResponse : class
         {
-            var streamingCall = new AsyncStreamingServerCall<TResponse>(serializers.ResponseSerializer);
+            var streamingCall = new AsyncStreamingServerCall<TResponse>(serializers.Serializer, serializers.ResponseSerializer);
             int messageId = this.AddAwaitingResponse(streamingCall);
 
             try
             {
                 RpcOperationFlags flags = 0;
+                var cancellationToken = context != null ? context.CancellationToken : default;
                 if (cancellationToken.CanBeCanceled)
                 {
                     cancellationToken.Register(() => this.CancelCall(messageId, operation));
@@ -86,10 +90,12 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 if (callTimeout > 0 && !RpcProxyOptions.RoundTripCancellationsAndTimeouts)
                 {
                     Task.Delay(callTimeout)
-                        .ContinueWith(t => this.TimeoutCall(messageId, operation, callTimeout), cancellationToken, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default).Forget();
+                        .ContinueWith(t => 
+                            this.TimeoutCall(messageId, operation, callTimeout), cancellationToken, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default)
+                        .Forget();
                 }
 
-                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)callTimeout, headers);
+                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)callTimeout, context?.Headers);
 
                 var writeState = this.BeginWrite(frame);
                 this.WriteRequest(request, serializers.RequestSerializer, writeState);
@@ -116,14 +122,77 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             this.receiveLoopTask = this.StartReceiveLoopAsync(cancellationToken);
         }
 
-        public Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
+        //public Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
+        //    RpcFrameType frameType,
+        //    string operation,
+        //    IReadOnlyCollection<KeyValuePair<string, string>>? headers,
+        //    TRequest request,
+        //    IRpcSerializer<TRequest> requestSerializer,
+        //    IRpcSerializer<TResponse> responseSerializer,
+        //    CancellationToken cancellationToken)
+        //    where TRequest : class
+        //{
+        //    if (TraceEnabled)
+        //    {
+        //        Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
+        //    }
+
+        //    var tcs = new ResponseCompletionSource<TResponse>(responseSerializer);
+        //    int messageId = this.AddAwaitingResponse(tcs);
+        //    try
+        //    {
+
+        //        RpcOperationFlags flags = 0;
+
+        //        if (cancellationToken.CanBeCanceled)
+        //        {
+        //            cancellationToken.Register(() => this.CancelCall(messageId, operation));
+        //            flags |= RpcOperationFlags.CanCancel;
+        //        }
+
+        //        var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, 0, headers);
+
+        //        var writeState = this.BeginWrite(frame);
+        //        this.WriteRequest(request, requestSerializer, writeState);
+
+        //        if (TraceEnabled)
+        //        {
+        //            tcs.Task.ContinueWith(t =>
+        //            {
+        //                switch (t.Status)
+        //                {
+        //                    case TaskStatus.RanToCompletion:
+        //                        Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
+        //                        break;
+        //                    case TaskStatus.Canceled:
+        //                        Logger.Trace("SendReceiveFrameAsync cancelled '{Operation}'.", operation);
+        //                        break;
+        //                    case TaskStatus.Faulted:
+        //                        Logger.TraceException("SendReceiveFrameAsync error '{Operation}'.", t.Exception);
+        //                        break;
+        //                }
+
+        //                return Task.CompletedTask;
+        //            }, TaskScheduler.Default).Forget();
+        //        }
+
+        //        return tcs.Task;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        this.HandleCallError(messageId, ex);
+        //        throw;
+        //    }
+        //}
+
+
+        internal Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
             RpcFrameType frameType,
             string operation,
-            IReadOnlyCollection<KeyValuePair<string, string>>? headers,
+            RpcRequestContext? context,
             TRequest request,
-            IRpcSerializer<TRequest> requestSerializer,
-            IRpcSerializer<TResponse> responseSerializer,
-            CancellationToken cancellationToken)
+            LightweightSerializers<TRequest, TResponse> serializers,
+            int timeout)
             where TRequest : class
         {
             if (TraceEnabled)
@@ -131,65 +200,47 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
             }
 
-            var tcs = new ResponseCompletionSource<TResponse>(responseSerializer);
+            var tcs = new ResponseCompletionSource<TResponse>(serializers.Serializer, serializers.ResponseSerializer);
+
             int messageId = this.AddAwaitingResponse(tcs);
             try
             {
-
                 RpcOperationFlags flags = 0;
 
+                var cancellationToken = context != null ? context.CancellationToken : default;
                 if (cancellationToken.CanBeCanceled)
                 {
                     cancellationToken.Register(() => this.CancelCall(messageId, operation));
                     flags |= RpcOperationFlags.CanCancel;
                 }
 
-                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, 0, headers);
+                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)timeout, context?.Headers);
 
                 var writeState = this.BeginWrite(frame);
-                this.WriteRequest(request, requestSerializer, writeState);
 
-                if (TraceEnabled)
+                var writeTask = this.WriteRequestAsync(request, serializers.RequestSerializer, writeState );
+                if (writeTask.IsCompletedSuccessfully)
                 {
-                    tcs.Task.ContinueWith(t =>
+                    if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
                     {
-                        switch (t.Status)
-                        {
-                            case TaskStatus.RanToCompletion:
-                                Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
-                                break;
-                            case TaskStatus.Canceled:
-                                Logger.Trace("SendReceiveFrameAsync cancelled '{Operation}'.", operation);
-                                break;
-                            case TaskStatus.Faulted:
-                                Logger.TraceException("SendReceiveFrameAsync error '{Operation}'.", t.Exception);
-                                break;
-                        }
-
-                        return Task.CompletedTask;
-                    }, TaskScheduler.Default).Forget();
+                        return tcs.Task;
+                    }
+                    else
+                    {
+                        return AwaitTimeoutResponse(tcs.Task, operation, timeout);
+                    }
                 }
-
-                return tcs.Task;
+                else
+                {
+                    return AwaitWrite(writeTask, tcs.Task);
+                }
             }
             catch (Exception ex)
             {
                 this.HandleCallError(messageId, ex);
                 throw;
             }
-        }
 
-
-        internal Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
-            RpcFrameType frameType,
-            string operation,
-            IReadOnlyCollection<KeyValuePair<string, string>>? headers,
-            TRequest request,
-            LightweightSerializers<TRequest, TResponse> serializers,
-            int timeout,
-            CancellationToken cancellationToken)
-            where TRequest : class
-        {
             async Task<TResponse> AwaitTimeoutResponse(Task<TResponse> responseTask, string operation, int timeout)
             {
                 var completedTask = await Task.WhenAny(responseTask, Task.Delay(timeout)).ContextFree();
@@ -216,51 +267,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 {
                     return await AwaitTimeoutResponse(responseTask, operation, timeout).ContextFree();
                 }
-            }
-
-            if (TraceEnabled)
-            {
-                Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
-            }
-
-            var tcs = new ResponseCompletionSource<TResponse>(serializers.ResponseSerializer);
-
-            int messageId = this.AddAwaitingResponse(tcs);
-            try
-            {
-                RpcOperationFlags flags = 0;
-
-                if (cancellationToken.CanBeCanceled)
-                {
-                    cancellationToken.Register(() => this.CancelCall(messageId, operation));
-                    flags |= RpcOperationFlags.CanCancel;
-                }
-
-                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)timeout, headers);
-
-                var writeState = this.BeginWrite(frame);
-
-                var writeTask = this.WriteRequestAsync(request, serializers.RequestSerializer, writeState );
-                if (writeTask.IsCompletedSuccessfully)
-                {
-                    if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
-                    {
-                        return tcs.Task;
-                    }
-                    else
-                    {
-                        return AwaitTimeoutResponse(tcs.Task, operation, timeout);
-                    }
-                }
-                else
-                {
-                    return AwaitWrite(writeTask, tcs.Task);
-                }
-            }
-            catch (Exception ex)
-            {
-                this.HandleCallError(messageId, ex);
-                throw;
             }
         }
 
@@ -462,12 +468,37 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return this.EndWriteAsync(writeState,false);
         }
 
+        private static RpcError? ExtractRpcError(in LightweightRpcFrame frame, IRpcSerializer serializer)
+        {
+            // TODO: Exception details if enabled).
+
+            var errorInfoData = frame.GetHeaderBytes(WellKnownHeaderKeys.ErrorInfo);
+            if( !errorInfoData.IsDefaultOrEmpty)
+            {
+                return serializer.Deserialize<RpcError>(errorInfoData.ToArray());
+            }
+
+            string? message = frame.GetHeaderString(WellKnownHeaderKeys.ErrorMessage);
+            string? errorType = frame.GetHeaderString(WellKnownHeaderKeys.ErrorType);
+            string? errorCode = frame.GetHeaderString(WellKnownHeaderKeys.ErrorCode);
+            ImmutableArray<byte> faultDetails = frame.GetHeaderBytes(WellKnownHeaderKeys.ErrorDetails);
+
+            if (!string.IsNullOrEmpty(errorType))
+            {
+                return new RpcError { ErrorType = errorType, Message = message, ErrorCode = errorCode, ErrorDetails = !faultDetails.IsDefaultOrEmpty ? faultDetails.ToArray() : null };
+            }
+
+            return null;
+        }
+
+
         private class AsyncStreamingServerCall<TResponse> : IAsyncStreamingServerCall<TResponse>, IResponseHandler
             where TResponse : class
         {
             private readonly StreamingResponseStream<TResponse> responseStream;
 
-            private IRpcSerializer<TResponse> serializer;
+            private IRpcSerializer serializer;
+            private IRpcSerializer<TResponse> responseSerializer;
 
             /// <summary>
             /// Initializes a new ResponseCompletionSource for handling an RPC call response.
@@ -477,9 +508,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             /// called from the receive loop).
             /// </summary>
             /// <param name="serializer"></param>
-            internal AsyncStreamingServerCall(IRpcSerializer<TResponse> serializer)
+            internal AsyncStreamingServerCall(IRpcSerializer serializer, IRpcSerializer<TResponse> responseSerializer)
             {
                 this.serializer = serializer;
+                this.responseSerializer = responseSerializer;
                 this.responseStream = new StreamingResponseStream<TResponse>();
             }
 
@@ -504,16 +536,23 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 switch (frame.FrameType)
                 {
                     case RpcFrameType.StreamingResponse:
-                        var response = this.serializer.Deserialize(frame.Payload);
+                        var response = this.responseSerializer.Deserialize(frame.Payload);
                         this.responseStream.Enqueue(response);
                         return false;
                     case RpcFrameType.ErrorResponse:
-                        // TODO: Exception details if enabled).
-                        string? message = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorMessageHeaderKey).Value;
-                        string? errorCode = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorCodeHeaderKey).Value;
-                        var failure = RpcFailureException.GetFailureFromFaultCode(errorCode);
-                        responseStream.Complete(new RpcFailureException(failure, message ?? $"Error occured in server handler of '{frame.RpcOperation}'"));
-                        return true;
+                        {
+                            var error = ExtractRpcError(frame, this.serializer);
+                            if (error != null)
+                            {
+                                responseStream.Complete(new RpcErrorException(error));
+                            } else
+                            {
+                                responseStream.Complete(
+                                    new RpcFailureException(RpcFailure.Unknown, $"Error information not provided for '{frame.RpcOperation}'."));
+                            }
+
+                            return true;
+                        }
                     case RpcFrameType.StreamingEnd:
                         // TODO Handle exceptions.
                         this.responseStream.Complete();
@@ -534,7 +573,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private sealed class ResponseCompletionSource<TResponse> : TaskCompletionSource<TResponse>, IResponseHandler
         {
-            private IRpcSerializer<TResponse> serializer;
+            private IRpcSerializer serializer;
+            private IRpcSerializer<TResponse> responseSerializer;
 
             /// <summary>
             /// Initializes a new ResponseCompletionSource for handling an RPC call response.
@@ -544,10 +584,11 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             /// called from the receive loop).
             /// </summary>
             /// <param name="serializer"></param>
-            internal ResponseCompletionSource(IRpcSerializer<TResponse> serializer)
+            internal ResponseCompletionSource(IRpcSerializer serializer, IRpcSerializer<TResponse> responseSerializer)
                 : base(TaskCreationOptions.RunContinuationsAsynchronously)
             {
                 this.serializer = serializer;
+                this.responseSerializer = responseSerializer;
             }
 
             public void HandleCancellation()
@@ -565,7 +606,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 switch (frame.FrameType)
                 {
                     case RpcFrameType.UnaryResponse:
-                        var response = this.serializer.Deserialize(frame.Payload);
+                        var response = this.responseSerializer.Deserialize(frame.Payload);
                         this.TrySetResult(response);
                         break;
                     case RpcFrameType.TimeoutResponse:
@@ -577,12 +618,17 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         this.TrySetCanceled();
                         break;
                     case RpcFrameType.ErrorResponse:
-                        // TODO: Exception details if enabled).
-                        string? message = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorMessageHeaderKey).Value;
-                        string? errorCode = frame.Headers?.FirstOrDefault(p => p.Key == LightweightRpcFrame.ErrorCodeHeaderKey).Value;
-                        var failure = RpcFailureException.GetFailureFromFaultCode(errorCode);
-                        this.TrySetException(new RpcFailureException(failure, message ?? $"Error occured in server handler of '{frame.RpcOperation}'"));
-                        break;
+                        {
+                            RpcError? error = ExtractRpcError(frame, this.serializer);
+                            if (error != null)
+                            {
+                                this.TrySetException(new RpcErrorException(error));
+                            } else
+                            {
+                                this.TrySetException(new RpcFailureException(RpcFailure.Unknown, $"Error information not provided for '{frame.RpcOperation}'."));
+                            }
+                            return true;
+                        }
                     default:
                         this.TrySetException(new RpcFailureException(RpcFailure.Unknown, $"Unexpected frame type '{frame.FrameType}' in ResponseCompletionSource.HandleResponse"));
                         // TODO: This is bad. Close connection?
@@ -591,6 +637,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
                 return true;
             }
+
         }
 
         private class StreamingResponseStream<TResponse> : IAsyncEnumerator<TResponse>

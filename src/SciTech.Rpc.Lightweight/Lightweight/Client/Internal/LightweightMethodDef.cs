@@ -46,9 +46,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         {
             if (serializerOverride != null)
             {
-                this.LightweightSerializersOverride = new LightweightSerializers<TRequest, TResponse>(
-                    serializerOverride.CreateTyped<TRequest>(),
-                    serializerOverride.CreateTyped<TResponse>());
+                this.LightweightSerializersOverride = new LightweightSerializers<TRequest, TResponse>(serializerOverride);
+                    
             }
         }
 

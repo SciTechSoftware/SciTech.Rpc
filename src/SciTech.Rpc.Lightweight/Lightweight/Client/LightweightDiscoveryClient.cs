@@ -196,7 +196,7 @@ namespace SciTech.Rpc.Lightweight.Client
                 bool changed = false;
 
                 DiscoveredServer? discoveredServer;
-                ImmutableArray<DiscoveredService> oldServices;
+                ImmutableArray<DiscoveredService> oldServices = ImmutableArray<DiscoveredService>.Empty;
                 lock (this.syncRoot)
                 {
                     if (!this.discoveredServers.TryGetValue(response.ConnectionInfo.ServerId, out discoveredServer))

@@ -10,7 +10,10 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 
 namespace SciTech.Rpc.Client
 {
@@ -18,7 +21,7 @@ namespace SciTech.Rpc.Client
     /// Extends the <see cref="IRpcCallContext"/> with the possibility to add meta data header 
     /// values. Can be used by client call interceptors to supply metadata with an RPC operation.
     /// </summary>
-    public interface IRpcClientCallContext : IRpcCallContext
+    public interface IRpcRequestContext : IRpcCallContext
     {
         /// <summary>
         /// Adds a meta data header string under the specified <paramref name="key"/>.
@@ -26,5 +29,8 @@ namespace SciTech.Rpc.Client
         /// <param name="key">Key identifying the header string.</param>
         /// <param name="value">The header string to add.</param>
         void AddHeader(string key, string value);
+
+        void AddBinaryHeader(string key, IReadOnlyList<byte> value);
+
     }
 }

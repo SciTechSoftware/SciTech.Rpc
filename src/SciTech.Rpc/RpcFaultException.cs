@@ -9,7 +9,9 @@
 //
 #endregion
 
+using SciTech.Rpc.Serialization;
 using System;
+using System.ComponentModel;
 using System.Reflection;
 
 namespace SciTech.Rpc
@@ -35,12 +37,6 @@ namespace SciTech.Rpc
     /// </summary>
     public class RpcFaultException : RpcBaseException
     {
-        private string? assignedFaultCode;
-
-        public RpcFaultException() : this("", "", null)
-        {
-        }
-
         public RpcFaultException(string faultCode, string message) : this(faultCode, message, null)
         {
         }
@@ -48,72 +44,54 @@ namespace SciTech.Rpc
         public RpcFaultException(string faultCode, string message, Exception? innerException)
             : base(message, innerException)
         {
-            this.assignedFaultCode = faultCode ?? throw new ArgumentNullException(nameof(faultCode));
+            this.FaultCode = faultCode ?? throw new ArgumentNullException(nameof(faultCode));
 
         }
 
-        protected RpcFaultException(string message) : this(message, (Exception?)null)
-        {
-        }
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public virtual byte[]? SerializeDetails(IRpcSerializer serializer) => null;
 
-        protected RpcFaultException(string message, Exception? innerException)
-            : base(message, innerException)
-        {
-        }
-
-        public virtual string FaultCode
-        {
-            get
-            {
-                if (this.assignedFaultCode == null)
-                {
-#pragma warning disable CA1065 // Do not raise exceptions in unexpected locations
-                    throw new NotImplementedException("FaultCode must be implemented by derived class.");
-#pragma warning restore CA1065 // Do not raise exceptions in unexpected locations
-                }
-
-                return this.assignedFaultCode;
-            }
-        }
+        public string FaultCode { get; }
     }
 
-#pragma warning disable CA1032 // Implement standard exception constructors
-    public class RpcFaultException<TFault> : RpcFaultException
+    public class RpcFaultException<TFault> : RpcFaultException where TFault : class
     {
-        private string? retrievedFaultCode;
-
-        public RpcFaultException(TFault fault) : this(null, fault)
+        public RpcFaultException(string? faultCode, string? message, TFault fault)
+            : base(faultCode ?? RetrieveFaultCode(), !string.IsNullOrWhiteSpace(message) ? message! : "RPC fault without a message.")
+        {
+            this.Fault = fault;
+        }
+        public RpcFaultException(TFault fault) : this(null, null, fault)
         {
         }
 
         public RpcFaultException(string? message, TFault fault)
-            : base(!string.IsNullOrWhiteSpace(message) ? message! : "RPC fault without a message.")
+            : this(null, !string.IsNullOrWhiteSpace(message) ? message! : "RPC fault without a message.", fault)
         {
-            this.Fault = fault;
         }
+
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public override byte[]? SerializeDetails(IRpcSerializer serializer) => this.Fault != default ? serializer.Serialize(this.Fault) :  null;
+
 
         public TFault Fault { get; }
 
-        public override string FaultCode
-        {
-            get
-            {
-                if (this.retrievedFaultCode == null)
-                {
-                    var detailsAttribute = typeof(TFault).GetCustomAttribute<RpcFaultDetailsAttribute>();
-                    if (detailsAttribute != null)
-                    {
-                        this.retrievedFaultCode = detailsAttribute.FaultCode;
-                    }
-                    else
-                    {
-                        this.retrievedFaultCode = typeof(TFault).Name;
-                    }
-                }
 
-                return this.retrievedFaultCode;
+        private static string RetrieveFaultCode()
+        {
+            string retrievedFaultCode;
+            var detailsAttribute = typeof(TFault).GetCustomAttribute<RpcFaultDetailsAttribute>();
+            if (detailsAttribute != null)
+            {
+                retrievedFaultCode = detailsAttribute.FaultCode;
             }
+            else
+            {
+                retrievedFaultCode = typeof(TFault).Name;
+            }
+
+            return retrievedFaultCode;
         }
     }
-#pragma warning restore CA1032 // Implement standard exception constructors
 }

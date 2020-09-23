@@ -10,13 +10,17 @@
 #endregion
 
 using Microsoft.Extensions.DependencyInjection;
+using SciTech.Rpc.Client;
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Logging.LogProviders;
 using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Threading;
@@ -126,7 +130,7 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 string msg = $"Size of received request frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).";
 
-                return this.WriteErrorResponseAsync(frame.MessageNumber, "", msg, RpcFailure.SizeLimitExceeded);
+                return this.WriteFailureResponseAsync(frame.MessageNumber, "", msg, RpcFailure.SizeLimitExceeded, null);
             }
 
             protected override void OnReceiveLoopFaulted(ExceptionEventArgs e)
@@ -165,7 +169,9 @@ namespace SciTech.Rpc.Lightweight.Server
             /// <param name="messageTask"></param>
             /// <returns>A task that should be awaited before the next frame is handled. Normally 
             /// just the default ValueTask, unless active operations have been throttled.</returns>
-            private ValueTask HandleAsyncOperation(in LightweightRpcFrame frame, ActiveOperation activeOperation, IServiceScope? scope, Task messageTask)
+            private ValueTask HandleAsyncOperation(
+                in LightweightRpcFrame frame, ActiveOperation activeOperation, IServiceScope? scope,
+                IRpcSerializer? serializer, Task messageTask)
             {
                 // TODO: Throttle the number of active operations.
 
@@ -192,10 +198,10 @@ namespace SciTech.Rpc.Lightweight.Server
                         else if (t.IsFaulted)
                         {
                             // Note. It will currently get here if the operation handler failed to 
-                            // write the response. Most likely we will not succeed now either (and the 
+                            // write the response as well. Most likely we will not succeed now either (and the 
                             // pipe will be closed). Maybe the handler should close the pipe instead 
                             // and not propagate the error?
-                            await this.WriteErrorResponseAsync(messageId, operationName, t.Exception!.InnerException ?? t.Exception).ContextFree();
+                            await this.WriteExceptionResponseAsync(messageId, operationName, t.Exception!.InnerException ?? t.Exception, serializer).ContextFree();
                         }
                     }
                     catch (Exception e)
@@ -238,9 +244,10 @@ namespace SciTech.Rpc.Lightweight.Server
                 IServiceScope? scope = null;
                 ActiveOperation? activeOperation = null;
                 CancellationTokenSource? cancellationSource = null;
+                LightweightMethodStub? methodStub = null;
                 try
                 {
-                    var methodStub = this.server.GetMethodDefinition(frame.RpcOperation);
+                    methodStub = this.server.GetMethodDefinition(frame.RpcOperation);
                     if (methodStub != null)
                     {
                         bool canCancel = (frame.OperationFlags & RpcOperationFlags.CanCancel) != 0;
@@ -284,7 +291,7 @@ namespace SciTech.Rpc.Lightweight.Server
                             // Make sure that the scope and cancellationSource are not disposed until the operation is finished.
                             scope = null;
                             cancellationSource = null;
-                            return this.HandleAsyncOperation(frame, activeOperation, activeScope, messageTask);
+                            return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub.Serializer, messageTask);
                         }
                     }
                     else
@@ -303,7 +310,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     scope = null;
                     cancellationSource = null;
 
-                    return this.HandleAsyncOperation(frame, activeOperation, activeScope, Task.FromException(e));
+                    return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub?.Serializer,  Task.FromException(e));
                 }
                 finally
                 {
@@ -326,40 +333,58 @@ namespace SciTech.Rpc.Lightweight.Server
             private async Task WriteCancelResponseAsync(int messageId, string operationName)
             {
                 // TODO: Should any headers be returned?
-                ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
+                ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>> headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
                 var cancelFrame = new LightweightRpcFrame(RpcFrameType.CancelResponse, messageId, operationName, headers);
 
                 var writeState = this.BeginWrite(cancelFrame);
                 await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
-            private Task WriteErrorResponseAsync(int messageId, string operationName, Exception e)
+            private Task WriteExceptionResponseAsync(int messageId, string operationName, Exception e, IRpcSerializer? serializer)
             {
+                RpcError? rpcError = RpcError.TryCreate(e, serializer);
+                if( rpcError != null )
+                {
+                    return this.WriteErrorResponseAsync(messageId, operationName, rpcError, serializer);
+                }
+
                 if (e is OperationCanceledException)
                 {
                     return this.WriteCancelResponseAsync(messageId, operationName);
-                }
-                else if (e is RpcFailureException rfe)
-                {
-                    return this.WriteErrorResponseAsync(messageId, operationName, rfe.Message, rfe.Failure);
-                }
-                else
+                } else
                 {
                     // TODO: Implement IncludeExceptionDetailInFaults
                     string message = $"The server was unable to process the request for operation '{operationName}' due to an internal error. "
                         + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
-                    return this.WriteErrorResponseAsync(messageId, operationName, message, RpcFailure.Unknown);
+                    return this.WriteFailureResponseAsync(messageId, operationName, message, RpcFailure.Unknown, serializer);
                 }
             }
-
-            private async Task WriteErrorResponseAsync(int messageId, string operationName, string message, RpcFailure failure)
+            
+            private async Task WriteErrorResponseAsync(int messageId, string operationName, RpcError rpcError, IRpcSerializer? serializer)
             {
-                // TODO: Should any additional headers be returned?
-                var headers = new KeyValuePair<string, string>[]
+                //// TODO: Should any additional headers be returned?
+                List<KeyValuePair<string, ImmutableArray<byte>>> headers;
+                if ( serializer != null )
                 {
-                    new KeyValuePair<string, string>(LightweightRpcFrame.ErrorMessageHeaderKey, message),
-                    new KeyValuePair<string, string>(LightweightRpcFrame.ErrorCodeHeaderKey, failure.ToString())
-                };
+                    headers = new List<KeyValuePair<string, ImmutableArray<byte>>>
+                    {
+                        new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.ErrorInfo, serializer.Serialize(rpcError).ToImmutableArray())
+
+                    };
+                } else
+                {
+                    headers = new List<KeyValuePair<string, ImmutableArray<byte>>>
+                    {
+                        new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.ErrorType, RpcRequestContext.ToHeaderBytes(rpcError.ErrorType)),
+                        new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.ErrorCode, RpcRequestContext.ToHeaderBytes(rpcError.ErrorCode)),
+                        new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.ErrorMessage , RpcRequestContext.ToHeaderBytes(rpcError.Message))
+                    };
+
+                    if( rpcError.ErrorDetails != null )
+                    {
+                        headers.Add(new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.ErrorMessage, rpcError.ErrorDetails.ToImmutableArray()));
+                    }
+                }
 
                 var errorFrame = new LightweightRpcFrame(RpcFrameType.ErrorResponse, messageId, operationName, headers);
 
@@ -367,10 +392,22 @@ namespace SciTech.Rpc.Lightweight.Server
                 await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
+            private Task WriteFailureResponseAsync(int messageId, string operationName, string message, RpcFailure failure, IRpcSerializer? serializer)
+            {
+                RpcError rpcError = new RpcError
+                {
+                    ErrorType = WellKnownRpcErrors.Failure,
+                    ErrorCode = failure.ToString(),
+                    Message = message
+                };
+
+                return WriteErrorResponseAsync(messageId, operationName, rpcError, serializer);
+            }
+
             private async Task WriteTimeoutResponseAsync(int messageId, string operationName)
             {
                 // TODO: Should any headers be returned?
-                ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
+                ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>> headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
                 var cancelFrame = new LightweightRpcFrame(RpcFrameType.TimeoutResponse, messageId, operationName, headers);
 
                 var writeState = this.BeginWrite(cancelFrame);

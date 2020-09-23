@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Serialization
     }
 
 
-    public interface IRpcSerializer<T>
+    public interface IRpcSerializer<T> 
     {
         T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value=default);
 

@@ -56,5 +56,9 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             return new ProtobufRpcSerializer();
         }
 
+        protected override void HandleCallException(Exception exception, IRpcSerializer? serializer )
+        {
+            throw new NotImplementedException();
+        }
     }
 }

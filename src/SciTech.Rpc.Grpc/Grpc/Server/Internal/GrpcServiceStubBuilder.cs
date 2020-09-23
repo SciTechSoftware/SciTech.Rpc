@@ -110,9 +110,17 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             {
                 GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
                 {
-                    using (var callScope = serviceStub.ServiceProvider?.CreateScope())
+                    try
                     {
-                        return serviceStub.CallAsyncMethod(request, callScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller, responseConverter).AsTask();
+                        using (var callScope = serviceStub.ServiceProvider?.CreateScope())
+                        {
+                            return serviceStub.CallAsyncMethod(request, callScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller, responseConverter).AsTask();
+                        }
+                    }
+                    catch(Exception e)
+                    {
+                        //serviceStub.Server.HandleError();
+                        throw;
                     }
                 };
 
@@ -135,7 +143,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             var serializer = serviceStub.Serializer;
             if (operationInfo.AllowFault)
             {
-                GrpcCore.UnaryServerMethod<TRequest, RpcResponseWithError<TResponseReturn>> handler = (request, context) =>
+                Task<RpcResponseWithError<TResponseReturn>> handler(TRequest request, GrpcCore.ServerCallContext context)
                 {
                     using (var serviceScope = CreateServiceScope(serviceStub))
                     {
@@ -143,7 +151,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                             request, new GrpcCallContext(context), serviceCaller, responseConverter,
                             faultHandler, serializer, serviceScope?.ServiceProvider).AsTask();
                     }
-                };
+                }
 
                 binder.AddMethod(
                     GrpcMethodDefinition.Create<TRequest, RpcResponseWithError<TResponseReturn>>(GrpcCore.MethodType.Unary,
@@ -151,15 +159,14 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                     handler);
             } else
             {
-                GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
+                Task<RpcResponse<TResponseReturn>> handler(TRequest request, GrpcCore.ServerCallContext context)
                 {
-                    using (var serviceScope = CreateServiceScope(serviceStub))
-                    {
-                        return serviceStub.CallBlockingMethod(
-                            request, new GrpcCallContext(context), serviceCaller, responseConverter,
-                            serviceScope?.ServiceProvider).AsTask();
-                    }
-                };
+                    using var serviceScope = CreateServiceScope(serviceStub);
+                    
+                    return serviceStub.CallBlockingMethod(
+                        request, new GrpcCallContext(context), serviceCaller, responseConverter,                        
+                        serviceScope?.ServiceProvider).AsTask();
+                }
 
                 binder.AddMethod(
                     GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,

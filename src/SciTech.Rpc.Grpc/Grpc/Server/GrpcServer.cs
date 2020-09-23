@@ -10,6 +10,7 @@
 #endregion
 
 
+using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Grpc.Internal;
@@ -211,6 +212,38 @@ namespace SciTech.Rpc.Grpc.Server
             IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
 
             return new GrpcServiceStubBuilder<TService>(options?.Value);
+        }
+
+        protected override void HandleCallException(Exception exception, IRpcSerializer? serializer )
+        {
+            var rpcError = RpcError.TryCreate(exception, serializer);
+            if( rpcError != null )
+            {
+                if( serializer != null )
+                {
+                    var serializedError = serializer.Serialize(rpcError);
+                    throw new GrpcCore.RpcException(new Status(StatusCode.Unknown, rpcError.Message),
+                        new Metadata
+                        {
+                            {WellKnownHeaderKeys.ErrorInfo, serializedError }
+                        } );
+                } else
+                {
+                    var metadata = new Metadata
+                    {
+                        { WellKnownHeaderKeys.ErrorType, rpcError.ErrorType },
+                        { WellKnownHeaderKeys.ErrorMessage, rpcError.Message },
+                        { WellKnownHeaderKeys.ErrorCode, rpcError.ErrorCode }
+                    };
+
+                    if ( rpcError.ErrorDetails != null )
+                    {
+                        metadata.Add(new Metadata.Entry( WellKnownHeaderKeys.ErrorDetails, rpcError.ErrorDetails));
+                    }
+
+                    throw new GrpcCore.RpcException(new Status(StatusCode.Unknown, rpcError.Message), metadata);
+                }
+            }
         }
     }
 }

@@ -1,6 +1,9 @@
 ﻿using Greeter;
 using SciTech.Rpc;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Lightweight.Client;
+using SciTech.Rpc.Lightweight.Server;
+using SciTech.Rpc.Server;
 using System;
 using System.Threading.Tasks;
 
@@ -36,6 +39,23 @@ namespace GrpcGreeter
             Console.WriteLine("Press any key to exit...");
 
             Console.ReadKey();
+
+
+            //var server = new LightweightRpcServer();
+            //server.AddEndPoint(new NamedPipeRpcEndPoint("GreeterPipe"));
+            //server.PublishSingleton<IGreeterService>(new GreeterServiceImpl());
+            //server.Start();
+
+
+            //Console.WriteLine("Press any key to exit...");
+
+            //Console.ReadKey();
+
+
+            //var connection = new NamedPipeRpcConnection("GreeterPipe");
+            //var greeter2 = connection.GetServiceSingleton<IGreeterServiceClient>();
+
+            
 
 
         }

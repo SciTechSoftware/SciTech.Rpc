@@ -132,6 +132,13 @@ namespace SciTech.Rpc.Server
             GC.SuppressFinalize(this);
         }
 
+        void IRpcServerImpl.HandleCallException(Exception exception, IRpcSerializer? serializer)
+        {
+            this.HandleCallException(exception, serializer);
+        }
+
+        protected virtual void HandleCallException(Exception exception, IRpcSerializer? serializer) { }
+
         protected virtual void CheckCanStart()
         {
         }

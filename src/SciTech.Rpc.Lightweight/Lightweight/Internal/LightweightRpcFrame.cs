@@ -9,7 +9,9 @@
 //
 #endregion
 
+using Microsoft.Win32.SafeHandles;
 using SciTech.Buffers;
+using SciTech.Rpc.Client;
 using SciTech.Rpc.Serialization;
 using System;
 using System.Buffers;
@@ -18,6 +20,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace SciTech.Rpc.Lightweight.Internal
@@ -60,19 +63,15 @@ namespace SciTech.Rpc.Lightweight.Internal
     /// varint: Protobuf style encoded integer
     /// String: Protobuf style encoded UTF8 string
     /// </summary>
-    internal readonly struct LightweightRpcFrame
+    internal readonly struct LightweightRpcFrame 
     {
         public const int DefaultMaxFrameLength = 65536;
-
-        public const string ErrorCodeHeaderKey = "__lightweight.error_code";
-
-        public const string ErrorMessageHeaderKey = "__lightweight.error_message";
 
         public const int MinimumHeaderLength = 16;
 
         private const short CurrentVersion = 1;
 
-        public LightweightRpcFrame(
+        internal LightweightRpcFrame(
             RpcFrameType frameType,
             int frameLength,
             int messageNumber)
@@ -91,7 +90,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         public LightweightRpcFrame(
             RpcFrameType frameType,
             int messageNumber, string rpcOperation,
-            IReadOnlyCollection<KeyValuePair<string, string>>? headers)
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
         {
             this.FrameType = frameType;
             this.FrameLength = null;
@@ -104,7 +103,9 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.Timeout = 0;
         }
 
-        public LightweightRpcFrame(RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout, IReadOnlyCollection<KeyValuePair<string, string>>? headers)
+        public LightweightRpcFrame(
+            RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
         {
             this.FrameType = frameType;
             this.FrameLength = null;
@@ -120,7 +121,8 @@ namespace SciTech.Rpc.Lightweight.Internal
             RpcFrameType frameType,
             int? frameLength,
             int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
-            in ReadOnlySequence<byte> payload, IReadOnlyCollection<KeyValuePair<string, string>> headers)
+            in ReadOnlySequence<byte> payload, 
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>> headers)
         {
             this.FrameType = frameType;
             this.FrameLength = frameLength;
@@ -137,7 +139,39 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         public RpcFrameType FrameType { get; }
 
-        public IReadOnlyCollection<KeyValuePair<string, string>>? Headers { get; }
+        public IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? Headers { get; }
+
+        public string? GetHeaderString(string key)
+        {
+            if (this.Headers != null)
+            {
+                foreach (var pair in this.Headers)
+                {
+                    if (pair.Key == key)
+                    {
+                        return RpcRequestContext.StringFromHeaderBytes(pair.Value);
+                    }
+                }
+            }
+
+            return null;
+        }
+        
+        public ImmutableArray<byte> GetHeaderBytes(string key)
+        {
+            if (this.Headers != null)
+            {
+                foreach (var pair in this.Headers)
+                {
+                    if (pair.Key == key)
+                    {
+                        return pair.Value;
+                    }
+                }
+            }
+
+            return default;
+        }
 
         public int MessageNumber { get; }
 
@@ -208,23 +242,23 @@ namespace SciTech.Rpc.Lightweight.Internal
                 throw new InvalidDataException();
             }
 
-            ImmutableArray<KeyValuePair<string, string>> headers;
+            ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>> headers;
 
             if (headerPairsCount > 0)
             {
-                var pairsBuilder = ImmutableArray.CreateBuilder<KeyValuePair<string, string>>((int)headerPairsCount);
+                var pairsBuilder = ImmutableArray.CreateBuilder<KeyValuePair<string, ImmutableArray<byte>>>((int)headerPairsCount);
                 for (int pairIndex = 0; pairIndex < headerPairsCount; pairIndex++)
                 {
                     string key = ReadString(ref currInput, frameLength);
-                    string value = ReadString(ref currInput, frameLength);
-                    pairsBuilder.Add(new KeyValuePair<string, string>(key, value));
+                    var value = ReadBytes(ref currInput, frameLength);
+                    pairsBuilder.Add(new KeyValuePair<string, ImmutableArray<byte>>(key, value));
                 }
 
                 headers = pairsBuilder.MoveToImmutable();
             }
             else
             {
-                headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
+                headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
             }
 
 
@@ -273,7 +307,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                 foreach (var pair in headers!)
                 {
                     headerLength += WriteString(writer, pair.Key);
-                    headerLength += WriteString(writer, pair.Value);
+                    headerLength += WriteBytes(writer, pair.Value);
                 }
             }
 
@@ -406,6 +440,23 @@ namespace SciTech.Rpc.Lightweight.Internal
             return readPos + (int)length;
         }
 
+        private static ImmutableArray<byte> ReadBytes(ref ReadOnlySequence<byte> input, int maxLength)
+        {
+            uint length = ReadUInt32Varint(ref input);
+            if (length > maxLength)
+            {
+                throw new InvalidDataException();
+            }
+
+            ImmutableArray<byte> value;
+            byte[] buffer = new byte[length];
+            input.Slice(0, length).CopyTo(buffer);
+            value = buffer.ToImmutableArray();
+
+            input = input.Slice(length);
+            return value;
+        }
+
         private static uint ReadUInt32Varint(ref ReadOnlySequence<byte> input)
         {
             int length;
@@ -495,7 +546,6 @@ namespace SciTech.Rpc.Lightweight.Internal
             int nTotalBytes = WriteUInt32Varint(writer, (uint)nEncodedBytes);
             nTotalBytes += nEncodedBytes;
 
-
             var destSpan = writer.GetSpan(nEncodedBytes);
             int nRetrievedBytes = encoding.GetBytes(stringSpan, destSpan);
             Debug.Assert(nRetrievedBytes == nEncodedBytes);
@@ -513,6 +563,19 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
             writer.Advance(nEncodedBytes);
 #endif
+            return nTotalBytes;
+        }
+
+        private static int WriteBytes(IBufferWriter<byte> writer, ImmutableArray<byte> bytes)
+        {
+            int nBytes = bytes.Length;
+            int nTotalBytes = WriteUInt32Varint(writer, (uint)nBytes);
+            nTotalBytes += nBytes;
+
+            var destSpan = writer.GetSpan(nBytes);
+            bytes.AsSpan().CopyTo(destSpan);
+            writer.Advance(nBytes);
+
             return nTotalBytes;
         }
 

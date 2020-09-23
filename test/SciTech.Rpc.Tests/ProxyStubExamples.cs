@@ -5,7 +5,7 @@
 //
 // NOTE! This file is currently not up-to-date. It contains a mix of old and new implementations.
 //
-// Stub classes have been commented out, since there's a new implementation based on System.Linq.Express instead.
+// Stub classes have been commented out, since there's a new implementation based on System.Linq.Expressions instead.
 
 using System;
 using System.Collections.Generic;

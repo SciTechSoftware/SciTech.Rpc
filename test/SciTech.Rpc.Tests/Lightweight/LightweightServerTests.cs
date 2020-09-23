@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 var objectId = RpcObjectId.NewId();
 
-                var requestFrame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, 1, "SciTech.Rpc.Tests.SimpleService.Add", ImmutableArray<KeyValuePair<string, string>>.Empty);
+                var requestFrame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, 1, "SciTech.Rpc.Tests.SimpleService.Add", ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty);
 
                 using (var frameWriter = new BufferWriterStreamImpl())
                 {

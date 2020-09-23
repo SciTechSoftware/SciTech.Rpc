@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Rpc.Client;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Serialization;
@@ -25,9 +26,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 {
     internal class LightweightCallContext : IRpcCallContextWithCancellation
     {
-        private readonly IReadOnlyCollection<KeyValuePair<string, string>>? headers;
+        private readonly IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers;
 
-        public LightweightCallContext(LightweightRpcEndPoint endPoint, IReadOnlyCollection<KeyValuePair<string, string>>? headers, CancellationToken cancellationToken)
+        public LightweightCallContext(LightweightRpcEndPoint endPoint, IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers, CancellationToken cancellationToken)
         {
             this.EndPoint = endPoint;
             this.CancellationToken = cancellationToken;
@@ -46,11 +47,26 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 {
                     if (pair.Key == key)
                     {
-                        return pair.Value;
+                        return RpcRequestContext.StringFromHeaderBytes(pair.Value);
                     }
                 }
             }
             return null;
+        }
+
+        public ImmutableArray<byte> GetBinaryHeader(string key)
+        {
+            if (this.headers != null && this.headers.Count > 0)
+            {
+                foreach (var pair in this.headers)
+                {
+                    if (pair.Key == key)
+                    {
+                        return pair.Value;
+                    }
+                }
+            }
+            return default;
         }
     }
 
@@ -209,7 +225,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             if (responseTask.IsCompletedSuccessfully)
             {
                 var response = responseTask.Result;
-                ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
+                var headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;  // TODO:
                 var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
 
                 var writeState = frameWriter.BeginWrite(responseHeader);
@@ -240,7 +256,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 async Task AwaitAndWriteResponse(int messageNumber, string operation)
                 {
                     var response = await responseTask.ContextFree();
-                    ImmutableArray<KeyValuePair<string, string>> headers = ImmutableArray<KeyValuePair<string, string>>.Empty;  // TODO:
+                    var headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;  // TODO:
                     var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
 
                     var writeState = frameWriter.BeginWrite(responseHeader);

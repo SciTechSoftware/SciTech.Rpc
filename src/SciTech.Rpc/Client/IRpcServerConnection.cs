@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Client
 
         event EventHandler? ConnectionLost;
 
-        event EventHandler ConnectionStateChanged;
+        event EventHandler? ConnectionStateChanged;
 
         event EventHandler? Disconnected;
 

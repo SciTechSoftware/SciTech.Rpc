@@ -209,7 +209,8 @@ namespace SciTech.Rpc.Client.Internal
                 if (faultAttribute.FaultType != null)
                 {
                     var faultConverterType = typeof(RpcFaultExceptionConverter<>).MakeGenericType(faultAttribute.FaultType);
-                    var defaultConverterField = faultConverterType.GetField(nameof(RpcFaultExceptionConverter<object>.Default), BindingFlags.Static | BindingFlags.Public);
+                    var defaultConverterField = faultConverterType.GetField(nameof(RpcFaultExceptionConverter<object>.Default), 
+                        BindingFlags.Static | BindingFlags.Public);
 
                     var converterFieldExpression = Expression.Field(null, defaultConverterField);
 
@@ -313,7 +314,8 @@ namespace SciTech.Rpc.Client.Internal
             return faultAttributes;
         }
 
-        private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, IReadOnlyList<Expression> faultConverterExpressions, RpcMemberInfo? serverSideMemberInfo)
+        private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, 
+            IReadOnlyList<Expression> faultConverterExpressions, RpcMemberInfo? serverSideMemberInfo)
         {
             IEnumerable<Attribute> faultAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
             List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
@@ -520,19 +522,27 @@ namespace SciTech.Rpc.Client.Internal
         /// Task<int> ISimpleService.AddAsync(int a, int b)
         /// {
         ///     TMethodDef methodDef = this.proxyMethods[<Index_IBlockingService_Add>];
-        ///     return CallUnaryMethodAsync<RpcObjectRequest<int, int>, int>(methodDef, new RpcObjectRequest<int, int>( this.objectId, a, b ), "TestServices.SimpleService", "Add");
+        ///     return CallUnaryMethodAsync<RpcObjectRequest<int, int>, int>(
+        ///         methodDef, 
+        ///         new RpcObjectRequest<int, int>( this.objectId, a, b ), 
+        ///         "TestServices.SimpleService", "Add");
         /// }
         /// ]]></code>
         /// </remarks>
         /// <returns></returns>
-        private void CreateAsyncMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMethodInfo)
+        private void CreateAsyncMethodImpl(
+            RpcOperationInfo operationInfo, 
+            IReadOnlyList<Expression> serviceFaultGeneratorExpressions, 
+            RpcMemberInfo? serverSideMethodInfo)
         {
             if (this.typeBuilder == null)
             {
                 throw new InvalidOperationException();
             }
 
-            var implMethodBuilder = this.typeBuilder.DefineMethod($"{operationInfo.Service.Name}.{operationInfo.Method.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
+            var implMethodBuilder = this.typeBuilder.DefineMethod(
+                $"{operationInfo.Service.Name}.{operationInfo.Method.Name}", 
+                MethodAttributes.Private | MethodAttributes.Virtual,
                 returnType: operationInfo.Method.ReturnType,
                 parameterTypes: operationInfo.Method.GetParameters().Select(p => p.ParameterType).ToArray());
 
@@ -940,7 +950,9 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ret);
         }
 
-        private int CreateMethodDefinitionField(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
+        private int CreateMethodDefinitionField(RpcOperationInfo operationInfo, 
+            IReadOnlyList<Expression> serviceFaultGeneratorExpressions,
+            RpcMemberInfo? serverSideMemberInfo)
         {
             if (this.typeBuilder == null)
             {

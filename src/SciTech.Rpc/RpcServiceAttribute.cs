@@ -27,15 +27,6 @@ namespace SciTech.Rpc
         private RpcServiceDefinitionSide? serviceDefinitionType;
 
         /// <summary>
-        /// Indicates whether faults are allowed in service operations  (e.g. if <see cref="RpcFaultException"/>s and <see cref="RpcFaultException{TFault}"/>
-        /// are propagated to the caller. If <c>false</c> then fault exceptions will be converted to <see cref="RpcDefinitionException"/>s, which will
-        /// not (by default) include any exception details. This option can be overridden by specific operations by using the 
-        /// <see cref="RpcOperationAttribute.AllowFault">RpcOperationAttribute.AllowFault</see> property. The default value
-        /// for this property is <c>true</c>.
-        /// </summary>
-        public bool AllowFault { get; set; } = true;
-
-        /// <summary>
         /// Indicates that this service will always be published as a singleton. It cannot be associated 
         /// with an object id.
         /// </summary>

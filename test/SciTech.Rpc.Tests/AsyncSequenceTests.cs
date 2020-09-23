@@ -216,9 +216,7 @@ namespace SciTech.Rpc.Tests
                 publishedInstance.Dispose();
 
                 Assert.NotNull(first);
-                // Should be  RpcServiceUnavailableException, but streaming calls currently doesn't 
-                // support detailed errors.
-                Assert.ThrowsAsync<RpcFailureException>(async () =>
+                Assert.ThrowsAsync<RpcServiceUnavailableException>(async () =>
                 {
                     await sequenceEnum.MoveNextAsync().AsTask().TimeoutAfter(TimeSpan.FromSeconds(2));
                 }

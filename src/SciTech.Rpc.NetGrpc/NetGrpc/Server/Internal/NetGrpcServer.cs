@@ -58,7 +58,35 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         protected override void HandleCallException(Exception exception, IRpcSerializer? serializer )
         {
-            throw new NotImplementedException();
+            var rpcError = RpcError.TryCreate(exception, serializer);
+            if (rpcError != null)
+            {
+                if (serializer != null)
+                {
+                    var serializedError = serializer.Serialize(rpcError);
+                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message),
+                        new GrpcCore.Metadata
+                        {
+                            {WellKnownHeaderKeys.ErrorInfo, serializedError }
+                        });
+                }
+                else
+                {
+                    var metadata = new GrpcCore.Metadata
+                    {
+                        { WellKnownHeaderKeys.ErrorType, rpcError.ErrorType },
+                        { WellKnownHeaderKeys.ErrorMessage, rpcError.Message },
+                        { WellKnownHeaderKeys.ErrorCode, rpcError.ErrorCode }
+                    };
+
+                    if (rpcError.ErrorDetails != null)
+                    {
+                        metadata.Add(new GrpcCore.Metadata.Entry(WellKnownHeaderKeys.ErrorDetails, rpcError.ErrorDetails));
+                    }
+
+                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message), metadata);
+                }
+            }
         }
     }
 }

@@ -67,7 +67,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 await requestPipe.Writer.FlushAsync();
 
-                RpcResponseWithError<int> response = null;
+                RpcResponse<int> response = null;
                 while (response == null)
                 {
                     var readResult = await responsePipe.Reader.ReadAsync();
@@ -80,7 +80,7 @@ namespace SciTech.Rpc.Tests.Lightweight
                             Assert.AreEqual(requestFrame.RpcOperation, responseFrame.RpcOperation);
                             Assert.AreEqual(requestFrame.MessageNumber, responseFrame.MessageNumber);
 
-                            response = (RpcResponseWithError<int>)serializer.Deserialize(responseFrame.Payload, typeof(RpcResponseWithError<int>));
+                            response = (RpcResponse<int>)serializer.Deserialize(responseFrame.Payload, typeof(RpcResponse<int>));
 
                             responsePipe.Reader.AdvanceTo(buffer.Start);
                         }

@@ -585,11 +585,10 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
 
             MethodInfo callUnaryMethodInfo;
-            bool allowFault = operationInfo.AllowFault;
 
             if (operationInfo.ReturnType != typeof(void))
             {
-                string callerMethodName = allowFault ? RpcProxyBase<TMethodDef>.CallUnaryMethodWithErrorAsyncName : RpcProxyBase<TMethodDef>.CallUnaryMethodAsyncName;
+                string callerMethodName = RpcProxyBase<TMethodDef>.CallUnaryMethodAsyncName;
 
                 var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType, operationInfo.ResponseReturnType, operationInfo.ReturnType);
@@ -598,7 +597,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             else
             {
-                string callerMethodName = allowFault ? RpcProxyBase<TMethodDef>.CallUnaryVoidMethodWithErrorAsyncName : RpcProxyBase<TMethodDef>.CallUnaryVoidMethodAsyncName;
+                string callerMethodName = RpcProxyBase<TMethodDef>.CallUnaryVoidMethodAsyncName;
 
                 var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType);
@@ -703,12 +702,10 @@ namespace SciTech.Rpc.Client.Internal
                 ?? throw new NotImplementedException($"Request type constructor not found");
             il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
 
-            bool allowFault = operationInfo.AllowFault;
-
             MethodInfo callUnaryMethodInfo;
             if (operationInfo.ReturnType != typeof(void))
             {
-                string callerMethodName = allowFault ? RpcProxyBase<TMethodDef>.CallUnaryMethodWithErrorName : RpcProxyBase<TMethodDef>.CallUnaryMethodName;
+                string callerMethodName = RpcProxyBase<TMethodDef>.CallUnaryMethodName;
 
                 var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType, operationInfo.ResponseReturnType, operationInfo.ReturnType);
@@ -717,7 +714,7 @@ namespace SciTech.Rpc.Client.Internal
             }
             else
             {
-                string callerMethodName = allowFault ? RpcProxyBase<TMethodDef>.CallUnaryVoidMethodWithErrorName : RpcProxyBase<TMethodDef>.CallUnaryVoidMethodName;
+                string callerMethodName = RpcProxyBase<TMethodDef>.CallUnaryVoidMethodName;
                 var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
                 callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType);
             }

@@ -142,18 +142,9 @@ namespace SciTech.Rpc.Client.Internal
 
         internal const string CallUnaryMethodName = nameof(CallUnaryMethod);
 
-        internal const string CallUnaryMethodWithErrorAsyncName = nameof(CallUnaryMethodWithErrorAsync);
-
-        internal const string CallUnaryMethodWithErrorName = nameof(CallUnaryMethodWithError);
-
         internal const string CallUnaryVoidMethodAsyncName = nameof(CallUnaryVoidMethodAsync);
 
         internal const string CallUnaryVoidMethodName = nameof(CallUnaryVoidMethod);
-
-        internal const string CallUnaryVoidMethodWithErrorAsyncName = nameof(CallUnaryVoidMethodWithErrorAsync);
-
-        internal const string CallUnaryVoidMethodWithErrorName = nameof(CallUnaryVoidMethodWithError);
-
 
         // There's actually no method called CreateMethodDef in this class. It should be defined as
         // a static method on the class implementing RpcProxyBase.
@@ -449,61 +440,7 @@ namespace SciTech.Rpc.Client.Internal
             where TRequest : class
             where TResponse : class;
 
-        protected TReturnType CallUnaryMethodWithError<TRequest, TResponseType, TReturnType>(
-            TMethodDef methodDef,
-            TRequest request,
-            Func<IRpcService, object?, object?> responseConverter,
-            CancellationToken cancellationToken)
-            where TRequest : class
-        {
-            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
 
-            RpcResponseWithError<TResponseType> response;
-            try
-            {
-                response = this.CallUnaryMethodImpl<TRequest, RpcResponseWithError<TResponseType>>(methodDef, request, cancellationToken);
-            }
-            catch (Exception e)
-            {
-                this.HandleCallException(methodDef, e);
-                throw;
-            }
-
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
-            }
-
-            return ConvertResult<TResponseType, TReturnType>(responseConverter, response.Result);
-        }
-
-        protected async Task<TReturnType> CallUnaryMethodWithErrorAsync<TRequest, TResponseType, TReturnType>(
-            TMethodDef methodDef,
-            TRequest request,
-            Func<IRpcService, object?, object?> responseConverter,
-            CancellationToken ct)
-            where TRequest : class
-        {
-            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
-
-            RpcResponseWithError<TResponseType> response;
-            try
-            {
-                response = await this.CallUnaryMethodImplAsync<TRequest, RpcResponseWithError<TResponseType>>(methodDef, request, ct).ContextFree();
-            }
-            catch (Exception e)
-            {
-                this.HandleCallException(methodDef, e);
-                throw;
-            }
-
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
-            }
-
-            return this.ConvertResult<TResponseType, TReturnType>(responseConverter, response.Result);
-        }
 
         protected void CallUnaryVoidMethod<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
@@ -537,50 +474,6 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        protected void CallUnaryVoidMethodWithError<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
-            where TRequest : class
-        {
-            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
-
-            RpcResponseWithError response;
-            try
-            {
-                response = this.CallUnaryMethodImpl<TRequest, RpcResponseWithError>(methodDef, request, cancellationToken);
-            }
-            catch (Exception e)
-            {
-                this.HandleCallException(methodDef, e);
-                throw;
-            }
-
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
-            }
-        }
-
-
-        protected async Task CallUnaryVoidMethodWithErrorAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken ct)
-            where TRequest : class
-        {
-            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
-
-            RpcResponseWithError response;
-            try
-            {
-                response = await this.CallUnaryMethodImplAsync<TRequest, RpcResponseWithError>(methodDef, request, ct).ContextFree();
-            }
-            catch (Exception e)
-            {
-                this.HandleCallException(methodDef, e);
-                throw;
-            }
-
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
-            }
-        }
 
         protected abstract TMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)
             where TRequest : class

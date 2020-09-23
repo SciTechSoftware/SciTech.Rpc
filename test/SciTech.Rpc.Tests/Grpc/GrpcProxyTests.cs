@@ -66,31 +66,31 @@ namespace SciTech.Rpc.Tests.Grpc
 
             RpcObjectId objectId = ((IRpcService)serviceInstance).ObjectId;
 
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponseWithError<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponse<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
                 .Returns((string op, RpcObjectRequest<int, int> r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
-                    return new RpcResponseWithError<int> { Result = r.Value1 + r.Value2 };
+                    return new RpcResponse<int> { Result = r.Value1 + r.Value2 };
                 });
 
             var res = serviceInstance.Add(5, 6);
             Assert.AreEqual(11, res);
 
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<double>, RpcResponseWithError>("SetValue", It.IsAny<RpcObjectRequest<double>>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<double>, RpcResponse>("SetValue", It.IsAny<RpcObjectRequest<double>>()))
                 .Returns((string op, RpcObjectRequest<double> r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
                     Assert.AreEqual(123.45, r.Value1);
-                    return new RpcResponseWithError();
+                    return new RpcResponse();
                 });
 
             serviceInstance.Value = 123.45;
 
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest, RpcResponseWithError<double>>("GetValue", It.IsAny<RpcObjectRequest>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest, RpcResponse<double>>("GetValue", It.IsAny<RpcObjectRequest>()))
                 .Returns((string op, RpcObjectRequest r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
-                    return new RpcResponseWithError<double> { Result = 543.21 };
+                    return new RpcResponse<double> { Result = 543.21 };
                 });
 
             var getRes = serviceInstance.Value;
@@ -106,21 +106,21 @@ namespace SciTech.Rpc.Tests.Grpc
             RpcObjectId objectId = ((IRpcService)serviceInstance).ObjectId;
 
             // Test Add and Sub, defined on different interfaces
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponseWithError<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponse<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
                 .Returns((string op, RpcObjectRequest<int, int> r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
-                    return new RpcResponseWithError<int> { Result = r.Value1 + r.Value2 };
+                    return new RpcResponse<int> { Result = r.Value1 + r.Value2 };
                 });
 
             var addRes = await serviceInstance.AddAsync(18, 19);
             Assert.AreEqual(18 + 19, addRes);
 
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponseWithError<int>>("Sub", It.IsAny<RpcObjectRequest<int, int>>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponse<int>>("Sub", It.IsAny<RpcObjectRequest<int, int>>()))
                 .Returns((string op, RpcObjectRequest<int, int> r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
-                    return new RpcResponseWithError<int> { Result = r.Value1 - r.Value2 };
+                    return new RpcResponse<int> { Result = r.Value1 - r.Value2 };
                 });
 
             var subRes = await serviceInstance.SubAsync(1218, 119);
@@ -202,11 +202,11 @@ namespace SciTech.Rpc.Tests.Grpc
 
             RpcObjectId objectId = ((IRpcService)serviceInstance).ObjectId;
 
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponseWithError<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponse<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
                 .Returns((string op, RpcObjectRequest<int, int> r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
-                    return new RpcResponseWithError<int> { Result = r.Value1 + r.Value2 };
+                    return new RpcResponse<int> { Result = r.Value1 + r.Value2 };
                 });
 
             var m = serviceInstance.GetType().GetMethod("SimpleService.AddAsync", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -216,21 +216,21 @@ namespace SciTech.Rpc.Tests.Grpc
             var res = await serviceInstance.AddAsync(5, 6);
             Assert.AreEqual(11, res);
 
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<double>, RpcResponseWithError>("SetValue", It.IsAny<RpcObjectRequest<double>>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<double>, RpcResponse>("SetValue", It.IsAny<RpcObjectRequest<double>>()))
                 .Returns((string op, RpcObjectRequest<double> r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
                     Assert.AreEqual(123.45, r.Value1);
-                    return new RpcResponseWithError();
+                    return new RpcResponse();
                 });
 
             await serviceInstance.SetValueAsync(123.45);
 
-            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest, RpcResponseWithError<double>>("GetValue", It.IsAny<RpcObjectRequest>()))
+            callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest, RpcResponse<double>>("GetValue", It.IsAny<RpcObjectRequest>()))
                 .Returns((string op, RpcObjectRequest r) =>
                 {
                     Assert.AreEqual(objectId, r.Id);
-                    return new RpcResponseWithError<double> { Result = 543.21 };
+                    return new RpcResponse<double> { Result = 543.21 };
                 });
 
             var getRes = await serviceInstance.GetValueAsync();

@@ -179,25 +179,25 @@ namespace SciTech.Rpc
             (serializer) =>
             {
                 GrpcProxyMethod[] proxyMethods = new GrpcProxyMethod[] {
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<int, int>, RpcResponseWithError<int>>(RpcMethodType.Unary,
+                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<int, int>, RpcResponse<int>>(RpcMethodType.Unary,
                         "SciTech.Rpc.BlockingService",
                         "Add",
                         null,
                         null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponseWithError<double>>(RpcMethodType.Unary,
+                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponse<double>>(RpcMethodType.Unary,
                         "SciTech.Rpc.BlockingService",
                         "GetValue",
                         serializer,
                         null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponseWithError>(RpcMethodType.Unary,
+                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
                         "SciTech.Rpc.BlockingService",
                         "SetValue",
                         null,
                         null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponseWithError>(RpcMethodType.Unary,
+                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
                         "SciTech.Rpc.FaultService",
                         "GeneratedDeclaredFault",
                         null,
@@ -206,7 +206,7 @@ namespace SciTech.Rpc
                             RpcFaultExceptionConverter<DeclaredFault>.Default
                         })),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponseWithError>(RpcMethodType.Unary,
+                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
                         "SciTech.Rpc.FaultService",
                         "GenerateAsyncDeclaredFault",
                         null,
@@ -215,7 +215,7 @@ namespace SciTech.Rpc
                             RpcFaultExceptionConverter<DeclaredFault>.Default
                         })),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponseWithError>(RpcMethodType.Unary,
+                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
                         "SciTech.Rpc.FaultService",
                         "GenerateAsyncConvertedFault",
                         null,
@@ -246,7 +246,7 @@ namespace SciTech.Rpc
                         null,
                         null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponseWithError<RpcObjectRef>>(RpcMethodType.Unary,
+                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponse<RpcObjectRef>>(RpcMethodType.Unary,
                         "SciTech.Rpc.ServiceProviderService",
                         "GetSimpleService",
                         null,

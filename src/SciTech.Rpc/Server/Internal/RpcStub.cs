@@ -188,29 +188,6 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        public async ValueTask<RpcResponse<TResponse>> CallAsyncMethod<TRequest, TResult, TResponse>(
-            TRequest request,
-            IServiceProvider? serviceProvider,
-            IRpcCallContextWithCancellation context,
-            Func<TService, TRequest, CancellationToken, Task<TResult>> implCaller,
-            Func<TResult, TResponse>? responseConverter)
-            where TRequest : IObjectRequest
-        {
-            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
-
-            try
-            {
-                // Call the actual implementation method.
-                var result = await implCaller(activatedService.Service, request, context.CancellationToken).ContextFree();
-                context.CancellationToken.ThrowIfCancellationRequested();
-
-                return CreateResponse(responseConverter, result);
-            }
-            finally
-            {
-                EndCall(activatedService, interceptDisposables);
-            }
-        }
 
         /// <summary>
         /// 
@@ -223,7 +200,7 @@ namespace SciTech.Rpc.Server.Internal
         /// <param name="context"></param>
         /// <param name="implCaller"></param>
         /// <returns></returns>
-        public async ValueTask<RpcResponseWithError<TResponse>> CallAsyncMethodWithError<TRequest, TResult, TResponse>(
+        public async ValueTask<RpcResponse<TResponse>> CallAsyncMethod<TRequest, TResult, TResponse>(
             TRequest request,
             IServiceProvider? serviceProvider,
             IRpcCallContextWithCancellation context,
@@ -243,12 +220,7 @@ namespace SciTech.Rpc.Server.Internal
 
                     context.CancellationToken.ThrowIfCancellationRequested();
 
-                    return CreateResponseWithError(responseConverter, result);
-                }
-                catch (Exception e)
-                {
-                    this.HandleRpcError(e, faultHandler);
-                    throw;
+                    return CreateResponse(responseConverter, result);
                 }
                 finally
                 {
@@ -257,44 +229,13 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                this.Server.HandleCallException(e, serializer);
-                //if (CreateRpcErrorResponse<TResponse>(e) is RpcResponseWithError<TResponse> errorResponse)
-                //{
-                //    return errorResponse;
-                //}
-
+                this.HandleRpcError(e, faultHandler, serializer);
                 throw;
             }
         }
 
+
         public ValueTask<RpcResponse<TResponse>> CallBlockingMethod<TRequest, TResult, TResponse>(
-            TRequest request,
-            IRpcCallContextWithCancellation context,
-            Func<TService, TRequest, CancellationToken, TResult> implCaller,
-            Func<TResult, TResponse>? responseConverter,
-            IServiceProvider? serviceProvider) where TRequest : IObjectRequest
-        {
-            var beginCallTask = this.BeginCall(serviceProvider, request.Id, context);
-            if (beginCallTask.IsCompletedSuccessfully)
-            {
-                var (activatedService, interceptDisposables) = beginCallTask.Result;
-                return new ValueTask<RpcResponse<TResponse>>(
-                    this.DoCall(request, context, implCaller, responseConverter, activatedService, interceptDisposables));
-            }
-            else
-            {
-                async ValueTask<RpcResponse<TResponse>> AwaitAnDoCall()
-                {
-                    var (activatedService, interceptDisposables) = await beginCallTask.ContextFree();
-                    return this.DoCall(request, context, implCaller, responseConverter, activatedService, interceptDisposables);
-                }
-
-                return AwaitAnDoCall();
-            }
-
-        }
-
-        public ValueTask<RpcResponseWithError<TResponse>> CallBlockingMethodWithError<TRequest, TResult, TResponse>(
             TRequest request,
             IRpcCallContextWithCancellation context,
             Func<TService, TRequest, CancellationToken, TResult> implCaller,
@@ -310,12 +251,14 @@ namespace SciTech.Rpc.Server.Internal
                 {
                     var (activatedService, interceptDisposables) = beginCallTask.Result;
 
-                    return new ValueTask<RpcResponseWithError<TResponse>>(
+                    return new ValueTask<RpcResponse<TResponse>>(
                         this.DoCallWithError(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables));
                 }
                 else
                 {
-                    async ValueTask<RpcResponseWithError<TResponse>> AwaitAnDoCall()
+                    return AwaitAnDoCall();
+
+                    async ValueTask<RpcResponse<TResponse>> AwaitAnDoCall()
                     {
                         try
                         {
@@ -324,28 +267,18 @@ namespace SciTech.Rpc.Server.Internal
                         }
                         catch (Exception e)
                         {
-                            //if (CreateRpcErrorResponse<TResponse>(e) is RpcResponseWithError<TResponse> errorResponse)
-                            //{
-                            //    return errorResponse;
-                            //}
-
+                            // This will not be 
+                            this.Server.HandleCallException(e, null);
                             throw;
                         }
                     }
 
-                    return AwaitAnDoCall();
                 }
 
             }
             catch (Exception e)
             {
                 this.Server.HandleCallException(e, serializer);
-
-                //if (CreateRpcErrorResponse<TResponse>(e) is RpcResponseWithError<TResponse> errorResponse)
-                //{
-                //    return new ValueTask<RpcResponseWithError<TResponse>>(errorResponse);
-                //}
-
                 throw;
             }
         }
@@ -424,17 +357,8 @@ namespace SciTech.Rpc.Server.Internal
                                     }
 
 
-                                    var response = CreateResponseWithError(responseConverter, asyncEnum.Current);
-
-                                    if (response.Error == null)
-                                    {
-                                        await responseWriter.WriteAsync(response.Result).ContextFree();
-                                    }
-                                    else
-                                    {
-                                        // TODO: Implement
-                                        throw new RpcFailureException(RpcFailure.Unknown);
-                                    }
+                                    var response = CreateResponse(responseConverter, asyncEnum.Current);
+                                    await responseWriter.WriteAsync(response.Result).ContextFree();
                                 }
                             }
                         }
@@ -472,12 +396,6 @@ namespace SciTech.Rpc.Server.Internal
                         }
                     }
                 }
-                catch (Exception e)
-                {
-                    // TODO: Implement (should write RpcResponse<> if allowed). ???
-                    this.HandleRpcError(e, faultHandler);
-                    throw;
-                }
                 finally
                 {
                     EndCall(activatedService, interceptDisposables);
@@ -485,13 +403,7 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                //if (CreateRpcErrorResponse<TResponse>(e) is RpcResponseWithError<TResponse> errorResponse)
-                //{
-                //    // TODO: Implement (should maybe write RpcResponse<> if allowed?).
-                //    throw new RpcFailureException(RpcFailure.Unknown);
-                //    //return new RpcResponse<TResponse>(rpcError);
-                //}
-
+                this.HandleRpcError(e, faultHandler, serializer);
                 throw;
             }
         }
@@ -519,7 +431,7 @@ namespace SciTech.Rpc.Server.Internal
         }
 
 
-        public async ValueTask<RpcResponseWithError> CallVoidAsyncMethodWithError<TRequest>(
+        public async ValueTask<RpcResponse> CallVoidAsyncMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
             IRpcCallContextWithCancellation context,
@@ -537,12 +449,7 @@ namespace SciTech.Rpc.Server.Internal
                     await implCaller(activatedService.Service, request, context.CancellationToken).ContextFree();
                     context.CancellationToken.ThrowIfCancellationRequested();
 
-                    return new RpcResponseWithError();
-                }
-                catch (Exception e)
-                {
-                    this.HandleRpcError(e, faultHandler);
-                    throw;
+                    return new RpcResponse();
                 }
                 finally
                 {
@@ -551,7 +458,7 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                this.Server.HandleCallException(e, serializer);
+                this.HandleRpcError(e, faultHandler, serializer);
                 throw;
             }
         }
@@ -579,7 +486,7 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        public async ValueTask<RpcResponseWithError> CallVoidBlockingMethodWithError<TRequest>(
+        public async ValueTask<RpcResponse> CallVoidBlockingMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
             IRpcCallContextWithCancellation context,
@@ -598,12 +505,7 @@ namespace SciTech.Rpc.Server.Internal
                     implCaller(activatedService.Service, request, context.CancellationToken);
                     context.CancellationToken.ThrowIfCancellationRequested();
 
-                    return new RpcResponseWithError();
-                }
-                catch (Exception e)
-                {
-                    this.HandleRpcError(e, faultHandler);
-                    throw;
+                    return new RpcResponse();
                 }
                 finally
                 {
@@ -612,7 +514,7 @@ namespace SciTech.Rpc.Server.Internal
             }
             catch (Exception e)
             {
-                this.Server.HandleCallException(e, serializer);
+                this.HandleRpcError(e, faultHandler, serializer);
                 throw;
             }
         }
@@ -648,35 +550,35 @@ namespace SciTech.Rpc.Server.Internal
         }
 
 
-        private static RpcResponseWithError<TResponse> CreateResponseWithError<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
-        {
-            RpcResponseWithError<TResponse> rpcResponse;
-            if (responseConverter == null)
-            {
-                if (typeof(TResponse) == typeof(TResult))
-                {
-                    if (result is TResponse response)
-                    {
-                        rpcResponse = new RpcResponseWithError<TResponse>(response);
-                    }
-                    else
-                    {
-                        // This should only happen if result is null
-                        rpcResponse = new RpcResponseWithError<TResponse>(default(TResponse)!);
-                    }
-                }
-                else
-                {
-                    throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "Response converter is required if response type is not the same as result type.");
-                }
-            }
-            else
-            {
-                rpcResponse = new RpcResponseWithError<TResponse>(responseConverter(result));
-            }
+        //private static RpcResponseWithError<TResponse> CreateResponseWithError<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
+        //{
+        //    RpcResponseWithError<TResponse> rpcResponse;
+        //    if (responseConverter == null)
+        //    {
+        //        if (typeof(TResponse) == typeof(TResult))
+        //        {
+        //            if (result is TResponse response)
+        //            {
+        //                rpcResponse = new RpcResponseWithError<TResponse>(response);
+        //            }
+        //            else
+        //            {
+        //                // This should only happen if result is null
+        //                rpcResponse = new RpcResponseWithError<TResponse>(default(TResponse)!);
+        //            }
+        //        }
+        //        else
+        //        {
+        //            throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "Response converter is required if response type is not the same as result type.");
+        //        }
+        //    }
+        //    else
+        //    {
+        //        rpcResponse = new RpcResponseWithError<TResponse>(responseConverter(result));
+        //    }
 
-            return rpcResponse;
-        }
+        //    return rpcResponse;
+        //}
 
         private static RpcError? CreateRpcError(Exception e) => RpcError.TryCreate(e, null);
 
@@ -713,7 +615,7 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private static void TryConvertToFault(
+        private static RpcFaultException? TryConvertToFault(
             Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, 
             RpcServerFaultHandler faultHandler)
         {
@@ -724,7 +626,7 @@ namespace SciTech.Rpc.Server.Internal
 
                 if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
                 {
-                    throw convertedFault;
+                    return convertedFault;
                     //byte[]? detailsData = null;
                     //if (convertedFault.Details != null)
                     //{
@@ -737,7 +639,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
             }
 
-            //return rpcError;
+            return null;
         }
 
         private void CheckPublished(RpcObjectId objectId)
@@ -845,7 +747,7 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private RpcResponseWithError<TResponse> DoCallWithError<TRequest, TResult, TResponse>(
+        private RpcResponse<TResponse> DoCallWithError<TRequest, TResult, TResponse>(
             TRequest request,
             IRpcCallContextWithCancellation context,
             Func<TService, TRequest, CancellationToken, TResult> implCaller,
@@ -857,20 +759,23 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                // Call the actual implementation method.
-                var result = implCaller(activatedService.Service, request, context.CancellationToken);
-                context.CancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    // Call the actual implementation method.
+                    var result = implCaller(activatedService.Service, request, context.CancellationToken);
+                    context.CancellationToken.ThrowIfCancellationRequested();
 
-                return CreateResponseWithError(responseConverter, result);
+                    return CreateResponse(responseConverter, result);
+                }
+                finally
+                {
+                    EndCall(activatedService, interceptDisposables);
+                }
             }
             catch (Exception e)
             {
-                this.HandleRpcError(e, faultHandler);
+                this.HandleRpcError(e, faultHandler, serializer);
                 throw;
-            }
-            finally
-            {
-                EndCall(activatedService, interceptDisposables);
             }
         }
 
@@ -892,8 +797,9 @@ namespace SciTech.Rpc.Server.Internal
                 : $"Singleton service '{typeof(TService).Name}' not available.");
         }
 
-        private void HandleRpcError(Exception e, RpcServerFaultHandler? declaredFaultHandler)
+        private void HandleRpcError(Exception e, RpcServerFaultHandler? declaredFaultHandler, IRpcSerializer serializer)
         {
+            RpcFaultException? faultException = null;
             if (declaredFaultHandler != null)
             {
                 // Start by checking custom exception converters.
@@ -903,18 +809,29 @@ namespace SciTech.Rpc.Server.Internal
                     {
                         // Using the methodStub fault handler as the faultHandler argument, since 
                         // this faultHandler is used to check whether the fault is declared for the specific operation.
-                        TryConvertToFault(e, customConverters!, declaredFaultHandler);
+                        faultException = TryConvertToFault(e, customConverters!, declaredFaultHandler);
                     }
                 }
 
-                // Not handled by a custom converter, so let's try the declared converters. 
-                if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
+                if (faultException == null)
                 {
-                    TryConvertToFault(e, declaredConverters!, declaredFaultHandler);
+                    // Not handled by a custom converter, so let's try the declared converters. 
+                    if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
+                    {
+                        TryConvertToFault(e, declaredConverters!, declaredFaultHandler);
+                    }
                 }
             }
 
+            
+            // Give the server an oppurtunity to convert the exception to a suitable type 
+            // to be "returned" to client.
+            this.Server.HandleCallException(faultException ?? e, serializer);
 
+            if (faultException != null)
+            {
+                throw faultException;
+            }
             //    // Exception not handled by any custom or declared fault handler. Let's
             //    // perform default handling.
             //    if (e is RpcFaultException faultException)

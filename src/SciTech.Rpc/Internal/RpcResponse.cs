@@ -39,49 +39,4 @@ namespace SciTech.Rpc.Internal
             this.Result = result;
         }
     }
-
-
-
-    [DataContract]
-    public sealed class RpcResponseWithError
-    {
-        [DataMember(Order = 2)]
-        public RpcError? Error { get; set; }
-
-        public RpcResponseWithError() { }
-
-        public RpcResponseWithError(RpcError error)
-        {
-            this.Error = error;
-        }
-    }
-
-    [DataContract]
-    public sealed class RpcResponseWithError<T>
-    {
-        [DataMember(Order = 2)]
-        public RpcError? Error { get; set; }
-
-        /// <summary>
-        /// Result should be marked as nullable (?) since
-        /// it may return null reference types. 
-        /// </summary>
-        [DataMember(Order = 1)]
-        [AllowNull]
-        public T Result { get; set; }
-
-        public RpcResponseWithError()
-        {
-        }
-
-        public RpcResponseWithError(T result)
-        {
-            this.Result = result;
-        }
-
-        public RpcResponseWithError(RpcError error)
-        {
-            this.Error = error;
-        }
-    }
 }

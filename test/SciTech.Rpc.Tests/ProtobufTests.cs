@@ -114,16 +114,15 @@ namespace SciTech.Rpc
         [Test]
         public void EmptyStringResponseTest()
         {
-            RpcResponseWithError<string> r1 = new RpcResponseWithError<string> { Result = "" };
+            RpcResponse<string> r1 = new RpcResponse<string> { Result = "" };
 
             var ms = new MemoryStream();
-            Serializer.Serialize<RpcResponseWithError<string>>(ms, r1);
+            Serializer.Serialize<RpcResponse<string>>(ms, r1);
 
             ms.Seek(0, SeekOrigin.Begin);
 
-            var dr1 = Serializer.Deserialize<RpcResponseWithError<string>>(ms);
+            var dr1 = Serializer.Deserialize<RpcResponse<string>>(ms);
             Assert.IsNotNull(dr1);
-            Assert.IsNull(dr1.Error);
             Assert.IsEmpty(dr1.Result);
         }
 
@@ -163,32 +162,30 @@ namespace SciTech.Rpc
         [Test]
         public void NullResponseTest()
         {
-            RpcResponseWithError<string> r1 = null;
+            RpcResponse<string> r1 = null;
 
             var ms = new MemoryStream();
-            Serializer.Serialize<RpcResponseWithError<string>>(ms, r1);
+            Serializer.Serialize<RpcResponse<string>>(ms, r1);
 
             ms.Seek(0, SeekOrigin.Begin);
 
-            var dr1 = Serializer.Deserialize<RpcResponseWithError<string>>(ms);
+            var dr1 = Serializer.Deserialize<RpcResponse<string>>(ms);
             Assert.IsNotNull(dr1);
-            Assert.IsNull(dr1.Error);
             Assert.IsNull(dr1.Result);
         }
 
         [Test]
         public void NullStringResponseTest()
         {
-            RpcResponseWithError<string> r1 = new RpcResponseWithError<string>();
+            RpcResponse<string> r1 = new RpcResponse<string>();
 
             var ms = new MemoryStream();
-            Serializer.Serialize<RpcResponseWithError<string>>(ms, r1);
+            Serializer.Serialize<RpcResponse<string>>(ms, r1);
 
             ms.Seek(0, SeekOrigin.Begin);
 
-            var dr1 = Serializer.Deserialize<RpcResponseWithError<string>>(ms);
+            var dr1 = Serializer.Deserialize<RpcResponse<string>>(ms);
             Assert.IsNotNull(dr1);
-            Assert.IsNull(dr1.Error);
             Assert.IsNull(dr1.Result);
         }
 
@@ -219,17 +216,16 @@ namespace SciTech.Rpc
         {
             for (int i = 0; i < 100; i++)
             {
-                var r1 = new RpcResponseWithError<int> { Result = 1 + i * 12345 };
+                var r1 = new RpcResponse<int> { Result = 1 + i * 12345 };
 
                 var ms = new MemoryStream();
 
                 Serializer.Serialize(ms, r1);
                 ms.Seek(0, SeekOrigin.Begin);
 
-                var dr1 = Serializer.Deserialize<RpcResponseWithError<int>>(ms);
+                var dr1 = Serializer.Deserialize<RpcResponse<int>>(ms);
 
                 Assert.AreEqual(r1.Result, dr1.Result);
-                Assert.AreEqual(r1.Error, dr1.Error);
             }
         }
 
@@ -238,16 +234,8 @@ namespace SciTech.Rpc
         {
             for (int i = 0; i < 100; i++)
             {
-                RpcResponseWithError<int?> r1;
-                if (i == 0)
-                {
-                    r1 = new RpcResponseWithError<int?> { Result = null, Error = new RpcError { Message = "Test error" } };
-                }
-                else
-                {
-                    r1 = new RpcResponseWithError<int?> { Result = 1 + i * 12345 };
-
-                }
+                RpcResponse<int?> r1;
+                r1 = new RpcResponse<int?> { Result = 1 + i * 12345 };
 
 
                 var ms = new MemoryStream();
@@ -255,10 +243,9 @@ namespace SciTech.Rpc
                 Serializer.Serialize(ms, r1);
                 ms.Seek(0, SeekOrigin.Begin);
 
-                var dr1 = Serializer.Deserialize<RpcResponseWithError<int?>>(ms);
+                var dr1 = Serializer.Deserialize<RpcResponse<int?>>(ms);
 
                 Assert.AreEqual(r1.Result, dr1.Result);
-                Assert.AreEqual(r1.Error?.Message, dr1.Error?.Message);
             }
         }
 

@@ -42,7 +42,7 @@ namespace SciTech.Rpc.Tests.Grpc
             var setMethod = binder.methods.FirstOrDefault(p => p.Item1.Name == "SetValue");
             Assert.NotNull(setMethod);
 
-            var setValueHandler = (UnaryServerMethod<RpcObjectRequest<double>, RpcResponseWithError>)setMethod.Item2;
+            var setValueHandler = (UnaryServerMethod<RpcObjectRequest<double>, RpcResponse>)setMethod.Item2;
             await setValueHandler(new RpcObjectRequest<double>(objectId, 123.456), callContext);
 
             //await (Task<RpcResponse>)setMethod.Invoke(serviceStub, new object[] { new RpcObjectRequest<double>(objectId, 123.456), callContext });
@@ -51,14 +51,14 @@ namespace SciTech.Rpc.Tests.Grpc
             var getMethod = binder.methods.FirstOrDefault(p => p.Item1.Name == "GetValue");
             Assert.NotNull(getMethod);
 
-            var getValueHandler = (UnaryServerMethod<RpcObjectRequest, RpcResponseWithError<double>>)getMethod.Item2;
+            var getValueHandler = (UnaryServerMethod<RpcObjectRequest, RpcResponse<double>>)getMethod.Item2;
             var getResponse = await getValueHandler(new RpcObjectRequest(objectId), callContext);
             Assert.AreEqual(1, serviceImpl.nBlockingGetValue);
 
             Assert.AreEqual(123.456, getResponse.Result);
 
             var addMethod = binder.methods.FirstOrDefault(p => p.Item1.Name == "Add");
-            var addHandler = (UnaryServerMethod<RpcObjectRequest<int, int>, RpcResponseWithError<int>>)addMethod.Item2;
+            var addHandler = (UnaryServerMethod<RpcObjectRequest<int, int>, RpcResponse<int>>)addMethod.Item2;
             var addResponse = await addHandler(new RpcObjectRequest<int, int>(objectId, 8, 9), callContext);
             Assert.AreEqual(1, serviceImpl.nBlockingAdd);
 
@@ -89,7 +89,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
             var getMethod = binder.methods.FirstOrDefault(p => p.Item1.Name == "GetDeviceAcoId");
             Assert.NotNull(getMethod);
-            var getValueHandler = (UnaryServerMethod<RpcObjectRequest, RpcResponseWithError<Guid>>)getMethod.Item2;
+            var getValueHandler = (UnaryServerMethod<RpcObjectRequest, RpcResponse<Guid>>)getMethod.Item2;
             var getResponse = await getValueHandler(new RpcObjectRequest(objectId), callContext);
 
             Assert.AreEqual(serviceImpl.DeviceAcoId, getResponse.Result);
@@ -189,7 +189,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
             var callContext = CreateServerCallContext(CancellationToken.None);
 
-            var addHandler = binder.GetHandler<GrpcCore.UnaryServerMethod<RpcObjectRequest<int, int>, RpcResponseWithError<int>>>("Add");
+            var addHandler = binder.GetHandler<GrpcCore.UnaryServerMethod<RpcObjectRequest<int, int>, RpcResponse<int>>>("Add");
             Assert.NotNull(addHandler);
 
             var objectId = RpcObjectId.NewId();
@@ -219,10 +219,10 @@ namespace SciTech.Rpc.Tests.Grpc
 
             var objectId = RpcObjectId.NewId();
 
-            var setHandler = binder.GetHandler<UnaryServerMethod<RpcObjectRequest<double>, RpcResponseWithError>>("SetValue");
+            var setHandler = binder.GetHandler<UnaryServerMethod<RpcObjectRequest<double>, RpcResponse>>("SetValue");
             await setHandler(new RpcObjectRequest<double>(objectId, 123.456), callContext);
 
-            var getHandler = binder.GetHandler<UnaryServerMethod<RpcObjectRequest, RpcResponseWithError<double>>>("GetValue");
+            var getHandler = binder.GetHandler<UnaryServerMethod<RpcObjectRequest, RpcResponse<double>>>("GetValue");
             var getResponse = await getHandler(new RpcObjectRequest(objectId), callContext);
 
             Assert.AreEqual(123.456, getResponse.Result);

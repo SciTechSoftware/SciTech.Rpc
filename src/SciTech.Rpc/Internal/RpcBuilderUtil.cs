@@ -128,7 +128,6 @@ namespace SciTech.Rpc.Internal
                     {
                         var getRpcAttribute = propertyInfo.GetMethod.GetCustomAttribute<RpcOperationAttribute>();
 
-                        bool allowFault = getRpcAttribute?.AllowFault ?? propertyRpcAttribute?.AllowFault ?? serviceInfo.AllowFault;
                         var getOp = new RpcOperationInfo(
                             service: rpcPropertyInfo.Service,
                             name: $"Get{propertyInfo.Name}",
@@ -139,12 +138,11 @@ namespace SciTech.Rpc.Internal
                             cancellationTokenIndex: null,
                             methodType: RpcMethodType.Unary,
                             isAsync: false,
-                            responseType: GetResponseType(RpcMethodType.Unary, rpcPropertyInfo.ResponseReturnType, allowFault),
+                            responseType: GetResponseType(RpcMethodType.Unary, rpcPropertyInfo.ResponseReturnType),
                             responseReturnType: rpcPropertyInfo.ResponseReturnType,
                             returnType: propertyInfo.PropertyType,
                             returnKind: rpcPropertyInfo.PropertyTypeKind,
                             allowInlineExecution: getRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false,
-                            allowFault: allowFault,
                             metadata: GetPropertyMethodMetadata(serviceInfo, propertyInfo, propertyInfo.GetMethod)
                             );
 
@@ -160,7 +158,6 @@ namespace SciTech.Rpc.Internal
                     {
                         var setRpcAttribute = propertyInfo.SetMethod.GetCustomAttribute<RpcOperationAttribute>();
 
-                        bool allowFault = setRpcAttribute?.AllowFault ?? propertyRpcAttribute?.AllowFault ?? serviceInfo.AllowFault;
                         var setOp = new RpcOperationInfo(
                             service: rpcPropertyInfo.Service,
                             name: $"Set{propertyInfo.Name}",
@@ -172,12 +169,11 @@ namespace SciTech.Rpc.Internal
                             cancellationTokenIndex: null,
                             methodType: RpcMethodType.Unary,
                             isAsync: false,
-                            responseType: allowFault ? typeof(RpcResponseWithError) : typeof(RpcResponse),
+                            responseType: typeof(RpcResponse),
                             returnType: typeof(void),
                             responseReturnType: typeof(void),
                             returnKind: ServiceOperationReturnKind.Standard,
                             allowInlineExecution: setRpcAttribute?.AllowInlineExecution ?? propertyRpcAttribute?.AllowInlineExecution ?? false,
-                            allowFault: allowFault,
                             metadata: GetPropertyMethodMetadata(serviceInfo, propertyInfo, propertyInfo.SetMethod)
                         );
 
@@ -347,21 +343,8 @@ namespace SciTech.Rpc.Internal
                 }
             }
 
-            bool? opAllowFault = rpcAttribute?.AllowFault;
-            if (opAllowFault == null)
-            {
-                // If AllowFault is not specified, set it to true
-                // if the operation has any fault attributes.
-                if (method.GetCustomAttributes<RpcFaultAttribute>().Any())
-                {
-                    opAllowFault = true;
-                }
-            }
-
-            bool allowFault = opAllowFault ?? serviceInfo.AllowFault;
-
             var (returnKind, responseReturnType) = GetOperationReturnKind(actualReturnType);
-            Type responseType = GetResponseType(methodType, responseReturnType, allowFault);
+            Type responseType = GetResponseType(methodType, responseReturnType);
 
             ImmutableArray<object> metadata = GetMethodMetadata(serviceInfo, method);
 
@@ -381,7 +364,6 @@ namespace SciTech.Rpc.Internal
                 responseReturnType: responseReturnType,
                 returnKind: returnKind,
                 allowInlineExecution: rpcAttribute?.AllowInlineExecution ?? false,
-                allowFault: allowFault,
                 metadata: metadata
             );
         }
@@ -738,20 +720,19 @@ namespace SciTech.Rpc.Internal
             return metadata;
         }
 
-        private static Type GetResponseType(RpcMethodType methodType, Type responseReturnType, bool allowFault)
+        private static Type GetResponseType(RpcMethodType methodType, Type responseReturnType)
         {
             if (methodType == RpcMethodType.ServerStreaming)
             {
-                // Streaming errors not yet implemented.
                 return responseReturnType;
             }
 
             if (typeof(void).Equals(responseReturnType))
             {
-                return allowFault ? typeof(RpcResponseWithError) : typeof(RpcResponse);
+                return typeof(RpcResponse);
             }
 
-            return (allowFault ? typeof(RpcResponseWithError<>) : typeof(RpcResponse<>)).MakeGenericType(responseReturnType);
+            return typeof(RpcResponse<>).MakeGenericType(responseReturnType);
         }
 
         private static RpcServiceAttribute? GetRpcServiceAttribute(Type serviceType)
@@ -812,7 +793,6 @@ namespace SciTech.Rpc.Internal
                 serverType: null,
                 implementationType: implementationType,
                 isSingleton: false,
-                allowFault: false,
                 metadata: metadata.ToImmutableArray()
             );
         }
@@ -875,7 +855,6 @@ namespace SciTech.Rpc.Internal
                 serverType: rpcAttribute.ServerDefinitionType,
                 implementationType: implementationType,
                 isSingleton: rpcAttribute.IsSingleton,
-                allowFault: rpcAttribute.AllowFault,
                 metadata: metadata.ToImmutableArray()
             );
         }
@@ -1003,7 +982,6 @@ namespace SciTech.Rpc.Internal
             Type responseType,
             ServiceOperationReturnKind returnKind,
             bool allowInlineExecution,
-            bool allowFault,
             ImmutableArray<object> metadata) :
             base(name, service, declaringMember, metadata)
         {
@@ -1018,10 +996,7 @@ namespace SciTech.Rpc.Internal
             this.ResponseType = responseType ?? throw new ArgumentNullException(nameof(responseType));
             this.ReturnKind = returnKind;
             this.AllowInlineExecution = allowInlineExecution;
-            this.AllowFault = allowFault;
         }
-
-        public bool AllowFault { get; }
 
         public bool AllowInlineExecution { get; }
 
@@ -1087,7 +1062,7 @@ namespace SciTech.Rpc.Internal
 
     public class RpcServiceInfo
     {
-        public RpcServiceInfo(string @namespace, string name, Type type, RpcServiceDefinitionSide definitionSide, Type? serverType, Type? implementationType, bool isSingleton, bool allowFault,
+        public RpcServiceInfo(string @namespace, string name, Type type, RpcServiceDefinitionSide definitionSide, Type? serverType, Type? implementationType, bool isSingleton,
             ImmutableArray<object> metadata)
         {
             this.Namespace = @namespace ?? throw new ArgumentNullException(nameof(@namespace));
@@ -1097,11 +1072,8 @@ namespace SciTech.Rpc.Internal
             this.ServerType = serverType;
             this.ImplementationType = implementationType;
             this.IsSingleton = isSingleton;
-            this.AllowFault = allowFault;
             this.Metadata = metadata;
         }
-
-        public bool AllowFault { get; }
 
         public RpcServiceDefinitionSide DefinitionSide { get; }
 

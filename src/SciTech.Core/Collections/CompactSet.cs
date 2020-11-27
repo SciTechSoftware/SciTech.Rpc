@@ -4,14 +4,18 @@ using System.Diagnostics;
 
 namespace SciTech.Collections
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix")]
     public struct CompactSet<T> : ICollection<T>, IReadOnlyCollection<T>
     {
-        private static readonly T[] EmptyArray = new T[0];
+        private static readonly T[] EmptyArray = Array.Empty<T>();
 
         private static readonly SmallCollection<T>.CollectionCreator<HashSet<T>> FullSetCreator = (SmallCollection<T> smallCollection, int index, T newItem) =>
         {
-            var set = new HashSet<T>(smallCollection);
-            set.Add(newItem);
+            var set = new HashSet<T>(smallCollection)
+            {
+                newItem
+            };
             return set;
         };
 
@@ -85,6 +89,7 @@ namespace SciTech.Collections
             get { return false; }
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1000:Do not declare static members on generic types")]
         public static CompactSet<T> Unbox(object boxedCompactSet)
         {
             return new CompactSet<T>(boxedCompactSet);
@@ -164,6 +169,8 @@ namespace SciTech.Collections
 
         public void CopyTo(T[] array, int arrayIndex)
         {
+            if (array is null) throw new ArgumentNullException(nameof(array));
+
             if (this.data != null)
             {                
                 if (this.data is ICollection<T> set)

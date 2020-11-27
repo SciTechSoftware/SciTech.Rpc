@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Core.Threading
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix")]
     public static class TaskEx
     {
         public static Task Run(Action action, TaskScheduler scheduler, CancellationToken cancellationToken)

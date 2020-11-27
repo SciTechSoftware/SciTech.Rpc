@@ -127,6 +127,8 @@ namespace SciTech.Collections
 
         public static int FindIndex<T>(this ImmutableArray<T> list, Predicate<T> predicate)
         {
+            if (predicate is null) throw new ArgumentNullException(nameof(predicate));
+
             int nItems = list.Length;
             for (int i = 0; i < nItems; i++)
             {
@@ -142,6 +144,7 @@ namespace SciTech.Collections
         public static int FindIndex<T>(this IReadOnlyList<T> list, Predicate<T> predicate )
         {
             if (list is null) throw new ArgumentNullException(nameof(list));
+            if (predicate is null) throw new ArgumentNullException(nameof(predicate));
 
             if (list is List<T> concreteList)
             {
@@ -169,6 +172,7 @@ namespace SciTech.Collections
         public static int FindIndex<T>(this IList<T> list, Predicate<T> predicate)
         {
             if (list is null) throw new ArgumentNullException(nameof(list));
+            if (predicate is null) throw new ArgumentNullException(nameof(predicate));
 
             if (list is List<T> concreteList)
             {

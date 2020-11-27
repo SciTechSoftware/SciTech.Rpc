@@ -11,6 +11,7 @@ namespace SciTech.Collections
     /// A read only wrapper around a <see cref="CompactList{T}"/>. 
     /// </summary>
     /// <typeparam name="T"></typeparam>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
     public readonly struct ReadOnlyCompactList<T> : IReadOnlyList<T>
     {
         public static readonly ReadOnlyCompactList<T> Empty = new ReadOnlyCompactList<T>();
@@ -76,7 +77,7 @@ namespace SciTech.Collections
                     }
                 }
 
-                throw new IndexOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
         }
@@ -91,6 +92,7 @@ namespace SciTech.Collections
             return ReadOnlyCompactList<T>.Empty;
         }
 
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1000:Do not declare static members on generic types", Justification = "Argument has no type")]
         public static ReadOnlyCompactList<T> Unbox(object boxedCompactSet)
         {
             return new ReadOnlyCompactList<T>(boxedCompactSet);
@@ -124,6 +126,8 @@ namespace SciTech.Collections
 
         public void CopyTo(T[] array, int arrayIndex)
         {
+            if (array is null) throw new ArgumentNullException(nameof(array));
+
             if (this.data != null)
             {
                 if (this.data is SmallCollection<T> shortList)
@@ -197,7 +201,7 @@ namespace SciTech.Collections
             return Comparer.Equals((T)this.data, item) ? 0 : -1;
         }
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => new Enumerator(this);
+        IEnumerator System.Collections.IEnumerable.GetEnumerator() => new Enumerator(this);
 
         public IReadOnlyList<T> AsReadOnlyList()
         {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -18,14 +19,12 @@ namespace SciTech.Collections
         }
 
 
-        public static CompactList<T> Unbox<T>(object boxedCompacList)
+        public static CompactList<T> Unbox<T>(object boxedCompactList)
         {
-            return new CompactList<T>(boxedCompacList);
+            return new CompactList<T>(boxedCompactList);
         }
     }
 
-#pragma warning disable CA1710 // Identifiers should have correct suffix
-#pragma warning disable CA1815 // Override equals and operator equals on value types
 
     /// <summary>
     /// Provides a list implementation that is intended for very short lists. It is very compact 
@@ -38,6 +37,7 @@ namespace SciTech.Collections
     /// backing storage has to be re-allocated when the size changes (for list of size 4 and less).
     /// </remarks>
     /// <typeparam name="T"></typeparam>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "<Pending>")]
     public struct CompactList<T> : IList<T>, IReadOnlyList<T>
     {
         public static readonly CompactList<T> Empty = new CompactList<T>();
@@ -116,21 +116,20 @@ namespace SciTech.Collections
         {
             get
             {
-                if (this.data is SmallCollection<T> shortList)
+                if (data is SmallCollection<T> shortList)
                 {
                     return shortList[index];
                 }
-                else if (this.data is List<T> list)
+                else if (data is List<T> list)
                 {
                     return list[index];
-                } else if (this.data is T singleItem && index == 0 )
+                }
+                else if (data is T singleItem && index == 0)
                 {
                     return singleItem;
                 }
 
-#pragma warning disable CA1065 // Do not raise exceptions in unexpected locations
                 throw new ArgumentOutOfRangeException(nameof(index));
-#pragma warning restore CA1065 // Do not raise exceptions in unexpected locations
             }
             set
             {
@@ -142,7 +141,7 @@ namespace SciTech.Collections
                 {
                     list[index] = value;
                 }
-                else if (this.data is T singleItem && index == 0)
+                else if (this.data is T && index == 0)
                 {
                     if (value == null)
                     {
@@ -305,8 +304,13 @@ namespace SciTech.Collections
                 }
             }
         }
+        
+        public Enumerator GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
 
-        public IEnumerator<T> GetEnumerator()
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
         {
             if (this.data == null)
             {
@@ -514,7 +518,7 @@ namespace SciTech.Collections
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return this.GetEnumerator();
+            return ((IEnumerable<T>)this).GetEnumerator();
         }
 
         public IReadOnlyList<T> AsReadOnlyList()
@@ -532,7 +536,25 @@ namespace SciTech.Collections
             // Will cause boxing.
             return this;
         }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible")]
+        public struct Enumerator
+        {
+            private readonly int length;
+            private int index;
+
+            private readonly CompactList<T> list;
+
+            public Enumerator(CompactList<T> list)
+            {
+                this.list = list;
+                this.index = -1;
+                this.length = list.Count;
+
+            }
+            public T Current => this.list[index];
+
+            public bool MoveNext() => ++this.index < this.length;
+        }
     }
-#pragma warning restore CA1815 // Override equals and operator equals on value types
-#pragma warning restore CA1710 // Identifiers should have correct suffix
 }

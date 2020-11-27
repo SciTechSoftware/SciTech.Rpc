@@ -29,6 +29,7 @@ package is currently not intended for other use.</Description>
     <Nullable>enable</Nullable>
     <RootNamespace>SciTech</RootNamespace>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
   </PropertyGroup>
 
   <!--<PropertyGroup Condition="'$(HasNullableAttributes)' == 'true'">

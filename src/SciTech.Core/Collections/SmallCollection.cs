@@ -259,19 +259,14 @@ namespace SciTech.Collections
             {
                 get
                 {
-                    switch (index)
+                    return index switch
                     {
-                        case 0:
-                            return this.value_0;
-                        case 1:
-                            return this.value_1;
-                        case 2:
-                            return this.value_2;
-                        case 3:
-                            return this.value_3;
-                    }
-
-                    throw new ArgumentOutOfRangeException();
+                        0 => this.value_0,
+                        1 => this.value_1,
+                        2 => this.value_2,
+                        3 => this.value_3,
+                        _ => throw new ArgumentOutOfRangeException(nameof(index)),
+                    };
                 }
             }
 
@@ -385,7 +380,7 @@ namespace SciTech.Collections
                         return new ThreeItemCollection(this.value_0, this.value_1, this.value_2);
                 }
 
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
             internal override object SetAt(int index, [AllowNull] T item)
@@ -405,7 +400,7 @@ namespace SciTech.Collections
                         this.value_3 = item;
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(index));
                 }
 
                 return this;
@@ -463,7 +458,7 @@ namespace SciTech.Collections
                         return default!;
                     }
 
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
 
@@ -516,7 +511,7 @@ namespace SciTech.Collections
                         return new TwoItemCollection(default, item);
                 }
 
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
             internal override bool Remove(T item, out object? newSet)
@@ -539,7 +534,7 @@ namespace SciTech.Collections
                 }
                 else
                 {
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
 
@@ -556,7 +551,7 @@ namespace SciTech.Collections
                     return item;
                 }
 
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
             internal override bool TryGet(T item, [MaybeNull] out T existingItem)
@@ -926,7 +921,7 @@ namespace SciTech.Collections
                             return this.value_2;
                     }
 
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
 
@@ -988,7 +983,7 @@ namespace SciTech.Collections
                         return new FourItemCollection(this.value_0, this.value_1, this.value_2, item);
                 }
 
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
             internal override object RemoveAt(int index)
@@ -1003,7 +998,7 @@ namespace SciTech.Collections
                         return new TwoItemCollection(this.value_0, this.value_1);
                 }
 
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
             internal override object SetAt(int index, [AllowNull]T item)
@@ -1020,7 +1015,7 @@ namespace SciTech.Collections
                         this.value_2 = item;
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(index));
                 }
 
                 return this;
@@ -1082,7 +1077,7 @@ namespace SciTech.Collections
                             return this.value_1;
                     }
 
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(index));
                 }
             }
 
@@ -1155,7 +1150,7 @@ namespace SciTech.Collections
 
                 }
 
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
             internal override bool Remove(T item, out object newSet)
@@ -1187,7 +1182,7 @@ namespace SciTech.Collections
                     return this.value_0 != null ? (object)this.value_0 : NullItem;
                 }
 
-                throw new ArgumentOutOfRangeException();
+                throw new ArgumentOutOfRangeException(nameof(index));
             }
 
             internal override object SetAt(int index, [AllowNull]T item)
@@ -1201,7 +1196,7 @@ namespace SciTech.Collections
                         this.value_1 = item;
                         break;
                     default:
-                        throw new ArgumentOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(nameof(index));
                 }
 
                 return this;

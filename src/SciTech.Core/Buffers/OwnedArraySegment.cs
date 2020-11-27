@@ -28,10 +28,8 @@ namespace SciTech.Buffers
             this.IsRented = isRented;
         }
 
-#pragma warning disable CA1819 // Properties should not return arrays
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays")]
         public T[]? Array => this.Segment.Array;
-
-#pragma warning restore CA1819 // Properties should not return arrays
 
         public int Count => this.Segment.Count;
 

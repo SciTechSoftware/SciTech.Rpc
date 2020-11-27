@@ -11,14 +11,14 @@ namespace SciTech.Collections.Immutable
     /// implementation, but this type is a class rather than a struct.
     /// <para>This type is intended to be used when the list data changes infrequently but
     /// it is not suitable to use a struct, e.g. when the list should be passed around as an <see cref="IImmutableList{T}"/>.
-    /// it</para>
+    /// </para>
     /// <para><b>NOTE!</b> Updates to the list have a time complexity of O(n). If the list is modified
-    /// frequently, use <see cref="ImmutableList{T}"</para> instead. If the <see cref="IImmutableList{T}"
+    /// frequently, use <see cref="ImmutableList{T}"/> instead. If the <see cref="IImmutableList{T}"/>
     /// abstraction is not necessary, use the <see cref="ImmutableArray{T}"/> type instead.
+    /// </para>
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix")]
-    public class ImmutableArrayList<T> : IImmutableList<T>
+    public sealed class ImmutableArrayList<T> : IImmutableList<T>
     {
         public static readonly ImmutableArrayList<T> Empty = new ImmutableArrayList<T>(ImmutableArray<T>.Empty);
 
@@ -39,9 +39,8 @@ namespace SciTech.Collections.Immutable
         
         public IImmutableList<T> Clear() => new ImmutableArrayList<T>(this.data.Clear());
 
-        Enumerator GetEnumerator() => new Enumerator(this.data.GetEnumerator());
+        public Enumerator GetEnumerator() => new Enumerator(this.data.GetEnumerator());
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1033:Interface methods should be callable by child types")]
         IEnumerator<T> IEnumerable<T>.GetEnumerator() => ((IImmutableList<T>)this.data).GetEnumerator();
 
         public int IndexOf(T item, int index, int count, IEqualityComparer<T>? equalityComparer)

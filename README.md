@@ -1,5 +1,7 @@
 # SciTech.Rpc
 
+**UPDATE 2020-11-27:** There has been no activity in this repository for a long time, but the project is still very much alive in the private repository. We will soon publish version 1.0.
+
 SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From  internet deployed services over HTTP/2 (based on [gRPC](https://grpc.io/)), to in-process proxy communication. Similar to WCF, you define service interfaces with the help of attributes in code, and not using external definition files.
 
 **NOTE!** _This is an early preview of SciTech.Rpc. The documentation is very sparse, automated tests are not finished, and there will still be incompatible changes on source level, binary level, and the communication level._

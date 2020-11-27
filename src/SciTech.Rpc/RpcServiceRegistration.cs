@@ -26,9 +26,7 @@ namespace SciTech.Rpc
         IEnumerable<RegisteredServiceType> GetServiceTypes(RpcServiceDefinitionSide definitionType);
     }
 
-#pragma warning disable CA1815 // Override equals and operator equals on value types
     public struct RegisteredServiceType
-#pragma warning restore CA1815 // Override equals and operator equals on value types
     {
         internal RegisteredServiceType(Type serviceType, Type? implementationType, IRpcServerOptions? serverOptions)
         {

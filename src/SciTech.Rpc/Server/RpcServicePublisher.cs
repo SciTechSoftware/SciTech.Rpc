@@ -55,9 +55,6 @@ namespace SciTech.Rpc.Server
         /// </summary>
         private readonly Dictionary<Type, PublishedServices> singletonTypeToPublishedServices = new Dictionary<Type, PublishedServices>();
 
-        /// <summary>
-        /// Value is <see cref="Func{IServiceProvider,TService}"/> or <see cref="Func{TService}"/>.
-        /// </summary>
         private readonly Dictionary<Type, PublishedInstance> singletonServiceTypeToServiceImpl = new Dictionary<Type, PublishedInstance>();
 
         private readonly object syncRoot = new object();
@@ -228,8 +225,6 @@ namespace SciTech.Rpc.Server
 
             }
         }
-
-
 
         public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false)
             where TService : class

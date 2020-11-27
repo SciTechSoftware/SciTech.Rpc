@@ -13,7 +13,7 @@ namespace SciTech.Rpc
     /// and the message provided to <see cref="CreateException(string)"/>.
     /// </para>
     /// <para>
-    /// NOTE! The <see cref="IRpcServerExceptionConverter.CreateFault(Exception)"/> implementation will use
+    /// <b>NOTE! </b>The <see cref="IRpcServerExceptionConverter.CreateFault(Exception)"/> implementation will use
     /// the message from the exception. Make sure that this message doesn't include any sensitive information.
     /// </para>
     /// </summary>

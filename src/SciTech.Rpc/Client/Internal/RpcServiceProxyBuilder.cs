@@ -48,8 +48,6 @@ namespace SciTech.Rpc.Client.Internal
 
         private readonly ModuleBuilder moduleBuilder;
 
-        private readonly IRpcProxyDefinitionsProvider proxyServicesProvider;
-
         private IReadOnlyList<RpcServiceInfo> allServices;
 
         /// <summary>
@@ -68,11 +66,10 @@ namespace SciTech.Rpc.Client.Internal
         private TypeBuilder? typeBuilder;
 
         internal RpcServiceProxyBuilder(
-            IReadOnlyList<RpcServiceInfo> allServices, IRpcProxyDefinitionsProvider proxyServicesProvider,
+            IReadOnlyList<RpcServiceInfo> allServices, 
             ModuleBuilder moduleBuilder, Dictionary<string, int> definedProxyTypes)
         {
             this.allServices = allServices;
-            this.proxyServicesProvider = proxyServicesProvider;
             this.moduleBuilder = moduleBuilder;
             this.definedProxyTypes = definedProxyTypes;
         }
@@ -201,36 +198,61 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        private static Expression GenerateFaultHandlerExpression(RpcFaultAttribute faultAttribute)
+        private static IRpcClientExceptionConverter CreateClientExceptionConverter(RpcFaultAttribute faultAttribute)
         {
             if (!string.IsNullOrWhiteSpace(faultAttribute.FaultCode))
             {
                 _ = faultAttribute.FaultCode;
 
+                ConstructorInfo converterCtor;
                 if (faultAttribute.FaultType != null)
                 {
                     var faultConverterType = typeof(RpcFaultExceptionConverter<>).MakeGenericType(faultAttribute.FaultType);
-                    var defaultConverterField = faultConverterType.GetField(nameof(RpcFaultExceptionConverter<object>.Default), 
-                        BindingFlags.Static | BindingFlags.Public)
-                        ?? throw new NotImplementedException($"Default converter type field not found on {nameof(RpcFaultExceptionConverter)}.");
-
-                    var converterFieldExpression = Expression.Field(null, defaultConverterField);
-
-                    return converterFieldExpression;
+                    converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) })
+                        ?? throw new NotImplementedException($"{faultConverterType.Name} constructor not found.");
                 }
                 else
                 {
                     var faultConverterType = typeof(RpcFaultExceptionConverter);
-                    var converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) }) 
+                    converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) })
                         ?? throw new NotImplementedException($"{nameof(RpcFaultExceptionConverter)} constructor not found.");
-                    var faultCodeExpression = Expression.Constant(faultAttribute.FaultCode);
-                    var converterNewExpression = Expression.New(converterCtor, faultCodeExpression);
-
-                    return converterNewExpression;
                 }
+
+                var converter = (IRpcClientExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode });
+                return converter;
+                // Previously an expression was returned, to better support AOT scenarios.
+                // Re-add if necessary.
+                //var faultCodeExpression = Expression.Constant(faultAttribute.FaultCode);
+                //var converterNewExpression = Expression.New(converterCtor, faultCodeExpression);
+                //return converterNewExpression;
             }
 
             throw new RpcDefinitionException("FaultCode must be specified in RpcFaultAttribute.");
+        }
+
+        private static IRpcClientExceptionConverter CreateClientExceptionConverter(RpcFaultConverterAttribute faultAttribute)
+        {
+            if( faultAttribute.ConverterType != null )
+            {
+                var converterCtor = faultAttribute.ConverterType.GetConstructor(Type.EmptyTypes)
+                    ?? throw new NotImplementedException($"{faultAttribute.ConverterType} constructor not found.");
+
+                var converter = (IRpcClientExceptionConverter)converterCtor.Invoke(null);
+                return converter;
+            }
+            else if (!string.IsNullOrWhiteSpace(faultAttribute.FaultCode) && faultAttribute.ExceptionType != null )
+            {
+                _ = faultAttribute.FaultCode;
+
+                var faultConverterType = typeof(RpcExceptionConverter<>).MakeGenericType(faultAttribute.ExceptionType);
+                var converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) })
+                    ?? throw new NotImplementedException($"{faultConverterType.Name} constructor not found.");
+
+                var converter = (IRpcClientExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode! });
+                return converter;
+            }
+
+            throw new RpcDefinitionException("Converter or FaultCode with ExceptionType must be specified in RpcFaultAttribute.");
         }
 
         private static FieldInfo GetProxyField(string name, BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance)
@@ -317,10 +339,44 @@ namespace SciTech.Rpc.Client.Internal
             return faultAttributes;
         }
 
+        private static IEnumerable<TAttribute> RetrieveFaultAttributes<TAttribute>(RpcOperationInfo operationInfo, RpcMemberInfo? serverSideMemberInfo)
+            where TAttribute : Attribute
+        {
+            // TODO: This is almost the same code as RetrieveServiceFaultAttributes, try to combine.
+            List<TAttribute> faultAttributes;
+
+            if (serverSideMemberInfo?.DeclaringMember is MemberInfo serverSideMember)
+            {
+                // If the server side definition is available, then the fault attributes of that definition
+                // should be used.
+                faultAttributes = serverSideMember.GetCustomAttributes<TAttribute>().ToList();
+
+                // Validate that any fault attributes applied to the client side definition exists on the server side
+                // definition
+                foreach (var clientFaultAttribute in operationInfo.DeclaringMember.GetCustomAttributes<RpcFaultAttribute>())
+                {
+                    if (faultAttributes.Find(sa => sa.FaultCode == clientFaultAttribute.FaultCode && Equals(sa.FaultType, clientFaultAttribute.FaultType)) == null)
+                    {
+                        throw new RpcDefinitionException($"Client side service definition includes fault declaration '{clientFaultAttribute.FaultCode}' which is not applied on server side definition.");
+                    }
+                }
+            }
+            else
+            {
+                faultAttributes = operationInfo.DeclaringMember.GetCustomAttributes<TAttribute>().ToList();
+            }
+
+            return faultAttributes;
+        }
+
+
         private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, 
             IReadOnlyList<Expression> faultConverterExpressions, RpcMemberInfo? serverSideMemberInfo)
         {
             IEnumerable<Attribute> faultAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
+            List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
+
+            IEnumerable<Attribute> faultConverterAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
             List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
 
             Expression faultHandlerExpression;
@@ -346,12 +402,12 @@ namespace SciTech.Rpc.Client.Internal
             return faultHandlerExpression;
         }
 
-        private static List<Expression> RetrieveRpcFaultGeneratorExpressions(IEnumerable<Attribute> faultAttributes)
+        private static List<IRpcClientExceptionConverter> RetrieveRpcFaultGeneratorExpressions(IEnumerable<Attribute> faultAttributes)
         {
-            var faultExceptionExpressions = new List<Expression>();
+            var faultExceptionExpressions = new List<IRpcClientExceptionConverter>();
             foreach (RpcFaultAttribute faultAttribute in faultAttributes)
             {
-                var faultExceptionExpression = GenerateFaultHandlerExpression(faultAttribute);
+                var faultExceptionExpression = CreateClientExceptionConverter(faultAttribute);
                 faultExceptionExpressions.Add(faultExceptionExpression);
             }
 

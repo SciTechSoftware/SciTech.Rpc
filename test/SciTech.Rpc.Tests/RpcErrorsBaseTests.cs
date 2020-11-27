@@ -4,6 +4,7 @@ using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests
@@ -459,5 +460,51 @@ namespace SciTech.Rpc.Tests
         //{
         //    (IBlockingServiceClient blockingService)=>blockingService.Add(12, 13);
         //};
+
+        [Test]
+        public async Task ServiceFaultConverter_ShouldConvert()
+        {
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
+            serviceRegistrator
+                .RegisterService<IMathFaultsService>();
+
+            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
+            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IMathFaultsService>(new MathFaultsServiceImpl());
+
+            var faultService = connection.GetServiceInstance(publishedInstanceScope.Value);
+            host.Start();
+            try
+            {
+                Assert.Throws<MathException>(() => faultService.Sqrt(-5));
+            }
+            finally
+            {
+                await host.ShutdownAsync();
+            }
+        }
+
+        [Test]
+        public async Task OperationFaultConverter_ShouldOverride_ServiceFault()
+        {
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
+            serviceRegistrator
+                .RegisterService<IMathFaultsService>();
+
+            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator);
+            var publishedInstanceScope = host.ServicePublisher.PublishInstance<IMathFaultsService>(new MathFaultsServiceImpl());
+
+            var faultService = connection.GetServiceInstance(publishedInstanceScope.Value);
+            host.Start();
+            try
+            {
+                Assert.Throws<DivideByZeroException>(() => faultService.Divide(5,0));
+                // Make sure that the connection is still usable after exception
+                Assert.AreEqual(2, faultService.Divide(10, 5));
+            }
+            finally
+            {
+                await host.ShutdownAsync();
+            }
+        }
     }
 }

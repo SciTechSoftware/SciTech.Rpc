@@ -47,7 +47,6 @@ namespace SciTech.Rpc.Tests
         [RpcFault(typeof(DeclaredFault))]
         Task<int> GenerateAsyncDeclaredFaultAsync(bool direct);
 
-        [RpcFault(typeof(DeclaredFault))]
         void GenerateCustomDeclaredExceptionAsync();
 
         [RpcFault(typeof(DeclaredFault))]
@@ -113,6 +112,24 @@ namespace SciTech.Rpc.Tests
 
         [RpcFault(typeof(DeclaredFault))]
         Task<int> GenerateUndeclaredExceptionWithReturnAsync();
+    }
+
+    public class MathException : Exception
+    {
+        public MathException(string message) : base(message)
+        {
+        }
+    }
+
+
+    [RpcService]
+    [RpcFaultConverter("MathFault", typeof(MathException))]
+    public interface IMathFaultsService
+    {
+        int Sqrt(int value);
+
+        [RpcFaultConverter("MathFault", typeof(DivideByZeroException))]
+        int Divide(int a, int b);
     }
 
     [RpcService]
@@ -522,6 +539,23 @@ namespace SciTech.Rpc.Tests
             await Task.Delay(1).ContextFree();
 
             throw new RpcFaultException<AnotherDeclaredFault>(new AnotherDeclaredFault("Another fault, with arg,", 2));
+        }
+    }
+
+    public class MathFaultsServiceImpl : IMathFaultsService
+    {
+        public int Divide(int a, int b)
+        {
+            if (b == 0) throw new DivideByZeroException("b is zero");
+
+            return a / b;
+        }
+
+        public int Sqrt(int value)
+        {
+            if (value < 0 ) throw new MathException("value is negative");
+
+            return (int)Math.Round(Math.Sqrt(value));
         }
     }
 

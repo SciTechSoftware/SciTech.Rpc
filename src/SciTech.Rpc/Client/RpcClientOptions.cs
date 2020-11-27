@@ -157,6 +157,11 @@ namespace SciTech.Rpc.Client
         }
     }
 
+    public class KnownService
+    {
+
+    }
+
     // RpcClientServiceOptions<T> not implemented yet. Client options can only be specified
     // at connection level.
     ///// <summary>

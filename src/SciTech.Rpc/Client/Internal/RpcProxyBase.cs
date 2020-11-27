@@ -32,14 +32,12 @@ namespace SciTech.Rpc.Client.Internal
         public RpcProxyArgs(
             IRpcChannel connection, RpcObjectId objectId, IRpcSerializer serializer,
             IReadOnlyCollection<string>? implementedServices,
-            IRpcProxyDefinitionsProvider proxyServicesProvider,
             SynchronizationContext? syncContext)
         {
             this.Channel = connection ?? throw new ArgumentNullException(nameof(connection));
             this.ObjectId = objectId;
             this.Serializer = serializer;
             this.ImplementedServices = implementedServices;
-            this.ProxyServicesProvider = proxyServicesProvider;
             this.SyncContext = syncContext;
         }
 
@@ -52,8 +50,6 @@ namespace SciTech.Rpc.Client.Internal
         public IReadOnlyCollection<string>? ImplementedServices { get; }
 
         public RpcObjectId ObjectId { get; }
-
-        public IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }
 
         public IRpcSerializer Serializer { get; }
 
@@ -69,7 +65,6 @@ namespace SciTech.Rpc.Client.Internal
             this.objectId = proxyArgs.ObjectId;
             this.Channel = proxyArgs.Channel;
             this.serializer = proxyArgs.Serializer;
-            this.ProxyDefinitionsProvider = proxyArgs.ProxyServicesProvider;
             this.SyncContext = proxyArgs.SyncContext;
             if (proxyArgs.ImplementedServices?.Count > 0)
             {
@@ -95,8 +90,6 @@ namespace SciTech.Rpc.Client.Internal
         public RpcObjectId ObjectId => this.objectId;
 
         public SynchronizationContext? SyncContext { get; }
-
-        protected IRpcProxyDefinitionsProvider ProxyDefinitionsProvider { get; }
 
         protected object SyncRoot { get; } = new object();
 
@@ -634,6 +627,7 @@ namespace SciTech.Rpc.Client.Internal
                     throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {message}");
             }
 
+
             if (methodDef.FaultHandler != null
                 && !string.IsNullOrEmpty(error.ErrorCode)
                 && methodDef.FaultHandler.TryGetFaultConverter(error.ErrorCode!, out var faultConverter))
@@ -650,8 +644,7 @@ namespace SciTech.Rpc.Client.Internal
                 Exception exception;
 
                 // First check whether there's a custom converter for this fault.
-                var customConverter = this.Channel.GetExceptionConverter(error.ErrorCode!)
-                    ?? this.ProxyDefinitionsProvider.GetExceptionConverter(error.ErrorCode!);
+                var customConverter = this.Channel.GetExceptionConverter(error.ErrorCode!);
 
                 if (customConverter != null)
                 {

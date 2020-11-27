@@ -45,12 +45,27 @@ namespace SciTech.Rpc.Server
         /// </summary>
         RpcServerId ServerId { get; }
 
+        /// <summary>
+        /// Get the <see cref="RpcObjectRef{TService}"/> to the published <paramref name="serviceInstance"/>, if it has been previously published.
+        /// If it has not been previously published, it will be published as a weak service. A weak service will be automatically unpublished if the <paramref name="serviceInstance"/>
+        /// is garbage collected.
+        /// <para>To keep the published instance alive, it needs to be published using <see cref="PublishInstance{TService}(TService, bool)"/>.
+        /// </para>
+        /// </summary>
+        /// <typeparam name="TService">Type of the service interface.</typeparam>
+        /// <param name="serviceInstance">The service instance for which the <see cref="RpcObjectRef{TService}"/> should be retrieved.</param>
+        /// <returns>The <see cref="RpcObjectRef{TService}"/> of the published instance.</returns>
         RpcObjectRef<TService> GetOrPublishInstance<TService>(TService serviceInstance) where TService : class;
 
+        /// <summary>
+        /// Get the <see cref="RpcObjectRef{TService}"/> to the published <paramref name="serviceInstance"/>, if it has been previously published.
+        /// </summary>
+        /// <typeparam name="TService">Type of the service interface.</typeparam>
+        /// <param name="serviceInstance">The service instance for which the <see cref="RpcObjectRef{TService}"/> should be retrieved.</param>
+        /// <returns>The <see cref="RpcObjectRef{TService}"/> of the published instance, if available; <c>null</c> otherwise.</returns>
         RpcObjectRef<TService>? GetPublishedInstance<TService>(TService serviceInstance) where TService : class;
 
         void InitConnectionInfo(RpcServerConnectionInfo connectionInfo);
-
 
         /// <summary>
         /// <para>
@@ -75,6 +90,11 @@ namespace SciTech.Rpc.Server
 
         /// <summary>
         /// Publishes an RPC service instance.
+        /// <para><b>NOTE!</b> This service publisher will keep a strong reference to the published instance. To allow it to be garbage
+        /// collected, it must be explicitly unpublished by disposing the returned object.<br/>
+        /// To publish an instance that will be automatically unpublished when it is garbage collected, 
+        /// use <see cref="GetOrPublishInstance{TService}(TService)"/>
+        /// </para>
         /// </summary>
         /// <typeparam name="TService"></typeparam>
         /// <param name="serviceInstance">The </param>

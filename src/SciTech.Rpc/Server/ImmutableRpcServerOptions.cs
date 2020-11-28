@@ -84,6 +84,8 @@ namespace SciTech.Rpc.Server
             return Empty;
         }
 
+        public ImmutableRpcServerOptions AsImmutable() => this;
+
         private void Assign(IRpcServerOptions? options)
         {
             if (options != null)

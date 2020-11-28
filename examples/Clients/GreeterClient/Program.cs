@@ -15,12 +15,16 @@ namespace GrpcGreeter
         {
             var credentials = TestCertificates.GrpcSslCredentials;
             var sslOptions = TestCertificates.SslClientOptions;
-            
+
             var connectionManager = new RpcServerConnectionManager(
                 new IRpcConnectionProvider[] {
                     new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
                     new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)
                 });
+
+            var connection = new NamedPipeRpcConnection("Test");
+            connection.GetServiceSingleton<IGreeterServiceClient>();
+
 
             RpcServerConnectionInfo connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
 

@@ -35,9 +35,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IRpcSerializer serializer,
             LightweightSerializersCache methodSerializersCache,
             IReadOnlyCollection<string>? implementedServices,
-            IRpcProxyDefinitionsProvider proxyServicesProvider,
             SynchronizationContext? syncContext)
-            : base(connection, objectId, serializer, implementedServices, proxyServicesProvider, syncContext)
+            : base(connection, objectId, serializer, implementedServices, syncContext)
         {
             this.MethodSerializersCache = methodSerializersCache;
             this.CallInterceptors = callInterceptors;

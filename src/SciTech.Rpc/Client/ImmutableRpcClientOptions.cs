@@ -9,10 +9,12 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace SciTech.Rpc.Client
@@ -29,6 +31,8 @@ namespace SciTech.Rpc.Client
         public ImmutableRpcClientOptions(IRpcClientOptions? options)
         {
             this.Assign(options);
+
+            this.BuildKnownServiceTypesDictionary();
         }
 
         /// <inheritdoc/>
@@ -41,6 +45,9 @@ namespace SciTech.Rpc.Client
         /// <inheritdoc cref="IRpcClientOptions.Interceptors"/>
         public ImmutableArray<RpcClientCallInterceptor> Interceptors { get; private set; }
             = ImmutableArray<RpcClientCallInterceptor>.Empty;
+
+        public ImmutableArray<Type> KnownServiceTypes { get; private set; }
+            = ImmutableArray<Type>.Empty;
 
         /// <inheritdoc/>
         public bool IsEmpty
@@ -75,6 +82,14 @@ namespace SciTech.Rpc.Client
         /// <inheritdoc/>
         IReadOnlyList<RpcClientCallInterceptor> IRpcClientOptions.Interceptors => this.Interceptors;
 
+        IReadOnlyList<Type> IRpcClientOptions.KnownServiceTypes => this.KnownServiceTypes;
+
+        /// <summary>
+        /// Gets the <see cref="KnownServiceTypes"/> as a dictionary, with the service name as the key.
+        /// </summary>
+        public IReadOnlyDictionary<string, ImmutableArray<Type>> KnownServiceTypesDictionary { get; private set; } 
+            = ImmutableDictionary<string, ImmutableArray<Type>>.Empty;
+
         /// <inheritdoc/>
         ImmutableRpcClientOptions IRpcClientOptions.AsImmutable() => this;
 
@@ -91,6 +106,7 @@ namespace SciTech.Rpc.Client
                         combinedOptions.Assign(o);
                     }
 
+                    combinedOptions.BuildKnownServiceTypesDictionary();
                     return combinedOptions;
                 }
             }
@@ -104,12 +120,43 @@ namespace SciTech.Rpc.Client
             {
                 this.CallTimeout = options.CallTimeout ?? this.CallTimeout;
                 this.StreamingCallTimeout = options.StreamingCallTimeout ?? this.StreamingCallTimeout;
-                this.ExceptionConverters = options.ExceptionConverters?.ToImmutableArray() ?? this.ExceptionConverters;
-                this.Interceptors = options.Interceptors?.ToImmutableArray() ?? this.Interceptors;
+                this.ExceptionConverters = this.ExceptionConverters.AddRange(options.ExceptionConverters);
+                this.Interceptors = this.Interceptors.AddRange(options.Interceptors);
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;
             }
+        }
+
+        private void BuildKnownServiceTypesDictionary()
+        {
+            Dictionary<string, List<Type>> knownServices = new Dictionary<string, List<Type>>();
+
+            foreach ( var serviceType in this.KnownServiceTypes)
+            {
+                var interfaceServices = RpcBuilderUtil.GetAllServices(serviceType, RpcServiceDefinitionSide.Client, false);
+                foreach (var serviceInfo in interfaceServices)
+                {
+                    if (knownServices.TryGetValue(serviceInfo.FullName, out var services))
+                    {
+                        if (services.Find(s => s.Equals(serviceInfo.Type)) == null)
+                        {
+                            services.Add(serviceInfo.Type);
+                        }
+                    }
+                    else
+                    {
+                        services = new List<Type>
+                        {
+                            serviceInfo.Type
+                        };
+                        knownServices.Add(serviceInfo.FullName, services);
+                    }
+                }
+            }
+
+            this.KnownServiceTypesDictionary = ImmutableDictionary.CreateRange(knownServices
+                .Select(p => new KeyValuePair<string, ImmutableArray<Type>>(p.Key, p.Value.ToImmutableArray())));
         }
     }
 }

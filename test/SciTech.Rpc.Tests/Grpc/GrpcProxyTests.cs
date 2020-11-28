@@ -255,7 +255,7 @@ namespace SciTech.Rpc.Tests.Grpc
         {
             var proxyServiceDefinitionsProvider = new RpcProxyDefinitionsBuilder();
             var (moduleBuilder, definedTypes) = this.CreateModuleBuilder();
-            var proxyBuilder = new RpcServiceProxyBuilder<GrpcProxyBase, GrpcProxyMethod>(RpcBuilderUtil.GetAllServices<TService>(true), proxyServiceDefinitionsProvider, moduleBuilder, definedTypes);
+            var proxyBuilder = new RpcServiceProxyBuilder<GrpcProxyBase, GrpcProxyMethod>(RpcBuilderUtil.GetAllServices<TService>(true), moduleBuilder, definedTypes);
 
             var (proxyType, createMethodsFunc) = proxyBuilder.BuildObjectProxyType(new Type[] { typeof(GrpcProxyArgs), typeof(GrpcProxyMethod[]) });
 
@@ -276,7 +276,6 @@ namespace SciTech.Rpc.Tests.Grpc
                 serializer: serializer,
                 methodsCache: new GrpcMethodsCache(serializer),
                 implementedServices: null,
-                proxyServicesProvider: proxyServiceDefinitionsProvider,
                 syncContext: null
             );
 

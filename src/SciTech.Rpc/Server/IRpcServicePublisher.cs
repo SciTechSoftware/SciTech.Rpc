@@ -24,11 +24,11 @@ namespace SciTech.Rpc.Server
     /// multiple <see cref="IRpcServer"/>s. The <see cref="RpcServerExtensions"/> class provides extensions methods
     /// that can be used to publish RPC services directly on an <see cref="IRpcServer"/> interface.
     /// </para>
-    /// <para>
-    /// NOTE! <see cref="RpcServicePublisherExtensions"/> provides extension methods necessary for publishing RPC 
+    /// <note type="note">
+    /// <see cref="RpcServicePublisherExtensions"/> provides extension methods necessary for publishing RPC 
     /// singletons and instances using factory methods. Include the namespace <c>SciTech.Rpc.Server</c> for full
     /// functionality when publishing RPC services.
-    /// </para>
+    /// </note>
     /// </summary>
     public interface IRpcServicePublisher
     {
@@ -71,12 +71,12 @@ namespace SciTech.Rpc.Server
         /// <para>
         /// Publishes an RPC service instance with the help of an <see cref="ActivatedService{TService}"/>  factory.
         /// </para>
-        /// <para>
+        /// <note type="note">
         /// NOTE! The <see cref="ActivatedService{TService}"/> factory is an implementation detail. It is recommended that 
         /// the extension methods <see cref="RpcServicePublisherExtensions.PublishInstance{TService}(IRpcServicePublisher, Func{IServiceProvider, RpcObjectId, TService})"/> 
         /// or <see cref="RpcServicePublisherExtensions.PublishInstance{TService}(IRpcServicePublisher, Func{RpcObjectId, TService})"/>
         /// are used instead of this method.
-        /// </para>
+        /// </note>
         /// </summary>
         /// <typeparam name="TService">The type of the published instance.</typeparam>
         /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>
@@ -89,12 +89,15 @@ namespace SciTech.Rpc.Server
 
 
         /// <summary>
+        /// <para>
         /// Publishes an RPC service instance.
-        /// <para><b>NOTE!</b> This service publisher will keep a strong reference to the published instance. To allow it to be garbage
+        /// </para>
+        /// <note type="note">
+        /// This service publisher will keep a strong reference to the published instance. To allow it to be garbage
         /// collected, it must be explicitly unpublished by disposing the returned object.<br/>
         /// To publish an instance that will be automatically unpublished when it is garbage collected, 
         /// use <see cref="GetOrPublishInstance{TService}(TService)"/>
-        /// </para>
+        /// </note>
         /// </summary>
         /// <typeparam name="TService"></typeparam>
         /// <param name="serviceInstance">The </param>

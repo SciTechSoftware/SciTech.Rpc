@@ -19,6 +19,9 @@ using System.Reflection;
 
 namespace SciTech.Rpc.Server
 {
+    /// <summary>
+    /// Default implementation of <see cref="IRpcServiceDefinitionsBuilder"/> (and <see cref="IRpcServiceDefinitionsProvider"/>). 
+    /// </summary>
     public class RpcServiceDefinitionsBuilder : IRpcServiceDefinitionsBuilder
     {
         private readonly List<IRpcServerExceptionConverter> registeredExceptionConverters = new List<IRpcServerExceptionConverter>();
@@ -50,11 +53,11 @@ namespace SciTech.Rpc.Server
         }
 
         public RpcServiceDefinitionsBuilder(
-            IRpcSerializer? serializer=null,
-            IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null,
-            IEnumerable<IRpcServerExceptionConverter>? exceptionConverters = null)
+            IRpcServerOptions? options = null,
+            IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null)
         {
-            this.Serializer = serializer;
+            this.Options = options?.AsImmutable() ?? ImmutableRpcServerOptions.Empty;
+
             if (serviceRegistrations != null)
             {
                 foreach (var registration in serviceRegistrations)
@@ -63,14 +66,6 @@ namespace SciTech.Rpc.Server
                     {
                         this.RegisterService(registeredType.ServiceType, registeredType.ImplementationType, registeredType.ServerOptions);
                     }
-                }
-            }
-
-            if (exceptionConverters != null)
-            {
-                foreach (var exceptionConverter in exceptionConverters)
-                {
-                    this.RegisterExceptionConverter(exceptionConverter);
                 }
             }
         }
@@ -113,7 +108,9 @@ namespace SciTech.Rpc.Server
 
         public bool IsFrozen => this.isFrozen;
 
-        public IRpcSerializer? Serializer { get; }
+        public ImmutableRpcServerOptions Options { get;  }
+
+        public IRpcSerializer? Serializer => this.Options.Serializer;
 
         public void Freeze()
         {

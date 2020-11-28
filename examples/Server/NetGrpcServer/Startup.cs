@@ -17,6 +17,7 @@ using System.Security.Claims;
 using Ticketer;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
+using SciTech.Rpc.Client;
 
 namespace NetGrpcServer
 {
@@ -26,10 +27,12 @@ namespace NetGrpcServer
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddNetGrpc()
-                .AddServiceOptions<IMailBoxManagerService>(options =>
+            services.AddNetGrpc(o=>
                 {
-                    options.AllowAutoPublish = true;
+                })
+                .AddServiceOptions<IMailBoxManagerService>(so =>
+                {
+                    so.AllowAutoPublish = true;
                 });
 
             services.AddSingleton<MailQueueRepository>();
@@ -105,7 +108,7 @@ namespace NetGrpcServer
 
             // IMailboxService has already been registered in ConfigureServices,
             // so let's not do it again.            
-            // app.RegisterRpcService<IMailboxService>();
+            app.RegisterRpcService<IMailboxService>();
 
             // Publishing RPC services will automatically register the service interfaces,
             // unless MapNetGrpcServices has been called.
@@ -122,7 +125,7 @@ namespace NetGrpcServer
                 // After MapNetGrpcServices is called, it is no longer
                 // possible to register new RPC interfaces. But publishing
                 // singleton and instance implementations of already 
-                // registered interfaces are allowed.
+                // registered interfaces is allowed.
                 endpoints.MapNetGrpcServices();
 
                 endpoints.MapGet("/generateJwtToken", context =>

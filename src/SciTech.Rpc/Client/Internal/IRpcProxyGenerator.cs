@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
 
 namespace SciTech.Rpc.Client.Internal
@@ -21,6 +22,8 @@ namespace SciTech.Rpc.Client.Internal
 
     public interface IRpcProxyGenerator
     {
-        RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(IReadOnlyCollection<string>? implementedServices) where TService : class;
+        RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
+            IReadOnlyCollection<string>? implementedServices,
+            IReadOnlyDictionary<string, ImmutableArray<Type>> knownServiceTypes) where TService : class;
     }
 }

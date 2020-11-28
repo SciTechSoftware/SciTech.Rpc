@@ -19,6 +19,39 @@ namespace SciTech.Rpc.Server
     /// <summary>
     /// Defines options for the server side implementation of RPC services.
     /// </summary>
+    /// <remarks>
+    /// Service options can be specified at many different levels. Below is a list of where options can be specified, with
+    /// the highest priority level first. Higher priority levels will override properties at lower levels. Collections will
+    /// be combined for all levels, but if the same item is included in several places the higher priority item will take precedence.
+    /// For example, if more than one exception converter with the same <see cref="IRpcServerExceptionConverter.FaultCode"/> fault code exists, 
+    /// the higher priority converter will be used.
+    /// <list type="number">
+    /// <item><description>
+    ///     Attributes on service operation<br/>
+    ///     This includes attributes such as <see cref = "RpcExceptionConverterAttribute" />, <see cref = "RpcFaultAttribute" />,
+    ///     and <see cref="RpcOperationAttribute"/> settings.
+    /// </description></item>
+    /// <item><description>
+    ///     Attributes on service interface<br/>
+    ///     This includes attributes such as <see cref="RpcExceptionConverterAttribute"/>, <see cref="RpcFaultAttribute"/>,
+    ///     and <see cref="RpcServiceAttribute"/> settings.
+    /// </description></item>
+    /// <item><description>
+    ///     Registered service options<br/>
+    ///     This includes <see cref="RpcServiceOptions{T}"/> provided when registering service types, for instance using <see cref="IRpcServiceRegistration"/>, 
+    ///     or <see cref="IRpcServiceDefinitionsBuilder.RegisterService(Type, Type?, IRpcServerOptions?)"/>.
+    /// </description></item>
+    /// <item><description>
+    ///     Provided server options<br/>
+    ///     This includes <see cref="RpcServerOptions"/> provided when creating the <see cref="IRpcServer"/> implementation.
+    /// </description></item>
+    /// <item><description>
+    ///     <see cref="IRpcServiceDefinitionsProvider"/> options<br/>
+    ///     This includes <see cref="RpcServerOptions"/> provided when creating the optional <c>IRpcServiceDefinitionsProvider</c> implementation,
+    ///     e.g. <see cref="RpcServiceDefinitionsBuilder"/>.
+    /// </description></item>
+    /// </list>
+    /// </remarks>
     public interface IRpcServerOptions
     {
         /// <summary>
@@ -50,6 +83,8 @@ namespace SciTech.Rpc.Server
         int? SendMaxMessageSize { get; }
 
         IRpcSerializer? Serializer { get; }
+
+        ImmutableRpcServerOptions AsImmutable();
     }
 
     /// <summary>
@@ -125,6 +160,11 @@ namespace SciTech.Rpc.Server
         IReadOnlyList<IRpcServerExceptionConverter> IRpcServerOptions.ExceptionConverters => this.ExceptionConverters;
 
         IReadOnlyList<RpcServerCallInterceptor> IRpcServerOptions.Interceptors => this.Interceptors;
+
+        public ImmutableRpcServerOptions AsImmutable()
+        {
+            return !this.IsEmpty ? new ImmutableRpcServerOptions(this) : ImmutableRpcServerOptions.Empty;
+        }
     }
 
     /// <summary>

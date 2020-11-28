@@ -14,6 +14,7 @@ using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -41,20 +42,18 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         private Dictionary<string, int>? definedProxyTypes;
 
-        protected RpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyDefinitionsProvider)
+        protected RpcProxyGenerator()
         {
-            this.ProxyServicesProvider = proxyDefinitionsProvider ?? new RpcProxyDefinitionsBuilder();
         }
 
-        protected IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }
-
         public RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
-            IReadOnlyCollection<string>? implementedServices)
+            IReadOnlyCollection<string>? implementedServices,
+            IReadOnlyDictionary<string,ImmutableArray<Type>>? knownServiceTypes )
             where TService : class
         {
             lock (this.syncRoot)
             {
-                var serviceInterfaces = this.GetAllServices<TService>(implementedServices);
+                var serviceInterfaces = this.GetAllServices<TService>(implementedServices, knownServiceTypes);
                 var key = new HashSetKey<string>(serviceInterfaces.Select(s => s.FullName));
 
                 // If a proxy with the same set of service interfaces has been generated before
@@ -67,11 +66,17 @@ namespace SciTech.Rpc.Client.Internal
 
                 var (moduleBuilder, definedProxyTypes) = CreateModuleBuilder();
 
-                var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(serviceInterfaces,
+                var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(
+                    serviceInterfaces,
                     moduleBuilder, definedProxyTypes);
-                var (proxyCreator, createMethodsFunc) = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();
-                // Actually generating a create method instead of building a TMethodDef array directly
-                // is definitely unnecessary, but may be useful in the future. See remarks on BuildObjectProxyType.
+                (Func<TProxyArgs, TMethodDef[], RpcProxyBase> proxyCreator, Func<TMethodDef[]> createMethodsFunc) 
+                    = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();
+                
+                // Actually generating a method that creates the method definitions array (createMethodsFunc) instead of 
+                // building a TMethodDef array directly is definitely unnecessary at the moment, but may be useful in the future, mainly in AOT scenarios.
+                // Using this implementation, it would be possible to pre-generate code from proxyCreator and createMethodsFunc
+                // and then this method could use something like LookupObjectProxyFactory instead of BuildObjectProxyFactory.
+                // This will avoid dynamic code generation.
                 TMethodDef[] methodDefs = createMethodsFunc();
                 var proxyMethods = methodDefs;
 
@@ -110,7 +115,9 @@ namespace SciTech.Rpc.Client.Internal
         /// <typeparam name="TService"></typeparam>
         /// <param name="implementedServices"></param>
         /// <returns></returns>
-        internal List<RpcServiceInfo> GetAllServices<TService>(IReadOnlyCollection<string>? implementedServices)
+        private List<RpcServiceInfo> GetAllServices<TService>(
+            IReadOnlyCollection<string>? implementedServices, 
+            IReadOnlyDictionary<string, ImmutableArray<Type>>? knownServiceTypes)
         {
             var interfaceServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Client, false);
             if (implementedServices?.Count > 0)
@@ -126,16 +133,20 @@ namespace SciTech.Rpc.Client.Internal
                 }
 
                 // And add all known service interfaces.
-                foreach (var implementedService in implementedServices)
+                if (knownServiceTypes != null)
                 {
-                    var knownTypes = this.ProxyServicesProvider.GetServicesTypes(implementedService);
-
-                    foreach (var serviceType in knownTypes)
+                    foreach (var implementedService in implementedServices)
                     {
-                        if (interfaceServices.Find(s => s.Type.Equals(serviceType)) == null)
+                        if (knownServiceTypes.TryGetValue(implementedService, out var knownTypes))
                         {
-                            var serviceInfo = RpcBuilderUtil.GetServiceInfoFromType(serviceType);
-                            interfaceServices.Add(serviceInfo);    // serviceInfo is not null when throwOnError is true.
+                            foreach (var serviceType in knownTypes)
+                            {
+                                if (interfaceServices.Find(s => s.Type.Equals(serviceType)) == null)
+                                {
+                                    var serviceInfo = RpcBuilderUtil.GetServiceInfoFromType(serviceType);
+                                    interfaceServices.Add(serviceInfo);    // serviceInfo is not null when throwOnError is true.
+                                }
+                            }
                         }
                     }
                 }

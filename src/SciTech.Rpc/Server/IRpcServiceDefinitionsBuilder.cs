@@ -60,8 +60,11 @@ namespace SciTech.Rpc.Server
         ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
         bool IsFrozen { get; }
-        
-        IRpcSerializer? Serializer { get; }
+
+        /// <summary>
+        /// Gets the assigned server options.
+        /// </summary>
+        ImmutableRpcServerOptions Options { get; }
 
         void Freeze();
 

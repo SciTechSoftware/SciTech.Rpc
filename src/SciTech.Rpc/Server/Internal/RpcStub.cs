@@ -250,7 +250,7 @@ namespace SciTech.Rpc.Server.Internal
                     var (activatedService, interceptDisposables) = beginCallTask.Result;
 
                     return new ValueTask<RpcResponse<TResponse>>(
-                        this.DoCallWithError(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables));
+                        this.DoCall(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables));
                 }
                 else
                 {
@@ -261,7 +261,7 @@ namespace SciTech.Rpc.Server.Internal
                         try
                         {
                             var (activatedService, interceptDisposables) = await beginCallTask.ContextFree();
-                            return this.DoCallWithError(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables);
+                            return this.DoCall(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables);
                         }
                         catch (Exception e)
                         {
@@ -677,8 +677,8 @@ namespace SciTech.Rpc.Server.Internal
             var service = this.GetServiceImpl(serviceProvider, objectId);
             var interceptors = this.Server.CallInterceptors;
 
-            CompactList<IDisposable?> interceptDisposables;
-            CompactList<Task<IDisposable>> pendingInterceptors;
+            CompactList<IDisposable?> interceptDisposables = default;
+            CompactList<Task<IDisposable>> pendingInterceptors = default;
 
             if (interceptors.Length > 0)
             {
@@ -724,28 +724,6 @@ namespace SciTech.Rpc.Server.Internal
         }
 
         private RpcResponse<TResponse> DoCall<TRequest, TResult, TResponse>(
-            TRequest request,
-            IRpcCallContextWithCancellation context,
-            Func<TService, TRequest, CancellationToken, TResult> implCaller,
-            Func<TResult, TResponse>? responseConverter,
-            in ActivatedService<TService> activatedService,
-            CompactList<IDisposable?> interceptDisposables) where TRequest : IObjectRequest
-        {
-            try
-            {
-                // Call the actual implementation method.
-                var result = implCaller(activatedService.Service, request, context.CancellationToken);
-                context.CancellationToken.ThrowIfCancellationRequested();
-
-                return CreateResponse(responseConverter, result);
-            }
-            finally
-            {
-                EndCall(activatedService, interceptDisposables);
-            }
-        }
-
-        private RpcResponse<TResponse> DoCallWithError<TRequest, TResult, TResponse>(
             TRequest request,
             IRpcCallContextWithCancellation context,
             Func<TService, TRequest, CancellationToken, TResult> implCaller,

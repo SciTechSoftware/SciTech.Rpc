@@ -28,7 +28,7 @@ namespace SciTech.Rpc.Tests
         {
             var generator = new LightweightProxyGenerator();
 
-            var factory = generator.GenerateObjectProxyFactory<ISingletonService>(null);
+            var factory = generator.GenerateObjectProxyFactory<ISingletonService>(null, null);
             var proxy = (LightweightProxyBase)factory(RpcObjectId.Empty, new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost"))), null);
 
             var addMethod = proxy.proxyMethods.Single(m => m.OperationName == "SciTech.Rpc.Tests.SingletonService.Add");

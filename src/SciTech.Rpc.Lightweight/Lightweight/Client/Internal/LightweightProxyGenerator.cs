@@ -27,7 +27,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private readonly object syncRoot = new object();
 
-        internal LightweightProxyGenerator(IRpcProxyDefinitionsProvider? proxyDefinitionsProvider = null) : base(proxyDefinitionsProvider)
+        internal LightweightProxyGenerator()
         {
         }
 
@@ -36,7 +36,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IReadOnlyCollection<string>? implementedServices,
             LightweightMethodDef[] proxyMethods)
         {
-            var proxyServicesProvider = this.ProxyServicesProvider;
             return (RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? syncContext) =>
             {
                 if (connection is LightweightRpcConnection lightweightConnection)
@@ -49,7 +48,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         serializer: lightweightConnection.Serializer,
                         methodSerializersCache: this.GetMethodSerializersCache(lightweightConnection.Serializer),
                         implementedServices: implementedServices,
-                        proxyServicesProvider: proxyServicesProvider,
                         syncContext: syncContext
                     );
 
@@ -80,7 +78,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         internal static class Factory
         {
-            private static readonly LightweightProxyGenerator DefaultGenerator = new LightweightProxyGenerator(null);
+            private static readonly LightweightProxyGenerator DefaultGenerator = new LightweightProxyGenerator();
 
             private static readonly ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator> proxyGenerators
                  = new ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator>();
@@ -99,7 +97,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 {
                     if (!proxyGenerators.TryGetValue(definitionsProvider, out var generator))
                     {
-                        generator = new LightweightProxyGenerator(definitionsProvider);
+                        generator = new LightweightProxyGenerator();
                         proxyGenerators.Add(definitionsProvider, generator);
                     }
 

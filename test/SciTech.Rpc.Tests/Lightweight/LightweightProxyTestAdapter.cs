@@ -17,7 +17,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             var generator = new LightweightProxyGenerator();
 
-            var factory = generator.GenerateObjectProxyFactory<TService>(null);
+            var factory = generator.GenerateObjectProxyFactory<TService>(null, null);
             var proxy = (LightweightProxyBase)factory(RpcObjectId.Empty, new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost"))), null);
             return proxy;
         }

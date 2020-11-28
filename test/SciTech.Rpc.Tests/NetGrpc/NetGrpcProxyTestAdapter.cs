@@ -11,9 +11,9 @@ namespace SciTech.Rpc.Tests.NetGrpc
     {
         public RpcProxyBase<GrpcProxyMethod> CreateProxy<TService>() where TService : class
         {
-            var generator = new GrpcProxyGenerator(null);
+            var generator = new GrpcProxyGenerator();
 
-            var factory = generator.GenerateObjectProxyFactory<TService>(null);
+            var factory = generator.GenerateObjectProxyFactory<TService>(null, null);
             var proxy = (RpcProxyBase<GrpcProxyMethod>)factory(RpcObjectId.Empty, new NetGrpcServerConnection(new RpcServerConnectionInfo(new Uri("grpc://localhost"))), null);
             return proxy;
         }

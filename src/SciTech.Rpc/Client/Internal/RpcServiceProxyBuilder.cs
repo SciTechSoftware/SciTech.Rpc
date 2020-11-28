@@ -198,7 +198,12 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        private static IRpcClientExceptionConverter CreateClientExceptionConverter(RpcFaultAttribute faultAttribute)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="faultAttribute"></param>
+        /// <returns></returns>
+        private static Expression CreateClientExceptionConverter(RpcFaultAttribute faultAttribute)
         {
             if (!string.IsNullOrWhiteSpace(faultAttribute.FaultCode))
             {
@@ -218,13 +223,13 @@ namespace SciTech.Rpc.Client.Internal
                         ?? throw new NotImplementedException($"{nameof(RpcFaultExceptionConverter)} constructor not found.");
                 }
 
-                var converter = (IRpcClientExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode });
-                return converter;
+                //var converter = (IRpcClientExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode });
+                //return converter;
                 // Previously an expression was returned, to better support AOT scenarios.
                 // Re-add if necessary.
-                //var faultCodeExpression = Expression.Constant(faultAttribute.FaultCode);
-                //var converterNewExpression = Expression.New(converterCtor, faultCodeExpression);
-                //return converterNewExpression;
+                var faultCodeExpression = Expression.Constant(faultAttribute.FaultCode);
+                var converterNewExpression = Expression.New(converterCtor, faultCodeExpression);
+                return converterNewExpression;
             }
 
             throw new RpcDefinitionException("FaultCode must be specified in RpcFaultAttribute.");
@@ -339,35 +344,35 @@ namespace SciTech.Rpc.Client.Internal
             return faultAttributes;
         }
 
-        private static IEnumerable<TAttribute> RetrieveFaultAttributes<TAttribute>(RpcOperationInfo operationInfo, RpcMemberInfo? serverSideMemberInfo)
-            where TAttribute : Attribute
-        {
-            // TODO: This is almost the same code as RetrieveServiceFaultAttributes, try to combine.
-            List<TAttribute> faultAttributes;
+        //private static IEnumerable<TAttribute> RetrieveFaultAttributes<TAttribute>(RpcOperationInfo operationInfo, RpcMemberInfo? serverSideMemberInfo)
+        //    where TAttribute : Attribute
+        //{
+        //    // TODO: This is almost the same code as RetrieveServiceFaultAttributes, try to combine.
+        //    List<TAttribute> faultAttributes;
 
-            if (serverSideMemberInfo?.DeclaringMember is MemberInfo serverSideMember)
-            {
-                // If the server side definition is available, then the fault attributes of that definition
-                // should be used.
-                faultAttributes = serverSideMember.GetCustomAttributes<TAttribute>().ToList();
+        //    if (serverSideMemberInfo?.DeclaringMember is MemberInfo serverSideMember)
+        //    {
+        //        // If the server side definition is available, then the fault attributes of that definition
+        //        // should be used.
+        //        faultAttributes = serverSideMember.GetCustomAttributes<TAttribute>().ToList();
 
-                // Validate that any fault attributes applied to the client side definition exists on the server side
-                // definition
-                foreach (var clientFaultAttribute in operationInfo.DeclaringMember.GetCustomAttributes<RpcFaultAttribute>())
-                {
-                    if (faultAttributes.Find(sa => sa.FaultCode == clientFaultAttribute.FaultCode && Equals(sa.FaultType, clientFaultAttribute.FaultType)) == null)
-                    {
-                        throw new RpcDefinitionException($"Client side service definition includes fault declaration '{clientFaultAttribute.FaultCode}' which is not applied on server side definition.");
-                    }
-                }
-            }
-            else
-            {
-                faultAttributes = operationInfo.DeclaringMember.GetCustomAttributes<TAttribute>().ToList();
-            }
+        //        // Validate that any fault attributes applied to the client side definition exists on the server side
+        //        // definition
+        //        foreach (var clientFaultAttribute in operationInfo.DeclaringMember.GetCustomAttributes<RpcFaultAttribute>())
+        //        {
+        //            if (faultAttributes.Find(sa => sa.FaultCode == clientFaultAttribute.FaultCode && Equals(sa.FaultType, clientFaultAttribute.FaultType)) == null)
+        //            {
+        //                throw new RpcDefinitionException($"Client side service definition includes fault declaration '{clientFaultAttribute.FaultCode}' which is not applied on server side definition.");
+        //            }
+        //        }
+        //    }
+        //    else
+        //    {
+        //        faultAttributes = operationInfo.DeclaringMember.GetCustomAttributes<TAttribute>().ToList();
+        //    }
 
-            return faultAttributes;
-        }
+        //    return faultAttributes;
+        //}
 
 
         private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, 
@@ -376,8 +381,8 @@ namespace SciTech.Rpc.Client.Internal
             IEnumerable<Attribute> faultAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
             List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
 
-            IEnumerable<Attribute> faultConverterAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
-            List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
+            //IEnumerable<Attribute> faultConverterAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
+            //List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
 
             Expression faultHandlerExpression;
             if (faultGeneratorExpressions.Count > 0 || faultConverterExpressions.Count > 0)
@@ -402,9 +407,9 @@ namespace SciTech.Rpc.Client.Internal
             return faultHandlerExpression;
         }
 
-        private static List<IRpcClientExceptionConverter> RetrieveRpcFaultGeneratorExpressions(IEnumerable<Attribute> faultAttributes)
+        private static List<Expression> RetrieveRpcFaultGeneratorExpressions(IEnumerable<Attribute> faultAttributes)
         {
-            var faultExceptionExpressions = new List<IRpcClientExceptionConverter>();
+            var faultExceptionExpressions = new List<Expression>();
             foreach (RpcFaultAttribute faultAttribute in faultAttributes)
             {
                 var faultExceptionExpression = CreateClientExceptionConverter(faultAttribute);

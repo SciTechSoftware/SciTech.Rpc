@@ -18,10 +18,11 @@ namespace SciTech.Rpc.Authorization
     /// Specifies that the class, interface, method, property, or event, that this attribute is applied to 
     /// requires the specified authorization.
     /// </para>
-    /// <para>
-    /// <b>Note:</b> Authorization attributes are currently only implemented for the <c>NetGrpc</c>
+    /// <note type="caution">
+    /// Authorization attributes are currently only implemented for the <c>NetGrpc</c>
     /// implementation of <c>SciTech.Rpc</c>. The attributes will be ignored by other
-    /// implementations.</para>
+    /// implementations.
+    /// </note>
     /// </summary>
     /// <remarks>
     /// When this attribute is applied to an RPC interface or interface member, it will apply to 

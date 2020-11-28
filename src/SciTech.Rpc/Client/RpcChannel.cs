@@ -153,7 +153,7 @@ namespace SciTech.Rpc.Client
             }
 
             RpcObjectProxyFactory serviceProxyCreator
-                = this.proxyGenerator.GenerateObjectProxyFactory<TService>(implementedServices);
+                = this.proxyGenerator.GenerateObjectProxyFactory<TService>(implementedServices, this.Options.KnownServiceTypesDictionary);
 
             lock (this.SyncRoot)
             {

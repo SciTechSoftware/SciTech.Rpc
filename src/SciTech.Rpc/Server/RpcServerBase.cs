@@ -59,7 +59,7 @@ namespace SciTech.Rpc.Server
 
             this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
             this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;
-            this.serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Serializer;
+            this.serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Options.Serializer;
 
             if (options != null)
             {

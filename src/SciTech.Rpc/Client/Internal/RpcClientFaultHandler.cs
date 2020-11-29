@@ -11,22 +11,48 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 
 namespace SciTech.Rpc.Client.Internal
 {
     public sealed class RpcClientFaultHandler
     {
-        private readonly Dictionary<string, IRpcClientExceptionConverter>? faultExceptionConverters;
+        public static readonly RpcClientFaultHandler Empty = new RpcClientFaultHandler();
 
-        public RpcClientFaultHandler(IReadOnlyCollection<IRpcClientExceptionConverter> faultExceptionConverters)
+        private readonly IReadOnlyDictionary<string, IRpcClientExceptionConverter> faultExceptionConverters;
+
+        private RpcClientFaultHandler()
         {
-            if (faultExceptionConverters != null)
+            this.faultExceptionConverters = ImmutableDictionary<string, IRpcClientExceptionConverter>.Empty;
+        }
+
+        public RpcClientFaultHandler(RpcClientFaultHandler? baseHandler, IReadOnlyCollection<IRpcClientExceptionConverter> faultExceptionConverters)
+        {
+            if (faultExceptionConverters?.Count > 0)
             {
-                this.faultExceptionConverters = new Dictionary<string, IRpcClientExceptionConverter>(faultExceptionConverters.Count);
+                Dictionary<string, IRpcClientExceptionConverter> combinedConverters;
+
+                if (baseHandler != null)
+                {
+                    combinedConverters = new Dictionary<string, IRpcClientExceptionConverter>(baseHandler.faultExceptionConverters.Count);
+                    foreach( var pair in baseHandler.faultExceptionConverters)
+                    {
+                        combinedConverters.Add(pair.Key, pair.Value);
+                    }
+                } else
+                {
+                    combinedConverters = new Dictionary<string, IRpcClientExceptionConverter>(faultExceptionConverters.Count);
+                }
+
                 foreach (var c in faultExceptionConverters)
                 {
-                    this.faultExceptionConverters.Add(c.FaultCode, c);
+                    combinedConverters[c.FaultCode] = c;
                 }
+
+                this.faultExceptionConverters = combinedConverters;
+            } else
+            {
+                this.faultExceptionConverters = (baseHandler ?? Empty).faultExceptionConverters;
             }
         }
 

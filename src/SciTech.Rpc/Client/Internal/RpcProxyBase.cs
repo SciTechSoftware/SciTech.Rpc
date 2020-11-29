@@ -627,40 +627,31 @@ namespace SciTech.Rpc.Client.Internal
                     throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {message}");
             }
 
-            if (methodDef.FaultHandler != null
-                && !string.IsNullOrEmpty(error.ErrorCode)
-                && methodDef.FaultHandler.TryGetFaultConverter(error.ErrorCode!, out var faultConverter))
+            if (error.ErrorCode != null)
             {
-                // It's a declared fault.
-                var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
-
-                object? details = null;
-                if (faultConverter!.FaultDetailsType != null  )
+                IRpcClientExceptionConverter? exceptionConverter;
+                if (!methodDef.FaultHandler.TryGetFaultConverter(error.ErrorCode, out exceptionConverter))
                 {
-                    details = actualSerializer.Deserialize(error.ErrorDetails, faultConverter.FaultDetailsType);
+                    exceptionConverter = this.Channel.GetExceptionConverter(error.ErrorCode);
                 }
 
-                Exception exception;
-
-                // First check whether there's a custom converter for this fault.
-                var customConverter = this.Channel.GetExceptionConverter(error.ErrorCode!);
-
-                if (customConverter != null)
+                if (exceptionConverter != null)
                 {
-                    if (!Equals(customConverter.FaultDetailsType, faultConverter.FaultDetailsType))
+                    // It's a declared fault.
+                    var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
+
+                    object? details = null;
+                    if (exceptionConverter.FaultDetailsType != null)
                     {
-                        throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "Custom exception converter must have the same details type as the default exception converter.");
+                        details = actualSerializer.Deserialize(error.ErrorDetails, exceptionConverter.FaultDetailsType);
                     }
 
-                    exception = customConverter.CreateException(message, details);
+                    Exception exception = exceptionConverter.CreateException(message, details);
+                    if (exception != null)
+                    {
+                        throw exception;
+                    }
                 }
-                else
-                {
-                    // No custom converter. Let's use the default converter function.
-                    exception = faultConverter.CreateException(message, details);
-                }
-
-                throw exception;
             }
 
             // If we get here, no one handled the fault. Let's just handle it by throwing a plain RpcFaultException.

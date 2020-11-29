@@ -53,7 +53,7 @@ namespace SciTech.Rpc.Client.Internal
         /// <summary>
         /// Only initialized during call to BuildObjectProxyType. 
         /// </summary>
-        private List<Expression>? createMethodDefExpressions;
+        private List<TMethodDef>? createMethodDefExpressions;
 
         /// <summary>
         /// Only initialized during call to BuildObjectProxyType
@@ -79,7 +79,7 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         /// <typeparam name="TProxyArgs"></typeparam>
         /// <returns></returns>
-        public (Func<TProxyArgs, TMethodDef[], RpcProxyBase>, Func<TMethodDef[]>) BuildObjectProxyFactory<TProxyArgs>() where TProxyArgs : RpcProxyArgs
+        public (Func<TProxyArgs, TMethodDef[], RpcProxyBase>, TMethodDef[]) BuildObjectProxyFactory<TProxyArgs>() where TProxyArgs : RpcProxyArgs
         {
             var (proxyType, createMethodsFunc) = this.BuildObjectProxyType(new Type[] { typeof(TProxyArgs), typeof(TMethodDef[]) });
 
@@ -128,60 +128,49 @@ namespace SciTech.Rpc.Client.Internal
         /// </remarks>
         /// <returns>A tuple containing the generated proxy type, and a factory function that can be used to 
         /// created the method definitions array used by the proxy.</returns>
-        internal (Type, Func<TMethodDef[]>) BuildObjectProxyType(Type[] proxyCtorArgs)
+        internal (Type, TMethodDef[]) BuildObjectProxyType(Type[] proxyCtorArgs)
         {
-            var declaredServiceInfo = this.allServices.Single(s => s.IsDeclaredService);
-
-            (this.typeBuilder, this.staticCtorILGenerator) = this.CreateTypeBuilder(declaredServiceInfo, proxyCtorArgs);
-            this.createMethodDefExpressions = new List<Expression>();
-            //this.serializerExpression = Expression.Parameter(typeof(IRpcSerializer), "serializer");
-
-            foreach (var serviceInfo in this.allServices)
+            try
             {
-                this.typeBuilder.AddInterfaceImplementation(serviceInfo.Type);
-                this.AddServiceProxyMembers(serviceInfo);
+                var declaredServiceInfo = this.allServices.Single(s => s.IsDeclaredService);
+
+                (this.typeBuilder, this.staticCtorILGenerator) = this.CreateTypeBuilder(declaredServiceInfo, proxyCtorArgs);
+                this.createMethodDefExpressions = new List<TMethodDef>();
+                //this.serializerExpression = Expression.Parameter(typeof(IRpcSerializer), "serializer");
+
+                foreach (var serviceInfo in this.allServices)
+                {
+                    this.typeBuilder.AddInterfaceImplementation(serviceInfo.Type);
+                    this.AddServiceProxyMembers(serviceInfo);
+                }
+
+                this.EndStaticCtorILGenerator();
+                var proxyType = this.typeBuilder.CreateTypeInfo();
+                if (proxyType == null) throw new NotSupportedException("Failed to create proxy type.");
+
+                return (proxyType, createMethodDefExpressions.ToArray());
+            }
+            finally
+            {
+                this.typeBuilder = null;
+                this.createMethodDefExpressions = null;
+                this.methodDefinitionIndices.Clear();
+                this.eventDataFields.Clear();
             }
 
-            this.EndStaticCtorILGenerator();
-            var proxyType = this.typeBuilder.CreateTypeInfo();
-            if (proxyType == null) throw new NotSupportedException("Failed to create proxy type.");
-
-            var createProxyMethodsExpression =
-                Expression.Lambda(
-                    Expression.NewArrayInit(
-                        typeof(TMethodDef),
-                        this.createMethodDefExpressions
-                        )
-                    );
-            var createMethodsFunc = (Func<TMethodDef[]>)createProxyMethodsExpression.Compile();
-
-            this.typeBuilder = null;
-            this.createMethodDefExpressions = null;
-            this.methodDefinitionIndices.Clear();
-            this.eventDataFields.Clear();
-
-            // TODO:
-            return (proxyType, createMethodsFunc);
-
         }
-        private static Expression CreateMethodDefExpression(
+        private static TMethodDef CreateMethodDefExpression(
             RpcMemberInfo memberInfo,
             string methodName,
             RpcMethodType methodType,
             Type requestType,
             Type responseType,
-            Expression serializerParameter,
-            Expression faultHandlerExpression)
+            IRpcSerializer? serializer,
+            RpcClientFaultHandler faultHandler)
         {
             var createMethodDefMethodDef = GetProxyMethod(RpcProxyBase<TMethodDef>.CreateMethodDefName, BindingFlags.Static | BindingFlags.Public);
             var createMethodDefMethod = createMethodDefMethodDef.MakeGenericMethod(requestType, responseType);
-
-            return Expression.Call(createMethodDefMethod,
-                Expression.Constant(methodType),
-                Expression.Constant(memberInfo.Service.FullName),
-                Expression.Constant(methodName),
-                serializerParameter,
-                faultHandlerExpression);
+            return (TMethodDef)createMethodDefMethod.Invoke(null, new object[] { methodType, memberInfo.Service.FullName, methodName, serializer, faultHandler });
         }
 
         private static void EmitResponseConverter(ILGenerator il, RpcOperationInfo operationInfo)
@@ -203,7 +192,7 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         /// <param name="faultAttribute"></param>
         /// <returns></returns>
-        private static Expression CreateClientExceptionConverter(RpcFaultAttribute faultAttribute)
+        private static IRpcClientExceptionConverter CreateClientExceptionConverter(RpcFaultAttribute faultAttribute)
         {
             if (!string.IsNullOrWhiteSpace(faultAttribute.FaultCode))
             {
@@ -223,13 +212,8 @@ namespace SciTech.Rpc.Client.Internal
                         ?? throw new NotImplementedException($"{nameof(RpcFaultExceptionConverter)} constructor not found.");
                 }
 
-                //var converter = (IRpcClientExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode });
-                //return converter;
-                // Previously an expression was returned, to better support AOT scenarios.
-                // Re-add if necessary.
-                var faultCodeExpression = Expression.Constant(faultAttribute.FaultCode);
-                var converterNewExpression = Expression.New(converterCtor, faultCodeExpression);
-                return converterNewExpression;
+                var converter = (IRpcClientExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode });
+                return converter;
             }
 
             throw new RpcDefinitionException("FaultCode must be specified in RpcFaultAttribute.");
@@ -317,7 +301,7 @@ namespace SciTech.Rpc.Client.Internal
 
         private static IEnumerable<RpcFaultAttribute> RetrieveFaultAttributes(RpcOperationInfo operationInfo, RpcMemberInfo? serverSideMemberInfo)
         {
-            // TODO: This is alsmost the same code as RetrieveServiceFaultAttributes, try to combine.
+            // TODO: This is almost the same code as RetrieveServiceFaultAttributes, try to combine.
             List<RpcFaultAttribute> faultAttributes;
 
             if (serverSideMemberInfo?.DeclaringMember is MemberInfo serverSideMember)
@@ -375,52 +359,37 @@ namespace SciTech.Rpc.Client.Internal
         //}
 
 
-        private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, 
-            IReadOnlyList<Expression> faultConverterExpressions, 
+        private static RpcClientFaultHandler RetrieveClientFaultHandler(RpcOperationInfo operationInfo,
+            RpcClientFaultHandler serviceFaultHandler, 
             RpcMemberInfo? serverSideMemberInfo)
         {
-            IEnumerable<Attribute> faultAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
-            List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
+            IEnumerable<RpcFaultAttribute> faultAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
+            List<IRpcClientExceptionConverter> operationConverters = RetrieveExceptionConvertersFromFaultAttributes(faultAttributes);
 
             //IEnumerable<Attribute> faultConverterAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
             //List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
 
-            Expression faultHandlerExpression;
-            if (faultGeneratorExpressions.Count > 0 || faultConverterExpressions.Count > 0)
+            if (operationConverters.Count > 0 )
             {
-                var faultHandlerCtor = typeof(RpcClientFaultHandler)
-                    .GetConstructor(new Type[] { typeof(IRpcClientExceptionConverter[]) })
-                    ?? throw new NotImplementedException($"{nameof(RpcClientFaultHandler)} constructor not found.");
-
-                faultGeneratorExpressions.AddRange(faultConverterExpressions);
-
-                // TODO: This expression should be stored in a field and reused for each 
-                // member that has the same fault specification. If service faults are
-                // used, it's pretty likely that several members will have the same fault specifications.
-                faultHandlerExpression = Expression.New(faultHandlerCtor,
-                    Expression.NewArrayInit(typeof(IRpcClientExceptionConverter), faultGeneratorExpressions));
-            }
-            else
-            {
-                faultHandlerExpression = NullFaultHandlerExpression;
+                return new RpcClientFaultHandler(serviceFaultHandler, operationConverters);
             }
 
-            return faultHandlerExpression;
+            return serviceFaultHandler;
         }
 
-        private static List<Expression> RetrieveRpcFaultGeneratorExpressions(IEnumerable<Attribute> faultAttributes)
+        private static List<IRpcClientExceptionConverter> RetrieveExceptionConvertersFromFaultAttributes(IEnumerable<RpcFaultAttribute> faultAttributes)
         {
-            var faultExceptionExpressions = new List<Expression>();
+            var faultExceptionExpressions = new List<IRpcClientExceptionConverter>();
             foreach (RpcFaultAttribute faultAttribute in faultAttributes)
             {
-                var faultExceptionExpression = CreateClientExceptionConverter(faultAttribute);
-                faultExceptionExpressions.Add(faultExceptionExpression);
+                var exceptionConverter = CreateClientExceptionConverter(faultAttribute);
+                faultExceptionExpressions.Add(exceptionConverter);
             }
 
             return faultExceptionExpressions;
         }
 
-        private static IEnumerable<Attribute> RetrieveServiceFaultAttributes(RpcServiceInfo serviceInfo)
+        private static IEnumerable<RpcFaultAttribute> RetrieveServiceFaultAttributes(RpcServiceInfo serviceInfo)
         {
             List<RpcFaultAttribute> faultAttributes;
 
@@ -449,11 +418,11 @@ namespace SciTech.Rpc.Client.Internal
             return faultAttributes;
         }
 
-        private int AddCreateMethodDefExpression(
+        private int AddMethodDef(
             RpcOperationInfo memberInfo,
             RpcMethodType methodType,
-            Expression serializerParameter,
-            Expression faultHandlerExpression)
+            IRpcSerializer? serializer,
+            RpcClientFaultHandler faultHandler)
         {
             if (this.createMethodDefExpressions == null)
             {
@@ -464,18 +433,18 @@ namespace SciTech.Rpc.Client.Internal
 
             this.createMethodDefExpressions.Add(
                 CreateMethodDefExpression(memberInfo, memberInfo.Name, methodType, memberInfo.RequestType, memberInfo.ResponseType,
-                serializerParameter, faultHandlerExpression));
+                serializer, faultHandler));
             return methodDefIndex;
         }
 
-        private int AddCreateMethodDefExpression(
+        private int AddMethodDef(
             RpcMemberInfo memberInfo,
             string methodName,
             RpcMethodType methodType,
             Type requestType,
             Type responseType,
-            Expression serializerParameter,
-            Expression faultHandlerExpression)
+            IRpcSerializer? serializer,
+            RpcClientFaultHandler faultHandler)
         {
             if (this.createMethodDefExpressions == null)
             {
@@ -486,7 +455,7 @@ namespace SciTech.Rpc.Client.Internal
 
             this.createMethodDefExpressions.Add(
                 CreateMethodDefExpression(memberInfo, methodName, methodType, requestType, responseType,
-                serializerParameter, faultHandlerExpression));
+                serializer, faultHandler));
             return methodDefIndex;
         }
 
@@ -496,9 +465,12 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         private void AddServiceProxyMembers(RpcServiceInfo serviceInfo)
         {
-            IEnumerable<Attribute> faultAttributes = RetrieveServiceFaultAttributes(serviceInfo);
-            var serviceFaultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);
-
+            IEnumerable<RpcFaultAttribute> faultAttributes = RetrieveServiceFaultAttributes(serviceInfo);
+            var serviceExceptionConverters = RetrieveExceptionConvertersFromFaultAttributes(faultAttributes);
+            RpcClientFaultHandler serviceFaultHandler = serviceExceptionConverters.Count > 0 
+                ? new RpcClientFaultHandler(null, serviceExceptionConverters) 
+                : RpcClientFaultHandler.Empty;
+    
             List<RpcMemberInfo>? serverSideMembers = null;
             if (serviceInfo.ServerType != null)
             {
@@ -543,15 +515,15 @@ namespace SciTech.Rpc.Client.Internal
                         case RpcMethodType.Unary:
                             if (rpcMethodInfo.IsAsync)
                             {
-                                this.CreateAsyncMethodImpl(rpcMethodInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+                                this.CreateAsyncMethodImpl(rpcMethodInfo, serviceFaultHandler, serverSideMemberInfo);
                             }
                             else
                             {
-                                this.CreateBlockingMethodImpl(rpcMethodInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+                                this.CreateBlockingMethodImpl(rpcMethodInfo, serviceFaultHandler, serverSideMemberInfo);
                             }
                             break;
                         case RpcMethodType.ServerStreaming:
-                            this.CreateServerStreamingMethodImpl(rpcMethodInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+                            this.CreateServerStreamingMethodImpl(rpcMethodInfo, serviceFaultHandler, serverSideMemberInfo);
                             break;
                         //case RpcMethodType.EventAdd:
                         //    CreateEventAddHandler(rpcMethodInfo);
@@ -598,7 +570,7 @@ namespace SciTech.Rpc.Client.Internal
         /// <returns></returns>
         private void CreateAsyncMethodImpl(
             RpcOperationInfo operationInfo, 
-            IReadOnlyList<Expression> serviceFaultGeneratorExpressions, 
+            RpcClientFaultHandler serviceFaultHandler, 
             RpcMemberInfo? serverSideMethodInfo)
         {
             if (this.typeBuilder == null)
@@ -620,7 +592,7 @@ namespace SciTech.Rpc.Client.Internal
             var proxyMethodsField = GetProxyField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName);
             il.Emit(OpCodes.Ldarg_0);// Load this
 
-            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMethodInfo);
+            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultHandler, serverSideMethodInfo);
 
             il.Emit(OpCodes.Ldarg_0);// Load this (for proxyMethods field )
             il.Emit(OpCodes.Ldfld, proxyMethodsField); //Load method def field
@@ -720,7 +692,7 @@ namespace SciTech.Rpc.Client.Internal
         /// ]]></code>
         /// </remarks>
         /// <returns></returns>
-        private void CreateBlockingMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
+        private void CreateBlockingMethodImpl(RpcOperationInfo operationInfo, RpcClientFaultHandler serviceFaultHandler, RpcMemberInfo? serverSideMemberInfo)
         {
             if (this.typeBuilder == null)
             {
@@ -737,7 +709,7 @@ namespace SciTech.Rpc.Client.Internal
 
             var objectIdField = GetProxyField(RpcProxyBase<TMethodDef>.ObjectIdFieldName);
             var proxyMethodsField = GetProxyField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName);
-            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultHandler, serverSideMemberInfo);
 
             il.Emit(OpCodes.Ldarg_0);// Load this
             il.Emit(OpCodes.Ldarg_0);// Load this (for proxyMethods field )
@@ -835,7 +807,7 @@ namespace SciTech.Rpc.Client.Internal
         /// ]]></code>
         /// </remarks>
         /// <returns></returns>
-        private void CreateServerStreamingMethodImpl(RpcOperationInfo operationInfo, IReadOnlyList<Expression> serviceFaultGeneratorExpressions, RpcMemberInfo? serverSideMemberInfo)
+        private void CreateServerStreamingMethodImpl(RpcOperationInfo operationInfo, RpcClientFaultHandler serviceFaultHandler, RpcMemberInfo? serverSideMemberInfo)
         {
             if (this.typeBuilder == null)
             {
@@ -852,7 +824,7 @@ namespace SciTech.Rpc.Client.Internal
 
             var objectIdField = GetProxyField(RpcProxyBase<TMethodDef>.ObjectIdFieldName);
             var proxyMethodsField = GetProxyField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName);
-            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultHandler, serverSideMemberInfo);
 
             il.Emit(OpCodes.Ldarg_0);// Load this
             il.Emit(OpCodes.Ldarg_0);// Load this (for proxyMethods field )
@@ -973,14 +945,14 @@ namespace SciTech.Rpc.Client.Internal
 
             var eventHandlerType = eventInfo.Event.EventHandlerType ?? throw new InvalidOperationException("EventHandlerType not defined.");
 
-            int eventMethodDefIndex = this.AddCreateMethodDefExpression(
+            int eventMethodDefIndex = this.AddMethodDef(
                 eventInfo,
                 $"Begin{eventInfo.Name}",
                 RpcMethodType.EventAdd,
                 typeof(RpcObjectRequest),
                 eventInfo.EventArgsType,
-                NullSerializerExpression,
-                NullFaultHandlerExpression);
+                null,
+                RpcClientFaultHandler.Empty);
 
             this.eventDataFields.Add(eventInfo.FullName, new MethodDefIndex(eventMethodDefIndex, eventHandlerType, eventInfo.EventArgsType));
             return eventMethodDefIndex;
@@ -1013,8 +985,8 @@ namespace SciTech.Rpc.Client.Internal
             il.Emit(OpCodes.Ret);
         }
 
-        private int CreateMethodDefinitionField(RpcOperationInfo operationInfo, 
-            IReadOnlyList<Expression> serviceFaultGeneratorExpressions,
+        private int CreateMethodDefinitionField(RpcOperationInfo operationInfo,
+            RpcClientFaultHandler serviceFaultHandler,
             RpcMemberInfo? serverSideMemberInfo)
         {
             if (this.typeBuilder == null)
@@ -1035,13 +1007,13 @@ namespace SciTech.Rpc.Client.Internal
                 return methodDefField.Index;
             }
 
-            Expression faultHandlerExpression = RetrieveFaultHandlerExpression(operationInfo, serviceFaultGeneratorExpressions, serverSideMemberInfo);
+            RpcClientFaultHandler faultHandler = RetrieveClientFaultHandler(operationInfo, serviceFaultHandler, serverSideMemberInfo);
 
-            int methodDefIndex = this.AddCreateMethodDefExpression(
+            int methodDefIndex = this.AddMethodDef(
                 operationInfo,
                 RpcMethodType.Unary,
-                NullSerializerExpression,
-                faultHandlerExpression);
+                null,
+                faultHandler);
 
             this.methodDefinitionIndices.Add(operationName, new MethodDefIndex(methodDefIndex, operationInfo.RequestType, operationInfo.ResponseType));
             return methodDefIndex;

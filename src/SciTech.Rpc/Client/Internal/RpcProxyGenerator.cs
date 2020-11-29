@@ -69,18 +69,11 @@ namespace SciTech.Rpc.Client.Internal
                 var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(
                     serviceInterfaces,
                     moduleBuilder, definedProxyTypes);
-                (Func<TProxyArgs, TMethodDef[], RpcProxyBase> proxyCreator, Func<TMethodDef[]> createMethodsFunc) 
+                (Func<TProxyArgs, TMethodDef[], RpcProxyBase> proxyCreator, TMethodDef[] proxyMethodDefs) 
                     = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();
                 
-                // Actually generating a method that creates the method definitions array (createMethodsFunc) instead of 
-                // building a TMethodDef array directly is definitely unnecessary at the moment, but may be useful in the future, mainly in AOT scenarios.
-                // Using this implementation, it would be possible to pre-generate code from proxyCreator and createMethodsFunc
-                // and then this method could use something like LookupObjectProxyFactory instead of BuildObjectProxyFactory.
-                // This will avoid dynamic code generation.
-                TMethodDef[] methodDefs = createMethodsFunc();
-                var proxyMethods = methodDefs;
 
-                RpcObjectProxyFactory newFactory = this.CreateProxyFactory(proxyCreator, implementedServices, proxyMethods);
+                RpcObjectProxyFactory newFactory = this.CreateProxyFactory(proxyCreator, implementedServices, proxyMethodDefs);
 
                 this.generatedFactories.Add(key, newFactory);
 

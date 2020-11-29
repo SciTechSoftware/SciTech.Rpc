@@ -21,13 +21,13 @@ namespace SciTech.Rpc.Client.Internal
         /// 
         /// </summary>
         /// <param name="faultHandler">Optional fault handler that will be used when an operation returns an <see cref="RpcError"/>.</param>
-        protected RpcProxyMethod(IRpcSerializer? serializerOverride, RpcClientFaultHandler? faultHandler)
+        protected RpcProxyMethod(IRpcSerializer? serializerOverride, RpcClientFaultHandler faultHandler)
         {
             this.SerializerOverride = serializerOverride;
             this.FaultHandler = faultHandler;
         }
 
-        public RpcClientFaultHandler? FaultHandler { get; }
+        public RpcClientFaultHandler FaultHandler { get; }
 
         public IRpcSerializer? SerializerOverride { get; }
 

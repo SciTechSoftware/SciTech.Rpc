@@ -201,7 +201,7 @@ namespace SciTech.Rpc
                         "SciTech.Rpc.FaultService",
                         "GeneratedDeclaredFault",
                         null,
-                        new RpcClientFaultHandler(new IRpcClientExceptionConverter[]
+                        new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
                         {
                             RpcFaultExceptionConverter<DeclaredFault>.Default
                         })),
@@ -210,7 +210,7 @@ namespace SciTech.Rpc
                         "SciTech.Rpc.FaultService",
                         "GenerateAsyncDeclaredFault",
                         null,
-                        new RpcClientFaultHandler(new IRpcClientExceptionConverter[]
+                        new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
                         {
                             RpcFaultExceptionConverter<DeclaredFault>.Default
                         })),
@@ -219,7 +219,7 @@ namespace SciTech.Rpc
                         "SciTech.Rpc.FaultService",
                         "GenerateAsyncConvertedFault",
                         null,
-                        new RpcClientFaultHandler(new IRpcClientExceptionConverter[]
+                        new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
                         {
                             new RpcFaultExceptionConverter("UnauthorizedAccessError")
                         })),

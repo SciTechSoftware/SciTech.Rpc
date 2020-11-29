@@ -627,7 +627,6 @@ namespace SciTech.Rpc.Client.Internal
                     throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {message}");
             }
 
-
             if (methodDef.FaultHandler != null
                 && !string.IsNullOrEmpty(error.ErrorCode)
                 && methodDef.FaultHandler.TryGetFaultConverter(error.ErrorCode!, out var faultConverter))

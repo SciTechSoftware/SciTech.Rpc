@@ -32,8 +32,7 @@ namespace SciTech.Rpc.NetGrpc.Client
         {
             if (connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc)
             {
-                var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
-                var proxyGenerator = GrpcProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
+                var proxyGenerator = GrpcProxyGenerator.Factory.Default;
 
                 return new NetGrpcServerConnection(connectionInfo, ImmutableRpcClientOptions.Combine(this.options, options), proxyGenerator, this.channelOptions);
             }

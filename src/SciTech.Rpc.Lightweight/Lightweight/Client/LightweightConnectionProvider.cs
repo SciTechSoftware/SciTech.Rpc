@@ -81,7 +81,7 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 // TODO: Shouldn't the definition providers be combined instead?
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
-                var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
+                var proxyGenerator = LightweightProxyGenerator.Factory.Default;
 
                 return new TcpRpcConnection(
                     connectionInfo!, this.sslOptions,
@@ -94,7 +94,7 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 // TODO: Shouldn't the definition providers be combined instead?
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
-                var proxyGenerator = LightweightProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
+                var proxyGenerator = LightweightProxyGenerator.Factory.Default;
 
                 return new NamedPipeRpcConnection(
                     connectionInfo!, 

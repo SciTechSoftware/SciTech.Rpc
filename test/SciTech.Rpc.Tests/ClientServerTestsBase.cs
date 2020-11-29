@@ -98,14 +98,14 @@ namespace SciTech.Rpc.Tests
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider = null,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null,
-            IRpcProxyDefinitionsProvider proxyDefinitionsProvider = null,
             Action<IServiceCollection> configureServices = null )
         {
             var rpcServerId = RpcServerId.NewId();
 
-            var options = new RpcServerOptions { Serializer = this.serializer };
+            var serverOptions = new RpcServerOptions { Serializer = this.serializer };
             var clientOptions = new RpcClientOptions { Serializer = this.serializer };
-            configServerOptions?.Invoke(options);
+
+            configServerOptions?.Invoke(serverOptions);
             configClientOptions?.Invoke(clientOptions);
 
             switch (this.ConnectionType)
@@ -115,7 +115,7 @@ namespace SciTech.Rpc.Tests
                     {
                         IServiceProvider services = GetServiceProvider(configureServices);
 
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, options, this.LightweightOptions);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions);
 
                         SslServerOptions sslServerOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)
@@ -135,7 +135,6 @@ namespace SciTech.Rpc.Tests
                             new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
                             sslClientOptions,
                             clientOptions.AsImmutable(),
-                            proxyDefinitionsProvider,
                             this.LightweightOptions);
 
                         return (host, connection);
@@ -144,13 +143,12 @@ namespace SciTech.Rpc.Tests
                     {
                         IServiceProvider services = GetServiceProvider(configureServices);
 
-                        var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, options, this.LightweightOptions);
+                        var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions);
                         server.AddEndPoint(new NamedPipeRpcEndPoint("testpipe"));
 
                         var connection = new NamedPipeRpcConnection(
                             new RpcServerConnectionInfo(new Uri("lightweight.pipe://./testpipe")),
                             clientOptions.AsImmutable(),
-                            proxyDefinitionsProvider,
                             this.LightweightOptions);
 
                         return (server, connection);
@@ -161,28 +159,28 @@ namespace SciTech.Rpc.Tests
                         Pipe responsePipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
 
                         IServiceProvider services = GetServiceProvider(configureServices);
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, options);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions);
                         host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                         var connection = new InprocRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
-                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), proxyDefinitionsProvider);
+                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable());
                         return (host, connection);
                     }
                 case RpcConnectionType.Grpc:
                     {
                         IServiceProvider services = GetServiceProvider(configureServices);
-                        var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, services, options);
+                        var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
                         var connection = new GrpcServerConnection(
                             new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable(), proxyDefinitionsProvider);
+                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable());
                         return (host, connection);
                     }
 #if PLAT_NET_GRPC
                 case RpcConnectionType.NetGrpc:
                     {
-                        var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, options, configureServices);
+                        var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, serverOptions, configureServices);
                         //var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
                         //host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
@@ -201,7 +199,7 @@ namespace SciTech.Rpc.Tests
                             
                         var connection = new NetGrpcServerConnection(
                             new RpcServerConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            clientOptions.AsImmutable(), proxyDefinitionsProvider, channelOptions);
+                            clientOptions.AsImmutable(), channelOptions);
                         return (server, connection);
                     }
 #endif

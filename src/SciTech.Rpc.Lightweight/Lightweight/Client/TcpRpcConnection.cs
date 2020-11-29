@@ -40,11 +40,10 @@ namespace SciTech.Rpc.Lightweight.Client
         public TcpRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions = null,
-            IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IRpcClientOptions? options = null,      
             LightweightOptions? lightweightOptions = null)
             : this(connectionInfo, sslOptions, options,
-                  LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                  LightweightProxyGenerator.Factory.Default,
                   lightweightOptions)
         {
         }

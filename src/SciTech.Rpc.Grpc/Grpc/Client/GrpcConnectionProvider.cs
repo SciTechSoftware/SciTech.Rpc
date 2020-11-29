@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Grpc.Client
             if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
             {
                 var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
-                var proxyGenerator = GrpcProxyGenerator.Factory.CreateProxyGenerator(actualDefinitionsProvider);
+                var proxyGenerator = GrpcProxyGenerator.Factory.Default;
 
                 return new GrpcServerConnection(connectionInfo, this.credentials,
                     ImmutableRpcClientOptions.Combine(options, this.options), proxyGenerator, this.channelOptions);

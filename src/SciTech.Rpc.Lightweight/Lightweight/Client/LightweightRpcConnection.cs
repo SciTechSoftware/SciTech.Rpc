@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Lightweight.Client
             IRpcClientOptions? options,
             IRpcProxyDefinitionsProvider? definitionsProvider,
             LightweightOptions? lightweightOptions)
-            : this(connectionInfo, options, LightweightProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider), lightweightOptions)
+            : this(connectionInfo, options, LightweightProxyGenerator.Factory.Default, lightweightOptions)
         {
         }
 

@@ -78,7 +78,7 @@ namespace SciTech.Rpc
         public TFault Fault { get; }
 
 
-        private static string RetrieveFaultCode()
+        internal static string RetrieveFaultCode()
         {
             string retrievedFaultCode;
             var detailsAttribute = typeof(TFault).GetCustomAttribute<RpcFaultDetailsAttribute>();

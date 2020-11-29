@@ -28,35 +28,32 @@ namespace SciTech.Rpc.NetGrpc.Client
 
         public NetGrpcServerConnection(
             string url,
-            IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IRpcClientOptions? options = null,            
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
             : this(
                   new RpcServerConnectionInfo(new Uri(url)),
                   options,
-                  GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                  GrpcProxyGenerator.Factory.Default,
                   channelOptions)
         {
         }
         public NetGrpcServerConnection(
             Uri url,
             IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
             : this(
                   new RpcServerConnectionInfo(url),
                   options,
-                  GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                  GrpcProxyGenerator.Factory.Default,
                   channelOptions)
         {
         }
 
         public NetGrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
-            IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IRpcClientOptions? options = null,            
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
-            : this(connectionInfo, options, GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+            : this(connectionInfo, options, GrpcProxyGenerator.Factory.Default,
                 channelOptions)
         {
         }

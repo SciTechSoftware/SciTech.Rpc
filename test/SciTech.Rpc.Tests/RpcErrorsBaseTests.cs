@@ -67,13 +67,13 @@ namespace SciTech.Rpc.Tests
         {
             var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
-                .RegisterService<IDeclaredFaultsService>()
-                .RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
+                .RegisterService<IDeclaredFaultsService>();
+                //.RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
 
-            var proxyServicesProvider = new RpcProxyDefinitionsBuilder();
-            proxyServicesProvider.RegisterExceptionConverter(new DeclaredFaultExceptionConverter());
-
-            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator, null, null, proxyServicesProvider);
+            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator, 
+                so=>so.ExceptionConverters.Add(new DeclaredFaultExceptionConverter()), 
+                co=>co.ExceptionConverters.Add(new DeclaredFaultExceptionConverter())
+                );
             var publishedInstanceScope = host.ServicePublisher.PublishInstance<IDeclaredFaultsService>(new FaultServiceImpl());
 
             var faultService = connection.GetServiceInstance<IDeclaredFaultsService>(publishedInstanceScope.Value);

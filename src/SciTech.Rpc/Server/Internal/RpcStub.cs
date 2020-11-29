@@ -622,7 +622,7 @@ namespace SciTech.Rpc.Server.Internal
                 // We have at least one declared exception handlers
                 var convertedFault = converter.CreateFault(e);
 
-                if (convertedFault != null && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
+                if (convertedFault != null ) // && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
                 {
                     return convertedFault;
                     //byte[]? detailsData = null;

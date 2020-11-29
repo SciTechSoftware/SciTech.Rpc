@@ -376,7 +376,8 @@ namespace SciTech.Rpc.Client.Internal
 
 
         private static Expression RetrieveFaultHandlerExpression(RpcOperationInfo operationInfo, 
-            IReadOnlyList<Expression> faultConverterExpressions, RpcMemberInfo? serverSideMemberInfo)
+            IReadOnlyList<Expression> faultConverterExpressions, 
+            RpcMemberInfo? serverSideMemberInfo)
         {
             IEnumerable<Attribute> faultAttributes = RetrieveFaultAttributes(operationInfo, serverSideMemberInfo);
             List<Expression> faultGeneratorExpressions = RetrieveRpcFaultGeneratorExpressions(faultAttributes);

@@ -48,7 +48,7 @@ namespace SciTech.Rpc.Grpc.Client
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(
                  connectionInfo, credentials, options,
-                 GrpcProxyGenerator.Factory.CreateProxyGenerator(definitionsProvider),
+                 GrpcProxyGenerator.Factory.Default,
                  channelOptions)
         {
         }

@@ -64,11 +64,14 @@ namespace SciTech.Rpc
     public abstract class RpcExceptionConverter<TException, TFault> : IRpcServerExceptionConverter, IRpcClientExceptionConverter
         where TException : Exception
     {
-        protected RpcExceptionConverter()
+        protected RpcExceptionConverter() : this( null )
+        {
+        }
+
+        protected RpcExceptionConverter(string? faultCode)
         {
             // TODO: Move RetrieveFaultCode to a better location.
-            this.FaultCode = RpcBuilderUtil.RetrieveFaultCode(typeof(TFault));
-
+            this.FaultCode = faultCode ?? RpcBuilderUtil.RetrieveFaultCode(typeof(TFault));
         }
 
         public Type ExceptionType => typeof(TException);
@@ -183,6 +186,14 @@ namespace SciTech.Rpc
         where TFault : class
     {
         public static readonly RpcFaultExceptionConverter<TFault> Default = new RpcFaultExceptionConverter<TFault>();
+
+        public RpcFaultExceptionConverter(string faultCode) : base(faultCode)
+        {
+        }
+
+        public RpcFaultExceptionConverter()
+        {
+        }
 
         public override RpcFaultException<TFault> CreateException(string message, TFault details)
         {

@@ -78,7 +78,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         internal static class Factory
         {
-            private static readonly LightweightProxyGenerator DefaultGenerator = new LightweightProxyGenerator();
+            internal static readonly LightweightProxyGenerator Default = new LightweightProxyGenerator();
 
             private static readonly ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator> proxyGenerators
                  = new ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator>();
@@ -86,23 +86,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             private static readonly object syncRoot = new object();
 
 
-            internal static LightweightProxyGenerator CreateProxyGenerator(IRpcProxyDefinitionsProvider? definitionsProvider)
+            internal static LightweightProxyGenerator CreateProxyGenerator()
             {
-                if (definitionsProvider == null)
-                {
-                    return DefaultGenerator;
-                }
-
-                lock (syncRoot)
-                {
-                    if (!proxyGenerators.TryGetValue(definitionsProvider, out var generator))
-                    {
-                        generator = new LightweightProxyGenerator();
-                        proxyGenerators.Add(definitionsProvider, generator);
-                    }
-
-                    return generator;
-                }
+                return Default;
             }
         }
 

@@ -110,7 +110,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         internal static class Factory
         {
-            private static readonly GrpcProxyGenerator DefaultGenerator = new GrpcProxyGenerator();
+            internal static readonly GrpcProxyGenerator Default = new GrpcProxyGenerator();
 
             private static readonly ConditionalWeakTable<IRpcProxyDefinitionsProvider, GrpcProxyGenerator> proxyGenerators
                  = new ConditionalWeakTable<IRpcProxyDefinitionsProvider, GrpcProxyGenerator>();
@@ -118,24 +118,21 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             private static readonly object syncRoot = new object();
 
 
-            internal static GrpcProxyGenerator CreateProxyGenerator(IRpcProxyDefinitionsProvider? definitionsProvider)
+            internal static GrpcProxyGenerator CreateProxyGenerator()
             {
-                if (definitionsProvider == null)
-                {
-                    return DefaultGenerator;
-                }
+                return Default;
 
-                lock (syncRoot)
-                {
-                    if (!proxyGenerators.TryGetValue(definitionsProvider, out var generator))
-                    {
-                        generator = new GrpcProxyGenerator();
-                        proxyGenerators.Add(definitionsProvider, generator);
+                //lock (syncRoot)
+                //{
+                //    if (!proxyGenerators.TryGetValue(definitionsProvider, out var generator))
+                //    {
+                //        generator = new GrpcProxyGenerator();
+                //        proxyGenerators.Add(definitionsProvider, generator);
 
-                    }
+                //    }
 
-                    return generator;
-                }
+                //    return generator;
+                //}
             }
         }
     }

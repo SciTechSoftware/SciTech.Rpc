@@ -175,84 +175,84 @@ namespace SciTech.Rpc
 
     public static class AnonymousProxyExpressionsClass
     {
-        internal static readonly Func<IRpcSerializer, GrpcProxyMethod[]> BlockingServiceProxyMethodsCreator =
-            (serializer) =>
-            {
-                GrpcProxyMethod[] proxyMethods = new GrpcProxyMethod[] {
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<int, int>, RpcResponse<int>>(RpcMethodType.Unary,
-                        "SciTech.Rpc.BlockingService",
-                        "Add",
-                        null,
-                        null),
+        //internal static readonly Func<IRpcSerializer, GrpcProxyMethod[]> BlockingServiceProxyMethodsCreator =
+        //    (serializer) =>
+        //    {
+        //        GrpcProxyMethod[] proxyMethods = new GrpcProxyMethod[] {
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest<int, int>, RpcResponse<int>>(RpcMethodType.Unary,
+        //                "SciTech.Rpc.BlockingService",
+        //                "Add",
+        //                null,
+        //                null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponse<double>>(RpcMethodType.Unary,
-                        "SciTech.Rpc.BlockingService",
-                        "GetValue",
-                        serializer,
-                        null),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponse<double>>(RpcMethodType.Unary,
+        //                "SciTech.Rpc.BlockingService",
+        //                "GetValue",
+        //                serializer,
+        //                null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
-                        "SciTech.Rpc.BlockingService",
-                        "SetValue",
-                        null,
-                        null),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
+        //                "SciTech.Rpc.BlockingService",
+        //                "SetValue",
+        //                null,
+        //                null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
-                        "SciTech.Rpc.FaultService",
-                        "GeneratedDeclaredFault",
-                        null,
-                        new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
-                        {
-                            RpcFaultExceptionConverter<DeclaredFault>.Default
-                        })),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
+        //                "SciTech.Rpc.FaultService",
+        //                "GeneratedDeclaredFault",
+        //                null,
+        //                new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
+        //                {
+        //                    RpcFaultExceptionConverter<DeclaredFault>.Default
+        //                })),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
-                        "SciTech.Rpc.FaultService",
-                        "GenerateAsyncDeclaredFault",
-                        null,
-                        new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
-                        {
-                            RpcFaultExceptionConverter<DeclaredFault>.Default
-                        })),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
+        //                "SciTech.Rpc.FaultService",
+        //                "GenerateAsyncDeclaredFault",
+        //                null,
+        //                new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
+        //                {
+        //                    RpcFaultExceptionConverter<DeclaredFault>.Default
+        //                })),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
-                        "SciTech.Rpc.FaultService",
-                        "GenerateAsyncConvertedFault",
-                        null,
-                        new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
-                        {
-                            new RpcFaultExceptionConverter("UnauthorizedAccessError")
-                        })),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest<double>, RpcResponse>(RpcMethodType.Unary,
+        //                "SciTech.Rpc.FaultService",
+        //                "GenerateAsyncConvertedFault",
+        //                null,
+        //                new RpcClientFaultHandler(null, new IRpcClientExceptionConverter[]
+        //                {
+        //                    new RpcFaultExceptionConverter("UnauthorizedAccessError")
+        //                })),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, ValueChangedEventArgs>(
-                        RpcMethodType.EventAdd,
-                        "SciTech.Rpc.ServiceWithEvents",
-                        "BeginDetailedValueChanged",
-                        null,
-                        null),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest, ValueChangedEventArgs>(
+        //                RpcMethodType.EventAdd,
+        //                "SciTech.Rpc.ServiceWithEvents",
+        //                "BeginDetailedValueChanged",
+        //                null,
+        //                null),
 
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, EventArgs>(
-                        RpcMethodType.EventAdd,
-                        "SciTech.Rpc.ServiceWithEvents",
-                        "BeginValueChanged",
-                        null,
-                        null),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest, EventArgs>(
+        //                RpcMethodType.EventAdd,
+        //                "SciTech.Rpc.ServiceWithEvents",
+        //                "BeginValueChanged",
+        //                null,
+        //                null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, EventArgs>(
-                        RpcMethodType.EventAdd,
-                        "SciTech.Rpc.ServiceWithEvents",
-                        "BeginValueChanged",
-                        null,
-                        null),
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest, EventArgs>(
+        //                RpcMethodType.EventAdd,
+        //                "SciTech.Rpc.ServiceWithEvents",
+        //                "BeginValueChanged",
+        //                null,
+        //                null),
 
-                    GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponse<RpcObjectRef>>(RpcMethodType.Unary,
-                        "SciTech.Rpc.ServiceProviderService",
-                        "GetSimpleService",
-                        null,
-                        null)};
-                return proxyMethods;
-            };
+        //            GrpcProxyBase.CreateMethodDef<RpcObjectRequest, RpcResponse<RpcObjectRef>>(RpcMethodType.Unary,
+        //                "SciTech.Rpc.ServiceProviderService",
+        //                "GetSimpleService",
+        //                null,
+        //                null)};
+        //        return proxyMethods;
+        //    };
     }
 
     //public sealed class BlockingServiceProxy : GrpcProxyBase, IBlockingServiceClient, IFaultService, IServiceWithEvents, IServiceProviderServiceClient

@@ -28,12 +28,12 @@ namespace SciTech.Rpc.Server
     /// <list type="number">
     /// <item><description>
     ///     Attributes on service operation<br/>
-    ///     This includes attributes such as <see cref = "RpcExceptionConverterAttribute" />, <see cref = "RpcFaultAttribute" />,
+    ///     This includes attributes such as <see cref = "RpcFaultConverterAttribute" />, <see cref = "RpcFaultAttribute" />,
     ///     and <see cref="RpcOperationAttribute"/> settings.
     /// </description></item>
     /// <item><description>
     ///     Attributes on service interface<br/>
-    ///     This includes attributes such as <see cref="RpcExceptionConverterAttribute"/>, <see cref="RpcFaultAttribute"/>,
+    ///     This includes attributes such as <see cref="RpcFaultConverterAttribute"/>, <see cref="RpcFaultAttribute"/>,
     ///     and <see cref="RpcServiceAttribute"/> settings.
     /// </description></item>
     /// <item><description>

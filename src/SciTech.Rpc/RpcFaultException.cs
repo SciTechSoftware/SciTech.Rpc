@@ -51,6 +51,8 @@ namespace SciTech.Rpc
         [EditorBrowsable(EditorBrowsableState.Never)]
         public virtual byte[]? SerializeDetails(IRpcSerializer serializer) => null;
 
+        public virtual Type? DetailsType => null;
+
         public string FaultCode { get; }
     }
 
@@ -69,6 +71,8 @@ namespace SciTech.Rpc
             : this(null, !string.IsNullOrWhiteSpace(message) ? message! : "RPC fault without a message.", fault)
         {
         }
+
+        public override Type? DetailsType => typeof(TFault);
 
 
         [EditorBrowsable(EditorBrowsableState.Never)]

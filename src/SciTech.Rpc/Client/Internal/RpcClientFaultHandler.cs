@@ -9,57 +9,170 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
 namespace SciTech.Rpc.Client.Internal
 {
+
+    public interface IRpcFaultExceptionFactory
+    {
+        /// <summary>
+        /// Gets the code of the fault that this converter can handle.
+        /// </summary>
+        string FaultCode { get; }
+
+        /// <summary>
+        /// Gets the type of the fault details used by this converter, or <c>null</c> if 
+        /// no fault details are needed.
+        /// </summary>
+        Type? FaultDetailsType { get; }
+
+        /// <summary>
+        /// Creates a custom exception based on <see cref="FaultCode"/>, <paramref name="message"/>
+        /// and the optional <paramref name="details"/>.
+        /// <para>
+        /// </summary>
+        /// <param name="message">Message text as provided by the RPC fault.</param>
+        /// <param name="details">Optional details. Will always be provided if <see cref="FaultDetailsType"/> is not <c>null</c>.</param>
+        /// <returns></returns>
+        RpcFaultException CreateFaultException(string message, object? details);
+    }
+
+    internal class RpcFaultExceptionFactory : IRpcFaultExceptionFactory
+    {
+        public RpcFaultExceptionFactory(string faultCode)
+        {
+            this.FaultCode = faultCode;
+        }
+
+        public string FaultCode { get; }
+
+        public Type? FaultDetailsType => null;
+
+        public RpcFaultException CreateFaultException(string message, object? details)
+        {
+            return new RpcFaultException(this.FaultCode, message);
+        }
+    }
+
+    internal class RpcFaultExceptionFactory<TFault> : IRpcFaultExceptionFactory where TFault : class
+    {
+        public RpcFaultExceptionFactory(string faultCode)
+        {
+            this.FaultCode = faultCode;
+        }
+
+        public string FaultCode { get; }
+
+        public Type? FaultDetailsType => typeof(TFault);
+
+        public RpcFaultException CreateFaultException(string message, object? details)
+        {
+            return new RpcFaultException<TFault>(this.FaultCode, message, (TFault)details!);
+        }
+    }
+
+
     public sealed class RpcClientFaultHandler
     {
         public static readonly RpcClientFaultHandler Empty = new RpcClientFaultHandler();
 
-        private readonly IReadOnlyDictionary<string, IRpcClientExceptionConverter> faultExceptionConverters;
+        public RpcClientFaultHandler? baseHandler;
+
+        private readonly ImmutableArray<IRpcClientExceptionConverter> customExceptionConverters;
+
+        private readonly ImmutableArray<IRpcFaultExceptionFactory> faultExceptionFactories;
 
         private RpcClientFaultHandler()
         {
-            this.faultExceptionConverters = ImmutableDictionary<string, IRpcClientExceptionConverter>.Empty;
+            this.customExceptionConverters = ImmutableArray<IRpcClientExceptionConverter>.Empty;
+            this.faultExceptionFactories = ImmutableArray<IRpcFaultExceptionFactory>.Empty;
         }
 
-        public RpcClientFaultHandler(RpcClientFaultHandler? baseHandler, IReadOnlyCollection<IRpcClientExceptionConverter> faultExceptionConverters)
+        public RpcClientFaultHandler(RpcClientFaultHandler? baseHandler, IReadOnlyCollection<IRpcFaultExceptionFactory> faultExceptionFactories, IReadOnlyCollection<IRpcClientExceptionConverter> faultExceptionConverters)
         {
-            if (faultExceptionConverters?.Count > 0)
-            {
-                Dictionary<string, IRpcClientExceptionConverter> combinedConverters;
+            this.baseHandler = baseHandler;
+            this.faultExceptionFactories = faultExceptionFactories.ToImmutableArray();
+            this.customExceptionConverters = faultExceptionConverters.ToImmutableArray();
+        }
 
-                if (baseHandler != null)
+        internal RpcFaultException CreateFaultException(RpcError error, IRpcSerializer serializer)
+        {
+            RpcFaultException? faultException = null;
+            bool matched = false;
+            foreach( var factory in this.faultExceptionFactories )
+            {
+                if( factory.FaultCode == error.ErrorCode)
                 {
-                    combinedConverters = new Dictionary<string, IRpcClientExceptionConverter>(baseHandler.faultExceptionConverters.Count);
-                    foreach( var pair in baseHandler.faultExceptionConverters)
+                    matched = true;
+                    if (factory.FaultDetailsType != null)
                     {
-                        combinedConverters.Add(pair.Key, pair.Value);
+                        if (error.ErrorDetails != null)
+                        {
+                            object? details = serializer.Deserialize(error.ErrorDetails, factory.FaultDetailsType);
+
+                            faultException = factory.CreateFaultException(error.Message ?? "", details);
+                        }
                     }
-                } else
-                {
-                    combinedConverters = new Dictionary<string, IRpcClientExceptionConverter>(faultExceptionConverters.Count);
-                }
+                    else
+                    {
+                        faultException = factory.CreateFaultException(error.Message ?? "", null);
+                    }
 
-                foreach (var c in faultExceptionConverters)
-                {
-                    combinedConverters[c.FaultCode] = c;
+                    break;
                 }
-
-                this.faultExceptionConverters = combinedConverters;
-            } else
-            {
-                this.faultExceptionConverters = (baseHandler ?? Empty).faultExceptionConverters;
             }
+
+            if( !matched && baseHandler != null )
+            {
+                faultException = baseHandler.CreateFaultException(error, serializer);
+            }
+            
+            return faultException ?? new RpcFaultException(error.ErrorCode ?? "", error.Message ?? "");
         }
 
-        public bool TryGetFaultConverter(string faultCode, out IRpcClientExceptionConverter? faultInfo)
+        internal Exception? TryConvertException(RpcFaultException faultException)
         {
-            faultInfo = default;
-            return this.faultExceptionConverters != null && this.faultExceptionConverters.TryGetValue(faultCode, out faultInfo);
+            foreach (var converter in this.customExceptionConverters)
+            {
+                var exception = converter.TryCreateException(faultException);
+                if (exception != null)
+                {
+                    return exception;
+                }
+            }
+
+            return baseHandler?.TryConvertException(faultException);
         }
+
+        //internal Exception CreateException(RpcError error, IRpcSerializer serializer )
+        //{
+        //    var faultException = this.CreateFaultException(error, serializer);
+            
+        //    foreach( var converter in this.customExceptionConverters)
+        //    {
+        //        var exception = converter.TryCreateException(faultException);
+        //        if( exception != null )
+        //        {
+        //            return exception;
+        //        }
+        //    }
+        //}
+
+        //public bool TryGetCustomFaultConverter(string faultCode, out IRpcClientExceptionConverter? faultInfo)
+        //{
+        //    faultInfo = default;
+        //    return this.faultExceptionConverters != null && this.faultExceptionConverters.TryGetValue(faultCode, out faultInfo);
+        //}
+        
+        //public bool TryGetDeclaredConverter(string faultCode, out IRpcClientExceptionConverter? faultInfo)
+        //{
+        //    faultInfo = default;
+        //    return this.faultExceptionConverters != null && this.faultExceptionConverters.TryGetValue(faultCode, out faultInfo);
+        //}
     }
 }

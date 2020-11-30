@@ -32,8 +32,6 @@ namespace SciTech.Rpc.Client
         /// </summary>
         ImmutableRpcClientOptions Options { get; }
 
-        IRpcClientExceptionConverter? GetExceptionConverter(string faultCode);
-
         /// <summary>
         /// Gets a proxy to the service instance specified by <paramref name="objectId"/>.
         /// </summary>

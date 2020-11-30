@@ -11,14 +11,18 @@ namespace SciTech.Rpc
             this.ConverterType = converterType;
         }
 
+        public bool IncludeSubTypes { get; set; } = true;
 
         /// <summary>
         /// Defines a conversion between an untyped RPC fault and the specified exception type. The 
         /// conversion is available for all RPC faults with a <see cref="RpcFaultException.FaultCode"/>
         /// that matches <paramref name="faultCode"/>.
-        /// <para><b>NOTE.</b> The exception type must have a public constructor with the signature 
+        /// <note type="note">
+        /// <para>
+        /// The exception type must have a public constructor with the signature 
         /// <c>Exception(string message)</c>.
         /// </para>
+        /// </note>
         /// </summary>
         /// <param name="faultCode">RPC fault code to which this conversion applies.</param>
         /// <param name="exceptionType">The associated exception type.</param>
@@ -41,7 +45,7 @@ namespace SciTech.Rpc
         public string? FaultCode { get; set; }
 
         /// <summary>
-        /// Gets the type of the optional customer converter to use. If this property is <c>null</c> then <see cref="FaultCode"/> and <see cref="ExceptionType"/>
+        /// Gets the type of the optional custom converter to use. If this property is <c>null</c> then <see cref="FaultCode"/> and <see cref="ExceptionType"/>
         /// must be initialized. 
         /// <para>The custom converter type must implement
         /// <see cref="IRpcClientExceptionConverter"/> and have a default constructor or include a public static field or property 

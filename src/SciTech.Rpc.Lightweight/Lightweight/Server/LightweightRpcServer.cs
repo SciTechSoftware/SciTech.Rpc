@@ -64,15 +64,6 @@ namespace SciTech.Rpc.Lightweight.Server
         {
         }
 
-        //public LightweightRpcServer(
-        //    IRpcServiceDefinitionsProvider? definitionsProvider,
-        //    IServiceProvider? serviceProvider = null,
-        //    RpcServerOptions? options = null,
-        //    LightweightOptions? lightweightOptions = null)
-        //    : this(RpcServerId.NewId(), definitionsProvider, serviceProvider, options, lightweightOptions)
-        //{
-        //}
-
         /// <summary>
         /// 
         /// </summary>

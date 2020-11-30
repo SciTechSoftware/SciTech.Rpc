@@ -82,7 +82,7 @@ namespace SciTech.Rpc.Server
                 {
                     if (this.customFaultHandler == null && this.registeredExceptionConverters.Count > 0)
                     {
-                        this.customFaultHandler = new RpcServerFaultHandler(this.registeredExceptionConverters);
+                        this.customFaultHandler = new RpcServerFaultHandler(null, this.registeredExceptionConverters, null);
                     }
 
                     return this.customFaultHandler;

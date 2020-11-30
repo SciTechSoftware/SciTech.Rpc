@@ -47,6 +47,7 @@ namespace SciTech.Rpc.Tests
         [RpcFault(typeof(DeclaredFault))]
         Task<int> GenerateAsyncDeclaredFaultAsync(bool direct);
 
+        [RpcFault(typeof(DeclaredFault))]
         void GenerateCustomDeclaredExceptionAsync();
 
         [RpcFault(typeof(DeclaredFault))]
@@ -415,6 +416,10 @@ namespace SciTech.Rpc.Tests
 
     public class DeclaredFaultExceptionConverter : RpcExceptionConverter<DeclaredFaultException, DeclaredFault>
     {
+        public DeclaredFaultExceptionConverter() : base(false)
+        {
+        }
+
         public override DeclaredFaultException CreateException(string message, DeclaredFault details)
         {
             return new DeclaredFaultException(message, details.Message);
@@ -428,6 +433,10 @@ namespace SciTech.Rpc.Tests
 
     public class DeclaredFaultExceptionConverter2 : RpcExceptionConverter<DeclaredFaultException2, DeclaredFault>
     {
+        public DeclaredFaultExceptionConverter2() : base(false)
+        {
+        }
+
         public override DeclaredFaultException2 CreateException(string message, DeclaredFault details)
         {
             return new DeclaredFaultException2(message, details.Message);

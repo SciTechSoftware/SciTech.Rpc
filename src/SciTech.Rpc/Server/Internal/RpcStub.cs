@@ -54,7 +54,7 @@ namespace SciTech.Rpc.Server.Internal
 
             if (options != null && options.ExceptionConverters.Length > 0)
             {
-                this.CustomFaultHandler = new RpcServerFaultHandler(this.Server.ExceptionConverters.Concat(options.ExceptionConverters));
+                this.CustomFaultHandler = new RpcServerFaultHandler(this.Server.CustomFaultHandler, options.ExceptionConverters, null);
             }
             else
             {
@@ -775,31 +775,50 @@ namespace SciTech.Rpc.Server.Internal
 
         private void HandleRpcError(Exception e, RpcServerFaultHandler? declaredFaultHandler, IRpcSerializer serializer)
         {
-            RpcFaultException? faultException = null;
-            if (declaredFaultHandler != null)
-            {
-                // Start by checking custom exception converters.
-                if (this.CustomFaultHandler is RpcServerFaultHandler customFaultHandler)
-                {
-                    if (customFaultHandler.TryGetExceptionConverter(e, out var customConverters))
-                    {
-                        // Using the methodStub fault handler as the faultHandler argument, since 
-                        // this faultHandler is used to check whether the fault is declared for the specific operation.
-                        faultException = TryConvertToFault(e, customConverters!, declaredFaultHandler);
-                    }
-                }
+            RpcFaultException? faultException = declaredFaultHandler?.TryCreateFaultException(e);
 
-                if (faultException == null)
+            if( faultException == null && this.CustomFaultHandler is RpcServerFaultHandler registeredFaultHandler)
+            {
+                faultException = registeredFaultHandler.TryCreateFaultException(e);
+            }
+
+            faultException ??= e as RpcFaultException;
+
+            if (faultException != null && faultException.DetailsType is Type detailsType)
+            {
+                if (declaredFaultHandler == null || !declaredFaultHandler.IsFaultDeclared(faultException.FaultCode, detailsType))
                 {
-                    // Not handled by a custom converter, so let's try the declared converters. 
-                    if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
-                    {
-                        TryConvertToFault(e, declaredConverters!, declaredFaultHandler);
-                    }
+                    // Cannot use this one since the fault type is not declared or does not match.
+                    // Let's strip away the fault details and throw a plain RpcFaultException.
+                    faultException = new RpcFaultException(faultException.FaultCode, faultException.Message);
                 }
             }
 
-            
+
+            //if (declaredFaultHandler != null)
+            //{
+            //    // Start by checking custom exception converters.
+            //    if (this.CustomFaultHandler is RpcServerFaultHandler customFaultHandler)
+            //    {
+            //        if (customFaultHandler.TryGetExceptionConverter(e, out var customConverters))
+            //        {
+            //            // Using the methodStub fault handler as the faultHandler argument, since 
+            //            // this faultHandler is used to check whether the fault is declared for the specific operation.
+            //            faultException = TryConvertToFault(e, customConverters!, declaredFaultHandler);
+            //        }
+            //    }
+
+            //    if (faultException == null)
+            //    {
+            //        // Not handled by a custom converter, so let's try the declared converters. 
+            //        if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
+            //        {
+            //            TryConvertToFault(e, declaredConverters!, declaredFaultHandler);
+            //        }
+            //    }
+            //}
+
+
             // Give the server an oppurtunity to convert the exception to a suitable type 
             // to be "returned" to client.
             this.Server.HandleCallException(faultException ?? e, serializer);

@@ -22,6 +22,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 {
     internal class LightweightProxyGenerator : RpcProxyGenerator<LightweightProxyBase, LightweightProxyArgs, LightweightMethodDef>
     {
+        internal static readonly LightweightProxyGenerator Default = new LightweightProxyGenerator();
+
         private readonly ConditionalWeakTable<IRpcSerializer, LightweightSerializersCache> serializerToMethodSerializersCache
             = new ConditionalWeakTable<IRpcSerializer, LightweightSerializersCache>();
 
@@ -75,22 +77,5 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 return methodsCache;
             }
         }
-
-        internal static class Factory
-        {
-            internal static readonly LightweightProxyGenerator Default = new LightweightProxyGenerator();
-
-            private static readonly ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator> proxyGenerators
-                 = new ConditionalWeakTable<IRpcProxyDefinitionsProvider, LightweightProxyGenerator>();
-
-            private static readonly object syncRoot = new object();
-
-
-            internal static LightweightProxyGenerator CreateProxyGenerator()
-            {
-                return Default;
-            }
-        }
-
     }
 }

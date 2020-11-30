@@ -9,7 +9,7 @@ namespace SciTech.Rpc
     /// <summary>
     /// <para>
     /// Default implementation of <see cref="IRpcServerExceptionConverter"/> and  <see cref="IRpcClientExceptionConverter"/>
-    /// which converts exceptions based on the <typeparamref name="TException"/> type argument, the specified faultCode, 
+    /// which converts exceptions based on the <typeparamref name="TException"/> type argument, the specified faultCode,
     /// and the message provided to <see cref="CreateException(string)"/>.
     /// </para>
     /// <para>
@@ -31,9 +31,9 @@ namespace SciTech.Rpc
         /// Creates a <see cref="RpcExceptionConverter{TException}"/> associated with the specified <paramref name="faultCode"/>.
         /// </summary>
         /// <param name="faultCode"></param>
-        public RpcExceptionConverter(string faultCode) : base(faultCode)
+        public RpcExceptionConverter(string faultCode, bool includeSubTypes) : base(faultCode, includeSubTypes)
         {
-            this.exceptionCtor = typeof(TException).GetConstructor(new Type[] { typeof(string) }) 
+            this.exceptionCtor = typeof(TException).GetConstructor(new Type[] { typeof(string) })
                 ?? throw new InvalidOperationException("Exception type must have a constructor accepting a message argument.");
         }
 
@@ -50,7 +50,6 @@ namespace SciTech.Rpc
         }
     }
 
-
     /// <summary>
     /// <para>
     /// Base implementation of <see cref="IRpcServerExceptionConverter"/> and  <see cref="IRpcClientExceptionConverter"/> for
@@ -63,15 +62,17 @@ namespace SciTech.Rpc
     /// <typeparam name="TFault">Type of the fault details that this converter handles.</typeparam>
     public abstract class RpcExceptionConverter<TException, TFault> : IRpcServerExceptionConverter, IRpcClientExceptionConverter
         where TException : Exception
+        where TFault : class
     {
-        protected RpcExceptionConverter() : this( null )
+        protected RpcExceptionConverter(bool includeSubTypes) : this(null, includeSubTypes)
         {
         }
 
-        protected RpcExceptionConverter(string? faultCode)
+        protected RpcExceptionConverter(string? faultCode, bool includeSubTypes)
         {
             // TODO: Move RetrieveFaultCode to a better location.
             this.FaultCode = faultCode ?? RpcBuilderUtil.RetrieveFaultCode(typeof(TFault));
+            this.IncludeSubTypes = includeSubTypes;
         }
 
         public Type ExceptionType => typeof(TException);
@@ -80,39 +81,50 @@ namespace SciTech.Rpc
 
         public Type? FaultDetailsType => typeof(TFault);
 
+        public bool IncludeSubTypes { get; }
+
         public abstract TException CreateException(string message, TFault details);
 
         public abstract RpcFaultException? CreateFault(TException exception);
 
-        Exception IRpcClientExceptionConverter.CreateException(string message, object? details)
-        {
-            if (details is TFault faultDetails)
-            {
-                return this.CreateException(message, faultDetails);
-            }
-
-            throw new ArgumentException($"Incorrect fault details, expected details of type '{typeof(TFault)}'.", nameof(details));
-        }
 
         RpcFaultException? IRpcServerExceptionConverter.CreateFault(Exception exception)
         {
-            return this.CreateFault((TException)exception);
-        }
-    }
+            if (exception is TException typedException)
+            {
+                if (this.IncludeSubTypes || typedException.GetType().Equals(typeof(TException)))
+                {
+                    return this.CreateFault((TException)exception);
+                }
+            }
 
-    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class, AllowMultiple = false)]
-    public class RpcExceptionConverterAttribute : Attribute
-    {
-        public RpcExceptionConverterAttribute(Type converterType, Type exceptionType)
+            return null;
+        }
+
+        Exception? IRpcClientExceptionConverter.TryCreateException(RpcFaultException faultException)
         {
-            this.ConverterType = converterType;
-            this.ExceptionType = exceptionType;
+            if (faultException is RpcFaultException<TFault> typedException )
+            {
+                return this.CreateException(typedException.Message, typedException.Fault);
+            }
+
+            return null;
         }
-
-        public Type ConverterType { get; }
-
-        public Type ExceptionType { get; }
     }
+
+    //[AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class, AllowMultiple = false)]
+    //public class RpcExceptionConverterAttribute : Attribute
+    //{
+    //    public RpcExceptionConverterAttribute(Type converterType, Type exceptionType)
+    //    {
+    //        this.ConverterType = converterType;
+    //        this.ExceptionType = exceptionType;
+    //    }
+
+    //    public Type ConverterType { get; }
+
+    //    public Type ExceptionType { get; }
+    //}
 
     /// <summary>
     /// <para>
@@ -126,7 +138,7 @@ namespace SciTech.Rpc
     public abstract class RpcExceptionConverterBase<TException> : IRpcServerExceptionConverter, IRpcClientExceptionConverter
         where TException : Exception
     {
-        protected RpcExceptionConverterBase(string faultCode)
+        protected RpcExceptionConverterBase(string faultCode, bool includeSubTypes)
         {
             if (string.IsNullOrWhiteSpace(faultCode))
             {
@@ -134,6 +146,7 @@ namespace SciTech.Rpc
             }
 
             this.FaultCode = faultCode;
+            this.IncludeSubTypes = includeSubTypes;
         }
 
         public Type ExceptionType => typeof(TException);
@@ -142,26 +155,40 @@ namespace SciTech.Rpc
 
         public Type? FaultDetailsType => null;
 
+        public bool IncludeSubTypes { get; }
+
         public abstract TException CreateException(string message);
 
         public abstract RpcFaultException? CreateFault(TException exception);
 
-        Exception IRpcClientExceptionConverter.CreateException(string message, object? details)
-        {
-            return this.CreateException(message);
-        }
-
         RpcFaultException? IRpcServerExceptionConverter.CreateFault(Exception exception)
         {
-            return this.CreateFault((TException)exception);
+            if (exception is TException typedException)
+            {
+                if (this.IncludeSubTypes || typedException.GetType().Equals(typeof(TException)))
+                {
+                    return this.CreateFault((TException)exception);
+                }
+            }
+
+            return null;
+        }
+
+        Exception? IRpcClientExceptionConverter.TryCreateException(RpcFaultException faultException)
+        {
+            if( faultException.FaultCode == this.FaultCode)
+            {
+                return this.CreateException(faultException.FaultCode);
+            }
+
+            return null;
         }
     }
 
     public class RpcFaultExceptionConverter : RpcExceptionConverterBase<RpcFaultException>
     {
-        public RpcFaultExceptionConverter(string faultCode) : base(faultCode)
+        public RpcFaultExceptionConverter(string faultCode) : base(faultCode, false)
         {
-
         }
 
         public override RpcFaultException CreateException(string message)
@@ -187,11 +214,11 @@ namespace SciTech.Rpc
     {
         public static readonly RpcFaultExceptionConverter<TFault> Default = new RpcFaultExceptionConverter<TFault>();
 
-        public RpcFaultExceptionConverter(string faultCode) : base(faultCode)
+        public RpcFaultExceptionConverter(string faultCode) : base(faultCode, false)
         {
         }
 
-        public RpcFaultExceptionConverter()
+        public RpcFaultExceptionConverter() : base(false)
         {
         }
 

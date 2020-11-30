@@ -35,10 +35,10 @@ namespace SciTech.Rpc.Tests
                 {
                     var timeoutService = connection.GetServiceInstance<ITimeoutTestServiceClient>(publishedInstanceScope.Value);
 
-                    Assert.ThrowsAsync<TimeoutException>(() => timeoutService.AsyncAddWithDelayAsync(3, 4, TimeSpan.FromMilliseconds(320), default).DefaultTimeout());
-                    Assert.ThrowsAsync<TimeoutException>(() => timeoutService.AddWithDelayAsync(3, 4, TimeSpan.FromMilliseconds(320)).DefaultTimeout());
-                    Assert.Throws<TimeoutException>(() => timeoutService.AddWithDelay(3, 4, TimeSpan.FromMilliseconds(320)));
-                    Assert.Throws<TimeoutException>(() => timeoutService.AsyncAddWithDelay(3, 4, TimeSpan.FromMilliseconds(320)));
+                    Assert.ThrowsAsync<TimeoutException>(() => timeoutService.AsyncAddWithDelayAsync(3, 4, TimeSpan.FromMilliseconds(400), default).DefaultTimeout());
+                    Assert.ThrowsAsync<TimeoutException>(() => timeoutService.AddWithDelayAsync(3, 4, TimeSpan.FromMilliseconds(400)).DefaultTimeout());
+                    Assert.Throws<TimeoutException>(() => timeoutService.AddWithDelay(3, 4, TimeSpan.FromMilliseconds(400)));
+                    Assert.Throws<TimeoutException>(() => timeoutService.AsyncAddWithDelay(3, 4, TimeSpan.FromMilliseconds(400)));
                 }
             }
             finally

@@ -627,35 +627,24 @@ namespace SciTech.Rpc.Client.Internal
                     throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {message}");
             }
 
-            if (error.ErrorCode != null)
+            var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
+            var faultException = methodDef.FaultHandler.CreateFaultException(error, actualSerializer);
+            var convertedException = methodDef.FaultHandler.TryConvertException(faultException);
+            if( convertedException == null )
             {
-                IRpcClientExceptionConverter? exceptionConverter;
-                if (!methodDef.FaultHandler.TryGetFaultConverter(error.ErrorCode, out exceptionConverter))
+                // Could not be converted by a declared converter, but maybe a registered converter can.
+                // TODO: Currently there's no support for service level exception converters (as exists on the server side).
+                foreach( var converter in this.Channel.Options.ExceptionConverters)
                 {
-                    exceptionConverter = this.Channel.GetExceptionConverter(error.ErrorCode);
-                }
-
-                if (exceptionConverter != null)
-                {
-                    // It's a declared fault.
-                    var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
-
-                    object? details = null;
-                    if (exceptionConverter.FaultDetailsType != null)
+                    convertedException = converter.TryCreateException(faultException);
+                    if( convertedException != null )
                     {
-                        details = actualSerializer.Deserialize(error.ErrorDetails, exceptionConverter.FaultDetailsType);
-                    }
-
-                    Exception exception = exceptionConverter.CreateException(message, details);
-                    if (exception != null)
-                    {
-                        throw exception;
+                        break;
                     }
                 }
             }
 
-            // If we get here, no one handled the fault. Let's just handle it by throwing a plain RpcFaultException.
-            throw new RpcFaultException(error.ErrorCode ?? "", message );
+            throw convertedException ?? faultException;
         }
 
 

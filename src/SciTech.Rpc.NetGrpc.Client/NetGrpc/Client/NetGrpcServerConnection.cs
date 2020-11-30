@@ -33,7 +33,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             : this(
                   new RpcServerConnectionInfo(new Uri(url)),
                   options,
-                  GrpcProxyGenerator.Factory.Default,
+                  GrpcProxyGenerator.Default,
                   channelOptions)
         {
         }
@@ -44,7 +44,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             : this(
                   new RpcServerConnectionInfo(url),
                   options,
-                  GrpcProxyGenerator.Factory.Default,
+                  GrpcProxyGenerator.Default,
                   channelOptions)
         {
         }
@@ -53,7 +53,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             RpcServerConnectionInfo connectionInfo,
             IRpcClientOptions? options = null,            
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
-            : this(connectionInfo, options, GrpcProxyGenerator.Factory.Default,
+            : this(connectionInfo, options, GrpcProxyGenerator.Default,
                 channelOptions)
         {
         }

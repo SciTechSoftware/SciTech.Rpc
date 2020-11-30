@@ -30,7 +30,7 @@ namespace SciTech.Rpc.Lightweight.Client
             IRpcClientOptions? options=null,            
             LightweightOptions? lightweightOptions = null)
             : base(connectionInfo, options, 
-                  LightweightProxyGenerator.Factory.Default, 
+                  LightweightProxyGenerator.Default, 
                   lightweightOptions)
         {
             this.clientPipe = clientPipe;

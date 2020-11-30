@@ -43,7 +43,7 @@ namespace SciTech.Rpc.Lightweight.Client
             IRpcClientOptions? options = null,      
             LightweightOptions? lightweightOptions = null)
             : this(connectionInfo, sslOptions, options,
-                  LightweightProxyGenerator.Factory.Default,
+                  LightweightProxyGenerator.Default,
                   lightweightOptions)
         {
         }

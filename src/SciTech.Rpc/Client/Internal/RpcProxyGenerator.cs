@@ -31,7 +31,7 @@ namespace SciTech.Rpc.Client.Internal
         where TMethodDef : RpcProxyMethod
         where TProxyArgs : RpcProxyArgs
     {
-        private readonly Dictionary<HashSetKey<string>, Delegate> generatedFactories = new Dictionary<HashSetKey<string>, Delegate>();
+        private readonly Dictionary<HashSetKey<Type>, Delegate> generatedFactories = new Dictionary<HashSetKey<Type>, Delegate>();
 
         private readonly object syncRoot = new object();
 
@@ -54,7 +54,7 @@ namespace SciTech.Rpc.Client.Internal
             lock (this.syncRoot)
             {
                 var serviceInterfaces = this.GetAllServices<TService>(implementedServices, knownServiceTypes);
-                var key = new HashSetKey<string>(serviceInterfaces.Select(s => s.FullName));
+                var key = new HashSetKey<Type>(serviceInterfaces.Select(s => s.Type));
 
                 // If a proxy with the same set of service interfaces has been generated before
                 // let's reuse that one.
@@ -70,8 +70,7 @@ namespace SciTech.Rpc.Client.Internal
                     serviceInterfaces,
                     moduleBuilder, definedProxyTypes);
                 (Func<TProxyArgs, TMethodDef[], RpcProxyBase> proxyCreator, TMethodDef[] proxyMethodDefs) 
-                    = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();
-                
+                    = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();                
 
                 RpcObjectProxyFactory newFactory = this.CreateProxyFactory(proxyCreator, implementedServices, proxyMethodDefs);
 

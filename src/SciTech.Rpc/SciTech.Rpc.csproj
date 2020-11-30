@@ -19,6 +19,10 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Client\RpcProxyDefinitionsBuilder.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\SciTech.Core\System\Diagnostics\CodeAnalysis\NullableAttributes.cs" Link="System\Diagnostics\CodeAnalysis\NullableAttributes.cs" />
   </ItemGroup>
 
@@ -27,6 +31,7 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
+    <None Include="Client\RpcProxyDefinitionsBuilder.cs" />
   </ItemGroup>
 
   <ItemGroup>

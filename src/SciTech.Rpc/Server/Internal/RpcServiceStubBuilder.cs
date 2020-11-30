@@ -35,8 +35,6 @@ namespace SciTech.Rpc.Server.Internal
 
         private readonly HashSet<string> addedOperations = new HashSet<string>();
 
-        private readonly IReadOnlyList<IRpcServerExceptionConverter> serviceErrorGenerators;
-
         private RpcStub<TService>? serviceStub;
 
         protected RpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
@@ -45,10 +43,23 @@ namespace SciTech.Rpc.Server.Internal
 
             this.Options = options;
 
-            var faultAttributes = serviceInfo.Type.GetCustomAttributes(typeof(RpcFaultAttribute));
-            this.serviceErrorGenerators = RetrieveErrorGenerators(faultAttributes);
+            var converterAttributes = serviceInfo.Type.GetCustomAttributes<RpcFaultConverterAttribute>();
+            var exceptionConverters = RetrieveServerExceptionConverters(converterAttributes);
+
+            var faultAttributes = serviceInfo.Type.GetCustomAttributes<RpcFaultAttribute>();
+            var mappings = GetFaultToDetailsMapping(faultAttributes);
+
+            if ( exceptionConverters.Count > 0 || mappings.Count > 0 )
+            {
+                this.FaultHandler = new RpcServerFaultHandler(null, exceptionConverters, mappings);
+            } else
+            {
+                this.FaultHandler = RpcServerFaultHandler.Default;
+            }
         }
 
+        protected RpcServerFaultHandler FaultHandler;
+        
         protected RpcServiceOptions<TService>? Options { get; }
 
         protected RpcServiceInfo ServiceInfo { get; }
@@ -369,27 +380,51 @@ namespace SciTech.Rpc.Server.Internal
                 ?? throw new NotImplementedException($"Method {name} not found on type '{nameof(RpcStub)}'.");
         }
 
-        private static List<IRpcServerExceptionConverter> RetrieveErrorGenerators(IEnumerable<Attribute> faultAttributes)
+        private static List<IRpcServerExceptionConverter> RetrieveServerExceptionConverters(IEnumerable<RpcFaultConverterAttribute> faultAttributes)
         {
             var errorGenerators = new List<IRpcServerExceptionConverter>();
-            foreach (RpcFaultAttribute faultAttribute in faultAttributes)
+            foreach (var attribute in faultAttributes)
             {
-                if (faultAttribute.FaultType != null)
-                {
-                    var rpcErrorGenerator = (IRpcServerExceptionConverter?)typeof(RpcFaultExceptionConverter<>)
-                        .MakeGenericType(faultAttribute.FaultType)
-                        .GetField(nameof(RpcFaultExceptionConverter<object>.Default), BindingFlags.Static | BindingFlags.Public)?
-                        .GetValue(null) ?? throw new NotImplementedException("RpcFaultExceptionConverter Default field not found.");
-                    errorGenerators.Add(rpcErrorGenerator);
-                }
-                else
-                {
-                    var exceptionConverter = new RpcFaultExceptionConverter(faultAttribute.FaultCode);
-                    errorGenerators.Add(exceptionConverter);
-                }
+                errorGenerators.Add(CreateServerExceptionConverter(attribute));
             }
 
             return errorGenerators;
+        }
+
+        private static List<FaultMapping> GetFaultToDetailsMapping(IEnumerable<RpcFaultAttribute> faultAttributes)
+        {
+            List<FaultMapping> mappings = new List<FaultMapping>();
+
+            foreach (var faultAttribute in faultAttributes)
+            {
+                mappings.Add(new FaultMapping(faultAttribute.FaultCode, faultAttribute.FaultType));
+            }
+
+            return mappings;
+        }
+
+
+        private static IRpcServerExceptionConverter CreateServerExceptionConverter(RpcFaultConverterAttribute faultAttribute)
+        {
+            if (faultAttribute.ConverterType != null)
+            {
+                var converterCtor = faultAttribute.ConverterType.GetConstructor(Type.EmptyTypes)
+                    ?? throw new NotImplementedException($"{faultAttribute.ConverterType} constructor not found.");
+
+                var converter = (IRpcServerExceptionConverter)converterCtor.Invoke(null);
+                return converter;
+            }
+            else if (!string.IsNullOrWhiteSpace(faultAttribute.FaultCode) && faultAttribute.ExceptionType != null)
+            {
+                var faultConverterType = typeof(RpcExceptionConverter<>).MakeGenericType(faultAttribute.ExceptionType);
+                var converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string), typeof(bool) })
+                    ?? throw new NotImplementedException($"{faultConverterType.Name} constructor not found.");
+
+                var converter = (IRpcServerExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode!, faultAttribute.IncludeSubTypes });
+                return converter;
+            }
+
+            throw new RpcDefinitionException("Converter or FaultCode with ExceptionType must be specified in RpcFaultAttribute.");
         }
 
         private void AddGenericVoidUnaryMethod<TRequest>(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
@@ -503,16 +538,17 @@ namespace SciTech.Rpc.Server.Internal
         /// <returns></returns>
         private RpcServerFaultHandler CreateFaultHandler(RpcOperationInfo opInfo)
         {
-            var faultAttributes = opInfo.Method.GetCustomAttributes(typeof(RpcFaultAttribute));
-            List<IRpcServerExceptionConverter> exceptionConverters = RetrieveErrorGenerators(faultAttributes);
+            var converterAttributes = opInfo.Method.GetCustomAttributes<RpcFaultConverterAttribute>();
+            List<IRpcServerExceptionConverter> exceptionConverters = RetrieveServerExceptionConverters(converterAttributes);
+            var faultAttributes = opInfo.Method.GetCustomAttributes<RpcFaultAttribute>();
+            var mappings = GetFaultToDetailsMapping(faultAttributes);
 
-            if (exceptionConverters.Count > 0 || this.serviceErrorGenerators.Count > 0)
+            if (exceptionConverters.Count > 0 || mappings.Count > 0 )
             {
-                exceptionConverters.AddRange(this.serviceErrorGenerators);
-                return new RpcServerFaultHandler(exceptionConverters);
+                return new RpcServerFaultHandler(this.FaultHandler, exceptionConverters, mappings);
             }
 
-            return RpcServerFaultHandler.Default;
+            return this.FaultHandler;
         }
 
         private RpcStub<TService> CreateServiceStub(IRpcServerImpl server)
@@ -682,4 +718,5 @@ namespace SciTech.Rpc.Server.Internal
 
     }
 #pragma warning restore CA1062 // Validate arguments of public methods
+
 }

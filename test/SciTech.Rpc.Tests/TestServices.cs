@@ -1,4 +1,5 @@
 ﻿using ProtoBuf;
+using SciTech.ComponentModel;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
@@ -575,14 +576,14 @@ namespace SciTech.Rpc.Tests
             new TestBlockingSimpleServiceImpl()
         };
 
-        private ScopedObject<RpcObjectRef<IBlockingService>>[] blockingServiceScopes;
+        private IOwned<RpcObjectRef<IBlockingService>>[] blockingServiceScopes;
 
         private ISimpleService[] serviceImpls = new ISimpleService[] {
             new TestSimpleServiceImpl(),
             new TestSimpleServiceImpl()
         };
 
-        private ScopedObject<RpcObjectRef<ISimpleService>>[] simpleServiceScopes;
+        private IOwned<RpcObjectRef<ISimpleService>>[] simpleServiceScopes;
 
         public ImplicitServiceProviderServiceImpl(IRpcServicePublisher publisher)
         {
@@ -680,7 +681,7 @@ namespace SciTech.Rpc.Tests
 
     public class ServiceProviderServiceImpl : IServiceProviderService, IDisposable
     {
-        private ScopedObject<RpcObjectRef<ISimpleService>> simpleServiceScope;
+        private IOwned<RpcObjectRef<ISimpleService>> simpleServiceScope;
 
         public ServiceProviderServiceImpl(IRpcServicePublisher publisher)
         {

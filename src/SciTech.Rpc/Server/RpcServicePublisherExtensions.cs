@@ -10,6 +10,7 @@
 #endregion
 
 using Microsoft.Extensions.DependencyInjection;
+using SciTech.ComponentModel;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
@@ -27,7 +28,7 @@ namespace SciTech.Rpc.Server
         /// with the help of the provided <see cref="IServiceProvider"/>.</param>
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
-        public static ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServicePublisher servicePublisher, Func<IServiceProvider, RpcObjectId, TService> factory) 
+        public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServicePublisher servicePublisher, Func<IServiceProvider, RpcObjectId, TService> factory) 
             where TService : class
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
@@ -54,7 +55,7 @@ namespace SciTech.Rpc.Server
         /// </param>    
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
-        public static ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServicePublisher servicePublisher, Func<RpcObjectId, TService> factory) 
+        public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServicePublisher servicePublisher, Func<RpcObjectId, TService> factory) 
             where TService : class
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
@@ -70,7 +71,7 @@ namespace SciTech.Rpc.Server
         }
 
 
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, Func<IServiceProvider, TService> factory)
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, Func<IServiceProvider, TService> factory)
             where TService : class
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
@@ -88,7 +89,7 @@ namespace SciTech.Rpc.Server
             return servicePublisher.PublishSingleton(CreateActivatedService);
         }
 
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, Func<TService> factory)
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, Func<TService> factory)
             where TService : class
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
@@ -142,7 +143,7 @@ namespace SciTech.Rpc.Server
         /// <typeparam name="TServiceImpl">The type that implements the service interface.</typeparam>
         /// <returns>A scoped object including the <see cref="RpcSingletonRef{TService}"/> identifying the published singleton. The scoped object will unpublish 
         /// the service singleton when disposed.</returns>
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServicePublisher publisher)
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServicePublisher publisher)
             where TServiceImpl : class, TService
             where TService : class
         {
@@ -159,7 +160,7 @@ namespace SciTech.Rpc.Server
         /// applied.</typeparam>
         /// <returns>A scoped object including the <see cref="RpcSingletonRef{TService}"/> identifying the published singleton. The scoped object will unpublish 
         /// the service singleton when disposed.</returns>
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher publisher)
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher publisher)
             where TService : class
             => PublishSingleton<TService, TService>(publisher);
 

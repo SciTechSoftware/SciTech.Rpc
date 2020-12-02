@@ -10,6 +10,7 @@
 #endregion
 
 using Microsoft.Extensions.DependencyInjection;
+using SciTech.ComponentModel;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -206,7 +207,7 @@ namespace SciTech.Rpc.Server
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, ActivatedService<TService>> factory)
+        public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, ActivatedService<TService>> factory)
             where TService : class
         {
             var allServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Server, true);
@@ -220,13 +221,14 @@ namespace SciTech.Rpc.Server
 
                 var publishedServices = this.PublishInstanceFactoryCore_Locked(allServices, objectId, factory);
 
-                return new ScopedObject<RpcObjectRef<TService>>(new RpcObjectRef<TService>(
-                    connectionInfo, objectId, publishedServices.ToArray()), () => this.UnpublishInstance(objectId));
+                return OwnedObject.Create(new RpcObjectRef<TService>(
+                    connectionInfo, objectId, publishedServices.ToArray()), 
+                    () => this.UnpublishInstance(objectId));
 
             }
         }
 
-        public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false)
+        public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false)
             where TService : class
         {
             if (serviceInstance is null) throw new ArgumentNullException(nameof(serviceInstance));
@@ -255,20 +257,21 @@ namespace SciTech.Rpc.Server
                     disposeAction = () => this.UnpublishInstance(serviceInstanceId);
                 }
 
-                return new ScopedObject<RpcObjectRef<TService>>(new RpcObjectRef<TService>(
+                return OwnedObject.Create(new RpcObjectRef<TService>(
                     connectionInfo, serviceInstanceId, publishedServices.ToArray()), disposeAction);
             }
         }
 
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
+        public IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
             where TService : class
         {
             this.PublishSingletonFactoryCore(factory);
 
-            return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
-                this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
+            return OwnedObject.Create(new RpcSingletonRef<TService>(
+                this.RetrieveConnectionInfo()), 
+                () => this.UnpublishSingleton<TService>());
         }
 
 
@@ -292,7 +295,7 @@ namespace SciTech.Rpc.Server
         //}
 
 
-        public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class
+        public IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class
         {
             if (singletonService == null) throw new ArgumentNullException(nameof(singletonService));
 
@@ -321,7 +324,7 @@ namespace SciTech.Rpc.Server
                 }
             }
 
-            return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
+            return OwnedObject.Create(new RpcSingletonRef<TService>(
                 connectionInfo), () => this.UnpublishSingleton<TService>());
         }
 

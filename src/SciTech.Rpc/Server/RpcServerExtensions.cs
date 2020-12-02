@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.ComponentModel;
 using System;
 using System.Linq;
 
@@ -16,13 +17,13 @@ namespace SciTech.Rpc.Server
 {
     public static class RpcServerExtensions
     {
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
             return server.ServicePublisher.PublishSingleton<TService, TServiceImpl>();
         }
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server) where TService : class
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
@@ -36,27 +37,27 @@ namespace SciTech.Rpc.Server
             return server.ServicePublisher.GetPublishedInstance(serviceInstance);
         }
 
-        public static ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServer server, TService serviceInstance, bool takeOwnership = false) where TService : class
+        public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServer server, TService serviceInstance, bool takeOwnership = false) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
             return server.ServicePublisher.PublishInstance(serviceInstance, takeOwnership);
         }
 
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, Func<TService> singletonFactory) where TService : class
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, Func<TService> singletonFactory) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
             return server.ServicePublisher.PublishSingleton<TService>(singletonFactory);
         }
 
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, Func<IServiceProvider, TService> singletonFactory) where TService : class
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, Func<IServiceProvider, TService> singletonFactory) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
             return server.ServicePublisher.PublishSingleton<TService>(singletonFactory);
         }
 
-        public static ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, TService singletonService, bool takeOwnership = false) where TService : class
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, TService singletonService, bool takeOwnership = false) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 

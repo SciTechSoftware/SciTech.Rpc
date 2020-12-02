@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.ComponentModel;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.ComponentModel;
@@ -84,7 +85,7 @@ namespace SciTech.Rpc.Server
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, ActivatedService<TService>> factory)
+        public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, ActivatedService<TService>> factory)
             where TService : class;
 
 
@@ -104,13 +105,13 @@ namespace SciTech.Rpc.Server
         /// <param name="takeOwnership"><c>true</c> to indicate that the instance should be disposed when unpublished.</param>
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
-        ScopedObject<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false) where TService : class;
+        IOwned<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false) where TService : class;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
+        IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
             where TService : class;
 
-        ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class;
+        IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class;
 
         /// <summary>
         /// Gets the connection info associated with this service publisher. If the connection

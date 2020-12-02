@@ -254,7 +254,8 @@ namespace SciTech.Rpc.Client.Internal
         {
             var createMethodDefMethodDef = GetProxyMethod(RpcProxyBase<TMethodDef>.CreateMethodDefName, BindingFlags.Static | BindingFlags.Public);
             var createMethodDefMethod = createMethodDefMethodDef.MakeGenericMethod(requestType, responseType);
-            return (TMethodDef)createMethodDefMethod.Invoke(null, new object?[] { methodType, memberInfo.Service.FullName, methodName, serializer, faultHandler });
+            return (TMethodDef?)createMethodDefMethod.Invoke(null, new object?[] { methodType, memberInfo.Service.FullName, methodName, serializer, faultHandler })
+                ?? throw new InvalidOperationException("Incorrect CreateMethodDef implementatin");
         }
 
         private static void EmitResponseConverter(ILGenerator il, RpcOperationInfo operationInfo)

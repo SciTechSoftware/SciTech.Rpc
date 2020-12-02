@@ -24,10 +24,10 @@ namespace SciTech.Rpc.Client.Internal
         protected RpcProxyMethod(IRpcSerializer? serializerOverride, RpcClientFaultHandler? faultHandler)
         {
             this.SerializerOverride = serializerOverride;
-            this.FaultHandler = faultHandler;
+            this.FaultHandler = faultHandler ?? RpcClientFaultHandler.Empty;
         }
 
-        public RpcClientFaultHandler? FaultHandler { get; }
+        public RpcClientFaultHandler FaultHandler { get; }
 
         public IRpcSerializer? SerializerOverride { get; }
 

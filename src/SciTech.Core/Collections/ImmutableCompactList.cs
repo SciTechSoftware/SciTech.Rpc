@@ -234,9 +234,27 @@ namespace SciTech.Collections
 
         public Enumerator GetEnumerator() => new Enumerator(this);
 
-        IEnumerator<T> IEnumerable<T>.GetEnumerator() => new Enumerator(this);
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
+        {
+            if (this.data == null)
+            {
+                return ((IList<T>)EmptyArray).GetEnumerator();
+            }
 
-        public struct Enumerator : IEnumerator<T>
+            if (this.data is SmallCollection<T> shortSet)
+            {
+                return shortSet.GetEnumerator();
+            }
+
+            if (this.data is T[] list)
+            {
+                return ((IEnumerable<T>)list).GetEnumerator();
+            }
+
+            return new SingleEnumerator<T>((T)this.data);
+        }
+
+        public struct Enumerator 
         {
             private readonly ImmutableCompactList<T> compactList;
 
@@ -249,13 +267,7 @@ namespace SciTech.Collections
             }
 
             public T Current => this.compactList[index];
-
-            object? IEnumerator.Current => this.compactList[index];
-
-            public void Dispose() 
-            {
-            }
-
+           
             public bool MoveNext()
             {
                 this.index++;
@@ -288,7 +300,7 @@ namespace SciTech.Collections
             return Comparer.Equals((T)this.data, item) ? 0 : -1;
         }
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => new Enumerator(this);
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<T>)this).GetEnumerator();
 
         public IReadOnlyList<T> AsReadOnlyList()
         {

@@ -39,7 +39,7 @@ namespace SciTech.Collections.Immutable
         
         public IImmutableList<T> Clear() => new ImmutableArrayList<T>(this.data.Clear());
 
-        public Enumerator GetEnumerator() => new Enumerator(this.data.GetEnumerator());
+        public Enumerator GetEnumerator() => new Enumerator(this.data);
 
         IEnumerator<T> IEnumerable<T>.GetEnumerator() => ((IImmutableList<T>)this.data).GetEnumerator();
 
@@ -83,19 +83,60 @@ namespace SciTech.Collections.Immutable
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible")]
-        public struct Enumerator 
-        {
-            private readonly ImmutableArray<T>.Enumerator enumerator;
 
-            public Enumerator(ImmutableArray<T>.Enumerator enumerator)
+        /// <summary>
+        /// An array enumerator.
+        /// </summary>
+        /// <remarks>
+        /// It is important that this enumerator does NOT implement <see cref="IDisposable"/>.
+        /// We want the iterator to inline when we do foreach and to not result in
+        /// a try/finally frame in the client.
+        /// </remarks>
+        public struct Enumerator
+        {
+            /// <summary> 
+            /// The array being enumerated.
+            /// </summary>
+            private readonly ImmutableArray<T> _array;
+
+            /// <summary>
+            /// The currently enumerated position.
+            /// </summary>
+            /// <value>
+            /// -1 before the first call to <see cref="MoveNext"/>.
+            /// >= this.array.Length after <see cref="MoveNext"/> returns false.
+            /// </value>
+            private int _index;
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="Enumerator"/> struct.
+            /// </summary>
+            /// <param name="array">The array to enumerate.</param>
+            internal Enumerator(ImmutableArray<T> array)
             {
-                this.enumerator= enumerator;
+                _array = array;
+                _index = -1;
             }
 
-            public T Current => this.enumerator.Current;
+            /// <summary>
+            /// Gets the currently enumerated value.
+            /// </summary>
+            public T Current
+            {
+                get
+                {
+                    return _array[_index];
+                }
+            }
 
-
-            public bool MoveNext() => this.enumerator.MoveNext();
+            /// <summary>
+            /// Advances to the next value to be enumerated.
+            /// </summary>
+            /// <returns><c>true</c> if another item exists in the array; <c>false</c> otherwise.</returns>
+            public bool MoveNext()
+            {
+                return ++_index < _array.Length;
+            }
         }
     }
 

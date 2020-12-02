@@ -92,8 +92,8 @@ namespace SciTech.Rpc.Server
             {
                 this.AllowAutoPublish = options.AllowAutoPublish ?? this.AllowAutoPublish;
                 this.AllowDiscovery = options.AllowDiscovery ?? this.AllowDiscovery;
-                this.ExceptionConverters = options.ExceptionConverters?.ToImmutableArray() ?? this.ExceptionConverters;
-                this.Interceptors = options.Interceptors?.ToImmutableArray() ?? this.Interceptors;
+                this.ExceptionConverters = options.ExceptionConverters.Concat(this.ExceptionConverters).ToImmutableArray();
+                this.Interceptors = options.Interceptors.Concat(this.Interceptors).ToImmutableArray();
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;

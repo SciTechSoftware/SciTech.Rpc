@@ -34,7 +34,6 @@ namespace SciTech.Rpc.Client.Internal
         /// <summary>
         /// Creates a custom exception based on <see cref="FaultCode"/>, <paramref name="message"/>
         /// and the optional <paramref name="details"/>.
-        /// <para>
         /// </summary>
         /// <param name="message">Message text as provided by the RPC fault.</param>
         /// <param name="details">Optional details. Will always be provided if <see cref="FaultDetailsType"/> is not <c>null</c>.</param>

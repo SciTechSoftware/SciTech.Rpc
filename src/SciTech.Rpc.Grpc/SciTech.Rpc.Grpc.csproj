@@ -15,9 +15,6 @@ From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy
 
 This package contains the communication layer for the native/.NET implementation of the gRPC library (https://github.com/grpc/grpc).
     </Description>
-
-    <!-- Still alpha, since it uses alpha protobuf-net library -->
-    <Version>1.0.0-alpha.2</Version>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
 

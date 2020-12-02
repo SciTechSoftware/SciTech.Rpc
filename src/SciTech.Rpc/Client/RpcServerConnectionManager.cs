@@ -46,16 +46,13 @@ namespace SciTech.Rpc.Client
         }
 
 
-        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IRpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null)
+        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IRpcClientOptions? options = null)
         {
             this.connectionProviders = connectionProviders.ToImmutableArray();
-            this.DefinitionsProvider = definitionsProvider;
             this.Options = new ImmutableRpcClientOptions(options);
         }
 
         public ImmutableRpcClientOptions Options { get; }
-
-        public IRpcProxyDefinitionsProvider? DefinitionsProvider { get; }
 
         public void AddKnownChannel(IRpcChannel connection)
         {
@@ -232,7 +229,7 @@ namespace SciTech.Rpc.Client
             {
                 if (connectionProvider.CanCreateChannel(serverConnectionInfo))
                 {
-                    return connectionProvider.CreateChannel(serverConnectionInfo, this.Options, this.DefinitionsProvider);
+                    return connectionProvider.CreateChannel(serverConnectionInfo, this.Options);
                 }
             }
 

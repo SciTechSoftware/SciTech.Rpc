@@ -1,5 +1,5 @@
-﻿using System;
-using SciTech.Rpc.Client;
+﻿using SciTech.Rpc.Client;
+using System;
 
 namespace SciTech.Rpc
 {
@@ -11,15 +11,13 @@ namespace SciTech.Rpc
             this.ConverterType = converterType;
         }
 
-        public bool IncludeSubTypes { get; set; } = true;
-
         /// <summary>
-        /// Defines a conversion between an untyped RPC fault and the specified exception type. The 
+        /// Defines a conversion between an untyped RPC fault and the specified exception type. The
         /// conversion is available for all RPC faults with a <see cref="RpcFaultException.FaultCode"/>
         /// that matches <paramref name="faultCode"/>.
         /// <note type="note">
         /// <para>
-        /// The exception type must have a public constructor with the signature 
+        /// The exception type must have a public constructor with the signature
         /// <c>Exception(string message)</c>.
         /// </para>
         /// </note>
@@ -32,28 +30,28 @@ namespace SciTech.Rpc
             this.ExceptionType = exceptionType;
         }
 
-        //public RpcFaultAttribute(Type faultType)
-        //{
-        //    this.FaultType = faultType;
-        //    this.FaultCode = RpcBuilderUtil.RetrieveFaultCode(faultType);
-        //}
-
-        /// <summary>
-        /// Gets or sets the <see cref="RpcFaultException.FaultCode"/>. It is retrieved from the <see cref="FaultType"/>
-        /// but can be explicitly assigned if necessary.
-        /// </summary>
-        public string? FaultCode { get; set; }
-
         /// <summary>
         /// Gets the type of the optional custom converter to use. If this property is <c>null</c> then <see cref="FaultCode"/> and <see cref="ExceptionType"/>
-        /// must be initialized. 
+        /// must be initialized.
         /// <para>The custom converter type must implement
-        /// <see cref="IRpcClientExceptionConverter"/> and have a default constructor or include a public static field or property 
+        /// <see cref="IRpcClientExceptionConverter"/> and have a default constructor or include a public static field or property
         /// named "Default" with the type <see cref="IRpcClientExceptionConverter"/>.
         /// </para>
         /// </summary>
         public Type? ConverterType { get; }
 
         public Type? ExceptionType { get; }
+
+        /// <summary>
+        /// Gets or sets the <see cref="RpcFaultException.FaultCode"/>.
+        /// </summary>
+        public string? FaultCode { get; set; }
+
+        public bool IncludeSubTypes { get; set; } = true;
+        //public RpcFaultAttribute(Type faultType)
+        //{
+        //    this.FaultType = faultType;
+        //    this.FaultCode = RpcBuilderUtil.RetrieveFaultCode(faultType);
+        //}
     }
 }

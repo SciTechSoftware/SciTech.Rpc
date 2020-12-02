@@ -1015,7 +1015,7 @@ namespace SciTech.Rpc.Internal
         public Type ResponseReturnType { get; }
 
         /// <summary>
-        /// Type of the RpcResponse for this operation. May be <see cref="RpcResponseWithError"/>, <see cref="RpcResponseWithError{T}"/>, <see cref="RpcResponse"/>, 
+        /// Type of the RpcResponse for this operation. May be <see cref="RpcResponse"/>, 
         /// or <see cref="RpcResponse{T}"/> where <c>T</c>
         /// is the <see cref="ResponseReturnType"/>.
         /// </summary>

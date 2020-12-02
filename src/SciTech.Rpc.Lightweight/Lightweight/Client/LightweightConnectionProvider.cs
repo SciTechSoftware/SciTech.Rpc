@@ -26,26 +26,21 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly ImmutableRpcClientOptions? options;
 
-        private readonly IRpcProxyDefinitionsProvider? definitionsProvider;
-
         private readonly SslClientOptions? sslOptions;
 
         public LightweightConnectionProvider(
             IRpcClientOptions? options = null, 
-            LightweightOptions? lightweightOpions = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null)
-            : this(null, options, lightweightOpions, definitionsProvider)
+            LightweightOptions? lightweightOpions = null)
+            : this(null, options, lightweightOpions)
         {
         }
 
         public LightweightConnectionProvider(
             SslClientOptions? sslOptions,
             IRpcClientOptions? options = null,
-            LightweightOptions? lightweightOpions = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null)
+            LightweightOptions? lightweightOpions = null)
         {
             this.sslOptions = sslOptions;
-            this.definitionsProvider = definitionsProvider;
             this.options = options?.AsImmutable();
             this.lightweightOpions = lightweightOpions;
         }
@@ -74,13 +69,11 @@ namespace SciTech.Rpc.Lightweight.Client
                 || scheme == WellKnownRpcSchemes.LightweightPipe );
         }
 
-        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider )
+        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options)
         {
             var scheme = connectionInfo?.HostUrl?.Scheme;
             if (scheme == LightweightTcpScheme)
             {
-                // TODO: Shouldn't the definition providers be combined instead?
-                var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = LightweightProxyGenerator.Default;
 
                 return new TcpRpcConnection(
@@ -92,8 +85,6 @@ namespace SciTech.Rpc.Lightweight.Client
 
             if( scheme == WellKnownRpcSchemes.LightweightPipe)
             {
-                // TODO: Shouldn't the definition providers be combined instead?
-                var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = LightweightProxyGenerator.Default;
 
                 return new NamedPipeRpcConnection(

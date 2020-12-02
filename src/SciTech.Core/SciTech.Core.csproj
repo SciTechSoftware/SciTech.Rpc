@@ -10,7 +10,7 @@
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.0.0-beta.2</Version>
+    <Version>1.0.0-beta.8</Version>
     <Description>Contains utility/helper classes used by the SciTech.Rpc project. This 
 package is currently not intended for other use.</Description>
   </PropertyGroup>
@@ -48,10 +48,10 @@ package is currently not intended for other use.</Description>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="GitVersionTask" Version="5.3.7">
+    <!--<PackageReference Include="GitVersionTask" Version="5.3.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    </PackageReference>-->
     <PackageReference Include="System.IO.Pipelines" Version="4.7.0" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
   </ItemGroup>

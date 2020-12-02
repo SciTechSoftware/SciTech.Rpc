@@ -53,10 +53,9 @@ namespace SciTech.Rpc.Server
         }
 
         public RpcServiceDefinitionsBuilder(
-            IRpcServerOptions? options = null,
             IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null)
         {
-            this.Options = options?.AsImmutable() ?? ImmutableRpcServerOptions.Empty;
+            this.Options = /*options?.AsImmutable() ?? */ImmutableRpcServerOptions.Empty;
 
             if (serviceRegistrations != null)
             {

@@ -93,7 +93,7 @@ namespace SciTech.Rpc.Client
         /// <inheritdoc/>
         ImmutableRpcClientOptions IRpcClientOptions.AsImmutable() => this;
 
-        internal static ImmutableRpcClientOptions Combine(params IRpcClientOptions?[] options)
+        public static ImmutableRpcClientOptions Combine(params IRpcClientOptions?[] options)
         {
             if (options != null)
             {
@@ -122,6 +122,7 @@ namespace SciTech.Rpc.Client
                 this.StreamingCallTimeout = options.StreamingCallTimeout ?? this.StreamingCallTimeout;
                 this.ExceptionConverters = this.ExceptionConverters.AddRange(options.ExceptionConverters);
                 this.Interceptors = this.Interceptors.AddRange(options.Interceptors);
+                this.KnownServiceTypes = this.KnownServiceTypes.AddRange(options.KnownServiceTypes);
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;

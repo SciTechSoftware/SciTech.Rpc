@@ -39,11 +39,13 @@ namespace SciTech.Rpc.NetGrpc.Server
 
         /// <summary>
         /// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
-        /// </summary>
-        /// <remarks>NOTE. This method tries to register common RPC services, like <see cref="IRpcServiceDefinitionsBuilder"/>
+        /// <note type="note">
+        /// <para>This method tries to register common RPC services, like <see cref="IRpcServiceDefinitionsBuilder"/>
         /// and <see cref="IRpcServicePublisher"/>. To provide specific implementations of these interfaces, add them 
         /// to the service collection prior to calling this method.
-        /// </remarks>
+        /// </para>
+        /// </note>
+        /// </summary>
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
         public static IRpcServerBuilder AddNetGrpc(this IServiceCollection services)

@@ -58,7 +58,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public LightweightRpcServer(
             IServiceProvider? serviceProvider = null,
-            RpcServerOptions? options = null,
+            IRpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
             : this(RpcServerId.NewId(), null, serviceProvider, options, lightweightOptions)
         {
@@ -71,7 +71,7 @@ namespace SciTech.Rpc.Lightweight.Server
         public LightweightRpcServer(
             RpcServicePublisher servicePublisher,
             IServiceProvider? serviceProvider = null,
-            RpcServerOptions? options = null,
+            IRpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
@@ -83,7 +83,7 @@ namespace SciTech.Rpc.Lightweight.Server
             RpcServerId serverId,
             IRpcServiceDefinitionsProvider? definitionsProvider = null,
             IServiceProvider? serviceProvider = null,
-            RpcServerOptions? options = null,
+            IRpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null)
             : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(), serverId),
                   serviceProvider, options, lightweightOptions)
@@ -98,7 +98,7 @@ namespace SciTech.Rpc.Lightweight.Server
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider definitionsProvider,
             IServiceProvider? serviceProvider,
-            RpcServerOptions? options,
+            IRpcServerOptions? options,
             LightweightOptions? lightweightOptions = null,
             ILogger<LightweightRpcServer>? logger=null)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, options)

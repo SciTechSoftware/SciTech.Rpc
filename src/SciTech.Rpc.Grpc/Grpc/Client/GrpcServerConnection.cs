@@ -30,12 +30,10 @@ namespace SciTech.Rpc.Grpc.Client
         public GrpcServerConnection(
             RpcServerConnectionInfo connectionInfo,
             IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(connectionInfo,
                   GrpcCore.ChannelCredentials.Insecure,
                   options,
-                  definitionsProvider,
                   channelOptions)
         {
         }
@@ -44,7 +42,6 @@ namespace SciTech.Rpc.Grpc.Client
             RpcServerConnectionInfo connectionInfo,
             GrpcCore.ChannelCredentials credentials,
             IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(
                  connectionInfo, credentials, options,

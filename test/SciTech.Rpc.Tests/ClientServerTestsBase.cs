@@ -45,8 +45,7 @@ namespace SciTech.Rpc.Tests
     {
         (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionsBuilder serviceDefinitionsBuilder,
             Action<RpcServerOptions> configServerOptions = null,
-            Action<RpcClientOptions> configClientOptions = null,
-            IRpcProxyDefinitionsProvider proxyServicesProvider = null);
+            Action<RpcClientOptions> configClientOptions = null);
     }
 
     public class ClientServerTestsBase

@@ -17,8 +17,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         public (IRpcServer, RpcServerConnection) CreateServerAndConnection(
             RpcServiceDefinitionsBuilder serviceDefinitionsBuilder,
             Action<RpcServerOptions> configServerOptions = null,
-            Action<RpcClientOptions> configClientOptions = null,
-            IRpcProxyDefinitionsProvider proxyServicesProvider = null)
+            Action<RpcClientOptions> configClientOptions = null)
         {
             throw new NotImplementedException();
         }

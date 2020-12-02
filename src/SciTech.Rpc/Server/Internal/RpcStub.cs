@@ -192,8 +192,7 @@ namespace SciTech.Rpc.Server.Internal
         /// </summary>
         /// <typeparam name="TRequest"></typeparam>
         /// <typeparam name="TResult"></typeparam>
-        /// <typeparam name="TResponse">Indicates whether the returned response should be typed or not. 
-        /// Must be <see cref="RpcResponseWithError{T}"/> or <see cref="object"/>.</typeparam>
+        /// <typeparam name="TResponse"></typeparam>
         /// <param name="request"></param>
         /// <param name="context"></param>
         /// <param name="implCaller"></param>

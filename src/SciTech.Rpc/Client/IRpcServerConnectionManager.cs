@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Client
     {
         bool CanCreateChannel(RpcServerConnectionInfo connectionInfo);
 
-        IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider);
+        IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options);
     }
 
     public interface IRpcServerConnectionManager
@@ -35,8 +35,6 @@ namespace SciTech.Rpc.Client
         bool RemoveKnownChannel(IRpcChannel channel);
 
         ImmutableRpcClientOptions Options { get; }
-
-        IRpcProxyDefinitionsProvider? DefinitionsProvider { get; }
     }
 
     public static class RpcServerConnectionManagerExtensions

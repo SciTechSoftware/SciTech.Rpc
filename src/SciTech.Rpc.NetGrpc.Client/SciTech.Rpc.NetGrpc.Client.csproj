@@ -14,9 +14,6 @@ From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy
 
 This package contains the client communication layer for the fully managed ASP.NET Core implementation of the gRPC library (https://github.com/grpc/grpc-dotnet).
     </Description>
-
-    <!-- Still alpha, since it uses alpha protobuf-net library -->
-    <Version>1.0.0-alpha.2</Version>
   </PropertyGroup>
 
   <PropertyGroup>

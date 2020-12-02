@@ -7,20 +7,16 @@ namespace SciTech.Rpc.NetGrpc.Client
 {
     public class NetGrpcConnectionProvider : IRpcConnectionProvider
     {
-        private readonly IRpcProxyDefinitionsProvider? definitionsProvider;
-
         private GrpcNet.Client.GrpcChannelOptions? channelOptions;
 
         private ImmutableRpcClientOptions? options = null;
 
         public NetGrpcConnectionProvider(
-            ImmutableRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            ImmutableRpcClientOptions? options = null,            
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
         {
             this.channelOptions = channelOptions;
             this.options = options;
-            this.definitionsProvider = definitionsProvider;
         }
 
         public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
@@ -28,7 +24,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             return connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc;
         }
 
-        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
+        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options)
         {
             if (connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc)
             {

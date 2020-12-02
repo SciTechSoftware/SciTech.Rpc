@@ -53,7 +53,7 @@ namespace SciTech.Rpc.Tests.Grpc
                 {
                     var objectId = publishScope.Value.ObjectId;
 
-                    var connection = this.CreateGrpcConnection(null);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<IBlockingServiceClient>(objectId);
 
@@ -98,7 +98,7 @@ namespace SciTech.Rpc.Tests.Grpc
                 using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    GrpcServerConnection connection = this.CreateGrpcConnection(null);
+                    GrpcServerConnection connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<IThermostatServiceClient>(objectId);
                     var acoId = clientService.DeviceAcoId;
@@ -132,7 +132,7 @@ namespace SciTech.Rpc.Tests.Grpc
                 {
                     var objectId = publishScope.Value.ObjectId;
 
-                    var connection = this.CreateGrpcConnection(null);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<ISimpleServiceWithEvents>(objectId);
 
@@ -195,7 +195,7 @@ namespace SciTech.Rpc.Tests.Grpc
                 using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    var connection = this.CreateGrpcConnection(null);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<IDeviceServiceClient>(objectId);
                     var acoId = clientService.DeviceAcoId;
@@ -229,7 +229,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
                 using (var publishScope = host.PublishSingleton<IServiceProviderService>(serviceImpl))
                 {
-                    var connection = this.CreateGrpcConnection(null);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceSingleton<IServiceProviderServiceClient>();
                     var serviceRef = await clientService.GetSimpleServiceAsync();
@@ -263,7 +263,7 @@ namespace SciTech.Rpc.Tests.Grpc
                 using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    var connection = this.CreateGrpcConnection(null);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<ISimpleService>(objectId);
                     int res = await clientService.AddAsync(8, 9);
@@ -277,9 +277,9 @@ namespace SciTech.Rpc.Tests.Grpc
             }
         }
 
-        private GrpcServerConnection CreateGrpcConnection(IRpcProxyDefinitionsProvider definitionsProvider)
+        private GrpcServerConnection CreateGrpcConnection()
         {
-            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, this.clientOptions.AsImmutable(), definitionsProvider);
+            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, this.clientOptions.AsImmutable());
         }
     }
 }

@@ -28,8 +28,7 @@ namespace SciTech.Rpc.Lightweight.Client
         
         public NamedPipeRpcConnection(
             string path,
-            IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IRpcClientOptions? options = null,            
             LightweightOptions? lightweightOptions = null)
             : this( 
                   new RpcServerConnectionInfo( new Uri($"{WellKnownRpcSchemes.LightweightPipe}://./{path}" )), 

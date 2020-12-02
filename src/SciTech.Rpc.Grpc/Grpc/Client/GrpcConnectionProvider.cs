@@ -12,8 +12,6 @@ namespace SciTech.Rpc.Grpc.Client
     {
         public const string GrpcScheme = "grpc";
 
-        private readonly IRpcProxyDefinitionsProvider? definitionsProvider;
-
         private readonly IImmutableList<GrpcCore.ChannelOption>? channelOptions;
 
         private readonly GrpcCore.ChannelCredentials credentials;
@@ -21,23 +19,20 @@ namespace SciTech.Rpc.Grpc.Client
         private readonly ImmutableRpcClientOptions? options;
 
         public GrpcConnectionProvider(
-            IRpcClientOptions? options = null, IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IRpcClientOptions? options = null, 
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
-            : this(GrpcCore.ChannelCredentials.Insecure, options, definitionsProvider, channelOptions )
+            : this(GrpcCore.ChannelCredentials.Insecure, options, channelOptions )
         {
         }
 
         public GrpcConnectionProvider(
             GrpcCore.ChannelCredentials credentials,
-            IRpcClientOptions? options = null,
-            IRpcProxyDefinitionsProvider? definitionsProvider = null,
+            IRpcClientOptions? options = null,            
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
         {
             this.credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
             this.options = options?.AsImmutable();
             this.channelOptions = channelOptions?.AsImmutableArrayList();
-
-            this.definitionsProvider = definitionsProvider;
         }
 
         public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
@@ -45,11 +40,10 @@ namespace SciTech.Rpc.Grpc.Client
             return connectionInfo?.HostUrl?.Scheme == GrpcScheme;
         }
 
-        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options, IRpcProxyDefinitionsProvider? definitionsProvider)
+        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options)
         {
             if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
             {
-                var actualDefinitionsProvider = this.definitionsProvider ?? definitionsProvider;
                 var proxyGenerator = GrpcProxyGenerator.Default;
 
                 return new GrpcServerConnection(connectionInfo, this.credentials,

@@ -47,8 +47,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         protected LightweightRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            IRpcClientOptions? options,
-            IRpcProxyDefinitionsProvider? definitionsProvider,
+            IRpcClientOptions? options,           
             LightweightOptions? lightweightOptions)
             : this(connectionInfo, options, LightweightProxyGenerator.Default, lightweightOptions)
         {

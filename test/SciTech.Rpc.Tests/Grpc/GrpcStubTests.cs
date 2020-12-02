@@ -294,7 +294,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProviderMock.Object);
-            hostMock.Setup(h => h.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
+            hostMock.Setup(h => h.ServiceActivator).Returns(serviceImplProviderMock.Object);
             hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
             hostMock.Setup(h => h.ServiceProvider).Returns((IServiceProvider)null);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(false);

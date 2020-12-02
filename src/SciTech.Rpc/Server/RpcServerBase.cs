@@ -44,16 +44,16 @@ namespace SciTech.Rpc.Server
         /// Only intended for testing.
         /// </summary>
         /// <param name="servicePublisher"></param>
-        /// <param name="serviceImplProvider"></param>
+        /// <param name="serviceActivator"></param>
         /// <param name="definitionsProvider"></param>
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected RpcServerBase(
-            IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
+            IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceActivator,
             IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options,
             ILogger<RpcServerBase>? logger)
         {
             this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
-            this.ServiceImplProvider = serviceImplProvider ?? throw new ArgumentNullException(nameof(serviceImplProvider));
+            this.ServiceActivator = serviceActivator ?? throw new ArgumentNullException(nameof(serviceActivator));
             this.ServiceDefinitionsProvider = definitionsProvider ?? throw new ArgumentNullException(nameof(definitionsProvider));
             this.logger = logger;
 
@@ -117,7 +117,7 @@ namespace SciTech.Rpc.Server
 
         public IRpcServiceDefinitionsProvider ServiceDefinitionsProvider { get; private set; }
 
-        public IRpcServiceActivator ServiceImplProvider { get; }
+        public IRpcServiceActivator ServiceActivator { get; }
 
         public IRpcServicePublisher ServicePublisher { get; }
 
@@ -159,7 +159,7 @@ namespace SciTech.Rpc.Server
 
         protected RpcServicesQueryResponse QueryServices(RpcObjectId objectId)
         {
-            var servicesList = this.ServiceImplProvider.GetPublishedServices(objectId);
+            var servicesList = this.ServiceActivator.GetPublishedServices(objectId);
             if (!servicesList.IsDefaultOrEmpty)
             {
                 return new RpcServicesQueryResponse { ImplementedServices = servicesList.ToArray() };

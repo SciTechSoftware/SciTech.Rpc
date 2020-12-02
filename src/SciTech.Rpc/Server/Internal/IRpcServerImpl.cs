@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Server.Internal
         /// <summary>
         /// Gets the <see cref="IRpcServiceActivator"/> associated with <see cref="IRpcServer.ServicePublisher"/>.
         /// </summary>
-        IRpcServiceActivator ServiceImplProvider { get; }
+        IRpcServiceActivator ServiceActivator { get; }
 
         IServiceProvider? ServiceProvider { get; }
 

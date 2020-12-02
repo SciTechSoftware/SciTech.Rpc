@@ -35,7 +35,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>();
             serviceImplProviderMock.Setup(p => p.GetActivatedService<ISimpleService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<ISimpleService>(serviceImpl, false));
 
-            hostMock.Setup(p => p.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
+            hostMock.Setup(p => p.ServiceActivator).Returns(serviceImplProviderMock.Object);
             hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
 
             var serviceRegistrator = new RpcServiceDefinitionsBuilder();

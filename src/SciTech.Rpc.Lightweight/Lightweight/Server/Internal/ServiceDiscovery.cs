@@ -58,7 +58,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             // TODO: This method is not particularily fast. Maybe add some caching? Or retrieve information from service stubs.
             var publishedSingletons = new List<RpcPublishedSingleton>();
-            foreach (var type in this.server.ServiceImplProvider.GetPublishedSingletons())
+            foreach (var type in this.server.ServiceActivator.GetPublishedSingletons())
             {
                 var serviceInfo = RpcBuilderUtil.TryGetServiceInfoFromType(type);
                 if (serviceInfo != null)

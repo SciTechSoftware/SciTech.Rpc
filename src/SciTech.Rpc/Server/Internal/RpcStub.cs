@@ -146,11 +146,11 @@ namespace SciTech.Rpc.Server.Internal
 
     public sealed class RpcStub<TService> : RpcStub where TService : class
     {
-        private readonly IRpcServiceActivator serviceImplProvider;
+        private readonly IRpcServiceActivator serviceActivator;
 
         public RpcStub(IRpcServerImpl server, ImmutableRpcServerOptions options) : base(server, options)
         {
-            this.serviceImplProvider = server.ServiceImplProvider;
+            this.serviceActivator = server.ServiceActivator;
         }
 
         public IServiceProvider? ServiceProvider { get; }
@@ -641,7 +641,7 @@ namespace SciTech.Rpc.Server.Internal
 
         private void CheckPublished(RpcObjectId objectId)
         {
-            if (!this.serviceImplProvider.CanGetActivatedService<TService>(objectId))
+            if (!this.serviceActivator.CanGetActivatedService<TService>(objectId))
             {
                 throw CreateServiceUnavailableException(objectId);
             }
@@ -756,7 +756,7 @@ namespace SciTech.Rpc.Server.Internal
 
         private ActivatedService<TService> GetServiceImpl(IServiceProvider? serviceProvider, RpcObjectId objectId)
         {
-            var activatedService = this.serviceImplProvider.GetActivatedService<TService>(serviceProvider, objectId);
+            var activatedService = this.serviceActivator.GetActivatedService<TService>(serviceProvider, objectId);
             if (activatedService != null)
             {
                 return activatedService.Value;

@@ -237,7 +237,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             serviceImplProviderMock.Setup(p => p.GetActivatedService<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<TService>( serviceImpl,false));
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
-            hostMock.Setup(h => h.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
+            hostMock.Setup(h => h.ServiceActivator).Returns(serviceImplProviderMock.Object);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProvider);
             hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
@@ -253,7 +253,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisher);
-            hostMock.Setup(h => h.ServiceImplProvider).Returns(servicePublisher);
+            hostMock.Setup(h => h.ServiceActivator).Returns(servicePublisher);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(servicePublisher.DefinitionsProvider);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(allowAutoPublish);
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);

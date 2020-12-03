@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using System;
@@ -22,7 +23,7 @@ namespace SciTech.Rpc.Server.Internal
     /// </summary>
     public interface IRpcServerImpl : IRpcServer
     {
-        ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
+        ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors { get; }
 
         /// <summary>
         /// Gets the custom <see cref="RpcServerFaultHandler"/> that has been initialized 
@@ -38,7 +39,7 @@ namespace SciTech.Rpc.Server.Internal
         /// not empty, the <see cref="CustomFaultHandler"/> will represent the fault handler
         /// for the combined exception converters.
         /// </summary>
-        ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; }
+        ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
         IRpcSerializer Serializer { get; }
 

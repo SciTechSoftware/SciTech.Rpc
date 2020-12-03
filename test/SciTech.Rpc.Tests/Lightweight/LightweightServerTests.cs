@@ -1,5 +1,6 @@
 ﻿using Moq;
 using NUnit.Framework;
+using SciTech.Collections.Immutable;
 using SciTech.IO;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
@@ -36,7 +37,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             serviceImplProviderMock.Setup(p => p.GetActivatedService<ISimpleService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<ISimpleService>(serviceImpl, false));
 
             hostMock.Setup(p => p.ServiceActivator).Returns(serviceImplProviderMock.Object);
-            hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
+            hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArrayList<RpcServerCallInterceptor>.Empty);
 
             var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator.RegisterService<ISimpleService>();

@@ -1,5 +1,6 @@
 ﻿using Moq;
 using NUnit.Framework;
+using SciTech.Collections.Immutable;
 using SciTech.IO;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
@@ -219,7 +220,6 @@ namespace SciTech.Rpc.Tests.Lightweight
         private static IRpcServiceDefinitionsProvider CreateDefinitionsProviderMock()
         {
             var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
-            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
             serviceDefinitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
             return serviceDefinitionsProviderMock.Object;
         }
@@ -239,7 +239,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
             hostMock.Setup(h => h.ServiceActivator).Returns(serviceImplProviderMock.Object);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProvider);
-            hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
+            hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArrayList<RpcServerCallInterceptor>.Empty);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
@@ -259,7 +259,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
             hostMock.Setup(h => h.HandleCallException(It.IsAny<Exception>(), It.IsAny<IRpcSerializer>()));
-            hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
+            hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArrayList<RpcServerCallInterceptor>.Empty);
 
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);

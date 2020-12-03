@@ -55,8 +55,6 @@ namespace SciTech.Rpc.Server
         public RpcServiceDefinitionsBuilder(
             IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null)
         {
-            this.Options = /*options?.AsImmutable() ?? */ImmutableRpcServerOptions.Empty;
-
             if (serviceRegistrations != null)
             {
                 foreach (var registration in serviceRegistrations)
@@ -73,43 +71,7 @@ namespace SciTech.Rpc.Server
 
         public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
 
-        public RpcServerFaultHandler? CustomFaultHandler
-        {
-            get
-            {
-                lock (this.syncRoot)
-                {
-                    if (this.customFaultHandler == null && this.registeredExceptionConverters.Count > 0)
-                    {
-                        this.customFaultHandler = new RpcServerFaultHandler(null, this.registeredExceptionConverters, null);
-                    }
-
-                    return this.customFaultHandler;
-                }
-            }
-        }
-
-        public ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters
-        {
-            get
-            {
-                lock (this.syncRoot)
-                {
-                    if (this.exceptionConverters.IsDefault)
-                    {
-                        this.exceptionConverters = this.registeredExceptionConverters.ToImmutableArray();
-                    }
-
-                    return this.exceptionConverters;
-                }
-            }
-        }
-
         public bool IsFrozen => this.isFrozen;
-
-        public ImmutableRpcServerOptions Options { get;  }
-
-        public IRpcSerializer? Serializer => this.Options.Serializer;
 
         public void Freeze()
         {

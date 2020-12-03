@@ -11,6 +11,7 @@
 
 #endregion Copyright notice and license
 
+using Microsoft.Extensions.Options;
 using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
@@ -94,9 +95,41 @@ namespace SciTech.Rpc.Client
         private List<RpcClientCallInterceptor>? interceptors;
 
         private List<Type>? knownServiceTypes;
+        
+        public RpcClientOptions(IOptions<RpcClientOptions> options )
+        {
+            var o = options.Value;
+
+            this.CallTimeout = o.CallTimeout;
+            this.StreamingCallTimeout = o.StreamingCallTimeout;
+
+            if (o.exceptionConverters?.Count > 0)
+            {
+                this.ExceptionConverters.AddRange(o.exceptionConverters);
+            }
+            if (o.interceptors?.Count > 0)
+            {
+                this.Interceptors.AddRange(o.interceptors);
+            }
+            if (o.knownServiceTypes?.Count > 0)
+            {
+                this.KnownServiceTypes.AddRange(o.knownServiceTypes);
+            }
+
+            this.ReceiveMaxMessageSize = o.ReceiveMaxMessageSize;
+            this.SendMaxMessageSize = o.SendMaxMessageSize;
+            this.Serializer = o.Serializer;
+        }
+
+        public RpcClientOptions()
+        {
+
+        }
 
         /// <inheritdoc/>
         public TimeSpan? CallTimeout { get; set; }
+
+
 
         /// <inheritdoc cref="IRpcClientOptions.ExceptionConverters"/>
         public List<IRpcClientExceptionConverter> ExceptionConverters
@@ -133,6 +166,7 @@ namespace SciTech.Rpc.Client
             {
                 return (this.exceptionConverters == null || this.exceptionConverters.Count == 0)
                     && (this.interceptors == null || this.interceptors.Count == 0)
+                    && (this.knownServiceTypes == null || this.knownServiceTypes.Count == 0 )
                     && this.ReceiveMaxMessageSize == null
                     && this.SendMaxMessageSize == null
                     && this.CallTimeout == null

@@ -1,21 +1,23 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
 
+#endregion Copyright notice and license
+
+using Microsoft.Extensions.Options;
 using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 
 namespace SciTech.Rpc.Server
 {
-
     /// <summary>
     /// Defines options for the server side implementation of RPC services.
     /// </summary>
@@ -23,7 +25,7 @@ namespace SciTech.Rpc.Server
     /// Service options can be specified at many different levels. Below is a list of where options can be specified, with
     /// the highest priority level first. Higher priority levels will override properties at lower levels. Collections will
     /// be combined for all levels, but if the same item is included in several places the higher priority item will take precedence.
-    /// For example, if more than one exception converter with the same <see cref="IRpcServerExceptionConverter.FaultCode"/> fault code exists, 
+    /// For example, if more than one exception converter with the same <see cref="IRpcServerExceptionConverter.FaultCode"/> fault code exists,
     /// the higher priority converter will be used.
     /// <list type="number">
     /// <item><description>
@@ -38,7 +40,7 @@ namespace SciTech.Rpc.Server
     /// </description></item>
     /// <item><description>
     ///     Registered service options<br/>
-    ///     This includes <see cref="RpcServiceOptions{T}"/> provided when registering service types, for instance using <see cref="IRpcServiceRegistration"/>, 
+    ///     This includes <see cref="RpcServiceOptions{T}"/> provided when registering service types, for instance using <see cref="IRpcServiceRegistration"/>,
     ///     or <see cref="IRpcServiceDefinitionsBuilder.RegisterService(Type, Type?, IRpcServerOptions?)"/>.
     /// </description></item>
     /// <item><description>
@@ -65,7 +67,6 @@ namespace SciTech.Rpc.Server
         /// </summary>
         public bool? AllowDiscovery { get; }
 
-
         IReadOnlyList<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
         IReadOnlyList<RpcServerCallInterceptor> Interceptors { get; }
@@ -88,7 +89,7 @@ namespace SciTech.Rpc.Server
     }
 
     /// <summary>
-    /// Mutable implementation of <see cref="IRpcServerOptions"/>, for providing options for 
+    /// Mutable implementation of <see cref="IRpcServerOptions"/>, for providing options for
     /// the server side implementation of RPC services.
     /// </summary>
     public class RpcServerOptions : IRpcServerOptions
@@ -96,6 +97,31 @@ namespace SciTech.Rpc.Server
         private List<IRpcServerExceptionConverter>? exceptionConverters;
 
         private List<RpcServerCallInterceptor>? interceptors;
+
+        public RpcServerOptions(IOptions<RpcServerOptions> options)
+        {
+            var o = options.Value;
+            this.AllowAutoPublish = o.AllowAutoPublish;
+            this.AllowDiscovery = o.AllowDiscovery;
+
+            if (o.exceptionConverters?.Count > 0)
+            {
+                this.ExceptionConverters.AddRange(o.exceptionConverters);
+            }
+
+            if (o.interceptors?.Count > 0)
+            {
+                this.Interceptors.AddRange(o.interceptors);
+            }
+
+            this.ReceiveMaxMessageSize = o.ReceiveMaxMessageSize;
+            this.SendMaxMessageSize = o.SendMaxMessageSize;
+            this.Serializer = o.Serializer;
+        }
+
+        public RpcServerOptions()
+        {
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether service instances may be automatically published
@@ -142,7 +168,7 @@ namespace SciTech.Rpc.Server
                 && this.Serializer == null
                 && this.ReceiveMaxMessageSize == null
                 && this.SendMaxMessageSize == null
-                && this.Serializer != null;
+                && this.Serializer == null;
         }
 
         /// <summary>

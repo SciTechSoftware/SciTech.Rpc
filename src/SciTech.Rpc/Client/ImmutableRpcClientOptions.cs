@@ -56,6 +56,7 @@ namespace SciTech.Rpc.Client
             {
                 return this.ExceptionConverters.Length == 0
                     && this.Interceptors.Length == 0
+                    && this.KnownServiceTypes.Length == 0
                     && this.ReceiveMaxMessageSize == null
                     && this.SendMaxMessageSize == null
                     && this.CallTimeout == null

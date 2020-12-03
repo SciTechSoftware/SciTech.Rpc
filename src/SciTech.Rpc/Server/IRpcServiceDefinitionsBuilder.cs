@@ -22,8 +22,6 @@ namespace SciTech.Rpc.Server
     {
         IRpcServiceDefinitionsBuilder RegisterAssemblyServices(params Assembly[] assemblies);
 
-        IRpcServiceDefinitionsBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter);
-
         /// <summary>
         /// 
         /// </summary>
@@ -41,30 +39,7 @@ namespace SciTech.Rpc.Server
     {
         event EventHandler<RpcServicesEventArgs> ServicesRegistered;
 
-        ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
-
-        /// <summary>
-        /// Gets the custom <see cref="RpcServerFaultHandler"/> that has been initialized 
-        /// using the <see cref="ExceptionConverters"/>. If there are no <c>ExceptionConverters</c>
-        /// this property will return <c>null</c>.
-        /// </summary>
-        /// <value>An <see cref="RpcServerFaultHandler"/> that has been initialized 
-        /// using the <see cref="ExceptionConverters"/> , or <c>null</c> if there are no exception converters.</value>
-        RpcServerFaultHandler? CustomFaultHandler { get; }
-
-        /// <summary>
-        /// Gets the exceptions converters associated with this definitions provider. If the array is 
-        /// not empty, the <see cref="CustomFaultHandler"/> will represent the fault handler
-        /// for the combined exception converters.
-        /// </summary>
-        ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; }
-
         bool IsFrozen { get; }
-
-        /// <summary>
-        /// Gets the assigned server options.
-        /// </summary>
-        ImmutableRpcServerOptions Options { get; }
 
         void Freeze();
 

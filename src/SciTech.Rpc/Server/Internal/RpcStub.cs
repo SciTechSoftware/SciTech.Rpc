@@ -679,14 +679,14 @@ namespace SciTech.Rpc.Server.Internal
             CompactList<IDisposable?> interceptDisposables = default;
             CompactList<Task<IDisposable>> pendingInterceptors = default;
 
-            if (interceptors.Length > 0)
+            if (interceptors.Count > 0)
             {
-                interceptDisposables.Reset(interceptors.Length);
+                interceptDisposables.Reset(interceptors.Count);
             }
 
             try
             {
-                for (int index = 0; index < interceptors.Length; index++)
+                for (int index = 0; index < interceptors.Count; index++)
                 {
                     var interceptor = interceptors[index];
                     var interceptTask = interceptor(context);
@@ -713,7 +713,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 // An interceptor threw an exception. Try to cleanup and then rethrow.
                 // TODO: Log.
-                for (int index = interceptors.Length - 1; index >= 0; index--)
+                for (int index = interceptors.Count - 1; index >= 0; index--)
                 {
                     try { interceptDisposables![index]?.Dispose(); } catch { }
                 }

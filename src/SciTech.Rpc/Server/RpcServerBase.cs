@@ -10,6 +10,8 @@
 #endregion
 
 using Microsoft.Extensions.Logging;
+using SciTech.Collections;
+using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
@@ -57,32 +59,22 @@ namespace SciTech.Rpc.Server
             this.ServiceDefinitionsProvider = definitionsProvider ?? throw new ArgumentNullException(nameof(definitionsProvider));
             this.logger = logger;
 
-            this.ExceptionConverters = this.ServiceDefinitionsProvider.ExceptionConverters;
-            this.CallInterceptors = this.ServiceDefinitionsProvider.CallInterceptors;
-            this.serializer = options?.Serializer ?? this.ServiceDefinitionsProvider.Options.Serializer;
-
             if (options != null)
             {
+                this.serializer = options.Serializer;
                 this.AllowDiscovery = options.AllowDiscovery ?? true;
                 this.AllowAutoPublish = options.AllowAutoPublish ?? false;
 
-                if (options.Interceptors != null)
-                {
-                    this.CallInterceptors = this.CallInterceptors.AddRange(options.Interceptors);
-                }
-
-                if (options.ExceptionConverters != null)
-                {
-                    this.ExceptionConverters = this.ExceptionConverters.AddRange(options.ExceptionConverters);
-                }
+                this.CallInterceptors = options.Interceptors.AsImmutableArrayList();
+                this.ExceptionConverters = options.ExceptionConverters.AsImmutableArrayList();
             }
 
-            if (this.ExceptionConverters.Length > 0)
+            if (this.ExceptionConverters.Count > 0)
             {
-                this.CustomFaultHandler = new RpcServerFaultHandler(this.ServiceDefinitionsProvider.CustomFaultHandler, this.ExceptionConverters, null);
+                this.CustomFaultHandler = new RpcServerFaultHandler(null, this.ExceptionConverters, null);
             } else
             {
-                this.CustomFaultHandler = this.ServiceDefinitionsProvider.CustomFaultHandler;
+                this.CustomFaultHandler = RpcServerFaultHandler.Default;
             }
         }
 
@@ -94,11 +86,11 @@ namespace SciTech.Rpc.Server
         /// <inheritdoc/>
         public RpcServerId ServerId => this.ServicePublisher.ServerId;
 
-        public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
+        public ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
 
-        public RpcServerFaultHandler? CustomFaultHandler { get; private set; }
+        public RpcServerFaultHandler? CustomFaultHandler { get; private set; } = RpcServerFaultHandler.Default;
 
-        public ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; private set; }
+        public ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; } = ImmutableArrayList<IRpcServerExceptionConverter>.Empty;
 
         public bool IsDisposed { get; private set; }
 

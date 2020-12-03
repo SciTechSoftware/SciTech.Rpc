@@ -17,6 +17,7 @@ using SciTech.Rpc.Tests.Grpc;
 using SciTech.Rpc.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
+using SciTech.Collections.Immutable;
 
 #if PLAT_NET_GRPC
 using SciTech.Rpc.NetGrpc.Server.Internal;
@@ -297,7 +298,7 @@ namespace SciTech.Rpc.Tests
         }
         public bool AllowAutoPublish => this.server.AllowAutoPublish;
 
-        public ImmutableArray<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
+        public ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
 
         public IRpcServicePublisher ServicePublisher => this.server.ServicePublisher;
 

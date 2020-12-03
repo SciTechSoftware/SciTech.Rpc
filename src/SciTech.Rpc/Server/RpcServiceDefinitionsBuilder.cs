@@ -11,7 +11,6 @@
 
 using SciTech.Collections;
 using SciTech.Rpc.Internal;
-using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -24,17 +23,11 @@ namespace SciTech.Rpc.Server
     /// </summary>
     public class RpcServiceDefinitionsBuilder : IRpcServiceDefinitionsBuilder
     {
-        private readonly List<IRpcServerExceptionConverter> registeredExceptionConverters = new List<IRpcServerExceptionConverter>();
-
         private readonly Dictionary<string, Type> registeredServices = new Dictionary<string, Type>();
 
         private readonly Dictionary<Type, RegisteredServiceType> registeredServiceTypes = new Dictionary<Type, RegisteredServiceType>();
 
         private readonly object syncRoot = new object();
-
-        private RpcServerFaultHandler? customFaultHandler;
-
-        private ImmutableArray<IRpcServerExceptionConverter> exceptionConverters;
 
         private bool isFrozen;
 
@@ -68,8 +61,6 @@ namespace SciTech.Rpc.Server
         }
 
         public event EventHandler<RpcServicesEventArgs>? ServicesRegistered;
-
-        public ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
 
         public bool IsFrozen => this.isFrozen;
 
@@ -138,18 +129,6 @@ namespace SciTech.Rpc.Server
                         }
                     }
                 }
-            }
-
-            return this;
-        }
-
-        public IRpcServiceDefinitionsBuilder RegisterExceptionConverter(IRpcServerExceptionConverter exceptionConverter)
-        {
-            lock (this.syncRoot)
-            {
-                this.registeredExceptionConverters.Add(exceptionConverter);
-                this.customFaultHandler = null;
-                this.exceptionConverters = default;
             }
 
             return this;

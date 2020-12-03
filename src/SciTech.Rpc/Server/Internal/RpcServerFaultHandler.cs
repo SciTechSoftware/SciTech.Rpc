@@ -15,7 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
-namespace SciTech.Rpc.Server
+namespace SciTech.Rpc.Server.Internal
 {
     public sealed class RpcServerFaultHandler
     {
@@ -106,7 +106,7 @@ namespace SciTech.Rpc.Server
         }
     }
 
-    public readonly struct FaultMapping
+    internal readonly struct FaultMapping
     {
         public readonly string FaultCode;
         public readonly Type DetailsType;
@@ -117,6 +117,4 @@ namespace SciTech.Rpc.Server
             this.DetailsType = detailsType;
         }
     }
-
-
 }

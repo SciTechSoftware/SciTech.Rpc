@@ -83,14 +83,14 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Not owner")]
         protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(
-            TRequest request, LightweightMethodDef method, CancellationToken ct)
+            TRequest request, LightweightMethodDef method, CancellationToken cancellationToken)
         {
-            var context = this.CreateCallHeaders(ct);
+            var context = this.CreateCallHeaders(cancellationToken);
 
             var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)method).LightweightSerializersOverride
                 ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(method);
 
-            var clientTask = this.ConnectCoreAsync(ct);
+            var clientTask = this.ConnectCoreAsync(cancellationToken);
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
@@ -122,12 +122,12 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return AwaitConnectAndCall(clientTask);
         }
 
-        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
+        protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            return CallUnaryMethodImplAsync<TRequest, TResponse>(methodDef, request, cancellationToken).AwaiterResult();
+            return CallUnaryMethodCoreAsync<TRequest, TResponse>(methodDef, request, cancellationToken).AwaiterResult();
         }
 
-        protected override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
+        protected override Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
             var context = this.CreateCallHeaders(cancellationToken);
 
@@ -138,7 +138,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
-                var responseTask = client.SendReceiveFrameAsync2<TRequest, TResponse>(
+                var responseTask = client.SendReceiveFrameAsync<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
                     context,
@@ -152,7 +152,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             async Task<TResponse> AwaitConnectAndCall(ValueTask<RpcPipelineClient> pendingClientTask)
             {
                 var client = await pendingClientTask.ContextFree();
-                return await client.SendReceiveFrameAsync2<TRequest, TResponse>(
+                return await client.SendReceiveFrameAsync<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
                     context,

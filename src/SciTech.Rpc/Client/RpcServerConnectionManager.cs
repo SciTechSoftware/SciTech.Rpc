@@ -54,14 +54,14 @@ namespace SciTech.Rpc.Client
 
         public ImmutableRpcClientOptions Options { get; }
 
-        public void AddKnownChannel(IRpcChannel connection)
+        public void AddKnownChannel(IRpcChannel channel)
         {
-            if (connection == null || connection.ConnectionInfo == null)
+            if (channel == null || channel.ConnectionInfo == null)
             {
-                throw new ArgumentNullException(nameof(connection));
+                throw new ArgumentNullException(nameof(channel));
             }
 
-            var connectionInfo = connection.ConnectionInfo;
+            var connectionInfo = channel.ConnectionInfo;
             Uri? hostUrl = connectionInfo?.HostUrl;
             if (connectionInfo == null
                 || (connectionInfo.ServerId == RpcServerId.Empty && hostUrl == null))
@@ -71,22 +71,22 @@ namespace SciTech.Rpc.Client
 
             lock (this.syncRoot)
             {
-                if (this.idToKnownConnection.ContainsKey(connection.ConnectionInfo.ServerId)
+                if (this.idToKnownConnection.ContainsKey(channel.ConnectionInfo.ServerId)
                     || (hostUrl != null && this.urlToKnownConnection.ContainsKey(hostUrl))
-                    || this.idToServerConnection.ContainsKey(connection.ConnectionInfo.ServerId)
+                    || this.idToServerConnection.ContainsKey(channel.ConnectionInfo.ServerId)
                     || (hostUrl != null && this.urlToServerConnection.ContainsKey(hostUrl)))
                 {
-                    throw new InvalidOperationException($"Known connection '{connection}' already added.");
+                    throw new InvalidOperationException($"Known connection '{channel}' already added.");
                 }
 
                 if (connectionInfo.ServerId != RpcServerId.Empty)
                 {
-                    this.idToKnownConnection.Add(connectionInfo.ServerId, connection);
+                    this.idToKnownConnection.Add(connectionInfo.ServerId, channel);
                 }
 
                 if (connectionInfo.HostUrl != null)
                 {
-                    this.urlToKnownConnection.Add(connectionInfo.HostUrl, connection);
+                    this.urlToKnownConnection.Add(connectionInfo.HostUrl, channel);
                 }
             }
         }
@@ -159,9 +159,9 @@ namespace SciTech.Rpc.Client
             return serverConnection.GetServiceSingleton<TService>(syncContext);
         }
 
-        public bool RemoveKnownChannel(IRpcChannel connection)
+        public bool RemoveKnownChannel(IRpcChannel channel)
         {
-            var connectionInfo = connection?.ConnectionInfo;
+            var connectionInfo = channel?.ConnectionInfo;
             if (connectionInfo == null)
             {
                 return false;
@@ -174,7 +174,7 @@ namespace SciTech.Rpc.Client
                 {
                     if (this.idToKnownConnection.TryGetValue(connectionInfo.ServerId, out var currConnection))
                     {
-                        if (connection == currConnection)
+                        if (channel == currConnection)
                         {
                             this.idToKnownConnection.Remove(connectionInfo.ServerId);
                             removed = true;
@@ -186,7 +186,7 @@ namespace SciTech.Rpc.Client
                 {
                     if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var currConnection))
                     {
-                        if (connection == currConnection)
+                        if (channel == currConnection)
                         {
                             this.urlToKnownConnection.Remove(connectionInfo.HostUrl);
                             removed = true;

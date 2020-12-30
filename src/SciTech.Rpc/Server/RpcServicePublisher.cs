@@ -171,15 +171,15 @@ namespace SciTech.Rpc.Server
 
         /// <summary>
         /// </summary>
-        /// <param name="value"></param>
+        /// <param name="connectionInfo"></param>
         /// <exception cref="InvalidOperationException">Thrown if the <see cref="ConnectionInfo"/> has already been retrieved.</exception>
-        public void InitConnectionInfo(RpcServerConnectionInfo value)
+        public void InitConnectionInfo(RpcServerConnectionInfo connectionInfo)
         {
-            if (value == null) throw new ArgumentNullException(nameof(value));
+            if (connectionInfo == null) throw new ArgumentNullException(nameof(connectionInfo));
 
             lock (this.syncRoot)
             {
-                if (!Equals(this.connectionInfo, value))
+                if (!Equals(this.connectionInfo, connectionInfo))
                 {
                     if (this.connectionInfoRetrieved)
                     {
@@ -188,19 +188,19 @@ namespace SciTech.Rpc.Server
 
                     if (this.serverId != RpcServerId.Empty)
                     {
-                        if (value.ServerId == RpcServerId.Empty)
+                        if (connectionInfo.ServerId == RpcServerId.Empty)
                         {
-                            this.connectionInfo = value.SetServerId(this.serverId);
+                            this.connectionInfo = connectionInfo.SetServerId(this.serverId);
                         }
-                        else if (this.serverId != value.ServerId)
+                        else if (this.serverId != connectionInfo.ServerId)
                         {
                             throw new InvalidOperationException("Cannot change server id after it has been assigned.");
                         }
                     }
                     else
                     {
-                        this.connectionInfo = value;
-                        this.serverId = value.ServerId;
+                        this.connectionInfo = connectionInfo;
+                        this.serverId = connectionInfo.ServerId;
                     }
                 }
             }
@@ -361,21 +361,21 @@ namespace SciTech.Rpc.Server
 
         /// <summary>
         /// </summary>
-        /// <param name="value"></param>
-        public RpcServerConnectionInfo TryInitConnectionInfo(RpcServerConnectionInfo value)
+        /// <param name="connectionInfo"></param>
+        public RpcServerConnectionInfo TryInitConnectionInfo(RpcServerConnectionInfo connectionInfo)
         {
-            if (value == null)
+            if (connectionInfo == null)
             {
-                throw new ArgumentNullException(nameof(value));
+                throw new ArgumentNullException(nameof(connectionInfo));
             }
 
             lock (this.syncRoot)
             {
-                if (!Equals(this.connectionInfo, value))
+                if (!Equals(this.connectionInfo, connectionInfo))
                 {
                     if (this.connectionInfo == null)
                     {
-                        this.connectionInfo = value;
+                        this.connectionInfo = connectionInfo;
                     }
                     else
                     {
@@ -383,15 +383,15 @@ namespace SciTech.Rpc.Server
                         // if provided.
                         if (this.serverId == RpcServerId.Empty)
                         {
-                            if (value.ServerId != RpcServerId.Empty)
+                            if (connectionInfo.ServerId != RpcServerId.Empty)
                             {
-                                this.connectionInfo = this.connectionInfo.SetServerId(value.ServerId);
-                                this.serverId = value.ServerId;
+                                this.connectionInfo = this.connectionInfo.SetServerId(connectionInfo.ServerId);
+                                this.serverId = connectionInfo.ServerId;
                             }
                         }
                         else
                         {
-                            if (value.ServerId != RpcServerId.Empty && value.ServerId != this.serverId)
+                            if (connectionInfo.ServerId != RpcServerId.Empty && connectionInfo.ServerId != this.serverId)
                             {
                                 throw new InvalidOperationException("Server id of provided connection does not match already assigned server id.");
                             }

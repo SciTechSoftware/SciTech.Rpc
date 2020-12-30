@@ -80,7 +80,7 @@ namespace SciTech.Rpc.Client.Internal
     {
         public static readonly RpcClientFaultHandler Empty = new RpcClientFaultHandler();
 
-        public RpcClientFaultHandler? baseHandler;
+        private readonly RpcClientFaultHandler? baseHandler;
 
         private readonly ImmutableArray<IRpcClientExceptionConverter> customExceptionConverters;
 

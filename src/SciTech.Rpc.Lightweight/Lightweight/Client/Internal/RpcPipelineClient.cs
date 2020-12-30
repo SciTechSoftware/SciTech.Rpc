@@ -122,71 +122,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             this.receiveLoopTask = this.StartReceiveLoopAsync(cancellationToken);
         }
 
-        //public Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
-        //    RpcFrameType frameType,
-        //    string operation,
-        //    IReadOnlyCollection<KeyValuePair<string, string>>? headers,
-        //    TRequest request,
-        //    IRpcSerializer<TRequest> requestSerializer,
-        //    IRpcSerializer<TResponse> responseSerializer,
-        //    CancellationToken cancellationToken)
-        //    where TRequest : class
-        //{
-        //    if (TraceEnabled)
-        //    {
-        //        Logger.Trace("Begin SendReceiveFrameAsync {Operation}.", operation);
-        //    }
-
-        //    var tcs = new ResponseCompletionSource<TResponse>(responseSerializer);
-        //    int messageId = this.AddAwaitingResponse(tcs);
-        //    try
-        //    {
-
-        //        RpcOperationFlags flags = 0;
-
-        //        if (cancellationToken.CanBeCanceled)
-        //        {
-        //            cancellationToken.Register(() => this.CancelCall(messageId, operation));
-        //            flags |= RpcOperationFlags.CanCancel;
-        //        }
-
-        //        var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, 0, headers);
-
-        //        var writeState = this.BeginWrite(frame);
-        //        this.WriteRequest(request, requestSerializer, writeState);
-
-        //        if (TraceEnabled)
-        //        {
-        //            tcs.Task.ContinueWith(t =>
-        //            {
-        //                switch (t.Status)
-        //                {
-        //                    case TaskStatus.RanToCompletion:
-        //                        Logger.Trace("Completed SendReceiveFrameAsync '{Operation}'.", operation);
-        //                        break;
-        //                    case TaskStatus.Canceled:
-        //                        Logger.Trace("SendReceiveFrameAsync cancelled '{Operation}'.", operation);
-        //                        break;
-        //                    case TaskStatus.Faulted:
-        //                        Logger.TraceException("SendReceiveFrameAsync error '{Operation}'.", t.Exception);
-        //                        break;
-        //                }
-
-        //                return Task.CompletedTask;
-        //            }, TaskScheduler.Default).Forget();
-        //        }
-
-        //        return tcs.Task;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        this.HandleCallError(messageId, ex);
-        //        throw;
-        //    }
-        //}
-
-
-        internal Task<TResponse> SendReceiveFrameAsync2<TRequest, TResponse>(
+        internal Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
             RpcFrameType frameType,
             string operation,
             RpcRequestContext? context,

@@ -27,7 +27,8 @@ namespace SciTech.Collections
             this.data = other.Box();
         }
 
-        private ReadOnlyCompactList(object data)
+
+        internal ReadOnlyCompactList(object data)
         {
             this.data = data;
         }
@@ -80,16 +81,6 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-        }
-
-        public static ReadOnlyCompactList<T> FromArray(T[] array)
-        {
-            if (array != null)
-            {
-                return new ReadOnlyCompactList<T>(array);
-            }
-
-            return ReadOnlyCompactList<T>.Empty;
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1000:Do not declare static members on generic types", Justification = "Argument has no type")]

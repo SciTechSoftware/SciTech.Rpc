@@ -17,7 +17,7 @@ using System.Reflection;
 namespace SciTech.Rpc
 {
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class, AllowMultiple = false)]
-    public class RpcFaultDetailsAttribute : Attribute
+    public sealed class RpcFaultDetailsAttribute : Attribute
     {
         public RpcFaultDetailsAttribute(string faultCode)
         {

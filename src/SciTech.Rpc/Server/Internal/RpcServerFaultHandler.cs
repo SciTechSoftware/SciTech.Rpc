@@ -96,7 +96,7 @@ namespace SciTech.Rpc.Server.Internal
         {
             foreach (var converter in this.converters)
             {
-                if (converter.CreateFault(exception) is RpcFaultException faultException)
+                if (converter.TryCreateFault(exception) is RpcFaultException faultException)
                 {
                     return faultException;
                 }

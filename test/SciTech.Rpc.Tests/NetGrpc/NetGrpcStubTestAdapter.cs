@@ -11,7 +11,7 @@ namespace SciTech.Rpc.Tests.NetGrpc
 {
     internal class NetGrpcStubTestAdapter : IStubTestAdapter
     {
-        public IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerImpl rpcServer) where TService : class
+        public IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerCore rpcServer) where TService : class
         {
             var builder = new NetGrpcServiceStubBuilder<TService>(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), null);
 

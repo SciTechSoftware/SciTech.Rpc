@@ -81,8 +81,6 @@ namespace SciTech.Collections.Immutable
         IEnumerator IEnumerable.GetEnumerator()
             => ((IEnumerable)this.data).GetEnumerator();
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible")]
 
         /// <summary>
         /// An array enumerator.
@@ -92,6 +90,8 @@ namespace SciTech.Collections.Immutable
         /// We want the iterator to inline when we do foreach and to not result in
         /// a try/finally frame in the client.
         /// </remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible")]
         public struct Enumerator
         {
             /// <summary> 

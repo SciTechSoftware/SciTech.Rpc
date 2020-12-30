@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 
 namespace SciTech.Collections
 {
@@ -11,13 +10,14 @@ namespace SciTech.Collections
     {
         public static readonly ImmutableCompactList<T> Empty = new ImmutableCompactList<T>();
 
+        private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
         private static readonly T[] EmptyArray = Array.Empty<T>();
 
         private static readonly SmallCollection<T>.CollectionCreator<T[]> FullListCreator = (SmallCollection<T> smallCollection, int index, T newItem) =>
         {
             var list = new T[smallCollection.Count + 1];
-            int si = 0; 
-            for( int i=0; i < list.Length; i++ )
+            int si = 0;
+            for (int i = 0; i < list.Length; i++)
             {
                 if (i != index)
                 {
@@ -29,9 +29,6 @@ namespace SciTech.Collections
             return list;
         };
 
-
-        private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
-
         private readonly object? data;
 
         public ImmutableCompactList(T value)
@@ -39,7 +36,8 @@ namespace SciTech.Collections
             if (value != null)
             {
                 this.data = value;
-            } else
+            }
+            else
             {
                 this.data = SmallCollection<T>.NullItem;
             }
@@ -50,12 +48,12 @@ namespace SciTech.Collections
             this.data = CreateListData(value);
         }
 
-        public ImmutableCompactList(IEnumerable<T> collection) 
+        public ImmutableCompactList(IEnumerable<T> collection)
         {
             this.data = CreateListData(collection);
         }
 
-        public ImmutableCompactList(ImmutableCompactList<T> other) 
+        public ImmutableCompactList(ImmutableCompactList<T> other)
         {
             this.data = other.data;
         }
@@ -63,39 +61,6 @@ namespace SciTech.Collections
         private ImmutableCompactList(object data)
         {
             this.data = data;
-        }
-
-        public ImmutableCompactList<T> Add(T item)
-        {
-            if (this.data == null)
-            {
-                if (item != null)
-                {
-                    return new ImmutableCompactList<T>(item);
-                }
-                else
-                {
-                    return new ImmutableCompactList<T>(SmallCollection<T>.NullItem);
-                }
-            }
-            else if (this.data is SmallCollection<T> shortList)
-            {
-                return new ImmutableCompactList<T>(shortList.Add(item, FullListCreator));
-            }
-            else if (this.data is T[] list)
-            {
-                // TODO: Switch to ImmutableList after some other threshold. 
-                // This can become very slow if a lot of items are added.
-                Array.Resize(ref list, list.Length + 1);
-                list[list.Length - 1] = item;
-                return new ImmutableCompactList<T>(list);
-            }
-            else
-            {
-                Debug.Assert(this.data is T);
-
-                return new ImmutableCompactList<T>(SmallCollection<T>.Create((T)this.data, item));
-            }
         }
 
         public int Count
@@ -122,7 +87,6 @@ namespace SciTech.Collections
             }
         }
 
-
         public T this[int index]
         {
             get
@@ -145,17 +109,6 @@ namespace SciTech.Collections
 
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
-
-        }
-
-        public static ImmutableCompactList<T> FromArray(T[] array)
-        {
-            if (array != null)
-            {
-                return new ImmutableCompactList<T>(array);
-            }
-
-            return ImmutableCompactList<T>.Empty;
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1000:Do not declare static members on generic types")]
@@ -164,26 +117,53 @@ namespace SciTech.Collections
             return new ImmutableCompactList<T>(boxedCompactSet);
         }
 
-        internal static object? CreateListData(IEnumerable<T> enumerable)
+        public ImmutableCompactList<T> Add(T item)
         {
-            if (!(enumerable is ICollection<T> collection))
+            if (this.data == null)
             {
-                // Copy items into a temporary collection, to avoid 
-                // enumerating the enumerator twice.
-                collection = new List<T>(enumerable);
+                if (item != null)
+                {
+                    return new ImmutableCompactList<T>(item);
+                }
+                else
+                {
+                    return new ImmutableCompactList<T>(SmallCollection<T>.NullItem);
+                }
+            }
+            else if (this.data is SmallCollection<T> shortList)
+            {
+                return new ImmutableCompactList<T>(shortList.Add(item, FullListCreator));
+            }
+            else if (this.data is T[] list)
+            {
+                // TODO: Switch to ImmutableList after some other threshold.
+                // This can become very slow if a lot of items are added.
+                Array.Resize(ref list, list.Length + 1);
+                list[list.Length - 1] = item;
+                return new ImmutableCompactList<T>(list);
+            }
+            else
+            {
+                Debug.Assert(this.data is T);
+
+                return new ImmutableCompactList<T>(SmallCollection<T>.Create((T)this.data, item));
+            }
+        }
+
+        public IReadOnlyList<T> AsReadOnlyList()
+        {
+            if (this.data is IReadOnlyList<T> list)
+            {
+                return list;
             }
 
-            int totalCount = collection.Count;
-            if (totalCount <= SmallCollection<T>.MaxSize)
+            if (this.data == null)
             {
-                return SmallCollection<T>.Create(collection);
+                return EmptyArray;
             }
-            else 
-            {
-                T[] array = new T[totalCount];
-                collection.CopyTo(array, 0);
-                return array;
-            }
+
+            // Will cause boxing.
+            return this;
         }
 
         public object? Box()
@@ -234,52 +214,6 @@ namespace SciTech.Collections
 
         public Enumerator GetEnumerator() => new Enumerator(this);
 
-        IEnumerator<T> IEnumerable<T>.GetEnumerator()
-        {
-            if (this.data == null)
-            {
-                return ((IList<T>)EmptyArray).GetEnumerator();
-            }
-
-            if (this.data is SmallCollection<T> shortSet)
-            {
-                return shortSet.GetEnumerator();
-            }
-
-            if (this.data is T[] list)
-            {
-                return ((IEnumerable<T>)list).GetEnumerator();
-            }
-
-            return new SingleEnumerator<T>((T)this.data);
-        }
-
-        public struct Enumerator 
-        {
-            private readonly ImmutableCompactList<T> compactList;
-
-            int index;
-
-            internal Enumerator(ImmutableCompactList<T> compactList)
-            {
-                this.compactList = compactList;
-                this.index = -1;
-            }
-
-            public T Current => this.compactList[index];
-           
-            public bool MoveNext()
-            {
-                this.index++;
-                return this.index < this.compactList.Count;
-            }
-
-            public void Reset()
-            {
-                this.index = -1;
-            }
-        }
-
         public int IndexOf(T item)
         {
             if (this.data == null)
@@ -300,22 +234,88 @@ namespace SciTech.Collections
             return Comparer.Equals((T)this.data, item) ? 0 : -1;
         }
 
-        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<T>)this).GetEnumerator();
-
-        public IReadOnlyList<T> AsReadOnlyList()
+        IEnumerator<T> IEnumerable<T>.GetEnumerator()
         {
-            if (this.data is IReadOnlyList<T> list)
-            {
-                return list;
-            }
-
             if (this.data == null)
             {
-                return EmptyArray;
+                return ((IList<T>)EmptyArray).GetEnumerator();
             }
 
-            // Will cause boxing.
-            return this;
+            if (this.data is SmallCollection<T> shortSet)
+            {
+                return shortSet.GetEnumerator();
+            }
+
+            if (this.data is T[] list)
+            {
+                return ((IEnumerable<T>)list).GetEnumerator();
+            }
+
+            return new SingleEnumerator<T>((T)this.data);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<T>)this).GetEnumerator();
+
+        internal static object? CreateListData(IEnumerable<T> enumerable)
+        {
+            if (!(enumerable is ICollection<T> collection))
+            {
+                // Copy items into a temporary collection, to avoid
+                // enumerating the enumerator twice.
+                collection = new List<T>(enumerable);
+            }
+
+            int totalCount = collection.Count;
+            if (totalCount <= SmallCollection<T>.MaxSize)
+            {
+                return SmallCollection<T>.Create(collection);
+            }
+            else
+            {
+                T[] array = new T[totalCount];
+                collection.CopyTo(array, 0);
+                return array;
+            }
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible")]
+        public struct Enumerator
+        {
+            private readonly ImmutableCompactList<T> compactList;
+
+            private int index;
+
+            internal Enumerator(ImmutableCompactList<T> compactList)
+            {
+                this.compactList = compactList;
+                this.index = -1;
+            }
+
+            public T Current => this.compactList[index];
+
+            public bool MoveNext()
+            {
+                this.index++;
+                return this.index < this.compactList.Count;
+            }
+
+            public void Reset()
+            {
+                this.index = -1;
+            }
+        }
+    }
+
+    public static class ImmutableCompactList
+    {
+        public static ImmutableCompactList<T> FromArray<T>(T[] array)
+        {
+            if (array != null)
+            {
+                return new ImmutableCompactList<T>(array);
+            }
+
+            return ImmutableCompactList<T>.Empty;
         }
     }
 }

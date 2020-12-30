@@ -127,8 +127,7 @@ namespace SciTech.Threading
 
         public static void Forget(this ValueTask task)
         {
-            // TODO: Cannot use ContinueWith without creating a full Task.
-            // So exceptions will not be propagated to the DefaultExceptionHandler.
+            task.Preserve();
         }
 
         public static void Forget(this Task task, Action<Exception>? exceptionHandler)

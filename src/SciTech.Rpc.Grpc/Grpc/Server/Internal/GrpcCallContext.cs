@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace SciTech.Rpc.Grpc.Server.Internal
 {
-    internal class GrpcCallContext : IRpcCallContextWithCancellation
+    internal class GrpcCallContext : IRpcCallContext
     {
         private readonly ServerCallContext callContext;
 

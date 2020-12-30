@@ -20,52 +20,11 @@ namespace SciTech.Collections
                 ?? new ReadOnlyWrapper<T>(collection);
         }
 
-        public static IImmutableList<T> AsImmutable<T>(this IEnumerable<T> list)
-        {
-            if (list == null)
-                throw new ArgumentNullException(nameof(list));
-
-            return list as IImmutableList<T> ?? ImmutableArray.CreateRange(list);
-        }
-
-        public static ImmutableArrayList<T> AsImmutableArrayList<T>(this IEnumerable<T> list)
+        public static ImmutableArrayList<T> ToImmutableArrayList<T>(this IEnumerable<T> list)
         {
             if (list == null) throw new ArgumentNullException(nameof(list));
 
             return ImmutableArrayList.CreateRange(list);
-        }
-
-
-        public static ImmutableArray<TResult> SelectAsImmutableArray<T,TResult>(this IReadOnlyList<T> list, Func<T,TResult> selector)
-        {
-            if (list == null)
-                throw new ArgumentNullException(nameof(list));
-            if (selector == null)
-                throw new ArgumentNullException(nameof(selector));
-
-            int count = list.Count;
-            var builder = ImmutableArray.CreateBuilder<TResult>(count);
-            for( int i=0; i < count; i++ )
-            {
-                builder.Add(selector(list[i]));
-            }
-
-            return builder.MoveToImmutable();
-        }
-
-        public static ImmutableArray<TResult> SelectAsImmutableArray<T, TResult>(this ImmutableArray<T> list, Func<T, TResult> selector)
-        {
-            if (selector == null)
-                throw new ArgumentNullException(nameof(selector));
-
-            int count = list.Length;
-            var builder = ImmutableArray.CreateBuilder<TResult>(count);
-            for (int i = 0; i < count; i++)
-            {
-                builder.Add(selector(list[i]));
-            }
-
-            return builder.MoveToImmutable();
         }
 
 
@@ -197,6 +156,7 @@ namespace SciTech.Collections
 
             return -1;
         }
+
         private sealed class ReadOnlyWrapper<T> : IReadOnlyList<T>
         {
             private readonly IList<T> source;

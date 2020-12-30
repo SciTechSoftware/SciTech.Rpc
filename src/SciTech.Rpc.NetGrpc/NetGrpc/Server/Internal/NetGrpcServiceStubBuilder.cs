@@ -71,7 +71,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         protected override void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContextWithCancellation, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             INetGrpcBinder<TService> binder)
         {
@@ -90,7 +90,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddGenericAsyncMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
@@ -112,7 +112,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
         }
 
-        protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddGenericBlockingMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
@@ -140,7 +140,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
         }
 
-        protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
+        protected override void AddGenericVoidAsyncMethodCore<TRequest>(
             Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -161,7 +161,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddUnaryMethod(methodStub, operationInfo.Metadata, Handler);
         }
 
-        protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
+        protected override void AddGenericVoidBlockingMethodCore<TRequest>(
             Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -182,7 +182,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddUnaryMethod(methodStub, operationInfo.Metadata, handler);
         }
 
-        protected override void AddServerStreamingMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddServerStreamingMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
@@ -212,7 +212,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddServerStreamingMethod(methodStub, operationInfo.Metadata, handler);
         }
 
-        protected override ImmutableRpcServerOptions CreateStubOptions(IRpcServerImpl server)
+        protected override ImmutableRpcServerOptions CreateStubOptions(IRpcServerCore server)
         {
             var o = this.Options;
             var registeredOptions = server.ServiceDefinitionsProvider.GetServiceOptions(typeof(TService));

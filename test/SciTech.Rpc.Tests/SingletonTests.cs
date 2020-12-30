@@ -1,5 +1,6 @@
 ﻿using Moq;
 using NUnit.Framework;
+using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Client;
@@ -57,7 +58,7 @@ namespace SciTech.Rpc.Tests
             //});
 
             var binder = new TestLightweightMethodBinder();
-            var serverMock = new Mock<IRpcServerImpl>();
+            var serverMock = new Mock<IRpcServerCore>();
             var definitionsBuilder = new RpcServiceDefinitionsBuilder();
             var serializer = new ProtobufRpcSerializer();
             serverMock.SetupGet(m => m.ServiceDefinitionsProvider).Returns(definitionsBuilder);

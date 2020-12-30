@@ -44,8 +44,6 @@ namespace SciTech.Rpc.Lightweight.Server
             .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new NotImplementedException($"Method {nameof(CreateServiceStubBuilder)} not found on type '{typeof(LightweightRpcServer)}'.");
 
-        private readonly ILogger logger;
-
         private readonly ConcurrentDictionary<ClientPipeline, ClientPipeline> clients
             = new ConcurrentDictionary<ClientPipeline, ClientPipeline>();
 
@@ -59,8 +57,9 @@ namespace SciTech.Rpc.Lightweight.Server
         public LightweightRpcServer(
             IServiceProvider? serviceProvider = null,
             IRpcServerOptions? options = null,
-            LightweightOptions? lightweightOptions = null)
-            : this(RpcServerId.NewId(), null, serviceProvider, options, lightweightOptions)
+            LightweightOptions? lightweightOptions = null,
+            ILogger<LightweightRpcServer>? logger=null)
+            : this(RpcServerId.NewId(), null, serviceProvider, options, lightweightOptions, logger)
         {
         }
 
@@ -72,10 +71,11 @@ namespace SciTech.Rpc.Lightweight.Server
             RpcServicePublisher servicePublisher,
             IServiceProvider? serviceProvider = null,
             IRpcServerOptions? options = null,
-            LightweightOptions? lightweightOptions = null)
+            LightweightOptions? lightweightOptions = null,
+            ILogger<LightweightRpcServer>? logger = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
-                  servicePublisher.DefinitionsProvider, serviceProvider, options, lightweightOptions)
+                  servicePublisher.DefinitionsProvider, serviceProvider, options, lightweightOptions, logger)
         {
         }
 
@@ -84,9 +84,10 @@ namespace SciTech.Rpc.Lightweight.Server
             IRpcServiceDefinitionsProvider? definitionsProvider = null,
             IServiceProvider? serviceProvider = null,
             IRpcServerOptions? options = null,
-            LightweightOptions? lightweightOptions = null)
+            LightweightOptions? lightweightOptions = null,
+            ILogger<LightweightRpcServer>? logger = null)
             : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(), serverId),
-                  serviceProvider, options, lightweightOptions)
+                  serviceProvider, options, lightweightOptions, logger)
         {
         }
 
@@ -101,17 +102,14 @@ namespace SciTech.Rpc.Lightweight.Server
             IRpcServerOptions? options,
             LightweightOptions? lightweightOptions = null,
             ILogger<LightweightRpcServer>? logger=null)
-            : base(servicePublisher, serviceImplProvider, definitionsProvider, options)
+            : base(servicePublisher, serviceImplProvider, definitionsProvider, options, 
+                  logger ?? RpcLogger.CreateLogger<LightweightRpcServer>())
         {
-            this.logger = logger ?? RpcLogger.CreateLogger<LightweightRpcServer>();
-
             this.ServiceProvider = serviceProvider;
             this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? DefaultMaxRequestMessageSize;
             this.MaxResponseSize = options?.SendMaxMessageSize ?? DefaultMaxResponseMessageSize;
 
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
-
-
         }
 
         public int ClientCount => this.clients.Count;
@@ -193,7 +191,7 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 foreach (var client in this.clients)
                 {
-                    try { client.Key.Dispose(); } catch (Exception x) { this.logger.LogWarning(x, "Error when disposing client."); }
+                    try { client.Key.Dispose(); } catch (Exception x) { this.Logger.LogWarning(x, "Error when disposing client."); }
                 }
                 this.clients.Clear();
 
@@ -232,14 +230,14 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 if (frame.FrameType != RpcFrameType.UnaryRequest)
                 {
-                    this.logger.LogWarning("Datagram only handles unary requests.");
+                    this.Logger.LogWarning("Datagram only handles unary requests.");
                     return null;
                 }
 
                 var methodStub = this.GetMethodDefinition(frame.RpcOperation);
                 if (methodStub == null)
                 {
-                    this.logger.LogWarning("Unknown operation '{Operation}' in datagram frame.", frame.RpcOperation);
+                    this.Logger.LogWarning("Unknown operation '{Operation}' in datagram frame.", frame.RpcOperation);
                     return null;
                 }
 
@@ -266,6 +264,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 try
                 {
                     var context = new LightweightCallContext(endPoint, frame.Headers, actualCancellationToken );
+
                     using IServiceScope? scope = this.ServiceProvider?.CreateScope();
                     using var frameWriter = new LightweightRpcFrameWriter(65536);
                     await methodStub.HandleMessage(frameWriter, frame, scope?.ServiceProvider, context).ContextFree();
@@ -274,7 +273,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
                 catch( Exception x )
                 {
-                    this.logger.LogWarning(x, "Error occurred in HandleDatagramAsync.");
+                    this.Logger.LogWarning(x, "Error occurred in HandleDatagramAsync.");
                 }
                 finally
                 {
@@ -284,7 +283,7 @@ namespace SciTech.Rpc.Lightweight.Server
             }
             else
             {
-                this.logger.LogInformation("Received incomplete datagram frame.");
+                this.Logger.LogInformation("Received incomplete datagram frame.");
             }
 
             return null;
@@ -304,6 +303,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected override void StartCore()
         {
+            this.ServiceDefinitionsProvider.Freeze();   // Dynamic services not yet implemented.
             var connectionHandler = new ConnectionHandler(this);
             foreach (var endPoint in this.endPoints)
             {
@@ -327,11 +327,14 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private void AddMethodDef(LightweightMethodStub methodStub)
         {
+            this.Logger.LogInformation("Add service operation {Operation}.", methodStub.OperationName);
+
             this.methodDefinitions.Add(methodStub.OperationName, methodStub);
         }
 
         private void AddServiceDef(/*HashSet<string> registeredServices, */LightweightServerServiceDefinition serviceDef)
         {
+            this.Logger.LogInformation("Build service stub for {Service}.", serviceDef.ServiceName);
             //if (!registeredServices.Add(serviceDef.ServiceName))
             //{
             //    // This is actually an internal error. It should have been checked earlier.

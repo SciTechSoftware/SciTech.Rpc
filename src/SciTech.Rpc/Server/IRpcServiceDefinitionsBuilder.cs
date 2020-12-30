@@ -41,6 +41,11 @@ namespace SciTech.Rpc.Server
 
         bool IsFrozen { get; }
 
+        /// <summary>
+        /// Freezes the provider to prevent additional services from being registered. Normally
+        /// called by <see cref="IRpcServer"/> implmentations that do not support additional
+        /// services after the server has been started.
+        /// </summary>
         void Freeze();
 
         IImmutableList<Type> GetRegisteredServiceTypes();

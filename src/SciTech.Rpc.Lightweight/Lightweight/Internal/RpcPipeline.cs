@@ -149,8 +149,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             var waitTask = writerMutex.WaitAsync();
             if (waitTask.Status == TaskStatus.RanToCompletion )
             {
-                FinalizeWrite(this, frameWriter);
-                return default;
+                return FinalizeWrite(this, frameWriter);
             }
             else
             {

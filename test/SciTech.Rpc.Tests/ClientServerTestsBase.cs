@@ -18,6 +18,7 @@ using SciTech.Rpc.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Collections.Immutable;
+using Microsoft.Extensions.Logging;
 
 #if PLAT_NET_GRPC
 using SciTech.Rpc.NetGrpc.Server.Internal;
@@ -37,6 +38,7 @@ namespace SciTech.Rpc.Tests
         LightweightInproc,
         LightweightTcp,
         LightweightSslTcp,
+        LightweightNegotiateTcp,
         LightweightNamedPipe,
         Grpc,
         NetGrpc
@@ -108,14 +110,15 @@ namespace SciTech.Rpc.Tests
             configServerOptions?.Invoke(serverOptions);
             configClientOptions?.Invoke(clientOptions);
 
+            IServiceProvider services = GetServiceProvider(configureServices);
+
             switch (this.ConnectionType)
             {
                 case RpcConnectionType.LightweightTcp:
                 case RpcConnectionType.LightweightSslTcp:
                     {
-                        IServiceProvider services = GetServiceProvider(configureServices);
-
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions, 
+                            logger: services.GetService<ILogger<LightweightRpcServer>>());
 
                         SslServerOptions sslServerOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)
@@ -141,9 +144,8 @@ namespace SciTech.Rpc.Tests
                     }
                 case RpcConnectionType.LightweightNamedPipe:
                     {
-                        IServiceProvider services = GetServiceProvider(configureServices);
-
-                        var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions);
+                        var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions,
+                            logger: services.GetService<ILogger<LightweightRpcServer>>() );
                         server.AddEndPoint(new NamedPipeRpcEndPoint("testpipe"));
 
                         var connection = new NamedPipeRpcConnection(
@@ -158,8 +160,8 @@ namespace SciTech.Rpc.Tests
                         Pipe requestPipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.ThreadPool));
                         Pipe responsePipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
 
-                        IServiceProvider services = GetServiceProvider(configureServices);
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions);
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions,
+                            logger: services.GetService<ILogger<LightweightRpcServer>>());
                         host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                         var connection = new InprocRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
@@ -168,7 +170,6 @@ namespace SciTech.Rpc.Tests
                     }
                 case RpcConnectionType.Grpc:
                     {
-                        IServiceProvider services = GetServiceProvider(configureServices);
                         var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
@@ -211,16 +212,38 @@ namespace SciTech.Rpc.Tests
         private static IServiceProvider GetServiceProvider(Action<IServiceCollection> configureServices)
         {
             IServiceProvider services = null;
+            var serviceBuilder = new ServiceCollection();
+
+            serviceBuilder.AddLogging();
+            var loggingBuilder = new LoggingBuilder(serviceBuilder);
+
+            ConfigureLogging(loggingBuilder);
+
             if (configureServices != null)
             {
-                var serviceBuilder = new ServiceCollection();
                 configureServices(serviceBuilder);
-                services = serviceBuilder.BuildServiceProvider();
             }
+
+            services = serviceBuilder.BuildServiceProvider();
 
             return services;
         }
 
+        private static void ConfigureLogging(ILoggingBuilder loggingBuilder)
+        {
+            loggingBuilder.AddDebug();
+            loggingBuilder.AddSimpleConsole(o => o.SingleLine = true);
+        }
+
+        private class LoggingBuilder : ILoggingBuilder
+        {
+            internal LoggingBuilder(IServiceCollection services)
+            {
+                this.Services = services;
+            }
+
+            public IServiceCollection Services { get; }
+        }
 
 #if PLAT_NET_GRPC
         private static IRpcServerHost CreateNetGrpcServer(
@@ -242,6 +265,7 @@ namespace SciTech.Rpc.Tests
                         listenOptions.Protocols = HttpProtocols.Http2;
                     });
                 })
+                .ConfigureLogging(b=>ConfigureLogging(b))
                 .ConfigureServices(s =>
                 {
                     s.AddSingleton(serviceDefinitionsProvider ?? new RpcServiceDefinitionsBuilder());

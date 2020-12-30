@@ -32,7 +32,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var serializer = new ProtobufRpcSerializer();
             var serviceImpl = new TestBlockingSimpleServiceImpl();
-            var hostMock = new Mock<IRpcServerImpl>();
+            var hostMock = new Mock<IRpcServerCore>();
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>();
             serviceImplProviderMock.Setup(p => p.GetActivatedService<ISimpleService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<ISimpleService>(serviceImpl, false));
 

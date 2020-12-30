@@ -69,11 +69,11 @@ namespace SciTech.Rpc.Server
             this.isFrozen = true;
         }
 
-        public RpcServiceInfo? GetRegisteredServiceInfo(Type type)
+        public RpcServiceInfo? GetRegisteredServiceInfo(Type serviceType)
         {
-            if( this.registeredServiceTypes.TryGetValue( type, out var registration ))
+            if( this.registeredServiceTypes.TryGetValue( serviceType, out var registration ))
             {
-                return RpcBuilderUtil.GetServiceInfoFromType(type, registration.ImplementationType);
+                return RpcBuilderUtil.GetServiceInfoFromType(serviceType, registration.ImplementationType);
             }
 
             return null;
@@ -85,7 +85,7 @@ namespace SciTech.Rpc.Server
             {
                 if (this.registeredServicesList == null)
                 {
-                    this.registeredServicesList = this.registeredServices.Values.AsImmutableArrayList();
+                    this.registeredServicesList = this.registeredServices.Values.ToImmutableArrayList();
                 }
 
                 return this.registeredServicesList;

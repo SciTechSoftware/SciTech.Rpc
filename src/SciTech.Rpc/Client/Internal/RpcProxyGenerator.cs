@@ -53,7 +53,7 @@ namespace SciTech.Rpc.Client.Internal
         {
             lock (this.syncRoot)
             {
-                var serviceInterfaces = this.GetAllServices<TService>(implementedServices, knownServiceTypes);
+                var serviceInterfaces = GetAllServices<TService>(implementedServices, knownServiceTypes);
                 var key = new HashSetKey<Type>(serviceInterfaces.Select(s => s.Type));
 
                 // If a proxy with the same set of service interfaces has been generated before
@@ -107,7 +107,7 @@ namespace SciTech.Rpc.Client.Internal
         /// <typeparam name="TService"></typeparam>
         /// <param name="implementedServices"></param>
         /// <returns></returns>
-        private List<RpcServiceInfo> GetAllServices<TService>(
+        private static List<RpcServiceInfo> GetAllServices<TService>(
             IReadOnlyCollection<string>? implementedServices, 
             IReadOnlyDictionary<string, ImmutableArray<Type>>? knownServiceTypes)
         {

@@ -15,7 +15,7 @@ using System.Linq;
 namespace SciTech.Rpc
 {
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Event | AttributeTargets.Property)]
-    public class RpcOperationAttribute : Attribute
+    public sealed class RpcOperationAttribute : Attribute
     {
         /// <summary>
         /// Indicates whether it is allowed to execute the operation inline, e.g. in the directly on the communication 

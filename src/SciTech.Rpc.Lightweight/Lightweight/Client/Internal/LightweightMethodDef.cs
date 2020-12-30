@@ -19,7 +19,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 {
     public abstract class LightweightMethodDef : RpcProxyMethod
     {
-        public LightweightMethodDef(
+        protected LightweightMethodDef(
             RpcMethodType methodType,
             string operationName,
             IRpcSerializer? serializerOverride,

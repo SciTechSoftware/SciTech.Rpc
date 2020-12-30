@@ -30,7 +30,7 @@ namespace SciTech.Rpc.Lightweight.Server
         public abstract RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId);
 
         protected internal abstract ILightweightRpcListener CreateListener(
-            IRpcConnectionHandler discoveryHandler,
+            IRpcConnectionHandler connectionHandler,
             int maxRequestSize, int maxResponseSize);
     }
 }

@@ -15,6 +15,11 @@ This package contains a Protobuf serializer (SciTech.Rpc.Serialization.ProtobufS
     </Description>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+  </PropertyGroup>  
+
   <ItemGroup>
     <Compile Include="..\SciTech.Core\System\Diagnostics\CodeAnalysis\NullableAttributes.cs" Link="System\Diagnostics\CodeAnalysis\NullableAttributes.cs" />
   </ItemGroup>

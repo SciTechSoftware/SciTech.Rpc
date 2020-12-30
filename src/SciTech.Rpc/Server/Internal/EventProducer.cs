@@ -102,7 +102,7 @@ namespace SciTech.Rpc.Server.Internal
 
         internal Task Run(TService service)
         {
-            this.runTask = this.RunImpl(service);
+            this.runTask = this.RunCore(service);
 
             return this.runTask;
         }
@@ -113,6 +113,6 @@ namespace SciTech.Rpc.Server.Internal
             return this.runTask ?? Task.CompletedTask;
         }
 
-        protected abstract Task RunImpl(TService service);
+        protected abstract Task RunCore(TService service);
     }
 }

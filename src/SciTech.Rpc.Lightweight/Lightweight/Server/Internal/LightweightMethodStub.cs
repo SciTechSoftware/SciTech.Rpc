@@ -24,7 +24,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
-    internal class LightweightCallContext : IRpcCallContextWithCancellation
+    internal class LightweightCallContext : IRpcCallContext
     {
         private readonly IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers;
 
@@ -212,7 +212,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             var responseTask = this.StreamHandler(request, serviceProvider, responseWriter, context);
 
-            return this.HandleStreamResponse(responseTask, responseWriter);
+            return HandleStreamResponse(responseTask, responseWriter);
         }
 
         private static async Task AwaitValueTaskAsTask(ValueTask valueTask)
@@ -280,7 +280,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             }
         }
 
-        private async Task HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TResponse> responseWriter)
+        private static async Task HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TResponse> responseWriter)
         {
             //try
             //{

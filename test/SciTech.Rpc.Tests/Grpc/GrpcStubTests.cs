@@ -282,7 +282,7 @@ namespace SciTech.Rpc.Tests.Grpc
         {
             var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufRpcSerializer() });
 
-            var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
+            var hostMock = new Mock<IRpcServerCore>(MockBehavior.Strict);
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
             var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);

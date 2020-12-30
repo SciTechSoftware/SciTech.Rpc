@@ -21,7 +21,7 @@ namespace SciTech.Rpc.Server.Internal
     /// Extends the <see cref="IRpcServer"/> with a property to retrieve 
     /// the <see cref="IRpcServiceActivator"/> associated with <see cref="IRpcServer.ServicePublisher"/>.
     /// </summary>
-    public interface IRpcServerImpl : IRpcServer
+    public interface IRpcServerCore : IRpcServer
     {
         ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors { get; }
 

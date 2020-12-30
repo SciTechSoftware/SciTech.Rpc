@@ -32,7 +32,7 @@ namespace SciTech.Rpc.Grpc.Client
         {
             this.credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));
             this.options = options?.AsImmutable();
-            this.channelOptions = channelOptions?.AsImmutableArrayList();
+            this.channelOptions = channelOptions?.ToImmutableArrayList();
         }
 
         public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)

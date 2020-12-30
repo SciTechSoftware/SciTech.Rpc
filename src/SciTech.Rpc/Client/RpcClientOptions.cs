@@ -95,9 +95,11 @@ namespace SciTech.Rpc.Client
         private List<RpcClientCallInterceptor>? interceptors;
 
         private List<Type>? knownServiceTypes;
-        
-        public RpcClientOptions(IOptions<RpcClientOptions> options )
+
+        public RpcClientOptions(IOptions<RpcClientOptions> options)
         {
+            if (options is null) throw new ArgumentNullException(nameof(options));
+
             var o = options.Value;
 
             this.CallTimeout = o.CallTimeout;
@@ -211,6 +213,8 @@ namespace SciTech.Rpc.Client
 
         public void AddAssemblyServiceTypes(Assembly servicesAssembly)
         {
+            if (servicesAssembly is null) throw new ArgumentNullException(nameof(servicesAssembly));
+
             foreach (var type in servicesAssembly.ExportedTypes)
             {
                 if (type.IsInterface)

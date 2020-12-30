@@ -26,6 +26,7 @@ namespace SciTech.Rpc
         IEnumerable<RegisteredServiceType> GetServiceTypes(RpcServiceDefinitionSide definitionType);
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1815: Override equals and operator equals on value types")]
     public struct RegisteredServiceType
     {
         internal RegisteredServiceType(Type serviceType, Type? implementationType, IRpcServerOptions? serverOptions)

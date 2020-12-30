@@ -154,7 +154,7 @@ namespace SciTech.Rpc
         }
     }
 
-    public sealed class ServiceRegistrationEventArgs
+    public sealed class ServiceRegistrationEventArgs : EventArgs
     {
         public ServiceRegistrationEventArgs(IServiceCollection services, Type serviceType)
         {

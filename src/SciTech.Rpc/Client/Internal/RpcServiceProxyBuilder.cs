@@ -32,11 +32,6 @@ namespace SciTech.Rpc.Client.Internal
         where TRpcProxyBase : RpcProxyBase<TMethodDef>
         where TMethodDef : RpcProxyMethod
     {
-        //private static readonly Expression NullConverterExpression = Expression.Constant(null, typeof(Func<IRpcService, object, object>));
-        private static readonly Expression NullFaultHandlerExpression = Expression.Constant(null, typeof(RpcClientFaultHandler));
-
-        private static readonly Expression NullSerializerExpression = Expression.Constant(null, typeof(IRpcSerializer));
-
         private readonly Dictionary<string, int> definedProxyTypes;
 
         private readonly Dictionary<string, MethodDefIndex> eventDataFields = new Dictionary<string, MethodDefIndex>();

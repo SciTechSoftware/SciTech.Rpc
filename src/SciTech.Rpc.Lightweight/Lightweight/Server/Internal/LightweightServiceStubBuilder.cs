@@ -76,7 +76,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         protected override void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContextWithCancellation, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             ILightweightMethodBinder binder)
         {
@@ -87,7 +87,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             binder.AddMethod(methodStub);
         }
 
-        protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddGenericAsyncMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
@@ -106,7 +106,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             binder.AddMethod(methodStub);
         }
 
-        protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddGenericBlockingMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
@@ -124,7 +124,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             binder.AddMethod(methodStub);
         }
 
-        protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
+        protected override void AddGenericVoidAsyncMethodCore<TRequest>(
             Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -140,7 +140,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             binder.AddMethod(methodStub);
         }
 
-        protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
+        protected override void AddGenericVoidBlockingMethodCore<TRequest>(
             Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -158,7 +158,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 
 
-        protected override void AddServerStreamingMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddServerStreamingMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,

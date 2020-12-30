@@ -24,7 +24,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 {
     internal interface IGrpcServiceStubBuilder
     {
-        GrpcCore.ServerServiceDefinition Build(IRpcServerImpl server);
+        GrpcCore.ServerServiceDefinition Build(IRpcServerCore server);
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
         {
         }
 
-        public GrpcCore.ServerServiceDefinition Build(IRpcServerImpl server)
+        public GrpcCore.ServerServiceDefinition Build(IRpcServerCore server)
         {
             var grpcServiceBuilder = new GrpcCore.ServerServiceDefinition.Builder();
             var binder = new GrpcMethodBinder(grpcServiceBuilder);
@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 
         protected override void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContextWithCancellation, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             IGrpcMethodBinder binder)
         {
@@ -83,7 +83,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddGenericAsyncMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
@@ -106,7 +106,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddGenericBlockingMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
@@ -131,7 +131,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
+        protected override void AddGenericVoidAsyncMethodCore<TRequest>(
             Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -155,7 +155,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
+        protected override void AddGenericVoidBlockingMethodCore<TRequest>(
             Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -179,7 +179,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddServerStreamingMethodImpl<TRequest, TReturn, TResponseReturn>(
+        protected override void AddServerStreamingMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,

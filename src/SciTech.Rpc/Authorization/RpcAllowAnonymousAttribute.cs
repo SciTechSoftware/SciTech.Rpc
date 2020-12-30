@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Authorization
         | AttributeTargets.Interface
         | AttributeTargets.Property
         | AttributeTargets.Event)]
-    public class RpcAllowAnonymousAttribute : Attribute
+    public sealed class RpcAllowAnonymousAttribute : Attribute
     {
         public RpcAllowAnonymousAttribute()
         {

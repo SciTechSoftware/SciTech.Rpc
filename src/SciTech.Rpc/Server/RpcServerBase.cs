@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using SciTech.Collections;
 using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -22,9 +23,8 @@ using System.Linq;
 
 namespace SciTech.Rpc.Server
 {
-    public abstract class RpcServerBase : IRpcServerImpl
+    public abstract class RpcServerBase : IRpcServerCore
     {
-        private readonly ILogger<RpcServerBase>? logger;
 
         private volatile IRpcSerializer? serializer;
 
@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Server
             this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
             this.ServiceActivator = serviceActivator ?? throw new ArgumentNullException(nameof(serviceActivator));
             this.ServiceDefinitionsProvider = definitionsProvider ?? throw new ArgumentNullException(nameof(definitionsProvider));
-            this.logger = logger;
+            this.Logger = logger ?? RpcLogger.CreateLogger<RpcServerBase>();
 
             if (options != null)
             {
@@ -65,8 +65,8 @@ namespace SciTech.Rpc.Server
                 this.AllowDiscovery = options.AllowDiscovery ?? true;
                 this.AllowAutoPublish = options.AllowAutoPublish ?? false;
 
-                this.CallInterceptors = options.Interceptors.AsImmutableArrayList();
-                this.ExceptionConverters = options.ExceptionConverters.AsImmutableArrayList();
+                this.CallInterceptors = options.Interceptors.ToImmutableArrayList();
+                this.ExceptionConverters = options.ExceptionConverters.ToImmutableArrayList();
             }
 
             if (this.ExceptionConverters.Count > 0)
@@ -77,6 +77,8 @@ namespace SciTech.Rpc.Server
                 this.CustomFaultHandler = RpcServerFaultHandler.Default;
             }
         }
+
+        protected ILogger<RpcServerBase> Logger { get; }
 
 
         public bool AllowAutoPublish { get; }
@@ -117,7 +119,7 @@ namespace SciTech.Rpc.Server
 
         protected object SyncRoot { get; } = new object();
 
-        IServiceProvider? IRpcServerImpl.ServiceProvider => this.ServiceProvider;
+        IServiceProvider? IRpcServerCore.ServiceProvider => this.ServiceProvider;
 
 
         public void Dispose()
@@ -127,7 +129,7 @@ namespace SciTech.Rpc.Server
             GC.SuppressFinalize(this);
         }
 
-        void IRpcServerImpl.HandleCallException(Exception exception, IRpcSerializer? serializer)
+        void IRpcServerCore.HandleCallException(Exception exception, IRpcSerializer? serializer)
         {
             this.HandleCallException(exception, serializer);
         }

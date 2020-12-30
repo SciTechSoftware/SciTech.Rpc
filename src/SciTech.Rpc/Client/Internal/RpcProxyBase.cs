@@ -56,6 +56,7 @@ namespace SciTech.Rpc.Client.Internal
         public SynchronizationContext? SyncContext { get; }
     }
 
+    [SuppressMessage("Naming", "CA1708: Identifiers should differ by more than case", Justification = "Accessed by generated code")]
     public abstract class RpcProxyBase
     {
         protected RpcProxyBase(RpcProxyArgs proxyArgs)
@@ -149,6 +150,7 @@ namespace SciTech.Rpc.Client.Internal
 
         internal const string RemoveEventHandlerAsyncName = nameof(RemoveEventHandlerAsync);
 
+        [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
         protected internal readonly TMethodDef[] proxyMethods;
 
         // private static readonly ILog Logger = LogProvider.For<RpcProxyBase<TMethodDef>>();
@@ -230,7 +232,7 @@ namespace SciTech.Rpc.Client.Internal
                     "SciTech.Rpc.RpcService", "QueryServices");
             }
 
-            var servicesResponse = await this.CallUnaryMethodImplAsync<RpcObjectRequest, RpcServicesQueryResponse>(
+            var servicesResponse = await this.CallUnaryMethodCoreAsync<RpcObjectRequest, RpcServicesQueryResponse>(
                 this.queryServicesMethodDef,
                 new RpcObjectRequest(this.objectId),
                 CancellationToken.None).ContextFree();
@@ -339,11 +341,11 @@ namespace SciTech.Rpc.Client.Internal
             TMethodDef method,
             TRequest request,
             Func<IRpcService, object?, object?> responseConverter,
-            [EnumeratorCancellation]CancellationToken ct)
+            [EnumeratorCancellation]CancellationToken cancellationToken)
             where TRequest : class
             where TResponseReturn : class
         {
-            using var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, ct).ContextFree();
+            using var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
 
             var sequence = streamingCall.ResponseStream;
             while (true)
@@ -371,7 +373,7 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken ct)
+        protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
@@ -387,7 +389,7 @@ namespace SciTech.Rpc.Client.Internal
             RpcResponse<TResponseType> response;
             try
             {
-                response = this.CallUnaryMethodImpl<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken);
+                response = this.CallUnaryMethodCore<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
@@ -402,7 +404,7 @@ namespace SciTech.Rpc.Client.Internal
             TMethodDef methodDef,
             TRequest request,
             Func<IRpcService, object?, object?> responseConverter,
-            CancellationToken ct)
+            CancellationToken cancellationToken)
             where TRequest : class
         {
             if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
@@ -410,7 +412,7 @@ namespace SciTech.Rpc.Client.Internal
             RpcResponse<TResponseType> response;
             try
             {
-                response = await this.CallUnaryMethodImplAsync<TRequest, RpcResponse<TResponseType>>(methodDef, request, ct).ContextFree();
+                response = await this.CallUnaryMethodCoreAsync<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken).ContextFree();
             }
             catch (Exception e)
             {
@@ -422,11 +424,11 @@ namespace SciTech.Rpc.Client.Internal
         }
 
 
-        protected abstract TResponse CallUnaryMethodImpl<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
+        protected abstract TResponse CallUnaryMethodCore<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
-        protected abstract Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
+        protected abstract Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
@@ -439,7 +441,7 @@ namespace SciTech.Rpc.Client.Internal
 
             try
             {
-                this.CallUnaryMethodImpl<TRequest, RpcResponse>(methodDef, request, cancellationToken);
+                this.CallUnaryMethodCore<TRequest, RpcResponse>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
@@ -448,14 +450,14 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken ct)
+        protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
         {
             if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
 
             try
             {
-                await this.CallUnaryMethodImplAsync<TRequest, RpcResponse>(methodDef, request, ct).ContextFree();
+                await this.CallUnaryMethodCoreAsync<TRequest, RpcResponse>(methodDef, request, cancellationToken).ContextFree();
             }
             catch (Exception e)
             {
@@ -847,7 +849,7 @@ namespace SciTech.Rpc.Client.Internal
 
             internal bool isRemoved;
 
-            public EventData(int eventMethodIndex)
+            protected EventData(int eventMethodIndex)
             {
                 this.eventMethodIndex = eventMethodIndex;
             }

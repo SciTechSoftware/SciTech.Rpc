@@ -22,7 +22,7 @@ namespace SciTech.Rpc
     }
 
     [AttributeUsage(AttributeTargets.Interface)]
-    public class RpcServiceAttribute : Attribute
+    public sealed class RpcServiceAttribute : Attribute
     {
         private RpcServiceDefinitionSide? serviceDefinitionType;
 

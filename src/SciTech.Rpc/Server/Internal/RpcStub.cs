@@ -33,18 +33,10 @@ namespace SciTech.Rpc.Server.Internal
     }
 
 
-    /// <summary>
-    /// Cancellation support is currently only used internally.
-    /// </summary>
-    public interface IRpcCallContextWithCancellation : IRpcCallContext
-    {
-
-    }
-
 #pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcStub
     {
-        protected RpcStub(IRpcServerImpl server, ImmutableRpcServerOptions options)
+        protected RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options)
         {
             this.Server = server;
             this.ServicePublisher = this.Server.ServicePublisher;
@@ -66,7 +58,7 @@ namespace SciTech.Rpc.Server.Internal
 
         public IRpcSerializer Serializer { get; }
 
-        public IRpcServerImpl Server { get; }
+        public IRpcServerCore Server { get; }
 
         public IRpcServicePublisher ServicePublisher { get; }
 
@@ -148,7 +140,7 @@ namespace SciTech.Rpc.Server.Internal
     {
         private readonly IRpcServiceActivator serviceActivator;
 
-        public RpcStub(IRpcServerImpl server, ImmutableRpcServerOptions options) : base(server, options)
+        public RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options) : base(server, options)
         {
             this.serviceActivator = server.ServiceActivator;
         }
@@ -200,7 +192,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse<TResponse>> CallAsyncMethod<TRequest, TResult, TResponse>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             Func<TService, TRequest, CancellationToken, Task<TResult>> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,
@@ -208,7 +200,7 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
                 try
                 {
@@ -234,7 +226,7 @@ namespace SciTech.Rpc.Server.Internal
 
         public ValueTask<RpcResponse<TResponse>> CallBlockingMethod<TRequest, TResult, TResponse>(
             TRequest request,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             Func<TService, TRequest, CancellationToken, TResult> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,
@@ -283,7 +275,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask CallServerStreamingMethod<TRequest, TResult, TResponse>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             IRpcAsyncStreamWriter<TResponse> responseWriter,
             Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TResult>> implCaller,
             Func<TResult, TResponse>? responseConverter,
@@ -408,10 +400,10 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse> CallVoidAsyncMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             Func<TService, TRequest, CancellationToken, Task> implCaller) where TRequest : IObjectRequest
         {
-            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
             try
             {
@@ -431,14 +423,14 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse> CallVoidAsyncMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             Func<TService, TRequest, CancellationToken, Task> implCaller,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer) where TRequest : IObjectRequest
         {
             try
             {
-                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
                 try
                 {
@@ -463,11 +455,11 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse> CallVoidBlockingMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             Action<TService, TRequest, CancellationToken> implCaller)
             where TRequest : IObjectRequest
         {
-            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+            var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
             try
             {
@@ -486,7 +478,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse> CallVoidBlockingMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             Action<TService, TRequest, CancellationToken> implCaller,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer)
@@ -494,7 +486,7 @@ namespace SciTech.Rpc.Server.Internal
         {
             try
             {
-                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context);
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
 
                 try
                 {
@@ -612,33 +604,6 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private static RpcFaultException? TryConvertToFault(
-            Exception e, IReadOnlyList<IRpcServerExceptionConverter> converters, 
-            RpcServerFaultHandler faultHandler)
-        {
-            foreach (var converter in converters)
-            {
-                // We have at least one declared exception handlers
-                var convertedFault = converter.CreateFault(e);
-
-                if (convertedFault != null ) // && faultHandler.IsFaultDeclared(convertedFault.FaultCode))
-                {
-                    return convertedFault;
-                    //byte[]? detailsData = null;
-                    //if (convertedFault.Details != null)
-                    //{
-                    //    detailsData = serializer.Serialize(convertedFault.Details, convertedFault.Details.GetType());
-                    //}
-
-                    //throw new RpcFaultException(converter.FaultCode, convertedFault.Message, convertedFault.Details);
-                    ////rpcError = new RpcError { ErrorType = WellKnownRpcErrors.Fault, FaultCode = converter.FaultCode, Message = convertedFault.Message, FaultDetails = detailsData };
-                    //// break;
-                }
-            }
-
-            return null;
-        }
-
         private void CheckPublished(RpcObjectId objectId)
         {
             if (!this.serviceActivator.CanGetActivatedService<TService>(objectId))
@@ -661,7 +626,7 @@ namespace SciTech.Rpc.Server.Internal
         /// <param name="context"></param>
         /// <returns>A tuple containing the service implementation instance, and an array of disposables that must 
         /// be disposed when the call is finished.</returns>
-        private ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcCallContextWithCancellation context)
+        private ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcCallContext context)
         {
             async ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> AwaitPendingInterceptors(
                 ActivatedService<TService> service,
@@ -724,7 +689,7 @@ namespace SciTech.Rpc.Server.Internal
 
         private RpcResponse<TResponse> DoCall<TRequest, TResult, TResponse>(
             TRequest request,
-            IRpcCallContextWithCancellation context,
+            IRpcCallContext context,
             Func<TService, TRequest, CancellationToken, TResult> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,

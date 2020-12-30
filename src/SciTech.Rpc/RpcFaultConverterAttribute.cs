@@ -4,7 +4,7 @@ using System;
 namespace SciTech.Rpc
 {
     [AttributeUsage(AttributeTargets.Interface | AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = true)]
-    public class RpcFaultConverterAttribute : Attribute
+    public sealed class RpcFaultConverterAttribute : Attribute
     {
         public RpcFaultConverterAttribute(Type converterType)
         {
@@ -45,7 +45,7 @@ namespace SciTech.Rpc
         /// <summary>
         /// Gets or sets the <see cref="RpcFaultException.FaultCode"/>.
         /// </summary>
-        public string? FaultCode { get; set; }
+        public string? FaultCode { get; }
 
         public bool IncludeSubTypes { get; set; } = true;
         //public RpcFaultAttribute(Type faultType)

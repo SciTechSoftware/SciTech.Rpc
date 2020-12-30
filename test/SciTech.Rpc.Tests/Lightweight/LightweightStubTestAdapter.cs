@@ -17,7 +17,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             this.serializer = serializer;
         }
 
-        public IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerImpl rpcServer) where TService : class
+        public IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerCore rpcServer) where TService : class
         {
             var builder = new LightweightServiceStubBuilder<TService>(null);
 

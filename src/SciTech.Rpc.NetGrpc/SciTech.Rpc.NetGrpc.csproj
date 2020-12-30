@@ -23,6 +23,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
   </PropertyGroup>
 
   <ItemGroup>

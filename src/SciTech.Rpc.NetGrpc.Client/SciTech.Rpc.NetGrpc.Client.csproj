@@ -19,6 +19,7 @@ This package contains the client communication layer for the fully managed ASP.N
   <PropertyGroup>
     <DefineConstants>$(DefineConstants);FEATURE_NET_GRPC</DefineConstants>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
   </PropertyGroup>
 
   <ItemGroup>

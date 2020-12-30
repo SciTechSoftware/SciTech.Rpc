@@ -104,27 +104,27 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 #pragma warning restore CA2000 // Dispose objects before losing scope
         }
 
-        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod method, TRequest request, CancellationToken cancellationToken)
+        protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            if (method is null) throw new ArgumentNullException(nameof(method));
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
 
             DateTime? deadline = this.GetCallDeadline();
             var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
 
-            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(method);
+            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
 
             var response = this.grpcInvoker.BlockingUnaryCall(typedMethod, null, callOptions, request);
             return response;
         }
 
-        protected override async Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(GrpcProxyMethod method, TRequest request, CancellationToken cancellationToken)
+        protected override async Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            if (method is null) throw new ArgumentNullException(nameof(method));
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
 
             DateTime? deadline = this.GetCallDeadline();
             var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
 
-            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(method);
+            var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
             using (var asyncCall = this.grpcInvoker.AsyncUnaryCall(typedMethod, null, callOptions, request))
             {
                 var response = await asyncCall.ResponseAsync.ContextFree();
@@ -138,9 +138,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             return CreateMethodDef<TRequest, TResponse>(RpcMethodType.Unary, serviceName, operationName, this.Serializer, null);
         }
 
-        protected override void HandleCallException(GrpcProxyMethod method, Exception e)
+        protected override void HandleCallException(GrpcProxyMethod methodDef, Exception e)
         {
-            Contract.Requires(method != null);
+            Contract.Requires(methodDef != null);
             Contract.Requires(e != null);
 
             if (e is GrpcCore.RpcException rpcException)
@@ -156,7 +156,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     case GrpcCore.StatusCode.DeadlineExceeded:
                         throw new TimeoutException(e.Message, e);
                     default:
-                        this.HandleErrorException(method!, e, rpcException);
+                        this.HandleErrorException(methodDef!, e, rpcException);
                         break;
                 }                
             }
@@ -305,7 +305,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         internal readonly string ServiceName;
 
-        public GrpcProxyMethod(
+        protected GrpcProxyMethod(
             GrpcCore.MethodType methodType,
             string serviceName,
             string methodName,

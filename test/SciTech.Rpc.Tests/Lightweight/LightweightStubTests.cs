@@ -230,7 +230,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider = CreateDefinitionsProviderMock();
 
-            var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
+            var hostMock = new Mock<IRpcServerCore>(MockBehavior.Strict);
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>(MockBehavior.Strict);
@@ -251,7 +251,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             var builder = new LightweightServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = DefaultSerializer });
 
-            var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
+            var hostMock = new Mock<IRpcServerCore>(MockBehavior.Strict);
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisher);
             hostMock.Setup(h => h.ServiceActivator).Returns(servicePublisher);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(servicePublisher.DefinitionsProvider);

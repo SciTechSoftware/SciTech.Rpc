@@ -22,7 +22,7 @@ namespace SciTech.Rpc
     /// and the message provided to <see cref="CreateException(string)"/>.
     /// </para>
     /// <para>
-    /// <b>NOTE! </b>The <see cref="IRpcServerExceptionConverter.CreateFault(Exception)"/> implementation will use
+    /// <b>NOTE! </b>The <see cref="IRpcServerExceptionConverter.TryCreateFault(Exception)"/> implementation will use
     /// the message from the exception. Make sure that this message doesn't include any sensitive information.
     /// </para>
     /// </summary>
@@ -53,7 +53,7 @@ namespace SciTech.Rpc
             return (TException)this.exceptionCtor.Invoke(new object[] { message });
         }
 
-        public override RpcFaultException? CreateFault(TException exception)
+        public override RpcFaultException CreateFault(TException exception)
         {
             if (exception is null) throw new ArgumentNullException(nameof(exception));
 
@@ -108,9 +108,9 @@ namespace SciTech.Rpc
 
         public abstract TException CreateException(string message, TFault details);
 
-        public abstract RpcFaultException? CreateFault(TException exception);
+        public abstract RpcFaultException CreateFault(TException exception);
 
-        RpcFaultException? IRpcServerExceptionConverter.CreateFault(Exception exception)
+        public RpcFaultException? TryCreateFault(Exception exception)
         {
             if (exception is TException typedException)
             {
@@ -123,7 +123,7 @@ namespace SciTech.Rpc
             return null;
         }
 
-        Exception? IRpcClientExceptionConverter.TryCreateException(RpcFaultException faultException)
+        public Exception? TryCreateException(RpcFaultException faultException)
         {
             if (faultException is RpcFaultException<TFault> typedException)
             {
@@ -170,9 +170,9 @@ namespace SciTech.Rpc
 
         public abstract TException CreateException(string message);
 
-        public abstract RpcFaultException? CreateFault(TException exception);
+        public abstract RpcFaultException CreateFault(TException exception);
 
-        RpcFaultException? IRpcServerExceptionConverter.CreateFault(Exception exception)
+        public RpcFaultException? TryCreateFault(Exception exception)
         {
             if (exception is TException typedException)
             {
@@ -185,8 +185,10 @@ namespace SciTech.Rpc
             return null;
         }
 
-        Exception? IRpcClientExceptionConverter.TryCreateException(RpcFaultException faultException)
+        public Exception? TryCreateException(RpcFaultException faultException)
         {
+            if (faultException is null) throw new ArgumentNullException(nameof(faultException));
+
             if (faultException.FaultCode == this.FaultCode)
             {
                 return this.CreateException(faultException.Message);

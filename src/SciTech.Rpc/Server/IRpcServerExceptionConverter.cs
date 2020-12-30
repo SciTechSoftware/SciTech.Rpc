@@ -8,6 +8,6 @@ namespace SciTech.Rpc.Server
 
         Type? FaultDetailsType { get; }
 
-        RpcFaultException? CreateFault(Exception exception);
+        RpcFaultException? TryCreateFault(Exception exception);
     }
 }

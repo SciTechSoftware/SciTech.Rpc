@@ -15,8 +15,12 @@ From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy
 This package contains the core SciTech.Rpc implementation and should normally not be added separately.
 Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.NetGrpc.Client, SciTech.Rpc.Lightweight.
     </Description>
-    <EnableNETAnalyzers>true</EnableNETAnalyzers>
   </PropertyGroup>
+
+<PropertyGroup>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+</PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="Client\RpcProxyDefinitionsBuilder.cs" />

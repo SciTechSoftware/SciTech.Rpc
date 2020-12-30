@@ -25,6 +25,7 @@ namespace SciTech.Rpc
     /// a custom exception converter using <see cref="IRpcClientExceptionConverter"/> and <see cref="IRpcServerExceptionConverter"/>.
     /// </remarks>
     /// <example>
+    /// <code lang="C#">
     /// public class MathFault
     /// {
     ///   // TODO: Add additional details.
@@ -41,13 +42,14 @@ namespace SciTech.Rpc
     /// {
     ///   mathService.Divide(5, 0);
     /// }
-    /// catch (RpcFaultException<MathFault>)
+    /// catch (RpcFaultException&lt;MathFault&gt;)
     /// {
     ///   Console.WriteLine("Math error occurred");
     /// }
+    /// </code>
     /// </example>
     [AttributeUsage(AttributeTargets.Interface | AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = true)]
-    public class RpcFaultAttribute : Attribute
+    public sealed class RpcFaultAttribute : Attribute
     {
         public RpcFaultAttribute(Type faultType)
         {

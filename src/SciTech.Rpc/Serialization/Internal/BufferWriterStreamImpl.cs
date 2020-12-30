@@ -14,7 +14,7 @@ using System.Buffers;
 
 namespace SciTech.Rpc.Serialization.Internal
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should have correct suffix")]
     public sealed class BufferWriterStreamImpl : BufferWriterStream
     {
         public BufferWriterStreamImpl(int chunkSize = 16384, ArrayPool<byte>? arrayPool = null)

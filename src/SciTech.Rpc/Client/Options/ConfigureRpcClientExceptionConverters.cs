@@ -18,7 +18,7 @@ namespace SciTech.Rpc.Client.Options
         public ConfigureRpcClientExceptionConverters(string? name, IEnumerable<IRpcClientExceptionConverter> exceptionConverters)
         {
             this.name = name;
-            this.exceptionConverters = exceptionConverters.AsImmutableArrayList();
+            this.exceptionConverters = exceptionConverters.ToImmutableArrayList();
         }
 
         public void Configure(RpcClientOptions options)

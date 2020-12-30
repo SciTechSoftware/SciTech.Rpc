@@ -20,7 +20,7 @@ namespace SciTech.Rpc.Internal
             return new RpcFaultException<TFault>(message, details);
         }
 
-        public override RpcFaultException? CreateFault(RpcFaultException<TFault> exception)
+        public override RpcFaultException CreateFault(RpcFaultException<TFault> exception)
         {
             if (exception is null) throw new ArgumentNullException(nameof(exception));
 

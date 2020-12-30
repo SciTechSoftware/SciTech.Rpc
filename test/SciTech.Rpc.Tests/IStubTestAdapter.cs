@@ -7,7 +7,7 @@ namespace SciTech.Rpc.Tests
 {
     public interface IStubTestAdapter
     {
-        IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerImpl rpcServer) where TService : class;
+        IReadOnlyList<object> GenerateMethodStubs<TService>(IRpcServerCore rpcServer) where TService : class;
 
         object GetMethodStub(IReadOnlyList<object> stub, string methodName);
 

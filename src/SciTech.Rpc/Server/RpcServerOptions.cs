@@ -100,6 +100,8 @@ namespace SciTech.Rpc.Server
 
         public RpcServerOptions(IOptions<RpcServerOptions> options)
         {
+            if (options is null) throw new ArgumentNullException(nameof(options));
+
             var o = options.Value;
             this.AllowAutoPublish = o.AllowAutoPublish;
             this.AllowDiscovery = o.AllowDiscovery;

@@ -28,6 +28,8 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly SslClientOptions? sslOptions;
 
+        private readonly NegotiateClientOptions? negotiateOptions;
+
         public LightweightConnectionProvider(
             IRpcClientOptions? options = null, 
             LightweightOptions? lightweightOpions = null)
@@ -77,7 +79,8 @@ namespace SciTech.Rpc.Lightweight.Client
                 var proxyGenerator = LightweightProxyGenerator.Default;
 
                 return new TcpRpcConnection(
-                    connectionInfo!, this.sslOptions,
+                    connectionInfo!, 
+                    this.sslOptions, this.negotiateOptions,
                     ImmutableRpcClientOptions.Combine(options, this.options),
                     proxyGenerator,
                     this.lightweightOpions);

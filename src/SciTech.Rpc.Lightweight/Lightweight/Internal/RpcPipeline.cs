@@ -149,20 +149,20 @@ namespace SciTech.Rpc.Lightweight.Internal
             var waitTask = writerMutex.WaitAsync();
             if (waitTask.Status == TaskStatus.RanToCompletion )
             {
-                return FinalizeWrite(this, frameWriter);
+                return FinalizeWriteAsync(this, frameWriter);
             }
             else
             {
-                return AwaitWriterAndFinalize(this, waitTask, frameWriter);
+                return AwaitWriterAndFinalizeAsync(this, waitTask, frameWriter);
             }
 
-            static async ValueTask AwaitWriterAndFinalize(RpcPipeline self, Task writerWaitTask, BufferWriterStream frameWriter)
+            static async ValueTask AwaitWriterAndFinalizeAsync(RpcPipeline self, Task writerWaitTask, BufferWriterStream frameWriter)
             {
                 await writerWaitTask.ContextFree();
-                await FinalizeWrite(self, frameWriter).ContextFree();
+                await FinalizeWriteAsync(self, frameWriter).ContextFree();
             }
 
-            static async ValueTask AwaitWriteAndRelease(RpcPipeline self, ValueTask<FlushResult> flushTask, BufferWriterStream frameWriter)
+            static async ValueTask AwaitWriteAndReleaseAsync(RpcPipeline self, ValueTask<FlushResult> flushTask, BufferWriterStream frameWriter)
             {
                 try
                 {
@@ -174,7 +174,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
             }
 
-            static ValueTask FinalizeWrite(RpcPipeline self, BufferWriterStream frameWriter)
+            static ValueTask FinalizeWriteAsync(RpcPipeline self, BufferWriterStream frameWriter)
             {
                 try
                 {
@@ -194,7 +194,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                     }
                     else
                     {
-                        return AwaitWriteAndRelease(self, flushTask, frameWriter);
+                        return AwaitWriteAndReleaseAsync(self, flushTask, frameWriter);
                     }
                 }
                 catch

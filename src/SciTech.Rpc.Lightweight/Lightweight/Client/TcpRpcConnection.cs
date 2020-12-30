@@ -35,14 +35,26 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly SslClientOptions? sslOptions;
 
-        private volatile SslStream? sslStream;
+        private NegotiateClientOptions? negotiateOptions;
+
+        private volatile AuthenticatedStream? authenticatedStream;
 
         public TcpRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions = null,
-            IRpcClientOptions? options = null,      
+            IRpcClientOptions? options = null,
             LightweightOptions? lightweightOptions = null)
-            : this(connectionInfo, sslOptions, options,
+            : this(connectionInfo, sslOptions, null, options,
+                  LightweightProxyGenerator.Default,
+                  lightweightOptions)
+        {
+        }
+        public TcpRpcConnection(
+            RpcServerConnectionInfo connectionInfo,
+            NegotiateClientOptions? negotiateOptions,
+            IRpcClientOptions? options = null,
+            LightweightOptions? lightweightOptions = null)
+            : this(connectionInfo, null, negotiateOptions, options,
                   LightweightProxyGenerator.Default,
                   lightweightOptions)
         {
@@ -51,6 +63,7 @@ namespace SciTech.Rpc.Lightweight.Client
         internal TcpRpcConnection(
             RpcServerConnectionInfo connectionInfo,
             SslClientOptions? sslOptions,
+            NegotiateClientOptions? negotiateOptions,
             IRpcClientOptions? options,
             LightweightProxyGenerator proxyGenerator,
             LightweightOptions? lightweightOptions)
@@ -68,14 +81,15 @@ namespace SciTech.Rpc.Lightweight.Client
             }
 
             this.sslOptions = sslOptions;
+            this.negotiateOptions = negotiateOptions;
         }
 
 
-        public override bool IsEncrypted => this.sslStream?.IsEncrypted ?? false;
+        public override bool IsEncrypted => this.authenticatedStream?.IsEncrypted ?? false;
 
-        public override bool IsMutuallyAuthenticated => this.sslStream?.IsMutuallyAuthenticated ?? false;
+        public override bool IsMutuallyAuthenticated => this.authenticatedStream?.IsMutuallyAuthenticated ?? false;
 
-        public override bool IsSigned => this.sslStream?.IsSigned ?? false;
+        public override bool IsSigned => this.authenticatedStream?.IsSigned ?? false;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         protected override async Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken)
@@ -84,7 +98,7 @@ namespace SciTech.Rpc.Lightweight.Client
             IDuplexPipe? connection;
 
             var endPoint = this.CreateNetEndPoint();
-            SslStream? sslStream = null;
+            AuthenticatedStream? authenticatedStream = null;
             Stream? workStream = null;
 
             var sendOptions = new PipeOptions(
@@ -98,7 +112,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
             try
             {
-                if (this.sslOptions != null)
+                if (this.sslOptions != null || this.negotiateOptions != null )
                 {
                     Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     try
@@ -122,21 +136,34 @@ namespace SciTech.Rpc.Lightweight.Client
                         workStream = new NetworkStream(socket, true);
                         socket = null;  // Prevent closing, NetworkStream has taken ownership
 
-                        workStream = sslStream = new SslStream(workStream, false,
-                            this.sslOptions.RemoteCertificateValidationCallback,
-                            this.sslOptions.LocalCertificateSelectionCallback,
-                            this.sslOptions.EncryptionPolicy);
+                        if (this.sslOptions != null)
+                        {
+                            var sslStream = new SslStream(workStream, false,
+                                this.sslOptions.RemoteCertificateValidationCallback,
+                                this.sslOptions.LocalCertificateSelectionCallback,
+                                this.sslOptions.EncryptionPolicy);
 
-                        await sslStream.AuthenticateAsClientAsync(sslHost, this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
-                            this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+                            workStream = authenticatedStream = sslStream;
+                            
+                            await sslStream.AuthenticateAsClientAsync(sslHost, this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
+                                this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+                        } else 
+                        {
+                            var negotiateStream = new NegotiateStream(workStream, false);
+                            workStream = authenticatedStream = negotiateStream;
 
-                        connection = StreamConnection.GetDuplex(sslStream, sendOptions, receiveOptions);
+                            await negotiateStream.AuthenticateAsClientAsync(
+                                this.negotiateOptions!.Credential ?? CredentialCache.DefaultNetworkCredentials, 
+                                this.negotiateOptions.TargetName ?? "").ContextFree();
+                        }
+
+                        connection = StreamConnection.GetDuplex(authenticatedStream, sendOptions, receiveOptions);
                         if (!(connection is IDisposable))
                         {
 #pragma warning disable CA2000 // Dispose objects before losing scope
                             // Rather dummy, we need to dispose the stream when pipe is disposed, but
                             // this is not performed by the pipe returned by StreamConnection.
-                            connection = new OwnerDuplexPipe(connection, sslStream);
+                            connection = new OwnerDuplexPipe(connection, authenticatedStream);
 #pragma warning restore CA2000 // Dispose objects before losing scope
                         }
                     }
@@ -144,14 +171,14 @@ namespace SciTech.Rpc.Lightweight.Client
                     {
                         socket?.Dispose();
                     }
-                }
+                } 
                 else
                 {
                     connection = await SocketConnection.ConnectAsync(endPoint, sendOptions, receiveOptions).ContextFree();
                     Debug.Assert(connection is IDisposable);
                 }
 
-                this.sslStream = sslStream;
+                this.authenticatedStream = authenticatedStream;
                 workStream = null;
 
                 return connection;
@@ -166,7 +193,7 @@ namespace SciTech.Rpc.Lightweight.Client
         protected override void OnConnectionResetSynchronized()
         {
             base.OnConnectionResetSynchronized();
-            this.sslStream = null;
+            this.authenticatedStream = null;
         }
 
         private static void SetFastLoopbackOption(Socket socket)

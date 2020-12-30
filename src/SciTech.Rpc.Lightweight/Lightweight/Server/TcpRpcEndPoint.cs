@@ -27,6 +27,27 @@ namespace SciTech.Rpc.Lightweight.Server
     {
         private readonly SslServerOptions? sslOptions;
 
+        private readonly NegotiateServerOptions? negotiateOptions;
+
+        public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, NegotiateServerOptions? negotiateOptions )
+            : this(hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces), negotiateOptions)
+        {
+        }
+
+        public TcpRpcEndPoint(string hostName, string endPointAddress, int port, bool bindToAllInterfaces, NegotiateServerOptions? negotiateOptions )
+            : this(hostName, CreateNetEndPoint(endPointAddress, port, bindToAllInterfaces), negotiateOptions)
+        {
+        }
+
+        public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, NegotiateServerOptions? negotiateOptions )
+        {
+            this.HostName = hostName ?? throw new ArgumentNullException(nameof(hostName));
+            this.DisplayName = hostName;
+            this.EndPoint = endPoint;
+
+            this.negotiateOptions = negotiateOptions;
+        }
+
         public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
             : this( hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces ), sslOptions )
         {
@@ -54,9 +75,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public int Port => this.EndPoint.Port;
 
-        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId hostId)
+        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
         {
-            return new RpcServerConnectionInfo(this.DisplayName, new Uri($"lightweight.tcp://{this.HostName}:{this.Port}"), hostId);
+            return new RpcServerConnectionInfo(this.DisplayName, new Uri($"lightweight.tcp://{this.HostName}:{this.Port}"), serverId);
         }
 
         protected internal override ILightweightRpcListener CreateListener(            
@@ -65,9 +86,9 @@ namespace SciTech.Rpc.Lightweight.Server
         {
             ILightweightRpcListener socketServer;
 
-            if (this.sslOptions != null)
+            if (this.sslOptions != null || this.negotiateOptions != null )
             {
-                socketServer = new RpcSslSocketServer(this, connectionHandler, maxRequestSize, this.sslOptions);
+                socketServer = new RpcSslSocketServer(this, connectionHandler, maxRequestSize, this.sslOptions, this.negotiateOptions);
             }
             else
             {
@@ -179,8 +200,8 @@ namespace SciTech.Rpc.Lightweight.Server
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSslSocketServer(TcpRpcEndPoint rpcEndPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize, SslServerOptions? sslOptions = null)
-                : base(sslOptions)
+            internal RpcSslSocketServer(TcpRpcEndPoint rpcEndPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize, SslServerOptions? sslOptions, NegotiateServerOptions? negotiateOptions)
+                : base(sslOptions, negotiateOptions)
             {
                 this.connectionHandler = connectionHandler;
                 this.rpcEndPoint = rpcEndPoint;

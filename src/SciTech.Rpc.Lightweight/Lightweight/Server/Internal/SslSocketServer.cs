@@ -25,6 +25,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Principal;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
@@ -38,12 +39,15 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private readonly SslServerOptions? sslOptions;
 
+        private readonly NegotiateServerOptions? negotiateOptions;
+
         private Socket? listener;
 
 #pragma warning disable CA1031 // Do not catch general exception types
-        protected SslSocketServer(SslServerOptions? sslOptions)
+        protected SslSocketServer(SslServerOptions? sslOptions, NegotiateServerOptions? negotiateOptions)
         {
             this.sslOptions = sslOptions;
+            this.negotiateOptions = negotiateOptions;
 
             this.RunClientAsync = async boxed =>
             {
@@ -163,6 +167,22 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                 this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
 
                             socketStream = sslStream;
+                        } else if ( this.negotiateOptions != null )
+                        {
+                            var negotiateStream = new NegotiateStream(socketStream);
+                            try
+                            {
+                                await negotiateStream.AuthenticateAsServerAsync(
+                                    this.negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials, 
+                                    ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
+                            }
+                            catch
+                            {
+                                try { negotiateStream.Dispose(); } catch { }
+                                throw;
+                            }
+
+                                socketStream = negotiateStream;
                         }
 
                         var pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);

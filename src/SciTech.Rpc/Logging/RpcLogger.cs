@@ -10,7 +10,12 @@ namespace SciTech.Rpc.Logging
     {
         static ILoggerFactory? loggerFactory;
 
-        public static void InitLogger( ILoggerFactory? loggerFactory)
+        /// <summary>
+        /// Initializes a global logger factory for all RPC components. If a logger is not provided 
+        /// for an RPC component, this factory will be used to create a one.
+        /// </summary>
+        /// <param name="loggerFactory">The factory to use when creating loggers for RPC components.</param>
+        public static void InitLogger( ILoggerFactory loggerFactory)
         {
             RpcLogger.loggerFactory = loggerFactory;               
         }
@@ -20,9 +25,9 @@ namespace SciTech.Rpc.Logging
             return loggerFactory?.CreateLogger<TCategoryName>();
         }
 
-        internal static ILogger CreateLogger<TCategoryName>()
+        internal static ILogger<TCategoryName> CreateLogger<TCategoryName>()
         {
-            return (ILogger?)loggerFactory?.CreateLogger<TCategoryName>() ?? NullLogger.Instance;
+            return loggerFactory?.CreateLogger<TCategoryName>() ?? NullLogger<TCategoryName>.Instance;
         }
     }
 }

@@ -54,8 +54,14 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
   
   <ItemGroup Condition="$(TargetFramework)=='netstandard2.0' Or $(TargetFramework)=='netstandard2.1'">
     <PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
-  </ItemGroup>  
-  
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
+  </ItemGroup>
+
+
+
   <ItemGroup>
     <ProjectReference Include="..\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />

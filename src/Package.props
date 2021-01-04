@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Copyright>Copyright 2020. SciTech Software AB and TA Instruments, Inc.</Copyright>
+    <Copyright>Copyright 2020-2021. SciTech Software AB and TA Instruments, Inc.</Copyright>
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
-    <Version>1.0.0-beta.10</Version>
+    <Version>1.0.0-beta.13</Version>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageTags>rpc grpc http/2 communication</PackageTags>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.</Description>
@@ -14,7 +14,19 @@
     <PackageReleaseNotes>
       * A lot of new functionality and significant refactoring, getting close to 1.0 release.      
     </PackageReleaseNotes>
+    
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
+  </ItemGroup>
 
   <PropertyGroup>
     <LangVersion>8.0</LangVersion>
@@ -29,6 +41,5 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>IDT002;1573;1591;$(NoWarn)</NoWarn>
   </PropertyGroup>
-
-
+  
 </Project>

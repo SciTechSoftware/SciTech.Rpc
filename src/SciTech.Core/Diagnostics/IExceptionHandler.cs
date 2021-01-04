@@ -4,7 +4,7 @@ using System.Linq;
 namespace SciTech.Diagnostics
 {
     /// <summary>
-    /// Defines how an unexpected class should be treated when calling <see cref="IExceptionHandler.HandleException(Exception, bool)"/>.
+    /// Defines how an unexpected class should be treated when calling <see cref="IExceptionHandler.HandleException(Exception, UnexpectedExceptionAction)"/>.
     /// </summary>
     public enum UnexpectedExceptionAction
     {

@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SciTech.Rpc.Client
 {
-    public class NegotiateClientOptions
+    public class NegotiateClientOptions : AuthenticationClientOptions
     {
         public NetworkCredential? Credential { get; set; }
 

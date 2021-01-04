@@ -33,37 +33,26 @@ namespace SciTech.Rpc.Lightweight.Client
         // TODO: Add logging.
         //private static readonly ILog Logger = LogProvider.For<TcpLightweightRpcConnection>();
 
-        private readonly SslClientOptions? sslOptions;
-
-        private NegotiateClientOptions? negotiateOptions;
+        private AuthenticationClientOptions? authenticationOptions;
 
         private volatile AuthenticatedStream? authenticatedStream;
 
         public TcpRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            SslClientOptions? sslOptions = null,
+            AuthenticationClientOptions? authenticationOptions = null,
             IRpcClientOptions? options = null,
             LightweightOptions? lightweightOptions = null)
-            : this(connectionInfo, sslOptions, null, options,
-                  LightweightProxyGenerator.Default,
-                  lightweightOptions)
-        {
-        }
-        public TcpRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
-            NegotiateClientOptions? negotiateOptions,
-            IRpcClientOptions? options = null,
-            LightweightOptions? lightweightOptions = null)
-            : this(connectionInfo, null, negotiateOptions, options,
+            : this(connectionInfo, authenticationOptions, options,
                   LightweightProxyGenerator.Default,
                   lightweightOptions)
         {
         }
 
+
+
         internal TcpRpcConnection(
             RpcServerConnectionInfo connectionInfo,
-            SslClientOptions? sslOptions,
-            NegotiateClientOptions? negotiateOptions,
+            AuthenticationClientOptions? authenticationOptions,
             IRpcClientOptions? options,
             LightweightProxyGenerator proxyGenerator,
             LightweightOptions? lightweightOptions)
@@ -80,8 +69,16 @@ namespace SciTech.Rpc.Lightweight.Client
                     throw new ArgumentException("Invalid connectionInfo scheme.", nameof(connectionInfo));
             }
 
-            this.sslOptions = sslOptions;
-            this.negotiateOptions = negotiateOptions;
+            if( authenticationOptions != null )
+            {
+                if( authenticationOptions is SslClientOptions || authenticationOptions is NegotiateClientOptions)
+                {
+                    this.authenticationOptions = authenticationOptions;
+                } else
+                {
+                    throw new ArgumentException("Authentication options not supported.", nameof(authenticationOptions));
+                }
+            }
         }
 
 
@@ -112,7 +109,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
             try
             {
-                if (this.sslOptions != null || this.negotiateOptions != null )
+                if (this.authenticationOptions != null )
                 {
                     Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                     try
@@ -136,25 +133,28 @@ namespace SciTech.Rpc.Lightweight.Client
                         workStream = new NetworkStream(socket, true);
                         socket = null;  // Prevent closing, NetworkStream has taken ownership
 
-                        if (this.sslOptions != null)
+                        if (this.authenticationOptions is SslClientOptions sslOptions)
                         {
                             var sslStream = new SslStream(workStream, false,
-                                this.sslOptions.RemoteCertificateValidationCallback,
-                                this.sslOptions.LocalCertificateSelectionCallback,
-                                this.sslOptions.EncryptionPolicy);
+                                sslOptions.RemoteCertificateValidationCallback,
+                                sslOptions.LocalCertificateSelectionCallback,
+                                sslOptions.EncryptionPolicy);
 
                             workStream = authenticatedStream = sslStream;
                             
-                            await sslStream.AuthenticateAsClientAsync(sslHost, this.sslOptions.ClientCertificates, this.sslOptions.EnabledSslProtocols,
-                                this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
-                        } else 
+                            await sslStream.AuthenticateAsClientAsync(sslHost, sslOptions.ClientCertificates, sslOptions.EnabledSslProtocols,
+                                sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+                        } else if( this.authenticationOptions is NegotiateClientOptions negotiateOptions)
                         {
                             var negotiateStream = new NegotiateStream(workStream, false);
                             workStream = authenticatedStream = negotiateStream;
 
                             await negotiateStream.AuthenticateAsClientAsync(
-                                this.negotiateOptions!.Credential ?? CredentialCache.DefaultNetworkCredentials, 
-                                this.negotiateOptions.TargetName ?? "").ContextFree();
+                                negotiateOptions!.Credential ?? CredentialCache.DefaultNetworkCredentials, 
+                                negotiateOptions.TargetName ?? "").ContextFree();
+                        } else
+                        {
+                            throw new NotSupportedException("Authentication options not supported.");
                         }
 
                         connection = StreamConnection.GetDuplex(authenticatedStream, sendOptions, receiveOptions);

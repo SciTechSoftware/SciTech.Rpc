@@ -5,7 +5,8 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace SciTech.Rpc.Server
 {
-    public class SslServerOptions
+
+    public class SslServerOptions : AuthenticationServerOptions
     {
         public SslServerOptions()
         {

@@ -32,23 +32,20 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
     /// <summary>
-    /// Modified copy of <see cref="SocketServer"/> with added support for <see cref="SslStream"/>.
+    /// Modified copy of <see cref="SocketServer"/> with added support for authentication through <see cref="SslStream"/> and <see cref="NegotiateStream"/>.
     /// </summary>
     internal abstract class SslSocketServer
     {
         private readonly Action<object?> RunClientAsync;
 
-        private readonly SslServerOptions? sslOptions;
-
-        private readonly NegotiateServerOptions? negotiateOptions;
+        private readonly AuthenticationServerOptions? authenticationOptions;
 
         private Socket? listener;
 
 #pragma warning disable CA1031 // Do not catch general exception types
-        protected SslSocketServer(SslServerOptions? sslOptions, NegotiateServerOptions? negotiateOptions)
+        protected SslSocketServer(AuthenticationServerOptions? authenticationOptions)
         {
-            this.sslOptions = sslOptions;
-            this.negotiateOptions = negotiateOptions;
+            this.authenticationOptions = authenticationOptions;
 
             this.RunClientAsync = async boxed =>
             {
@@ -160,22 +157,25 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         Stream socketStream = new NetworkStream(clientSocket, true);
                         IPrincipal? user = null;
 
-                        if (this.sslOptions?.ServerCertificate != null)
+                        if (this.authenticationOptions is SslServerOptions sslOptions)
                         {
-                            var sslStream = new SslStream(socketStream);
-                            await sslStream.AuthenticateAsServerAsync(this.sslOptions.ServerCertificate,
-                                this.sslOptions.ClientCertificateRequired,
-                                this.sslOptions.EnabledSslProtocols,
-                                this.sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+                            if (sslOptions.ServerCertificate != null)
+                            {
+                                var sslStream = new SslStream(socketStream);
+                                await sslStream.AuthenticateAsServerAsync(sslOptions.ServerCertificate,
+                                    sslOptions.ClientCertificateRequired,
+                                    sslOptions.EnabledSslProtocols,
+                                    sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
 
-                            socketStream = sslStream;
-                        } else if ( this.negotiateOptions != null )
+                                socketStream = sslStream;
+                            }
+                        } else if ( this.authenticationOptions is NegotiateServerOptions negotiateOptions)
                         {
                             var negotiateStream = new NegotiateStream(socketStream);
                             try
                             {
                                 await negotiateStream.AuthenticateAsServerAsync(
-                                    this.negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials, 
+                                    negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials, 
                                     ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
                                 user = CreatePrincipal(negotiateStream.RemoteIdentity);
                             }

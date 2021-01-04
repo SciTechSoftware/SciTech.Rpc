@@ -25,46 +25,26 @@ namespace SciTech.Rpc.Lightweight.Server
 {
     public class TcpRpcEndPoint : LightweightRpcEndPoint
     {
-        private readonly SslServerOptions? sslOptions;
+        private readonly AuthenticationServerOptions? authenticationOptions;
 
-        private readonly NegotiateServerOptions? negotiateOptions;
 
-        public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, NegotiateServerOptions? negotiateOptions )
-            : this(hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces), negotiateOptions)
+        public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, AuthenticationServerOptions? authenticationOptions = null)
+            : this( hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces ), authenticationOptions )
         {
         }
 
-        public TcpRpcEndPoint(string hostName, string endPointAddress, int port, bool bindToAllInterfaces, NegotiateServerOptions? negotiateOptions )
-            : this(hostName, CreateNetEndPoint(endPointAddress, port, bindToAllInterfaces), negotiateOptions)
+        public TcpRpcEndPoint(string hostName, string endPointAddress, int port, bool bindToAllInterfaces, AuthenticationServerOptions? authenticationOptions = null)
+            : this(hostName, CreateNetEndPoint(endPointAddress, port, bindToAllInterfaces), authenticationOptions)
         {
         }
 
-        public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, NegotiateServerOptions? negotiateOptions )
+        public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, AuthenticationServerOptions? authenticationOptions = null)
         {
             this.HostName = hostName ?? throw new ArgumentNullException(nameof(hostName));
             this.DisplayName = hostName;
             this.EndPoint = endPoint;
 
-            this.negotiateOptions = negotiateOptions;
-        }
-
-        public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
-            : this( hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces ), sslOptions )
-        {
-        }
-
-        public TcpRpcEndPoint(string hostName, string endPointAddress, int port, bool bindToAllInterfaces, SslServerOptions? sslOptions = null)
-            : this(hostName, CreateNetEndPoint(endPointAddress, port, bindToAllInterfaces), sslOptions )
-        {
-        }
-
-        public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, SslServerOptions? sslOptions = null)
-        {
-            this.HostName = hostName ?? throw new ArgumentNullException(nameof(hostName));
-            this.DisplayName = hostName;
-            this.EndPoint = endPoint;
-
-            this.sslOptions = sslOptions;
+            this.authenticationOptions = authenticationOptions;
         }
 
         public override string DisplayName { get; }
@@ -86,9 +66,9 @@ namespace SciTech.Rpc.Lightweight.Server
         {
             ILightweightRpcListener socketServer;
 
-            if (this.sslOptions != null || this.negotiateOptions != null )
+            if (this.authenticationOptions != null )
             {
-                socketServer = new RpcSslSocketServer(this, connectionHandler, maxRequestSize, this.sslOptions, this.negotiateOptions);
+                socketServer = new RpcSslSocketServer(this, connectionHandler, maxRequestSize, this.authenticationOptions);
             }
             else
             {
@@ -200,8 +180,8 @@ namespace SciTech.Rpc.Lightweight.Server
             /// <summary>
             /// Create a new instance of a socket server
             /// </summary>
-            internal RpcSslSocketServer(TcpRpcEndPoint rpcEndPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize, SslServerOptions? sslOptions, NegotiateServerOptions? negotiateOptions)
-                : base(sslOptions, negotiateOptions)
+            internal RpcSslSocketServer(TcpRpcEndPoint rpcEndPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize, AuthenticationServerOptions? authenticationOptions)
+                : base(authenticationOptions)
             {
                 this.connectionHandler = connectionHandler;
                 this.rpcEndPoint = rpcEndPoint;

@@ -26,9 +26,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly ImmutableRpcClientOptions? options;
 
-        private readonly SslClientOptions? sslOptions;
-
-        private readonly NegotiateClientOptions? negotiateOptions;
+        private readonly AuthenticationClientOptions? authenticationOptions;
 
         public LightweightConnectionProvider(
             IRpcClientOptions? options = null, 
@@ -38,31 +36,15 @@ namespace SciTech.Rpc.Lightweight.Client
         }
 
         public LightweightConnectionProvider(
-            SslClientOptions? sslOptions,
+            AuthenticationClientOptions? authenticationOptions,
             IRpcClientOptions? options = null,
             LightweightOptions? lightweightOpions = null)
         {
-            this.sslOptions = sslOptions;
+            this.authenticationOptions = authenticationOptions;
             this.options = options?.AsImmutable();
             this.lightweightOpions = lightweightOpions;
         }
 
-        //public LightweightConnectionProvider(
-        //    IOptions<RpcClientOptions> options,
-        //    LightweightOptions? lightweightOptions = null,
-        //    IRpcProxyDefinitionsProvider? definitionsProvider = null)
-        //    : this(null, options?.Value, lightweightOptions, definitionsProvider)
-        //{
-        //}
-
-        //public LightweightConnectionProvider(
-        //    SslClientOptions? sslOptions,
-        //    IOptions<RpcClientOptions> options,
-        //    LightweightOptions? lightweightOptions = null,
-        //    IRpcProxyDefinitionsProvider? definitionsProvider = null)
-        //    : this(sslOptions, options?.Value, lightweightOptions, definitionsProvider)
-        //{
-        //}
 
         public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
         {            
@@ -80,7 +62,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
                 return new TcpRpcConnection(
                     connectionInfo!, 
-                    this.sslOptions, this.negotiateOptions,
+                    this.authenticationOptions, 
                     ImmutableRpcClientOptions.Combine(options, this.options),
                     proxyGenerator,
                     this.lightweightOpions);

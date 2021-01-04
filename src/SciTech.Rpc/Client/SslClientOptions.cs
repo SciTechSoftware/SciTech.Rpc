@@ -7,7 +7,8 @@ using System.Text;
 
 namespace SciTech.Rpc.Client
 {
-    public class SslClientOptions
+
+    public class SslClientOptions : AuthenticationClientOptions
     {
         public SslClientOptions()
         {

@@ -9,20 +9,28 @@
 //
 #endregion
 
-using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Threading;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IRpcService : IEquatable<IRpcService>, IDisposable
     {
-        IRpcServerConnection Connection { get; }
+        /// <summary>
+        /// Invoked when the communication has failed for a remote <c>EventHandler</c>. 
+        /// Normally this occurs if the connection is lost while an event handler has 
+        /// been added to the remote service.
+        /// </summary>
+        event EventHandler? EventHandlerFailed;
+
+        IRpcChannel Channel { get; }
 
         RpcObjectId ObjectId { get; }
 
@@ -32,7 +40,7 @@ namespace SciTech.Rpc.Client
 
         TService UnsafeCast<TService>() where TService : class;
 
-        Task WaitForPendingEventHandlers();
+        Task WaitForPendingEventHandlersAsync();
     }
 
     public static class RpcServiceExtensions
@@ -59,14 +67,14 @@ namespace SciTech.Rpc.Client
             throw new InvalidCastException($"Cannot cast RPC service to {typeof(TService)}.");
         }
 
-        public static TService SetSyncContext<TService>(this TService rpcService, SynchronizationContext syncContext) where TService : class, IRpcService
+        public static TService SetSyncContext<TService>(this TService rpcService, SynchronizationContext? syncContext) where TService : class, IRpcService
         {
-            if( rpcService is RpcProxyBase proxyBase )
+            if (rpcService is RpcProxyBase proxyBase)
             {
-                return proxyBase.Connection.GetServiceInstance<TService>( proxyBase.ObjectId, proxyBase.ImplementedServices, syncContext);
+                return proxyBase.Channel.GetServiceInstance<TService>(proxyBase.ObjectId, proxyBase.ImplementedServices, syncContext);
             }
 
-            throw new ArgumentException("Can only set synchronization context on services retrieved using IRpcServerConnection.");            
+            throw new ArgumentException("Can only set synchronization context on services retrieved using IRpcServerConnection.");
         }
 
         public static TService? TryCast<TService>(this IRpcService rpcService) where TService : class

@@ -4,6 +4,7 @@
 
 using System;
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -22,7 +23,8 @@ namespace SciTech.Buffers
         /// Creates a lease over the provided array; the contents are not copied - the array
         /// provided will be handed to the pool when disposed
         /// </summary>
-        public static IMemoryOwner<T> Lease<T>(this T[] source, int length = -1)
+        [return: NotNullIfNotNull("source")]
+        public static IMemoryOwner<T>? Lease<T>(this T[] source, int length = -1)
         {
             if (source == null) return null; // GIGO
             if (length < 0) length = source.Length;
@@ -46,10 +48,10 @@ namespace SciTech.Buffers
         /// <summary>
         /// Decode a blob to a leased char array
         /// </summary>
-        public static IMemoryOwner<char> Decode(this ReadOnlyMemory<byte> bytes, Encoding encoding = null)
+        public static IMemoryOwner<char> Decode(this ReadOnlyMemory<byte> bytes, Encoding? encoding = null)
         {
             if (encoding == null) encoding = Encoding.UTF8;
-            if (!MemoryMarshal.TryGetArray(bytes, out var blob))
+            if (!MemoryMarshal.TryGetArray(bytes, out var blob) || blob.Array == null )
                 throw new InvalidOperationException("Not an array - can fix on netcoreapp2.1 or via unsafe, but...");
 
             var charCount = encoding.GetCharCount(blob.Array, blob.Offset, blob.Count);
@@ -61,7 +63,7 @@ namespace SciTech.Buffers
         /// <summary>
         /// Encode a string to a leased byte array
         /// </summary>
-        public static IMemoryOwner<byte> Encode(this string value, Encoding encoding = null)
+        public static IMemoryOwner<byte> Encode(this string value, Encoding? encoding = null)
         {
             if (value is null) throw new ArgumentNullException(nameof(value));
 
@@ -90,7 +92,7 @@ namespace SciTech.Buffers
         private sealed class ArrayPoolOwner<T> : IMemoryOwner<T>
         {
             private readonly int _length;
-            private T[] _oversized;
+            private T[]? _oversized;
 
             internal ArrayPoolOwner(T[] oversized, int length)
             {

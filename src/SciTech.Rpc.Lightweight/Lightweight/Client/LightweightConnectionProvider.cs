@@ -1,8 +1,18 @@
-﻿using SciTech.Rpc.Client;
+﻿#region Copyright notice and license
+// Copyright (c) 2019, SciTech Software AB
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License. 
+// You may obtain a copy of the License at:
+//
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+#endregion
+
+//using Microsoft.Extensions.Options;
+using SciTech.Rpc.Client;
+using SciTech.Rpc.Lightweight.Client.Internal;
 using System;
-using System.Collections.Generic;
-using System.Net.Security;
-using System.Text;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
@@ -10,45 +20,63 @@ namespace SciTech.Rpc.Lightweight.Client
     {
         public const string LightweightTcpScheme = "lightweight.tcp";
 
-        private readonly LightweightProxyProvider proxyProvider;
+        public const string LightweightPipeScheme = "lightweight.pipe";
 
-        private readonly IRpcSerializer serializer;
+        private readonly LightweightOptions? lightweightOpions = null;
 
-        private readonly SslClientOptions? sslOptions;
+        private readonly ImmutableRpcClientOptions? options;
 
-        public LightweightConnectionProvider(LightweightProxyProvider? proxyProvider = null, IRpcSerializer? serializer = null)
+        private readonly AuthenticationClientOptions? authenticationOptions;
+
+        public LightweightConnectionProvider(
+            IRpcClientOptions? options = null, 
+            LightweightOptions? lightweightOpions = null)
+            : this(null, options, lightweightOpions)
         {
-            this.proxyProvider = proxyProvider ?? new LightweightProxyProvider();
-            this.serializer = serializer ?? new ProtobufSerializer();
-        }
-        public LightweightConnectionProvider(SslClientOptions sslOptions, LightweightProxyProvider? proxyProvider = null, IRpcSerializer? serializer = null)
-        {
-            this.sslOptions = sslOptions;
-            this.proxyProvider = proxyProvider ?? new LightweightProxyProvider();
-            this.serializer = serializer ?? new ProtobufSerializer();
         }
 
-        public bool CanCreateConnection(RpcServerConnectionInfo connectionInfo)
+        public LightweightConnectionProvider(
+            AuthenticationClientOptions? authenticationOptions,
+            IRpcClientOptions? options = null,
+            LightweightOptions? lightweightOpions = null)
         {
-            if (Uri.TryCreate(connectionInfo?.HostUrl, UriKind.Absolute, out var parsedUrl))
+            this.authenticationOptions = authenticationOptions;
+            this.options = options?.AsImmutable();
+            this.lightweightOpions = lightweightOpions;
+        }
+
+
+        public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
+        {            
+            return connectionInfo?.HostUrl?.Scheme is string scheme 
+                &&  ( scheme == WellKnownRpcSchemes.LightweightTcp 
+                || scheme == WellKnownRpcSchemes.LightweightPipe );
+        }
+
+        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options)
+        {
+            var scheme = connectionInfo?.HostUrl?.Scheme;
+            if (scheme == LightweightTcpScheme)
             {
-                if (parsedUrl.Scheme == LightweightTcpScheme)
-                {
-                    return true;
-                }
+                var proxyGenerator = LightweightProxyGenerator.Default;
+
+                return new TcpRpcConnection(
+                    connectionInfo!, 
+                    this.authenticationOptions, 
+                    ImmutableRpcClientOptions.Combine(options, this.options),
+                    proxyGenerator,
+                    this.lightweightOpions);
             }
 
-            return false;
-        }
-
-        public IRpcServerConnection CreateConnection(RpcServerConnectionInfo connectionInfo, IReadOnlyList<RpcClientCallInterceptor> callInterceptors)
-        {
-            if (connectionInfo != null && Uri.TryCreate(connectionInfo.HostUrl, UriKind.Absolute, out var parsedUrl))
+            if( scheme == WellKnownRpcSchemes.LightweightPipe)
             {
-                if (parsedUrl.Scheme == LightweightTcpScheme)
-                {
-                    return new TcpLightweightRpcConnection(connectionInfo, this.proxyProvider, this.serializer, this.sslOptions, callInterceptors );
-                }
+                var proxyGenerator = LightweightProxyGenerator.Default;
+
+                return new NamedPipeRpcConnection(
+                    connectionInfo!, 
+                    ImmutableRpcClientOptions.Combine(options, this.options),
+                    proxyGenerator,
+                    this.lightweightOpions);
             }
 
             throw new ArgumentException("Unsupported connection info. Use CanCreateConnection to check whether a connection can be created.");

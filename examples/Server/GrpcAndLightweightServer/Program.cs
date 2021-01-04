@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SciTech.Rpc;
 using SciTech.Rpc.Grpc.Server;
 using SciTech.Rpc.Lightweight.Server;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using System;
 using System.IO;
@@ -33,25 +34,20 @@ namespace GrpcAndLightweightServer
 
             var serviceProvider = serviceCollection.BuildServiceProvider();
 
-            var definitionsBuilder = new RpcServiceDefinitionBuilder();
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
             var rpcPublisher = new RpcServicePublisher(definitionsBuilder);
 
             RegisterServiceDefinitions(definitionsBuilder);
             PublishServices(rpcPublisher);
 
-            var options = new RpcServiceOptions
-            {
-                Serializer = new ProtobufSerializer(),
-            };
-            
-            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider, options);
+            var grpcServer = new GrpcServer(rpcPublisher, serviceProvider);
             grpcServer.AddEndPoint(CreateGrpcEndPoint(50051));
 
-            var lightweightServer = new LightweightRpcServer(rpcPublisher, serviceProvider, options);
+            var lightweightServer = new LightweightRpcServer(rpcPublisher, serviceProvider);
 
             var sslOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
             lightweightServer.AddEndPoint(
-                new TcpLightweightRpcEndPoint("127.0.0.1", 50052, false, sslOptions));
+                new TcpRpcEndPoint("127.0.0.1", 50052, false, sslOptions));
 
             Console.WriteLine("Starting gRPC server and lightweight RPC server.");
 
@@ -95,7 +91,6 @@ namespace GrpcAndLightweightServer
             // The same instance of MailboxManager will be used 
             // for all remote calls.
             services.AddSingleton<MailBoxManager>();
-
         }
 
 
@@ -111,16 +106,15 @@ namespace GrpcAndLightweightServer
 
         private static void PublishServices(RpcServicePublisher publisher)
         {
-
             // Publishing RPC services will automatically register the service interfaces,
             // unless the gRPC server has already been started.
             // If the server has already been started and an unregistered interface is published,
             // then an exception will be thrown.
-            publisher.PublishSingleton<GreeterServiceImpl, IGreeterService>();
-            publisher.PublishSingleton<MailBoxManager, IMailBoxManagerService>();
+            publisher.PublishSingleton<IGreeterService, GreeterServiceImpl>();
+            publisher.PublishSingleton<IMailBoxManagerService, MailBoxManager>();
         }
 
-        private static void RegisterServiceDefinitions(RpcServiceDefinitionBuilder definitionsBuilder)
+        private static void RegisterServiceDefinitions(RpcServiceDefinitionsBuilder definitionsBuilder)
         {
             definitionsBuilder.RegisterService<IMailboxService>();
         }

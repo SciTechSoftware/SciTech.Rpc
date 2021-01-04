@@ -105,7 +105,7 @@ namespace RpcCodeGen
 
                 var parameters = opInfo.Method.GetParameters();
                 int paramIndex = 0;
-                foreach (var argType in opInfo.RequestTypeCtorArgTypes)
+                foreach (var argType in opInfo.RequestParameters)
                 {
                     FieldBuilder fieldBuilder;
                     if (paramIndex == 0)
@@ -114,7 +114,7 @@ namespace RpcCodeGen
                     }
                     else
                     {
-                        fieldBuilder = typeBuilder.DefineField(parameters[paramIndex - 1].Name, argType, FieldAttributes.Public);
+                        fieldBuilder = typeBuilder.DefineField(parameters[paramIndex - 1].Name, argType.Type, FieldAttributes.Public);
                     }
 
                     AddMemberAttribute(fieldBuilder, paramIndex + 1);
@@ -148,7 +148,7 @@ namespace RpcCodeGen
                     var resultField = typeBuilder.DefineField("Result", opInfo.ResponseReturnType, FieldAttributes.Public);
                     AddMemberAttribute(resultField, 2);
                 }
-                var parameters = opInfo.Method.GetParameters();
+                _ = opInfo.Method.GetParameters();
                 return typeBuilder.CreateType();
             }
             catch (Exception e)
@@ -165,7 +165,7 @@ namespace RpcCodeGen
 
             StringBuilder serviceBuilder = new StringBuilder();
 
-            RuntimeTypeModel typeModel = TypeModel.Create();
+            RuntimeTypeModel typeModel = RuntimeTypeModel.Create();
             foreach (var exportedType in assembly.GetExportedTypes())
             {
                 var serviceInfo = RpcBuilderUtil.TryGetServiceInfoFromType(exportedType);
@@ -180,7 +180,7 @@ namespace RpcCodeGen
                         {
                             var namedRequestType = this.CreateRequestType(dynamicModuleBuilder, rpcOpInfo);
                             var namedResponseType = this.CreateResponseType(dynamicModuleBuilder, rpcOpInfo);
-                            if (namedRequestType == null || namedResponseType == null )
+                            if (namedRequestType == null || namedResponseType == null)
                             {
                                 continue;   // Should probably stop generator.
                             }
@@ -189,7 +189,7 @@ namespace RpcCodeGen
                             typeModel.Add(namedResponseType, true);
 
                             serviceBuilder.AppendLine(
-                                $"\trpc {rpcOpInfo.Name} ({namedRequestType.Name}) returns ({namedResponseType.Name});" );
+                                $"\trpc {rpcOpInfo.Name} ({namedRequestType.Name}) returns ({namedResponseType.Name});");
 
                         }
                     }

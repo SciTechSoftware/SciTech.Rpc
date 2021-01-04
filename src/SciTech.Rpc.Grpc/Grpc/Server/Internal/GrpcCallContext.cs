@@ -1,12 +1,15 @@
 ﻿using Grpc.Core;
+using SciTech.Collections;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
+using System.Collections.Immutable;
+using System.Security.Principal;
 using System.Threading;
 
 namespace SciTech.Rpc.Grpc.Server.Internal
 {
-    internal class GrpcCallContext : IRpcCallContext, IRpcServerCallMetadata
+    internal class GrpcCallContext : IRpcServerContext, IRpcServerContextBuilder
     {
         private readonly ServerCallContext callContext;
 
@@ -17,9 +20,9 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 
         public CancellationToken CancellationToken => this.callContext.CancellationToken;
 
-        public IRpcServerCallMetadata RequestHeaders => this;
+        public IPrincipal? User { get; set; }
 
-        public string? GetValue(string key)
+        public string? GetHeaderString(string key)
         {
             var metadata = this.callContext.RequestHeaders;
             for (int i = 0; i < metadata.Count; i++)
@@ -32,6 +35,22 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             }
 
             return null;
+        }
+
+
+        public ImmutableArray<byte> GetBinaryHeader(string key)
+        {
+            var metadata = this.callContext.RequestHeaders;
+            for (int i = 0; i < metadata.Count; i++)
+            {
+                var entry = metadata[i];
+                if (entry.Key == key)
+                {
+                    return entry.ValueBytes.ToImmutableArray();
+                }
+            }
+
+            return default;
         }
     }
 }

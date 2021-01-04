@@ -12,33 +12,49 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 
 namespace SciTech.Rpc.Lightweight.Client.Internal
 {
-    public class LightweightMethodDef : RpcProxyMethod
+    public abstract class LightweightMethodDef : RpcProxyMethod
     {
-        public LightweightMethodDef(
+        protected LightweightMethodDef(
             RpcMethodType methodType,
             string operationName,
-            Type requestType,
-            Type responseType,
-            IRpcSerializer? serializer,
+            IRpcSerializer? serializerOverride,
             RpcClientFaultHandler? faultHandler)
-            : base(serializer, faultHandler)
+            : base(serializerOverride, faultHandler)
         {
             this.MethodType = methodType;
             this.OperationName = operationName;
-            this.RequestType = requestType;
-            this.ResponseType = responseType;
         }
 
         public RpcMethodType MethodType { get; }
 
         public string OperationName { get; }
+    }
 
-        public Type RequestType { get; }
+    public class LightweightMethodDef<TRequest, TResponse> : LightweightMethodDef
+    {
+        public LightweightMethodDef(
+            RpcMethodType methodType,
+            string operationName,
+            IRpcSerializer? serializerOverride,
+            RpcClientFaultHandler? faultHandler)
+            : base(methodType, operationName, serializerOverride, faultHandler)
+        {
+            if (serializerOverride != null)
+            {
+                this.LightweightSerializersOverride = new LightweightSerializers<TRequest, TResponse>(serializerOverride);
+                    
+            }
+        }
 
-        public Type ResponseType { get; }
+        internal LightweightSerializers<TRequest, TResponse>? LightweightSerializersOverride { get; }
+
+        protected internal override Type RequestType => typeof(TRequest);
+
+        protected internal override Type ResponseType => typeof(TResponse);
     }
 }

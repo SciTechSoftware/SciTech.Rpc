@@ -9,7 +9,10 @@
 //
 #endregion
 
+using Microsoft.Win32.SafeHandles;
 using SciTech.Buffers;
+using SciTech.Rpc.Client;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -17,34 +20,28 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
-#pragma warning disable CA1028 // Enum Storage should be Int32
-    internal enum RpcFrameType : short
+    internal enum RpcFrameState
     {
-        UnaryRequest,
-        UnaryResponse,
+        /// <summary>
+        /// Indicates that no frame information is available.
+        /// </summary>
+        None,
 
-        StreamingRequest,
-        StreamingResponse,
-        StreamingEnd,
+        /// <summary>
+        /// Indicates that only the frame header is available, including FrameType, FrameLength, and MessageNumber
+        /// </summary>
+        Header,
 
-        CancelRequest,
-        CancelResponse,
-
-        ErrorResponse
+        /// <summary>
+        /// Indicates that full frame information is available.
+        /// </summary>
+        Full
     }
-
-    [Flags]
-    internal enum RpcOperationFlags
-    {
-        None = 0,
-        CanCancel = 0x0001
-    }
-#pragma warning restore CA1028 // Enum Storage should be Int32
-
 
     /// <summary>
     /// short RPCVersion: Currently always 1
@@ -54,7 +51,7 @@ namespace SciTech.Rpc.Lightweight.Internal
     /// int32 PayloadLength: Total length of serialized payload
     /// String Operation: Defines the RPC operation associated with the frame. May be empty if not needed.
     /// varint OperationFlags: Operation flags (from the <see cref="RpcOperationFlags"/> enum.
-    /// varint TimeOut: Operation timeout, in milliseconds (0 means no timeout)
+    /// varint Timeout: Operation timeout, in milliseconds (0 means no timeout)
     /// varint HeaderPairsCount: Number of header pairs (following this field)
     /// StringPair[] HeaderPairs: Array of header pairs. Length specified by HeaderPairsCount
     ///     String Key: UTF8 encoded header key
@@ -66,7 +63,7 @@ namespace SciTech.Rpc.Lightweight.Internal
     /// varint: Protobuf style encoded integer
     /// String: Protobuf style encoded UTF8 string
     /// </summary>
-    internal readonly struct LightweightRpcFrame
+    internal readonly struct LightweightRpcFrame 
     {
         public const int DefaultMaxFrameLength = 65536;
 
@@ -74,22 +71,29 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         private const short CurrentVersion = 1;
 
-        public LightweightRpcFrame(RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout, IReadOnlyCollection<KeyValuePair<string, string>>? headers)
+        internal LightweightRpcFrame(
+            RpcFrameType frameType,
+            int frameLength,
+            int messageNumber)
         {
             this.FrameType = frameType;
-            this.RpcOperation = rpcOperation;
+            this.FrameLength = frameLength;
+            this.RpcOperation = "";
             this.MessageNumber = messageNumber;
-            this.OperationFlags = flags;
-            this.Timeout = timeout;
             this.Payload = ReadOnlySequence<byte>.Empty;
-            this.Headers = headers;
+            this.Headers = null;
+
+            this.OperationFlags = 0;
+            this.Timeout = 0;
         }
 
         public LightweightRpcFrame(
-            RpcFrameType frameType, int messageNumber, string rpcOperation,
-            IReadOnlyCollection<KeyValuePair<string, string>>? headers)
+            RpcFrameType frameType,
+            int messageNumber, string rpcOperation,
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
         {
             this.FrameType = frameType;
+            this.FrameLength = null;
             this.RpcOperation = rpcOperation;
             this.MessageNumber = messageNumber;
             this.Payload = ReadOnlySequence<byte>.Empty;
@@ -101,9 +105,27 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         public LightweightRpcFrame(
             RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
-            in ReadOnlySequence<byte> payload, IReadOnlyCollection<KeyValuePair<string, string>> headers)
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
         {
             this.FrameType = frameType;
+            this.FrameLength = null;
+            this.RpcOperation = rpcOperation;
+            this.MessageNumber = messageNumber;
+            this.OperationFlags = flags;
+            this.Timeout = timeout;
+            this.Payload = ReadOnlySequence<byte>.Empty;
+            this.Headers = headers;
+        }
+
+        public LightweightRpcFrame(
+            RpcFrameType frameType,
+            int? frameLength,
+            int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
+            in ReadOnlySequence<byte> payload, 
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>> headers)
+        {
+            this.FrameType = frameType;
+            this.FrameLength = frameLength;
             this.RpcOperation = rpcOperation;
             this.MessageNumber = messageNumber;
             this.Payload = payload;
@@ -111,14 +133,49 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             this.OperationFlags = flags;
             this.Timeout = timeout;
-
         }
+
+        public int? FrameLength { get; }
 
         public RpcFrameType FrameType { get; }
 
-        public IReadOnlyCollection<KeyValuePair<string, string>>? Headers { get; }
+        public IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? Headers { get; }
+
+        public string? GetHeaderString(string key)
+        {
+            if (this.Headers != null)
+            {
+                foreach (var pair in this.Headers)
+                {
+                    if (pair.Key == key)
+                    {
+                        return RpcRequestContext.StringFromHeaderBytes(pair.Value);
+                    }
+                }
+            }
+
+            return null;
+        }
+        
+        public ImmutableArray<byte> GetHeaderBytes(string key)
+        {
+            if (this.Headers != null)
+            {
+                foreach (var pair in this.Headers)
+                {
+                    if (pair.Key == key)
+                    {
+                        return pair.Value;
+                    }
+                }
+            }
+
+            return default;
+        }
 
         public int MessageNumber { get; }
+
+        public RpcOperationFlags OperationFlags { get; }
 
         /// <summary>
         /// The payload data following the header. May be empty when building a request or response.
@@ -127,26 +184,24 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         public string RpcOperation { get; }
 
-        public RpcOperationFlags OperationFlags { get; }
-
         public uint Timeout { get; }
 
         /// <summary>
-        /// Tries to read a RPC frame
+        /// Tries to read an RPC frame
         /// </summary>
-        /// <param name="input"></param>
+        /// <param name="input">Input sequence containing frame data. Will be updated to the end of the frame
+        /// if <see cref="RpcFrameState.Full"/> is returned.</param>
         /// <param name="maxFrameLength"></param>
         /// <param name="message"></param>
-        /// <returns><c>true</c> if data for the full frame is available in <paramref name="input"/>, <c>false</c> if 
-        /// not enough data is available.</returns>
+        /// <returns>An <see cref="RpcFrameState"/> indicating how much of the frame is available in <paramref name="input"/></returns>
         /// <exception cref="InvalidDataException">Thrown if the frame contains invalid data (not including the payload), or 
         /// if the frame is too big.</exception>
-        public static bool TryRead(ref ReadOnlySequence<byte> input, int maxFrameLength, out LightweightRpcFrame message)
+        public static RpcFrameState TryRead(ref ReadOnlySequence<byte> input, int maxFrameLength, out LightweightRpcFrame message)
         {
-            message = default;
             if (input.Length < MinimumHeaderLength)
             {
-                return false;
+                message = default;
+                return RpcFrameState.None;
             }
 
             var currInput = input;
@@ -158,20 +213,21 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             var frameType = (RpcFrameType)ReadInt16LittleEndian(ref currInput);
             int frameLength = ReadInt32LittleEndian(ref currInput);
-            if (frameLength < 0 || frameLength >= maxFrameLength)
+            if (frameLength < 0)
             {
                 throw new InvalidDataException($"Invalid RPC frame length: {frameLength}");
             }
 
-            // Check the frame length against the available input.
-            // Should really be input (and not currInput), since frameLength includes the header and payload.
-            if (frameLength > input.Length)
-            {
-                return false;
-            }
-
             var messageNumber = ReadInt32LittleEndian(ref currInput);
             var payloadLength = ReadInt32LittleEndian(ref currInput);
+
+            // Check the frame length against the available input.
+            // Should really be input (and not currInput), since frameLength includes the header and payload.
+            if (frameLength > input.Length || frameLength > maxFrameLength)
+            {
+                message = new LightweightRpcFrame(frameType, frameLength, messageNumber);
+                return RpcFrameState.Header;
+            }
 
             var operation = ReadString(ref currInput, frameLength);
 
@@ -186,46 +242,54 @@ namespace SciTech.Rpc.Lightweight.Internal
                 throw new InvalidDataException();
             }
 
-            ImmutableArray<KeyValuePair<string, string>> headers;
+            ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>> headers;
 
             if (headerPairsCount > 0)
             {
-                var pairsBuilder = ImmutableArray.CreateBuilder<KeyValuePair<string, string>>((int)headerPairsCount);
+                var pairsBuilder = ImmutableArray.CreateBuilder<KeyValuePair<string, ImmutableArray<byte>>>((int)headerPairsCount);
                 for (int pairIndex = 0; pairIndex < headerPairsCount; pairIndex++)
                 {
                     string key = ReadString(ref currInput, frameLength);
-                    string value = ReadString(ref currInput, frameLength);
-                    pairsBuilder.Add(new KeyValuePair<string, string>(key, value));
+                    var value = ReadBytes(ref currInput, frameLength);
+                    pairsBuilder.Add(new KeyValuePair<string, ImmutableArray<byte>>(key, value));
                 }
 
                 headers = pairsBuilder.MoveToImmutable();
             }
             else
             {
-                headers = ImmutableArray<KeyValuePair<string, string>>.Empty;
+                headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
             }
 
 
             var payload = currInput.Slice(0, payloadLength);
             input = currInput.Slice(payloadLength);
-            message = new LightweightRpcFrame(frameType, messageNumber, operation, operationFlags, timeout, payload, headers);
-            return true;
+            message = new LightweightRpcFrame(frameType, frameLength, messageNumber, operation, operationFlags, timeout, payload, headers);
+            return RpcFrameState.Full;
         }
 
-        internal static void EndWrite(int payloadLength, in WriteState state)
+        public static RpcFrameState TryRead(ReadOnlyMemory<byte> input, int maxFrameLength, out LightweightRpcFrame message)
         {
-            BinaryPrimitives.WriteInt32LittleEndian(state.FrameLengthSpan.Span, payloadLength + state.HeaderLength);
+            var sequence = new ReadOnlySequence<byte>(input);
+            return TryRead( ref sequence, maxFrameLength, out message);
+        }
+
+        internal static void EndWrite(int frameLength, in WriteState state)
+        {
+            int payloadLength = frameLength - state.HeaderLength;
+            BinaryPrimitives.WriteInt32LittleEndian(state.FrameLengthSpan.Span, frameLength);
             BinaryPrimitives.WriteInt32LittleEndian(state.PayloadLengthSpan.Span, payloadLength);
         }
 
-        internal WriteState BeginWrite(IBufferWriter<byte> writer)
+        internal WriteState BeginWrite(BufferWriterStream writer)
         {
             var memory = writer.GetMemory(MinimumHeaderLength);
-            BinaryPrimitives.WriteInt16LittleEndian(memory.Span, CurrentVersion);
-            BinaryPrimitives.WriteInt16LittleEndian(memory.Span.Slice(2), (short)this.FrameType);
+            var span = memory.Span;
+            BinaryPrimitives.WriteInt16LittleEndian(span, CurrentVersion);
+            BinaryPrimitives.WriteInt16LittleEndian(span.Slice(2), (short)this.FrameType);
 
             var frameLengthSpan = memory.Slice(4, 4);
-            BinaryPrimitives.WriteInt32LittleEndian(memory.Span.Slice(8), this.MessageNumber);
+            BinaryPrimitives.WriteInt32LittleEndian(span.Slice(8), this.MessageNumber);
             var payloadLengthSpan = memory.Slice(12, 4);
             writer.Advance(MinimumHeaderLength);
 
@@ -233,7 +297,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             headerLength += WriteString(writer, this.RpcOperation);
 
             headerLength += WriteUInt32Varint(writer, (uint)this.OperationFlags);
-            headerLength += WriteUInt32Varint(writer, (uint)this.Timeout);
+            headerLength += WriteUInt32Varint(writer, this.Timeout);
 
             var headers = this.Headers;
             int nHeaders = headers?.Count ?? 0;
@@ -243,11 +307,11 @@ namespace SciTech.Rpc.Lightweight.Internal
                 foreach (var pair in headers!)
                 {
                     headerLength += WriteString(writer, pair.Key);
-                    headerLength += WriteString(writer, pair.Value);
+                    headerLength += WriteBytes(writer, pair.Value);
                 }
             }
 
-            return new WriteState(headerLength, payloadLengthSpan, frameLengthSpan);
+            return new WriteState(headerLength, payloadLengthSpan, frameLengthSpan, writer);
         }
 
         private static bool IsValidVersion(short version) => version == CurrentVersion;
@@ -280,9 +344,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
             else
             {   // copy 4 bytes into a local span
-                // Temporarily changed to new due to https://github.com/dotnet/roslyn/issues/35764
-                Span<byte> local = new byte[4];
-                // Span<byte> local = stackalloc byte[4];
+                Span<byte> local = stackalloc byte[4];
 
                 input.Slice(0, 4).CopyTo(local);
                 value = BinaryPrimitives.ReadInt32LittleEndian(local);
@@ -378,6 +440,23 @@ namespace SciTech.Rpc.Lightweight.Internal
             return readPos + (int)length;
         }
 
+        private static ImmutableArray<byte> ReadBytes(ref ReadOnlySequence<byte> input, int maxLength)
+        {
+            uint length = ReadUInt32Varint(ref input);
+            if (length > maxLength)
+            {
+                throw new InvalidDataException();
+            }
+
+            ImmutableArray<byte> value;
+            byte[] buffer = new byte[length];
+            input.Slice(0, length).CopyTo(buffer);
+            value = buffer.ToImmutableArray();
+
+            input = input.Slice(length);
+            return value;
+        }
+
         private static uint ReadUInt32Varint(ref ReadOnlySequence<byte> input)
         {
             int length;
@@ -467,7 +546,6 @@ namespace SciTech.Rpc.Lightweight.Internal
             int nTotalBytes = WriteUInt32Varint(writer, (uint)nEncodedBytes);
             nTotalBytes += nEncodedBytes;
 
-
             var destSpan = writer.GetSpan(nEncodedBytes);
             int nRetrievedBytes = encoding.GetBytes(stringSpan, destSpan);
             Debug.Assert(nRetrievedBytes == nEncodedBytes);
@@ -485,6 +563,19 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
             writer.Advance(nEncodedBytes);
 #endif
+            return nTotalBytes;
+        }
+
+        private static int WriteBytes(IBufferWriter<byte> writer, ImmutableArray<byte> bytes)
+        {
+            int nBytes = bytes.Length;
+            int nTotalBytes = WriteUInt32Varint(writer, (uint)nBytes);
+            nTotalBytes += nBytes;
+
+            var destSpan = writer.GetSpan(nBytes);
+            bytes.AsSpan().CopyTo(destSpan);
+            writer.Advance(nBytes);
+
             return nTotalBytes;
         }
 
@@ -512,12 +603,17 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             internal readonly Memory<byte> FrameLengthSpan;
 
-            internal WriteState(int headerLength, in Memory<byte> payloadLengthSpan, in Memory<byte> frameLengthSpan)
+            internal readonly BufferWriterStream Writer;
+
+            internal WriteState(int headerLength, in Memory<byte> payloadLengthSpan, in Memory<byte> frameLengthSpan, BufferWriterStream writer)
             {
                 this.HeaderLength = headerLength;
                 this.PayloadLengthSpan = payloadLengthSpan;
                 this.FrameLengthSpan = frameLengthSpan;
+                this.Writer = writer;
             }
+
+            internal bool IsEmpty => this.Writer != null;
         }
         //public override bool Equals(object obj)
         //{
@@ -540,4 +636,35 @@ namespace SciTech.Rpc.Lightweight.Internal
         //    return false;
         //}
     }
+
+#pragma warning disable CA1028 // Enum Storage should be Int32
+    internal enum RpcFrameType : short
+    {
+        UnaryRequest,
+        UnaryResponse,
+
+        StreamingRequest,
+        StreamingResponse,
+        StreamingEnd,
+
+        CancelRequest,
+        CancelResponse,
+
+        TimeoutResponse,
+
+        ErrorResponse,
+
+        ServiceDiscoveryRequest,
+
+        ServiceDiscoveryResponse
+    }
+
+    [Flags]
+    internal enum RpcOperationFlags
+    {
+        None = 0,
+        CanCancel = 0x0001
+    }
+#pragma warning restore CA1028 // Enum Storage should be Int32
+
 }

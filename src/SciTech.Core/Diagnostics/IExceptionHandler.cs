@@ -4,7 +4,7 @@ using System.Linq;
 namespace SciTech.Diagnostics
 {
     /// <summary>
-    /// Defines how an unexpected class should be treated when calling <see cref="IExceptionHandler.HandleException(Exception, bool)"/>.
+    /// Defines how an unexpected class should be treated when calling <see cref="IExceptionHandler.HandleException(Exception, UnexpectedExceptionAction)"/>.
     /// </summary>
     public enum UnexpectedExceptionAction
     {
@@ -28,8 +28,20 @@ namespace SciTech.Diagnostics
 
     public interface IExceptionHandler
     {
+        /// <summary>
+        /// Tries to handle the provided exception. If the exception cannot be handled, performs the action specified
+        /// by <paramref name="unexpectedExceptionAction"/>. 
+        /// </summary>
+        /// <param name="e">The exception to handle.</param>
+        /// <param name="unexpectedExceptionAction">Specifies the action to perform for an unexpected exception. For more information, see <see cref="UnexpectedExceptionAction"/>.</param>
+        /// <returns><c>true</c> if the exception was handled or propageted to <see cref="UnhandledException(Exception)"/>. If <c>false</c>
+        /// is returned, the caller needs to handle the exception, e.g. by re-throwing.</returns>
         bool HandleException(Exception e, UnexpectedExceptionAction unexpectedExceptionAction = UnexpectedExceptionAction.None);
 
+        /// <summary>
+        /// Handles an unexpected exception. An unexpected exception is normally handled by logging it, showing an error message, or re-throwing it.
+        /// </summary>
+        /// <param name="e"></param>
         void UnhandledException(Exception e);
     }
 }

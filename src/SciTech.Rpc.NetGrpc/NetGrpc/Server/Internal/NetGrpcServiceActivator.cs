@@ -10,6 +10,7 @@
 #endregion
 
 using Grpc.AspNetCore.Server;
+using Grpc.AspNetCore.Server.Model;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Server;
 using System;
@@ -20,7 +21,9 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// Helper class that forwards the ServiceProvider for the ASP.NET Core handler to the 
     /// NetGrpc implementation.
     /// </summary>
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
     internal class NetGrpcServiceActivator<TService> where TService : class
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
         internal readonly IServiceProvider ServiceProvider;
 
@@ -28,30 +31,27 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         {
             this.ServiceProvider = serviceProvider;
         }
-        //void Build( IRpcSerializer serializer )
-        //{
-        //    var stubBuilder = new NetGrpcServiceStubBuilder<TService>(serializer);
-        //    stubBuilder.Bind()
-        //}
     }
 
     /// <summary>
     /// An <see cref="IConfigureOptions{TOptions}"/> implementation that is used to forward suitable RpcServiceOptions options to the
     /// GrpcServiceOptions associated with <see cref="NetGrpcServiceActivator{TService}"/>.
     /// </summary>
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
     internal class NetGrpcServiceActivatorConfig<TService> : IConfigureOptions<GrpcServiceOptions<NetGrpcServiceActivator<TService>>> where TService : class
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
-        private RpcServiceOptions rpcOptions;
+        private RpcServerOptions rpcOptions;
 
-        public NetGrpcServiceActivatorConfig(IOptions<RpcServiceOptions> options)
+        public NetGrpcServiceActivatorConfig(IOptions<RpcServiceOptions<TService>> options)
         {
             this.rpcOptions = options.Value;
         }
 
         public void Configure(GrpcServiceOptions<NetGrpcServiceActivator<TService>> options)
         {
-            options.ReceiveMaxMessageSize = this.rpcOptions.ReceiveMaxMessageSize ?? options.ReceiveMaxMessageSize;
-            options.SendMaxMessageSize = this.rpcOptions.SendMaxMessageSize ?? options.SendMaxMessageSize;
+            options.MaxReceiveMessageSize = this.rpcOptions.ReceiveMaxMessageSize ?? options.MaxReceiveMessageSize;
+            options.MaxSendMessageSize = this.rpcOptions.SendMaxMessageSize ?? options.MaxSendMessageSize;
         }
     }
 }

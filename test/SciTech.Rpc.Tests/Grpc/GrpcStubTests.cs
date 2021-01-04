@@ -2,11 +2,12 @@
 using Grpc.Core.Testing;
 using Moq;
 using NUnit.Framework;
+using SciTech.Collections.Immutable;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Tests;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -16,12 +17,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     [TestFixture]
     public class GrpcStubTests
     {
-        private static readonly IRpcSerializer DefaultSerializer = new ProtobufSerializer();
+        private static readonly IRpcSerializer DefaultSerializer = new ProtobufRpcSerializer();
 
         public GrpcStubTests()
         {
@@ -79,7 +80,7 @@ namespace SciTech.Rpc.Grpc.Tests
             var serviceImpl = new ThermostatServiceImpl();
 
             var implProviderMock = new Mock<IRpcServiceActivator>();
-            implProviderMock.Setup(p => p.GetServiceImpl<IDeviceService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(serviceImpl);
+            implProviderMock.Setup(p => p.GetActivatedService<IDeviceService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<IDeviceService>( serviceImpl, false ));
 
             var callContext = CreateServerCallContext(CancellationToken.None);
             var binder = new TestMethodBinder();
@@ -195,7 +196,7 @@ namespace SciTech.Rpc.Grpc.Tests
             var objectId = RpcObjectId.NewId();
             var addResponseTask = addHandler.Invoke(new RpcObjectRequest<int, int>(objectId, 5, 6), callContext);
 
-            var response = await addResponseTask;
+            var response = await addResponseTask.DefaultTimeout();
             Assert.AreEqual(11, response.Result);
         }
 
@@ -279,25 +280,27 @@ namespace SciTech.Rpc.Grpc.Tests
 
         private static void CreateSimpleServiceStub<TService>(TService serviceImpl, IGrpcMethodBinder methodBinder) where TService : class
         {
-            var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufSerializer() });
+            var builder = new GrpcServiceStubBuilder<TService>(new RpcServiceOptions<TService> { Serializer = new ProtobufRpcSerializer() });
 
-            var hostMock = new Mock<IRpcServerImpl>(MockBehavior.Strict);
+            var hostMock = new Mock<IRpcServerCore>(MockBehavior.Strict);
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
             var serviceDefinitionsProviderMock = new Mock<IRpcServiceDefinitionsProvider>(MockBehavior.Strict);
-            var serviceImplProviderMock = new Mock<IRpcServiceActivator>(MockBehavior.Strict);
-            serviceImplProviderMock.Setup(p => p.GetServiceImpl<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(serviceImpl);
+            serviceDefinitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
 
-            serviceDefinitionsProviderMock.Setup(p => p.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
+            var serviceImplProviderMock = new Mock<IRpcServiceActivator>(MockBehavior.Strict);
+            serviceImplProviderMock.Setup(p => p.GetActivatedService<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<TService>(serviceImpl, false));
+
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
             hostMock.Setup(h => h.ServiceDefinitionsProvider).Returns(serviceDefinitionsProviderMock.Object);
-            hostMock.Setup(h => h.ServiceImplProvider).Returns(serviceImplProviderMock.Object);
-            hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArray<RpcServerCallInterceptor>.Empty);
+            hostMock.Setup(h => h.ServiceActivator).Returns(serviceImplProviderMock.Object);
+            hostMock.Setup(h => h.CallInterceptors).Returns(ImmutableArrayList<RpcServerCallInterceptor>.Empty);
             hostMock.Setup(h => h.ServiceProvider).Returns((IServiceProvider)null);
             hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
+            hostMock.Setup(p => p.HasContextAccessor).Returns(false);
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }
@@ -333,7 +336,7 @@ namespace SciTech.Rpc.Grpc.Tests
 
         private readonly int nExpectedMessages;
 
-        private TaskCompletionSource<bool> completedTcs = new TaskCompletionSource<bool>();
+        private readonly TaskCompletionSource<bool> completedTcs = new TaskCompletionSource<bool>();
 
         private bool isFirst = true;
 

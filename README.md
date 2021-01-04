@@ -233,10 +233,10 @@ _**NOTE!** The exception handling design is not fully finished yet. More details
 The following exceptions may be thrown by the SciTech.Rpc framework:
 
 * `RpcFailureException`: Thrown when an undeclared exception occurs within an  operation handler.
-* `RpcCommunicationExcepton`: Thrown when there is a communication error with the RPC server, e.g. server unreachable, server disconnected.
+* `RpcServiceUnavailableException`: Thrown when a service singleton or instance cannot be reached because it is not available on the server.
+* `RpcCommunicationException`: Thrown when there is a communication error with the RPC server, e.g. server unreachable, server disconnected.
 * `RpcDefinitionException`: Thrown when there is an error in an RPC definition interface. May occur when service interfaces are registered.
 * `RpcFaultException`, `RpcFaultException<TFault>`: Thrown when a declared fault exception occurs within an operation handler. Also used by the service implementation to provide error information to the client.
-* `RpcServiceUnavailableException`: Thrown when a service singleton or instance cannot be reached because it is not available on the server.
 
 ### Exception converters
 
@@ -262,7 +262,7 @@ By default gRPC serialization is based on the [Protobuf (Protocol buffer)](https
 
 ## Building SciTech.Rpc
 
-To build the SciTech.Rpc solution, you need to use Visual Studio 2019 v16.2 Preview 2 and have [.NET Core 3.0 Preview 6](https://dotnet.microsoft.com/download/dotnet-core/3.0) installed. 
+To build the SciTech.Rpc solution, you need to use Visual Studio 2019 v16.3 or later and have [.NET Core 3.0](https://dotnet.microsoft.com/download/dotnet-core/3.0) installed. 
 
 To build the solution using the command line, use the following command:
 
@@ -272,13 +272,12 @@ To run the unit tests, use the following command:
 
 `dotnet test --configuration Release`
 
-_**NOTE!** There are a number of compiler and code analysis warnings when building the solution. These warnings will of course be fixed before the official release._
 
 ## Performance
 
 SciTech.Rpc is designed with performance as a primary goal. The gRPC implementation should not add any noticable overhead to the underlying gRPC framework, except for an initial delay when generating dynamic code. It will also be possible to avoid the dynamic code generation in future releases by using the `RpcCodeGen` tool, which will pre-generate the necessary assemblies. This is particularly useful in AOT compilation scenarios.
 
-The Lightweight implementation is designed to be as fast as possible, with as little data transfer and memory allocations as possible. _(There are still areas to improve related to this is the current release.)_
+The Lightweight implementation is designed to be as fast as possible, with as little data transfer and memory allocations as possible. 
 
 Benchmark tests and [memory usage tests](https://memprofiler.com/api-examples) will be added, so that performance and memory usage can be better evaluated.
 

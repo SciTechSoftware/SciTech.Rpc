@@ -11,14 +11,10 @@
 
 using System;
 using System.Linq;
+using System.Security.Principal;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
-    public delegate Task<IDisposable> RpcServerCallInterceptor(IRpcServerCallMetadata metadata);
-
-    public interface IRpcServerCallMetadata
-    {
-        string? GetValue(string key);
-    }
+    public delegate Task<IDisposable> RpcServerCallInterceptor(IRpcServerContextBuilder metadata);
 }

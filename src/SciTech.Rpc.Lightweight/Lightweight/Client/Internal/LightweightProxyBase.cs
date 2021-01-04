@@ -13,10 +13,13 @@ using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,37 +28,44 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 {
     public class LightweightProxyArgs : RpcProxyArgs
     {
-        public LightweightProxyArgs(
+        internal LightweightProxyArgs(
             LightweightRpcConnection connection,
             IReadOnlyList<RpcClientCallInterceptor> callInterceptors,
             RpcObjectId objectId,
             IRpcSerializer serializer,
+            LightweightSerializersCache methodSerializersCache,
             IReadOnlyCollection<string>? implementedServices,
-            IRpcProxyDefinitionsProvider proxyServicesProvider,
             SynchronizationContext? syncContext)
-            : base(connection, objectId, serializer, implementedServices, proxyServicesProvider, syncContext)
+            : base(connection, objectId, serializer, implementedServices, syncContext)
         {
+            this.MethodSerializersCache = methodSerializersCache;
             this.CallInterceptors = callInterceptors;
         }
 
-        public IReadOnlyList<RpcClientCallInterceptor> CallInterceptors { get; }
+        internal IReadOnlyList<RpcClientCallInterceptor> CallInterceptors { get; }
 
-        public new LightweightRpcConnection Connection => (LightweightRpcConnection)base.Connection;
+        internal new LightweightRpcConnection Channel => (LightweightRpcConnection)base.Channel;
+
+        internal LightweightSerializersCache MethodSerializersCache { get; }
     }
 
 #pragma warning disable CA1062 // Validate arguments of public methods
     public class LightweightProxyBase : RpcProxyBase<LightweightMethodDef>
     {
-        private RpcPipelineClient? client;
+        private readonly int callTimeout;
 
-        private LightweightRpcConnection connection;
+        private readonly LightweightRpcConnection connection;
 
-        private TaskCompletionSource<RpcPipelineClient>? connectTcs;
+        private readonly LightweightSerializersCache methodSerializersCache;
+
+        private readonly int streamingCallTimeout;
 
         protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) : base(proxyArgs, proxyMethods)
         {
-            this.connection = proxyArgs.Connection;
-
+            this.connection = proxyArgs.Channel;
+            this.callTimeout = ((int?)this.connection.Options.CallTimeout?.TotalMilliseconds) ?? 0;
+            this.streamingCallTimeout = ((int?)this.connection.Options.StreamingCallTimeout?.TotalMilliseconds) ?? 0;
+            this.methodSerializersCache = proxyArgs.MethodSerializersCache;
             this.CallInterceptors = proxyArgs.CallInterceptors.ToImmutableArray();
         }
 
@@ -68,45 +78,43 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IRpcSerializer? serializer,
             RpcClientFaultHandler? faultHandler)
         {
-            return new LightweightMethodDef(methodType, $"{serviceName}.{methodName}", typeof(TRequest), typeof(TResponse), serializer, faultHandler);
+            return new LightweightMethodDef<TRequest, TResponse>(methodType, $"{serviceName}.{methodName}", serializer, faultHandler);
         }
 
-        public Task ConnectAsync()
-        {
-            return this.ConnectCoreAsync().AsTask();
-        }
-
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Not owner")]
         protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(
-            TRequest request, LightweightMethodDef method, CancellationToken ct)
+            TRequest request, LightweightMethodDef method, CancellationToken cancellationToken)
         {
-            IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
-            var actualSerializer = method.SerializerOverride ?? this.serializer;
+            var context = this.CreateCallHeaders(cancellationToken);
 
-            var clientTask = this.ConnectCoreAsync();
+            var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)method).LightweightSerializersOverride
+                ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(method);
+
+            var clientTask = this.ConnectCoreAsync(cancellationToken);
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
-                var streamingCallTask = client.BeginStreamingServerCall<TRequest, TResponse>(
+                var streamingCall = client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
-                    headers,
+                    context,
                     request,
-                    actualSerializer,
-                    ct);
+                    actualSerializers,
+                    this.streamingCallTimeout);
 
-                return streamingCallTask;
+                return new ValueTask<IAsyncStreamingServerCall<TResponse>>(streamingCall);
             }
 
             async ValueTask<IAsyncStreamingServerCall<TResponse>> AwaitConnectAndCall(ValueTask<RpcPipelineClient> pendingClientTask)
             {
                 var client = await pendingClientTask.ContextFree();
-                var streamingCall = await client.BeginStreamingServerCall<TRequest, TResponse>(
+                var streamingCall = client.BeginStreamingServerCall(
                     RpcFrameType.StreamingRequest,
                     method.OperationName,
-                    headers,
+                    context,
                     request,
-                    actualSerializer,
-                    ct ).ContextFree();
+                    actualSerializers,
+                    this.streamingCallTimeout);
 
                 return streamingCall;
             }
@@ -114,28 +122,29 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return AwaitConnectAndCall(clientTask);
         }
 
-        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request)
+        protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            return CallUnaryMethodImplAsync<TRequest, TResponse>(methodDef, request, CancellationToken.None).AwaiterResult();
-
+            return CallUnaryMethodCoreAsync<TRequest, TResponse>(methodDef, request, cancellationToken).AwaiterResult();
         }
 
-        protected override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
+        protected override Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            IReadOnlyDictionary<string, string>? headers = this.CreateCallHeaders();
-            var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
+            var context = this.CreateCallHeaders(cancellationToken);
 
-            var clientTask = this.ConnectCoreAsync();
+            var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)methodDef).LightweightSerializersOverride
+                ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(methodDef);
+
+            var clientTask = this.ConnectCoreAsync(cancellationToken);
             if (clientTask.IsCompletedSuccessfully)
             {
                 var client = clientTask.Result;
                 var responseTask = client.SendReceiveFrameAsync<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
-                    headers,
+                    context,
                     request,
-                    actualSerializer,
-                    cancellationToken);
+                    actualSerializers,
+                    this.callTimeout);
 
                 return responseTask;
             }
@@ -146,10 +155,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 return await client.SendReceiveFrameAsync<TRequest, TResponse>(
                     RpcFrameType.UnaryRequest,
                     methodDef.OperationName,
-                    headers,
+                    context,
                     request,
-                    actualSerializer, 
-                    cancellationToken).ContextFree();
+                    actualSerializers,
+                    this.callTimeout).ContextFree();
             }
 
             return AwaitConnectAndCall(clientTask);
@@ -160,12 +169,15 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return CreateMethodDef<TRequest, TResponse>(RpcMethodType.Unary, serviceName, operationName, this.serializer, null);
         }
 
-        protected override void HandleCallException(Exception e)
+        protected override void HandleCallException(LightweightMethodDef methodDef, Exception e)
         {
-            if (!(e is RpcFailureException))
+            switch (e)
             {
-                if (e is SocketException socketException)
-                {
+                case Pipelines.Sockets.Unofficial.ConnectionResetException _:
+                    throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, e.Message, e);
+                case Pipelines.Sockets.Unofficial.ConnectionAbortedException _:
+                    throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
+                case SocketException socketException:
                     switch (socketException.SocketErrorCode)
                     {
                         case SocketError.ConnectionAborted:
@@ -174,103 +186,113 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         case SocketError.HostDown:
                         case SocketError.HostNotFound:
                         case SocketError.HostUnreachable:
-                            throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable);
+                            throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
                         default:
                             throw new RpcCommunicationException(RpcCommunicationStatus.Unknown);
                     }
-                }
-
-                throw new RpcFailureException("Unexepected exception when calling RPC method", e);
+                case IOException ioe:
+                    throw new RpcCommunicationException(RpcCommunicationStatus.Unknown, ioe.Message);
+                case RpcCommunicationException _:
+                case RpcFailureException _:
+                case OperationCanceledException _:
+                    break;
+                case TimeoutException _:
+                    break;
+                case RpcErrorException fre:
+                    this.HandleRpcError(methodDef, fre.Error);
+                    break;
+                default:
+                    throw new RpcFailureException(RpcFailure.Unknown, $"Unexepected exception when calling RPC method. {e.Message}", e);
             }
         }
 
-        protected override bool IsCommunicationException(Exception exception)
+        private ValueTask<RpcPipelineClient> ConnectCoreAsync(CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            return this.connection.ConnectClientAsync(cancellationToken);
         }
 
-        private ValueTask<RpcPipelineClient> ConnectCoreAsync()
+        private RpcRequestContext? CreateCallHeaders(CancellationToken cancellationToken)
         {
-            Task<RpcPipelineClient>? currentConnectTask = null;
-            lock (this.SyncRoot)
-            {
-                if (this.client != null)
-                {
-                    return new ValueTask<RpcPipelineClient>(this.client);
-                }
-
-                if (this.connectTcs != null)
-                {
-                    currentConnectTask = this.connectTcs.Task;
-                }
-                else
-                {
-                    this.connectTcs = new TaskCompletionSource<RpcPipelineClient>();
-                }
-            }
-
-
-            if (currentConnectTask != null)
-            {
-                async ValueTask<RpcPipelineClient> AwaitConnectTask(Task<RpcPipelineClient> task)
-                {
-                    return await task.ContextFree();
-                }
-
-                return AwaitConnectTask(currentConnectTask);
-            }
-            else
-            {
-                async ValueTask<RpcPipelineClient> AwaitConnection()
-                {
-                    var connectedClient = await this.connection.ConnectClientAsync().ContextFree();
-
-                    var connectTcs = this.connectTcs!;
-                    lock (this.SyncRoot)
-                    {
-                        this.client = connectedClient;
-                        this.connectTcs = null;
-                    }
-
-                    connectTcs.SetResult(connectedClient);
-
-                    return connectedClient;
-                }
-
-                return AwaitConnection();
-            }
-
-        }
-
-        private IReadOnlyDictionary<string, string>? CreateCallHeaders()
-        {
-            IReadOnlyDictionary<string, string>? headers = null;
+            RpcRequestContext? context = null;
             int nInterceptors = this.CallInterceptors.Length;
-            if (nInterceptors > 0)
+            if (nInterceptors > 0 || cancellationToken.CanBeCanceled)
             {
-                var metadata = new LightweightCallMetadata();
+                context = new RpcRequestContext(cancellationToken);
                 for (int interceptorIndex = 0; interceptorIndex < nInterceptors; interceptorIndex++)
                 {
-                    this.CallInterceptors[interceptorIndex](metadata);
+                    this.CallInterceptors[interceptorIndex](context);
                 }
-
-                headers = metadata.Headers;
             }
 
-            return headers;
+            return context;
         }
 
-        private class LightweightCallMetadata : IRpcClientCallMetadata
+        //private class LightweightCallMetadata : IRpcRequestContext
+        //{
+        //    private Dictionary<string, string> headersDictionary = new Dictionary<string, string>();
+
+        //    internal IReadOnlyDictionary<string, string> Headers => this.headersDictionary;
+
+        //    public void AddHeader(string key, string value)
+        //    {
+        //        this.headersDictionary.Add(key, value);
+        //    }
+
+        //    public string? GetHeaderString(string key)
+        //    {
+        //        this.headersDictionary.TryGetValue(key, out string? value);
+        //        return value;
+        //    }
+        //}
+    }
+
+#pragma warning restore CA1062 // Validate arguments of public methods
+
+    internal sealed class LightweightSerializers<TRequest, TResponse>
+    {
+        internal readonly IRpcSerializer Serializer;
+
+        internal readonly IRpcSerializer<TRequest> RequestSerializer;
+
+        internal readonly IRpcSerializer<TResponse> ResponseSerializer;
+
+        public LightweightSerializers(IRpcSerializer serializer)
         {
-            private Dictionary<string, string> headersDictionary = new Dictionary<string, string>();
+            this.Serializer = serializer;
+            this.RequestSerializer = serializer.CreateTyped<TRequest>();
+            this.ResponseSerializer = serializer.CreateTyped<TResponse>();
+        }
+    }
 
-            internal IReadOnlyDictionary<string, string> Headers => this.headersDictionary;
+    internal class LightweightSerializersCache
+    {
+        private readonly Dictionary<RpcProxyMethod, object> proxyToSerializers = new Dictionary<RpcProxyMethod, object>();
 
-            public void AddValue(string key, string value)
+        private readonly IRpcSerializer serializer;
+
+        private readonly object syncRoot = new object();
+
+        internal LightweightSerializersCache(IRpcSerializer serializer)
+        {
+            this.serializer = serializer;
+        }
+
+        internal LightweightSerializers<TRequest, TResponse> GetSerializers<TRequest, TResponse>(RpcProxyMethod proxyMethod)
+            where TRequest : class
+            where TResponse : class
+        {
+            lock (this.syncRoot)
             {
-                this.headersDictionary.Add(key, value);
+                if (this.proxyToSerializers.TryGetValue(proxyMethod, out var serializers))
+                {
+                    return (LightweightSerializers<TRequest, TResponse>)serializers;
+                }
+
+                var newSerializers = new LightweightSerializers<TRequest, TResponse>(this.serializer);
+                this.proxyToSerializers.Add(proxyMethod, newSerializers);
+
+                return newSerializers;
             }
         }
     }
-#pragma warning restore CA1062 // Validate arguments of public methods
 }

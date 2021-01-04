@@ -3,19 +3,20 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client;
 using SciTech.Rpc.Grpc.Server;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Tests;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     [TestFixture]
     public class GrpcSecurityTests : GrpcCoreFullStackTestsBase
     {
         //private static X509Certificate2 selfSignedCertificate;
-        private IRpcSerializer serializer = new ProtobufSerializer();
+        private IRpcSerializer serializer = new ProtobufRpcSerializer();
 
         //[Test]
         //public async Task SelfSignedServerTest()

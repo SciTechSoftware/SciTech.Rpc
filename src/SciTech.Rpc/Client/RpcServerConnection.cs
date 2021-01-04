@@ -10,8 +10,8 @@
 #endregion
 
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Logging;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -20,24 +20,37 @@ namespace SciTech.Rpc.Client
     /// <summary>
     /// Base implementation of the <see cref="IRpcServerConnection"/> interface.
     /// </summary>
-    public abstract class RpcServerConnection : IRpcServerConnection
+    public abstract class RpcServerConnection : RpcChannel, IRpcServerConnection
     {
-        private readonly RpcProxyProvider proxyProvider;
+        private RpcConnectionState connectionState;
 
-        private readonly Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>> serviceInstances = new Dictionary<RpcObjectId, List<WeakReference<RpcProxyBase>>>();
+        private bool hasPendingStateChange;
 
-        private readonly object syncRoot = new object();
-
-        protected RpcServerConnection(RpcServerConnectionInfo connectionInfo, RpcProxyProvider proxyProvider)
+        protected RpcServerConnection(
+            RpcServerConnectionInfo connectionInfo,
+            IRpcClientOptions? options,
+            IRpcProxyGenerator proxyGenerator) : base(connectionInfo, options, proxyGenerator)
         {
-            this.ConnectionInfo = connectionInfo;
-            this.proxyProvider = proxyProvider;
         }
 
-        /// <summary>
-        /// Gets the connection info of this connection.
-        /// </summary>
-        public RpcServerConnectionInfo ConnectionInfo { get; }
+        public event EventHandler? Connected;
+
+        public event EventHandler? ConnectionFailed;
+
+        public event EventHandler? ConnectionLost;
+
+        public event EventHandler? ConnectionStateChanged;
+
+        public event EventHandler? Disconnected;
+
+
+        public RpcConnectionState ConnectionState
+        {
+            get
+            {
+                lock (this.SyncRoot) return this.connectionState;
+            }
+        }
 
         public abstract bool IsConnected { get; }
 
@@ -52,86 +65,72 @@ namespace SciTech.Rpc.Client
         /// explicitly, since a connection will be established on the first RPC operation.
         /// </summary>
         /// <returns></returns>
-        public abstract Task ConnectAsync();
+        public abstract Task ConnectAsync(CancellationToken cancellationToken = default);
 
-        public TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class
+        protected override void Dispose(bool disposing)
         {
-            if (objectId == RpcObjectId.Empty)
+            if (this.IsConnected)
             {
-                throw new ArgumentException("ObjectId should not be empty.", nameof(objectId));
+                // TODO: Logger.Warn("Connection disposed while still connected.");
             }
 
-            return GetServiceInstanceCore<TService>(objectId, implementedServices, syncContext);
+            base.Dispose(disposing);
         }
 
-        public TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class
-        {
-            // TODO: Implement singleton factories.
 
-            return GetServiceInstanceCore<TService>(RpcObjectId.Empty, syncContext);
+        protected void NotifyConnected()
+        {
+            this.Connected?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
+        }
+
+        protected void NotifyConnectionFailed()
+        {
+            this.ConnectionFailed?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
+        }
+
+        protected void NotifyConnectionLost()
+        {
+            this.ConnectionLost?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
+        }
+
+        protected void NotifyDisconnected()
+        {
+            this.Disconnected?.Invoke(this, EventArgs.Empty);
+
+            this.RaiseStateChangdIfNecessary();
         }
 
         /// <summary>
-        /// Disconnects this connection and cleans up any used resources.
+        /// Should be called by derived classes, within a lock when the connection state has been changed.
+        /// The caller should also make a sub-sequent call to <see cref="NotifyConnectionLost"/>,
+        /// <see cref="NotifyConnectionFailed"/>,  <see cref="NotifyDisconnected"/>, or <see cref="NotifyConnected"/>
         /// </summary>
-        /// <returns></returns>
-        public abstract Task ShutdownAsync();
-
-        private TService GetServiceInstanceCore<TService>(RpcObjectId refObjectId, SynchronizationContext? syncContext) where TService : class
+        /// <param name="state"></param>
+        protected void SetConnectionState(RpcConnectionState state)
         {
-            return GetServiceInstanceCore<TService>(refObjectId, default, syncContext);
+            if (this.connectionState != state)
+            {
+                this.connectionState = state;
+                this.hasPendingStateChange = true;
+            }
         }
 
-        private TService GetServiceInstanceCore<TService>(
-            RpcObjectId refObjectId,
-            IReadOnlyCollection<string>? implementedServices,
-            SynchronizationContext? syncContext) where TService : class
+
+        private void RaiseStateChangdIfNecessary()
         {
-            lock (this.syncRoot)
+            bool stateChanged;
+            stateChanged = this.hasPendingStateChange;
+            this.hasPendingStateChange = false;
+
+            if (stateChanged)
             {
-                if (this.serviceInstances.TryGetValue(refObjectId, out var servicesList))
-                {
-                    foreach (var wService in servicesList)
-                    {
-                        if (wService.TryGetTarget(out var proxyBase)
-                            && proxyBase is TService service
-                            && proxyBase.SyncContext == syncContext
-                            && proxyBase.ImplementsServices(implementedServices))
-                        {
-                            return service;
-                        }
-                    }
-                }
-            }
-
-            RpcObjectProxyFactory serviceProxyCreator
-                = this.proxyProvider.ProxyGenerator.GenerateObjectProxyFactory<TService>(implementedServices);
-
-            lock (this.syncRoot)
-            {
-                if (this.serviceInstances.TryGetValue(refObjectId, out var servicesList))
-                {
-                    foreach (var wService in servicesList)
-                    {
-                        if (wService.TryGetTarget(out var proxyBase)
-                            && proxyBase is TService service
-                            && proxyBase.SyncContext == syncContext
-                            && proxyBase.ImplementsServices(implementedServices))
-                        {
-                            return service;
-                        }
-                    }
-                }
-                else
-                {
-                    servicesList = new List<WeakReference<RpcProxyBase>>();
-                    this.serviceInstances.Add(refObjectId, servicesList);
-                }
-
-                var serviceInstance = serviceProxyCreator(refObjectId, this, syncContext);
-                servicesList.Add(new WeakReference<RpcProxyBase>(serviceInstance));
-
-                return (TService)(object)serviceInstance;
+                this.ConnectionStateChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }

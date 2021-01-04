@@ -14,6 +14,7 @@ using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -30,7 +31,7 @@ namespace SciTech.Rpc.Client.Internal
         where TMethodDef : RpcProxyMethod
         where TProxyArgs : RpcProxyArgs
     {
-        private readonly Dictionary<HashSetKey<string>, Delegate> generatedFactories = new Dictionary<HashSetKey<string>, Delegate>();
+        private readonly Dictionary<HashSetKey<Type>, Delegate> generatedFactories = new Dictionary<HashSetKey<Type>, Delegate>();
 
         private readonly object syncRoot = new object();
 
@@ -41,24 +42,22 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         private Dictionary<string, int>? definedProxyTypes;
 
-        protected RpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider)
+        protected RpcProxyGenerator()
         {
-            this.ProxyServicesProvider = proxyServicesProvider ?? new RpcProxyServicesBuilder();
         }
 
-        protected IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }
-
         public RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
-            IReadOnlyCollection<string>? implementedServices)
+            IReadOnlyCollection<string>? implementedServices,
+            IReadOnlyDictionary<string,ImmutableArray<Type>>? knownServiceTypes )
             where TService : class
         {
             lock (this.syncRoot)
             {
-                var serviceInterfaces = this.GetAllServices<TService>(implementedServices);
-                var key = new HashSetKey<string>(serviceInterfaces.Select(s => s.FullName));
+                var serviceInterfaces = GetAllServices<TService>(implementedServices, knownServiceTypes);
+                var key = new HashSetKey<Type>(serviceInterfaces.Select(s => s.Type));
 
                 // If a proxy with the same set of service interfaces has been generated before
-                // let's resuse that one.
+                // let's reuse that one.
                 if (this.generatedFactories.TryGetValue(key, out var currFactory))
                 {
                     // TODO: Should maybe look for a factory which has a superset of implemented interfaces?
@@ -67,11 +66,13 @@ namespace SciTech.Rpc.Client.Internal
 
                 var (moduleBuilder, definedProxyTypes) = CreateModuleBuilder();
 
-                var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(serviceInterfaces, this.ProxyServicesProvider, moduleBuilder, definedProxyTypes);
-                var (proxyCreator, createMethodsFunc) = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();
-                var proxyMethods = createMethodsFunc();
+                var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(
+                    serviceInterfaces,
+                    moduleBuilder, definedProxyTypes);
+                (Func<TProxyArgs, TMethodDef[], RpcProxyBase> proxyCreator, TMethodDef[] proxyMethodDefs) 
+                    = proxyTypeBuilder.BuildObjectProxyFactory<TProxyArgs>();                
 
-                RpcObjectProxyFactory newFactory = this.CreateProxyFactory(proxyCreator, implementedServices, proxyMethods);
+                RpcObjectProxyFactory newFactory = this.CreateProxyFactory(proxyCreator, implementedServices, proxyMethodDefs);
 
                 this.generatedFactories.Add(key, newFactory);
 
@@ -84,7 +85,14 @@ namespace SciTech.Rpc.Client.Internal
             if (this.moduleBuilder == null)
             {
                 var assemblyName = Guid.NewGuid().ToString();
-                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
+#if PLAT_SUPPORT_COLLECTIBLE_ASSEMBLIES
+                var builderAccess = AssemblyBuilderAccess.RunAndCollect;
+#else
+                // RunAndCollect causes tests to crash on .NET Core 2.0 and .NET Core 2.1. It seems
+                // like assemblies are collected while still being in use.
+                var builderAccess = AssemblyBuilderAccess.Run;
+#endif
+                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), builderAccess);
                 this.moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName);
                 this.definedProxyTypes = new Dictionary<string, int>();
             }
@@ -92,15 +100,19 @@ namespace SciTech.Rpc.Client.Internal
             return (this.moduleBuilder,this.definedProxyTypes!);
         }
 
-        public RpcSingletonProxyFactory GenerateSingletonProxy<TService>() where TService : class
-        {
-            throw new NotImplementedException();
-        }
-
-        internal List<RpcServiceInfo> GetAllServices<TService>(IReadOnlyCollection<string>? implementedServices)
+        /// <summary>
+        /// Gets all services that should be implemented by the proxy, based on information about the requested <typeparamref name="TService"/>,
+        /// the implemented services on the server side, and registered proxy types.
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <param name="implementedServices"></param>
+        /// <returns></returns>
+        private static List<RpcServiceInfo> GetAllServices<TService>(
+            IReadOnlyCollection<string>? implementedServices, 
+            IReadOnlyDictionary<string, ImmutableArray<Type>>? knownServiceTypes)
         {
             var interfaceServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Client, false);
-            if (implementedServices != null && implementedServices.Count > 0)
+            if (implementedServices?.Count > 0)
             {
                 // We have information about implemented services on the server side.
                 // Make sure that the interfaceServices are actually implemented
@@ -113,16 +125,20 @@ namespace SciTech.Rpc.Client.Internal
                 }
 
                 // And add all known service interfaces.
-                foreach (var implementedService in implementedServices)
+                if (knownServiceTypes != null)
                 {
-                    var knownTypes = this.ProxyServicesProvider.GetServicesTypes(implementedService);
-
-                    foreach (var serviceType in knownTypes)
+                    foreach (var implementedService in implementedServices)
                     {
-                        if (interfaceServices.Find(s => s.Type.Equals(serviceType)) == null)
+                        if (knownServiceTypes.TryGetValue(implementedService, out var knownTypes))
                         {
-                            var serviceInfo = RpcBuilderUtil.GetServiceInfoFromType(serviceType);
-                            interfaceServices.Add(serviceInfo);    // serviceInfo is not null when throwOnError is true.
+                            foreach (var serviceType in knownTypes)
+                            {
+                                if (interfaceServices.Find(s => s.Type.Equals(serviceType)) == null)
+                                {
+                                    var serviceInfo = RpcBuilderUtil.GetServiceInfoFromType(serviceType);
+                                    interfaceServices.Add(serviceInfo);    // serviceInfo is not null when throwOnError is true.
+                                }
+                            }
                         }
                     }
                 }

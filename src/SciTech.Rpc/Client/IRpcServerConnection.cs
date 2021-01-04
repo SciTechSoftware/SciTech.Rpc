@@ -10,28 +10,43 @@
 #endregion
 
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
+    public enum RpcConnectionState
+    {
+        None,
+        Connected,
+        ConnectionFailed,
+        ConnectionLost,
+        Disconnected,
+    }
+
     /// <summary>
-    /// Defines methods and properties for a server connection, e.g. for retrieving proxies to
-    /// remote services. 
+    /// Extends <see cref="IRpcChannel"/> with methods and properties for a connection oriented channel.
     /// </summary>
     /// <remarks>
     /// A server connection represents an established connection to a server process. <see cref="RpcServerConnectionInfo"/> is
     /// used to provide information about a connection.
     /// </remarks>
-    public interface IRpcServerConnection
+    public interface IRpcServerConnection : IRpcChannel
     {
-        RpcServerConnectionInfo ConnectionInfo { get; }
+        event EventHandler? Connected;
 
-        TService GetServiceInstance<TService>(RpcObjectId objectId, IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class;
+        event EventHandler? ConnectionFailed;
 
-        TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class;
+        event EventHandler? ConnectionLost;
 
-        Task ShutdownAsync();
+        event EventHandler? ConnectionStateChanged;
+
+        event EventHandler? Disconnected;
+
+        RpcConnectionState ConnectionState { get; }
+
+        Task ConnectAsync(CancellationToken cancellationToken);
+
+
     }
 }

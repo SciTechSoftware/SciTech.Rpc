@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 
 namespace SciTech.Rpc.Client.Internal
@@ -23,11 +24,21 @@ namespace SciTech.Rpc.Client.Internal
         protected RpcProxyMethod(IRpcSerializer? serializerOverride, RpcClientFaultHandler? faultHandler)
         {
             this.SerializerOverride = serializerOverride;
-            this.FaultHandler = faultHandler;
+            this.FaultHandler = faultHandler ?? RpcClientFaultHandler.Empty;
         }
 
-        public RpcClientFaultHandler? FaultHandler { get; }
+        public RpcClientFaultHandler FaultHandler { get; }
 
         public IRpcSerializer? SerializerOverride { get; }
+
+        /// <summary>
+        /// Gets the response type of this method. Currently only used for testing.
+        /// </summary>
+        protected internal abstract Type ResponseType { get; }
+
+        /// <summary>
+        /// Gets the request type of this method. Currently only used for testing.
+        /// </summary>
+        protected internal abstract Type RequestType { get; }
     }
 }

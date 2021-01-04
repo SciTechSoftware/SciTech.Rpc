@@ -10,31 +10,35 @@
 #endregion
 
 using System;
-using System.Net;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace SciTech.Rpc
 {
     /// <summary>
-    /// The RpcServerId struct is used to identify a server process.
+    /// The RpcServerId struct is used to identify a logical RPC server. The logical RPC server may be a single server process, 
+    /// or a set of load-balanced servers.
     /// </summary>
     [DataContract]
     [Serializable]
+    [JsonConverter(typeof(Serialization.RpcServerIdJsonConverter))]
     public struct RpcServerId : IEquatable<RpcServerId>
     {
         public static readonly RpcServerId Empty;
 
-        [DataMember(Order = 1, Name = "Id")]
-        private Guid id;
+        [DataMember(Order = 1)]
+        internal Guid Id { get; set; }
 
         public RpcServerId(string idString)
         {
-            this.id = new Guid(idString);
+            this.Id = new Guid(idString);
         }
 
         public RpcServerId(Guid id)
         {
-            this.id = id;
+            this.Id = id;
         }
 
         public static RpcServerId NewId()
@@ -42,61 +46,126 @@ namespace SciTech.Rpc
             return new RpcServerId(Guid.NewGuid());
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is RpcServerId other && this.Equals(other);
         }
 
         public bool Equals(RpcServerId other)
         {
-            return this.id == other.id;
+            return this.Id == other.Id;
         }
 
         public override int GetHashCode()
         {
-            return this.id.GetHashCode();
+            return this.Id.GetHashCode();
         }
 
         public Guid ToGuid()
         {
-            return this.id;
+            return this.Id;
         }
 
         public override string ToString()
         {
-            return this.id.ToString();
+            return this.Id.ToString();
         }
 
         public static bool operator ==(RpcServerId id1, RpcServerId id2)
         {
-            return id1.id == id2.id;
+            return id1.Id == id2.Id;
         }
 
         public static bool operator !=(RpcServerId id1, RpcServerId id2)
         {
-            return id1.id != id2.id;
+            return id1.Id != id2.Id;
+        }
+    }
+
+    internal class RpcServerConnectionInfoConverter : JsonConverter<RpcServerConnectionInfo>
+    {
+        public RpcServerConnectionInfoConverter()
+        {
+        }
+
+        public override void Write(Utf8JsonWriter writer, RpcServerConnectionInfo value, JsonSerializerOptions options)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("DisplayName", value.DisplayName);
+            writer.WriteString("HostUrl", value.HostUrl?.ToString() ?? "");
+            writer.WriteString("ServerId", value.ServerId.ToGuid());
+            writer.WriteEndObject();
+        }
+
+        public override RpcServerConnectionInfo Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType != JsonTokenType.StartObject)
+            {
+                throw new JsonException();
+            }
+
+            string displayName = "";
+            string hostUrl = "";
+            Guid serverId = Guid.Empty;
+            while (reader.Read())
+            {
+                switch (reader.TokenType)
+                {
+                    case JsonTokenType.PropertyName:
+                        {
+                            string? propertyName = reader.GetString();
+                            reader.Read();
+                            switch (propertyName)
+                            {
+                                case "DisplayName":
+                                    displayName = reader.GetString() ?? "";
+                                    break;
+                                case "HostUrl":
+                                    hostUrl = reader.GetString() ?? "";
+                                    break;
+                                case "ServerId":
+                                    serverId = reader.GetGuid();
+                                    break;
+                            }
+                            reader.Skip();
+                            break;
+                        }
+                    case JsonTokenType.EndObject:
+                        return new RpcServerConnectionInfo(displayName, !string.IsNullOrEmpty(hostUrl) ? new Uri(hostUrl) : null, new RpcServerId(serverId));
+                    default:
+                        throw new JsonException();
+                }
+            }
+
+            throw new JsonException();
         }
     }
 
     /// <summary>
-    /// The RpcServerConnectionInfo class contains base information about a connected 
-    /// server. This base class only provides the name and id of the server. Use
-    /// derived classes to access protocol specific connection data.
+    /// The RpcServerConnectionInfo class contains information about a connection 
+    /// to an RPC server. 
     /// </summary>
     [DataContract]
-    //[KnownType(typeof(TcpRpcServerConnectionInfo))]
     [Serializable]
-    public class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
+    [JsonConverter(typeof(RpcServerConnectionInfoConverter))]
+    public sealed class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
     {
-        /// <summary>
-        /// Initializes a new ServerConnectionInfo with the supplied displayName and serverId.
-        /// </summary>
-        /// <param name="displayName">The display name of the server connection.</param>
-        /// <param name="serverId">Id of the server.</param>
-        public RpcServerConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId=default)
+        [NonSerialized]
+        private Uri? hostUrl;
+
+        [DataMember(Name = "HostUrl", Order = 2)]
+        private string? hostUrlString;
+
+        public RpcServerConnectionInfo()
         {
-            this.DisplayName = displayName ?? hostUrl?.Host ?? "";
-            this.HostUrl = hostUrl?.ToString() ?? "";
+            this.DisplayName = "";
+            this.HostUrl = null;
+        }
+
+        public RpcServerConnectionInfo(RpcServerId serverId)
+        {
+            this.DisplayName = "";
+            this.HostUrl = null;
             this.ServerId = serverId;
         }
 
@@ -107,14 +176,19 @@ namespace SciTech.Rpc
         public RpcServerConnectionInfo(Uri? hostUrl, RpcServerId serverId = default)
         {
             this.DisplayName = hostUrl?.Host ?? "";
-            this.HostUrl = hostUrl?.ToString() ?? "";
+            this.HostUrl = hostUrl;
             this.ServerId = serverId;
         }
 
-        public RpcServerConnectionInfo(RpcServerId serverId )
+        /// <summary>
+        /// Initializes a new ServerConnectionInfo with the supplied displayName and serverId.
+        /// </summary>
+        /// <param name="displayName">The display name of the server connection.</param>
+        /// <param name="serverId">Id of the server.</param>
+        public RpcServerConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId = default)
         {
-            this.DisplayName = "";
-            this.HostUrl = "";
+            this.DisplayName = displayName ?? hostUrl?.Host ?? "";
+            this.HostUrl = hostUrl;
             this.ServerId = serverId;
         }
 
@@ -129,8 +203,33 @@ namespace SciTech.Rpc
             private set;
         }
 
-        [DataMember(Order = 2)]
-        public string HostUrl { get; private set; }
+        public Uri? HostUrl
+        {
+            get
+            {
+                if (this.hostUrl == null && !string.IsNullOrEmpty(this.hostUrlString))
+                {
+                    if (!Uri.TryCreate(this.hostUrlString, UriKind.Absolute, out this.hostUrl))
+                    {
+                        this.hostUrlString = "";
+                    }
+                }
+
+                return this.hostUrl;
+            }
+            private set
+            {
+                this.hostUrl = value;
+                if (value != null)
+                {
+                    this.hostUrlString = value.ToString();
+                }
+                else
+                {
+                    this.hostUrlString = "";
+                }
+            }
+        }
 
         /// <summary>
         /// Gets the id of the connected server.
@@ -138,16 +237,18 @@ namespace SciTech.Rpc
         [DataMember(Order = 3)]
         public RpcServerId ServerId { get; private set; }
 
-        public sealed override bool Equals(object obj)
+        public override sealed bool Equals(object? obj)
         {
             return obj is RpcServerConnectionInfo other && this.Equals(other);
         }
 
-        public virtual bool Equals(RpcServerConnectionInfo other)
+        public bool Equals([AllowNull]RpcServerConnectionInfo other)
         {
-            if (other != null && this.GetType() == other.GetType())
+            if (other != null )
             {
-                return other.ServerId == this.ServerId;
+                return other.ServerId == this.ServerId 
+                    && this.DisplayName == other.DisplayName 
+                    && this.HostUrl == other.HostUrl;
             }
 
             return false;
@@ -155,7 +256,7 @@ namespace SciTech.Rpc
 
         public override int GetHashCode()
         {
-            return this.ServerId.GetHashCode();
+            return this.ServerId.GetHashCode() + ( this.HostUrl?.GetHashCode() ?? 0 );
         }
 
         /// <summary>
@@ -163,7 +264,7 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>
-        public virtual bool Matches(RpcServerConnectionInfo other)
+        public bool Matches(RpcServerConnectionInfo other)
         {
             if (other == null)
             {
@@ -186,14 +287,14 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="serverId"></param>
         /// <returns></returns>
-        public virtual RpcServerConnectionInfo SetServerId(RpcServerId serverId)
+        public RpcServerConnectionInfo SetServerId(RpcServerId serverId)
         {
             if (this.GetType() != typeof(RpcServerConnectionInfo))
             {
                 throw new NotImplementedException("SetServerId must be implemented by derived class");
             }
 
-            return new RpcServerConnectionInfo(this.DisplayName, !string.IsNullOrEmpty( this.HostUrl ) ? new Uri( this.HostUrl ) : null, serverId);
+            return new RpcServerConnectionInfo(this.DisplayName, this.HostUrl, serverId);
         }
 
         public override string ToString()

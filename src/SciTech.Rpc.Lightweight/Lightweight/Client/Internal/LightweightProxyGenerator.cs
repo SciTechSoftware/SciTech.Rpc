@@ -11,16 +11,25 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace SciTech.Rpc.Lightweight.Client.Internal
 {
-    public class LightweightProxyGenerator : RpcProxyGenerator<LightweightProxyBase, LightweightProxyArgs, LightweightMethodDef>
+    internal class LightweightProxyGenerator : RpcProxyGenerator<LightweightProxyBase, LightweightProxyArgs, LightweightMethodDef>
     {
-        public LightweightProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider = null) : base(proxyServicesProvider)
+        internal static readonly LightweightProxyGenerator Default = new LightweightProxyGenerator();
+
+        private readonly ConditionalWeakTable<IRpcSerializer, LightweightSerializersCache> serializerToMethodSerializersCache
+            = new ConditionalWeakTable<IRpcSerializer, LightweightSerializersCache>();
+
+        private readonly object syncRoot = new object();
+
+        internal LightweightProxyGenerator()
         {
         }
 
@@ -29,19 +38,18 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             IReadOnlyCollection<string>? implementedServices,
             LightweightMethodDef[] proxyMethods)
         {
-            var proxyServicesProvider = this.ProxyServicesProvider;
-            return (RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? syncContext) =>
+            return (RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? syncContext) =>
             {
                 if (connection is LightweightRpcConnection lightweightConnection)
                 {
                     var args = new LightweightProxyArgs
                     (
                         objectId: objectId,
-                        callInterceptors: lightweightConnection.CallInterceptors,
+                        callInterceptors: lightweightConnection.Options.Interceptors,
                         connection: lightweightConnection,
                         serializer: lightweightConnection.Serializer,
+                        methodSerializersCache: this.GetMethodSerializersCache(lightweightConnection.Serializer),
                         implementedServices: implementedServices,
-                        proxyServicesProvider: proxyServicesProvider,
                         syncContext: syncContext
                     );
 
@@ -52,6 +60,22 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     throw new InvalidOperationException($"{nameof(LightweightProxyGenerator)} should only be used for {nameof(LightweightRpcConnection)}.");
                 }
             };
+        }
+
+        private LightweightSerializersCache GetMethodSerializersCache(IRpcSerializer serializer)
+        {
+            lock (this.syncRoot)
+            {
+                if (this.serializerToMethodSerializersCache.TryGetValue(serializer, out var existingMethodsCache))
+                {
+                    return existingMethodsCache;
+                }
+
+                var methodsCache = new LightweightSerializersCache(serializer);
+                this.serializerToMethodSerializersCache.Add(serializer, methodsCache);
+
+                return methodsCache;
+            }
         }
     }
 }

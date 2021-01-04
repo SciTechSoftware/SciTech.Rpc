@@ -1,6 +1,7 @@
 ﻿using Moq;
 using NUnit.Framework;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
@@ -8,9 +9,9 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests
 {
-    public abstract class ClientServerTests : ClientServerTestsBase
+    public abstract class ClientServerBaseTests : ClientServerTestsBase
     {
-        protected ClientServerTests(IRpcSerializer serializer, RpcConnectionType connectionType) :
+        protected ClientServerBaseTests(IRpcSerializer serializer, RpcConnectionType connectionType) :
             base(serializer, connectionType)
         {
         }
@@ -18,7 +19,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task AddRemoveMixedEventHandlersTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -31,15 +32,15 @@ namespace SciTech.Rpc.Tests
                 using (var publishScope = servicePublisher.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    
+
                     var clientService = connection.GetServiceInstance<ISimpleServiceWithEvents>(objectId);
 
-                    ValueChangedEventArgs detailedArgs = await TestMixedEventHandlers(clientService);
+                    _ = await TestMixedEventHandlers(clientService).DefaultTimeout();
 
                     Assert.IsFalse(serviceImpl.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl.HasValueChangedHandler);
 
-                    detailedArgs = await TestMixedEventHandlers(clientService);
+                    _ = await TestMixedEventHandlers(clientService);
 
                     Assert.IsFalse(serviceImpl.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl.HasValueChangedHandler);
@@ -54,7 +55,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task BlockingServiceCallTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
@@ -94,17 +95,16 @@ namespace SciTech.Rpc.Tests
             }
         }
 
-
         [Test]
         public async Task DirectServiceProviderServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IServiceProviderService>()
                 .RegisterService<ISimpleService>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
             var servicePublisher = host.ServicePublisher;
-            var rpcServerId = servicePublisher.ServerId;
+            _ = servicePublisher.ServerId;
 
             host.Start();
 
@@ -112,7 +112,7 @@ namespace SciTech.Rpc.Tests
             {
                 var serviceImpl = new ServiceProviderServiceImpl(host.ServicePublisher);
 
-                using (var publishScope = servicePublisher.PublishSingleton<IServiceProviderService>(serviceImpl))
+                using (servicePublisher.PublishSingleton<IServiceProviderService>(serviceImpl))
                 {
                     var clientService = connection.GetServiceSingleton<IServiceProviderServiceClient>();
                     var serviceRef = await clientService.GetSimpleServiceAsync();
@@ -134,7 +134,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task GenericEventHandlerTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -167,9 +167,18 @@ namespace SciTech.Rpc.Tests
                     };
                     clientService2.DetailedValueChanged += detailedHandler2;
 
+                    //var delayTask = Task.Delay(5000);
 
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlers().DefaultTimeout();
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlers().DefaultTimeout();
+                    //Task t = await Task.WhenAny( ((IRpcService)clientService1).WaitForPendingEventHandlers(), delayTask);
+                    //if (t == delayTask)
+
+                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync().DefaultTimeout();
+                    //var delayTask2 = Task.Delay(5000);
+
+                    //Task t2 = await Task.WhenAny(((IRpcService)clientService2).WaitForPendingEventHandlers(), delayTask);
+                    //if (t2 == delayTask)
+
+                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync().DefaultTimeout();
 
                     clientService1.SetValueAsync(12).Forget();
                     clientService2.SetValueAsync(24).Forget();
@@ -178,7 +187,7 @@ namespace SciTech.Rpc.Tests
                     var detailedArgs2 = await detailedTcs2.Task.DefaultTimeout();
 
                     clientService1.DetailedValueChanged -= detailedHandler1;
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlers().DefaultTimeout();
+                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync().DefaultTimeout();
                     await clientService1.SetValueAsync(13).DefaultTimeout();
 
                     // Verify 1
@@ -191,7 +200,7 @@ namespace SciTech.Rpc.Tests
                     Assert.IsFalse(serviceImpl1.HasValueChangedHandler);
 
                     clientService2.DetailedValueChanged -= detailedHandler2;
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlers().DefaultTimeout();
+                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync().DefaultTimeout();
                     await clientService1.SetValueAsync(25).DefaultTimeout();
 
                     // Verify 2
@@ -213,7 +222,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task MultiInstanceServicesTest()
         {
-            var serviceRegistrator = new RpcServiceDefinitionBuilder();
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
             serviceRegistrator
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
@@ -251,7 +260,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task MultiSingletonServicesTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleService>();
             serverBuilder.RegisterService<IBlockingService>();
 
@@ -263,19 +272,21 @@ namespace SciTech.Rpc.Tests
             {
                 var simpleServiceImpl = new TestSimpleServiceImpl();
                 var blockingServiceImpl = new TestBlockingServiceImpl();
-                using (var publishScope = servicePublisher.PublishSingleton<ISimpleService>(simpleServiceImpl))
-                using (var publishScope2 = servicePublisher.PublishSingleton<IBlockingService>(blockingServiceImpl))
+                using (servicePublisher.PublishSingleton<ISimpleService>(simpleServiceImpl))
                 {
-                    var clientService = connection.GetServiceSingleton<ISimpleService>();
-                    var blockingClientService = connection.GetServiceSingleton<IBlockingService>();
-                    var clientService2 = connection.GetServiceSingleton<ISimpleService>();
-                    Assert.AreSame(clientService, clientService2);
+                    using (servicePublisher.PublishSingleton<IBlockingService>(blockingServiceImpl))
+                    {
+                        var clientService = connection.GetServiceSingleton<ISimpleService>();
+                        _ = connection.GetServiceSingleton<IBlockingService>();
+                        var clientService2 = connection.GetServiceSingleton<ISimpleService>();
+                        Assert.AreSame(clientService, clientService2);
 
-                    int res = await clientService.AddAsync(8, 9);
-                    Assert.AreEqual(8 + 9, res);
+                        int res = await clientService.AddAsync(8, 9);
+                        Assert.AreEqual(8 + 9, res);
 
-                    int res2 = await clientService.AddAsync(12, 13);
-                    Assert.AreEqual(12 + 13, res2);
+                        int res2 = await clientService.AddAsync(12, 13);
+                        Assert.AreEqual(12 + 13, res2);
+                    }
                 }
             }
             finally
@@ -287,7 +298,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task PlainEventHandlerTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -323,18 +334,25 @@ namespace SciTech.Rpc.Tests
                     clientService1.ValueChanged += valueChangedHandler1;
                     clientService2.ValueChanged += valueChangedHandler2;
 
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlers();
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlers();
+                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync();
+                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync();
 
                     clientService1.SetValueAsync(12).Forget();
                     clientService2.SetValueAsync(24).Forget();
 
-                    await Task.WhenAll(valueChangedTcs1.Task, valueChangedTcs2.Task).DefaultTimeout();
+                    try
+                    {
+                        await Task.WhenAll(valueChangedTcs1.Task, valueChangedTcs2.Task).DefaultTimeout();
+                    }
+                    catch (TimeoutException)
+                    {
+                        System.Threading.Thread.Sleep(1);
+                    }
                     Assert.IsTrue(valueChangedTcs1.Task.IsCompletedSuccessfully());
                     Assert.IsTrue(valueChangedTcs2.Task.IsCompletedSuccessfully());
 
                     clientService1.ValueChanged -= valueChangedHandler1;
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlers();
+                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync();
                     clientService1.SetValueAsync(13).Forget();
 
                     // Wait a little to make sure that the event handler has been removed on the server side as well.
@@ -343,7 +361,7 @@ namespace SciTech.Rpc.Tests
                     Assert.IsFalse(serviceImpl1.HasValueChangedHandler);
 
                     clientService2.ValueChanged -= valueChangedHandler2;
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlers();
+                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync();
                     clientService2.SetValueAsync(25).Forget();
 
                     // Wait a little to make sure that the event handler has been removed on the server side as well.
@@ -362,14 +380,14 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task ServiceProviderServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IImplicitServiceProviderService>()
                 .RegisterService<ISimpleService>()
                 .RegisterService<IBlockingService>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
             var servicePublisher = host.ServicePublisher;
-            var rpcServerId = servicePublisher.ServerId;
+            _ = servicePublisher.ServerId;
 
             host.Start();
 
@@ -377,7 +395,7 @@ namespace SciTech.Rpc.Tests
             {
                 var serviceImpl = new ImplicitServiceProviderServiceImpl(host.ServicePublisher);
 
-                using (var publishScope = servicePublisher.PublishSingleton<IImplicitServiceProviderService>(serviceImpl))
+                using (servicePublisher.PublishSingleton<IImplicitServiceProviderService>(serviceImpl))
                 {
                     var clientService = connection.GetServiceSingleton<IImplicitServiceProviderServiceClient>();
                     var serviceRef = await clientService.GetBlockingServiceAsync(0);
@@ -400,7 +418,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public async Task SingletonServiceTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleService>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -410,7 +428,7 @@ namespace SciTech.Rpc.Tests
             try
             {
                 var serviceImpl = new TestSimpleServiceImpl();
-                using (var publishScope = servicePublisher.PublishSingleton<ISimpleService>(serviceImpl))
+                using (servicePublisher.PublishSingleton<ISimpleService>(serviceImpl))
                 {
                     var clientService = connection.GetServiceSingleton<ISimpleService>();
 
@@ -429,7 +447,7 @@ namespace SciTech.Rpc.Tests
         [Ignore("Not implemented yet.")]
         public async Task UnserializableEventHandlerTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IServiceWithUnserializableEvent>();
 
             var (host, connection) = this.CreateServerAndConnection(serverBuilder);
@@ -453,7 +471,7 @@ namespace SciTech.Rpc.Tests
 
                     clientService.UnserializableValueChanged += detailedHandler;
 
-                    Assert.ThrowsAsync<RpcFailureException>(((IRpcService)clientService).WaitForPendingEventHandlers);
+                    Assert.ThrowsAsync<RpcFailureException>(((IRpcService)clientService).WaitForPendingEventHandlersAsync);
                 }
             }
             finally
@@ -482,7 +500,7 @@ namespace SciTech.Rpc.Tests
 
             clientService.ValueChanged += valueChangedHandler;
 
-            await ((IRpcService)clientService).WaitForPendingEventHandlers();
+            await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
 
             clientService.SetValueAsync(12).Forget();
 
@@ -495,7 +513,7 @@ namespace SciTech.Rpc.Tests
 
             clientService.DetailedValueChanged -= detailedHandler;
             clientService.ValueChanged -= valueChangedHandler;
-            await ((IRpcService)clientService).WaitForPendingEventHandlers();
+            await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
 
             clientService.SetValueAsync(15).Forget();
             await Task.Delay(200);  // Give some time to allow any incorrect events to be deliverd.

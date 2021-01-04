@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net461;net472;netcoreapp2.1</TargetFrameworks>
+    <!--<TargetFramework>netcoreapp3.0</TargetFramework>-->
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.1;net5.0</TargetFrameworks>
   </PropertyGroup>
-
 
   <Import Project="..\Package.props" />
   <Import Project="..\Platform.props" />
@@ -12,62 +12,58 @@
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
-This package contains the core SciTech.Rpc implementation and should normally not be added separately. 
-Use on of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.Pipelines.
-  </Description>
+This package contains the core SciTech.Rpc implementation and should normally not be added separately.
+Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rpc.NetGrpc, SciTech.Rpc.NetGrpc.Client, SciTech.Rpc.Lightweight.
+    </Description>
   </PropertyGroup>
 
-
-  <PropertyGroup>
-    <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <LangVersion>8.0</LangVersion>
-    <Nullable>enable</Nullable>
-    <NullableContextOptions>enable</NullableContextOptions>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>1573;1591</NoWarn>
-  </PropertyGroup>
+<PropertyGroup>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+</PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="JsonSerializer.cs" />
+    <Compile Remove="Client\RpcProxyDefinitionsBuilder.cs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SciTech.Core\System\Diagnostics\CodeAnalysis\NullableAttributes.cs" Link="System\Diagnostics\CodeAnalysis\NullableAttributes.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\LICENSE">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-    <None Include="JsonSerializer.cs" />
+    <None Include="Client\RpcProxyDefinitionsBuilder.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.3">
+    <!--<PackageReference Include="GitVersionTask" Version="5.3.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
-    <PackageReference Include="protobuf-net" Version="3.0.0-alpha.43" />
-    <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.2" />
-    <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
-
+    </PackageReference>-->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.1" />
+    <!--<PackageReference Include="System.ServiceModel.Primitives" Version="4.6.0" />-->
+  </ItemGroup>
+  
+  <ItemGroup Condition="$(TargetFramework)!='netcoreapp3.0'">
+    <PackageReference Include="System.Text.Json" Version="4.7.0" />
+  </ItemGroup>
+  
+  <ItemGroup Condition="$(TargetFramework)=='netstandard2.0' Or $(TargetFramework)=='netstandard2.1'">
+    <PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
+  </ItemGroup>
+
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Update="ca.pem">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-    <None Update="server.key">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

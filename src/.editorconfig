@@ -1,0 +1,31 @@
+﻿[*.cs]
+
+# CA1816: Dispose methods should call SuppressFinalize
+dotnet_diagnostic.CA1816.severity = none
+
+# CA1303: Do not pass literals as localized parameters
+dotnet_diagnostic.CA1303.severity = none
+
+# CA1063: Implement IDisposable Correctly
+dotnet_diagnostic.CA1063.severity = none
+
+# CA2237: Add [Serializable] to RpcServiceUnavailableException as this type implements ISerializable
+dotnet_diagnostic.CA2237.severity = none
+
+# CA2235: Mark all non-serializable fields
+dotnet_diagnostic.CA2235.severity = none
+
+# IDE0069: Disposable fields should be disposed
+dotnet_diagnostic.IDE0069.severity = none
+
+# CA1032: Implement standard exception constructors
+dotnet_diagnostic.CA1032.severity = none
+
+dotnet_diagnostic.CA1805.severity = none
+
+# CA1508: Avoid dead conditional code
+# Currently a lot of false positives (e.g. 'collection as IReadOnlyList<T>' is never 'null'. Remove or refactor the condition(s) to avoid dead code.)
+dotnet_diagnostic.CA1508.severity = none
+
+dotnet_diagnostic.CA1002.severity = none
+

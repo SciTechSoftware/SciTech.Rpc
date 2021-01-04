@@ -11,25 +11,29 @@
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using GrpcCore = Grpc.Core;
 
+#if FEATURE_NET_GRPC
+namespace SciTech.Rpc.NetGrpc.Client.Internal
+#else
 namespace SciTech.Rpc.Grpc.Client.Internal
+#endif
 {
     public class GrpcProxyArgs : RpcProxyArgs
     {
-        internal GrpcProxyArgs(IRpcServerConnection connection,
+        internal GrpcProxyArgs(IRpcChannel connection,
                                GrpcCore.CallInvoker callInvoker,
                                RpcObjectId objectId,
                                GrpcMethodsCache methodsCache,
                                IRpcSerializer serializer,
-                               IReadOnlyCollection<string>? implementedServices,
-                               IRpcProxyDefinitionsProvider proxyServicesProvider,
-                               SynchronizationContext? syncContext) 
-            : base(connection, objectId, serializer, implementedServices, proxyServicesProvider, syncContext)
+                               IReadOnlyCollection<string>? implementedServices,                               
+                               SynchronizationContext? syncContext)
+            : base(connection, objectId, serializer, implementedServices, syncContext)
         {
             this.CallInvoker = callInvoker;
             this.MethodsCache = methodsCache;
@@ -40,18 +44,15 @@ namespace SciTech.Rpc.Grpc.Client.Internal
         internal GrpcMethodsCache MethodsCache { get; }
     }
 
-    public class GrpcProxyGenerator : RpcProxyGenerator<GrpcProxyBase, GrpcProxyArgs, GrpcProxyMethod>
+    internal class GrpcProxyGenerator : RpcProxyGenerator<GrpcProxyBase, GrpcProxyArgs, GrpcProxyMethod>
     {
+        internal static readonly GrpcProxyGenerator Default = new GrpcProxyGenerator();
+
         private readonly ConditionalWeakTable<IRpcSerializer, GrpcMethodsCache> serializerToMethodsCache = new ConditionalWeakTable<IRpcSerializer, GrpcMethodsCache>();
 
         private readonly object syncRoot = new object();
 
-        public GrpcProxyGenerator(IRpcProxyDefinitionsProvider? proxyServicesProvider) 
-            : base( proxyServicesProvider )
-        {
-        }
-
-        public GrpcProxyGenerator() : base(null)
+        internal GrpcProxyGenerator()
         {
         }
 
@@ -60,10 +61,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             IReadOnlyCollection<string>? implementedServices,
             GrpcProxyMethod[] proxyMethods)
         {
-            var proxyServicesProvider = this.ProxyServicesProvider;
-            return (RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? syncContext) =>
+            return (RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? syncContext) =>
             {
-                if (connection is GrpcServerConnection grpcConnection)
+                if (connection is IGrpcRpcChannel grpcConnection)
                 {
                     var callInvoker = grpcConnection.CallInvoker;
                     if (callInvoker == null)
@@ -76,16 +76,15 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                     var args = new GrpcProxyArgs
                     (
                         objectId: objectId,
-                        connection: grpcConnection,
+                        connection: connection,
                         callInvoker: callInvoker,
                         methodsCache: methodsCache,
                         serializer: grpcConnection.Serializer,
                         implementedServices: implementedServices,
-                        proxyServicesProvider: proxyServicesProvider,
                         syncContext: syncContext
                     );
 
-                    
+
                     return proxyCreator(args, proxyMethods);
                 }
                 else

@@ -46,7 +46,7 @@ namespace SciTech.Diagnostics
             return ticks.CompareTo(0);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is TickCount other && this.Equals(other);
         }

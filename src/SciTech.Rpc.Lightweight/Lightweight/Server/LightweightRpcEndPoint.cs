@@ -9,81 +9,28 @@
 //
 #endregion
 
+using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Server;
-using SciTech.Threading;
 using System;
 using System.IO.Pipelines;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server
 {
-    public interface ILightweightRpcEndPoint : IRpcServerEndPoint
+    /// <summary>
+    /// Base class for RPC end points that can be added to a <see cref="LightweightRpcServer"/>.
+    /// </summary>
+    public abstract class LightweightRpcEndPoint : IRpcServerEndPoint
     {
-        void Start(Func<IDuplexPipe, Task> clientConnectedCallback);
+        public abstract string DisplayName { get; }
 
-        Task StopAsync();
-    }
+        public abstract string HostName { get; }
 
-    public sealed class DirectLightweightRpcEndPoint : ILightweightRpcEndPoint
-    {
-        private readonly object syncRoot = new object();
+        public abstract RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId);
 
-        private IDuplexPipe? clientPipe;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="clientPipe"></param>
-        public DirectLightweightRpcEndPoint(IDuplexPipe clientPipe)
-        {
-            this.clientPipe = clientPipe;
-        }
-
-        public string DisplayName => "Direct";
-
-        public string HostName => "direct";
-
-        public RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
-        {
-            return new RpcServerConnectionInfo("Direct", new Uri("direct://localhost"), serverId);
-        }
-
-        public Task StopAsync()
-        {
-            return Task.CompletedTask;
-        }
-
-        private async void RunClient(Task clientTask, IDuplexPipe pipe)
-        {
-#pragma warning disable CA1031 // Do not catch general exception types
-            try
-            {
-                await clientTask.ContextFree();
-                pipe.Input.Complete();
-                pipe.Output.Complete();
-            }
-            catch (Exception e)
-            {
-                pipe.Input.Complete(e);
-                pipe.Output.Complete(e);
-            }
-#pragma warning restore CA1031 // Do not catch general exception types
-        }
-
-        void ILightweightRpcEndPoint.Start(Func<IDuplexPipe, Task> clientConnectedCallback)
-        {
-            IDuplexPipe pipe;
-            lock (this.syncRoot)
-            {
-                if (this.clientPipe == null)
-                {
-                    throw new InvalidOperationException("A DirectLightweightRpcEndPoint can only be started once.");
-                }
-                pipe = this.clientPipe;
-                this.clientPipe = null;
-            }
-
-            clientConnectedCallback(pipe);
-        }
+        protected internal abstract ILightweightRpcListener CreateListener(
+            IRpcConnectionHandler connectionHandler,
+            int maxRequestSize, int maxResponseSize);
     }
 }

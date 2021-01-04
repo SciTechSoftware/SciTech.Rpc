@@ -1,16 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net461;net472;netcoreapp2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.1;net5.0</TargetFrameworks>
   </PropertyGroup>
 
   <Import Project="..\Package.props" />
   <Import Project="..\Platform.props" />
 
   <PropertyGroup>
-    <Copyright>Copyright 2019. SciTech Software AB</Copyright>
-    <Description>
-      SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+    <Copyright>Copyright 2019-2020. SciTech Software AB</Copyright>
+    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
 This package contains the communication layer for the lightweight implementation of SciTech.Rpc.
@@ -18,18 +17,9 @@ This package contains the communication layer for the lightweight implementation
   </PropertyGroup>
 
   <PropertyGroup>
-    <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <LangVersion>8.0</LangVersion>
-    <Nullable>enable</Nullable>
-    <NullableContextOptions>enable</NullableContextOptions>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>1573;1591</NoWarn>
+    <RootNamespace>SciTech.Rpc</RootNamespace>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,20 +30,18 @@ This package contains the communication layer for the lightweight implementation
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.3">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="2.2.0" />
-    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.22" />
-    <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="3.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="3.1.1" />
+    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.1.1" />
+    
+    <PackageReference Include="System.IO.Pipelines" Version="4.7.0" />
+    <PackageReference Include="System.IO.Pipes.AccessControl" Version="4.5.1" />
+    <!--<PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
 
     <PackageReference Include="System.Memory" Version="4.5.3" />
     <PackageReference Include="System.Buffers" Version="4.5.0" />
-    <PackageReference Include="System.IO.Pipelines" Version="4.5.3" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.2" />
-    <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
+    <PackageReference Include="System.Reflection.Emit" Version="4.6.0" />-->
 
   </ItemGroup>
 

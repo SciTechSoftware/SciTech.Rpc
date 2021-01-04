@@ -13,9 +13,12 @@ using System;
 
 namespace SciTech.Rpc
 {
-    public class RpcServiceUnavailableException : Exception
+    /// <summary>
+    /// The exception that is thrown when a service singleton or instance cannot be reached because it is not available on the server.
+    /// </summary>
+    public class RpcServiceUnavailableException : RpcBaseException
     {
-        public RpcServiceUnavailableException()
+        public RpcServiceUnavailableException() : base("RPC service is not available.")
         {
         }
 

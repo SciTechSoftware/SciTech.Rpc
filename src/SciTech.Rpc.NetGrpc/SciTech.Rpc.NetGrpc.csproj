@@ -1,11 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TargetFrameworks>netcoreapp3.1</TargetFrameworks>
   </PropertyGroup>
 
   <Import Project="..\Package.props" />
   <Import Project="..\Platform.props" />
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);FEATURE_NET_GRPC</DefineConstants>
+  </PropertyGroup>
 
   <PropertyGroup>
     <Copyright>Copyright 2019. SciTech Software AB</Copyright>
@@ -13,18 +17,13 @@
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
 This package contains the communication layer for the fully managed ASP.NET Core implementation of the gRPC library (https://github.com/grpc/grpc-dotnet).
-    </Description>
-  </PropertyGroup>
-
-
-  <PropertyGroup>
-    <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
+</Description>
+</PropertyGroup>
 
   <PropertyGroup>
-    <LangVersion>8.0</LangVersion>
-    <Nullable>enable</Nullable>
-    <NullableContextOptions>enable</NullableContextOptions>
+    <OutputType>Library</OutputType>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,35 +32,24 @@ This package contains the communication layer for the fully managed ASP.NET Core
       <PackagePath></PackagePath>
     </None>
   </ItemGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>1573;1591</NoWarn>
-  </PropertyGroup>
   
   <ItemGroup>
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Server\Internal\GrpcCallContext.cs" Link="Grpc\Server\Internal\GrpcCallContext.cs" />
-    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Server\Internal\GrpcMethodDefinition.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Internal\GrpcMethodDefinition.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Grpc.AspNetCore.Server" Version="0.1.22-pre1" />
-    
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.4-beta1.final">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    
-    <!--<PackageReference Include="Grpc.Core.Api" Version="$(GrpcCorePackageVersion)" />-->
+    <PackageReference Include="Grpc.AspNetCore.Server" Version="2.24.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Grpc\Internal\" />
     <Folder Include="Grpc\Server\Internal\" />
   </ItemGroup>
 

@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
@@ -13,7 +14,9 @@ namespace SciTech.Collections
 
         internal static readonly SmallCollection<T> NullItem = new NullItemCollection();
 
-        internal delegate TCollection CollectionCreator<out TCollection>() where TCollection : ICollection<T>;
+        internal delegate TCollection CollectionCreator<out TCollection>(SmallCollection<T> smallCollection, int index, [AllowNull] T newItem) where TCollection : ICollection<T>;
+
+        internal delegate IList<T> FullListCreator();
 
         public abstract int Count { get; }
 
@@ -26,36 +29,30 @@ namespace SciTech.Collections
 
         public abstract SmallCollection<T> Clone();
 
-        public virtual bool Contains(T item) => this.IndexOf(item) >= 0;
-
-        public abstract void CopyTo(T[] array, int arrayIndex);
-
         public abstract IEnumerator<T> GetEnumerator();
 
-        public abstract int IndexOf(T item);
-
-        internal static object Create(int size)
+        internal static object? Create(int size )
         {
-            switch (size)
+            switch(size)
             {
                 case 0:
                     return null;
                 case 1:
                     return NullItem;
                 case 2:
-                    return new TwoItemCollection();
+                    return new TwoItemCollection(default, default);
                 case 3:
-                    return new ThreeItemCollection();
+                    return new ThreeItemCollection(default, default, default);
                 case 4:
-                    return new FourItemCollection();
+                    return new FourItemCollection(default, default, default, default);
             }
 
             throw new ArgumentOutOfRangeException(nameof(size));
         }
 
-        internal static object Create(ICollection<T> collection)
+        internal static object? Create(ICollection<T> collection)
         {
-            if (collection is IList<T> list)
+            if( collection is IList<T> list )
             {
                 return Create(list);
             }
@@ -114,7 +111,7 @@ namespace SciTech.Collections
             //return new SixItemCollection(value_0, value_1, value_2, value_3, value_4, value_5);
         }
 
-        internal static object Create(IList<T> list)
+        internal static object? Create(IList<T> list)
         {
             int count = list.Count;
             Debug.Assert(count <= MaxSize);
@@ -181,9 +178,15 @@ namespace SciTech.Collections
             return false;
         }
 
+        public virtual bool Contains(T item) => this.IndexOf(item) >= 0;
+
+        public abstract void CopyTo(T[] array, int arrayIndex);
+
+        public abstract int IndexOf(T item);
+
         internal abstract object Insert(int index, T item, CollectionCreator<IList<T>> fullSetCreator);
 
-        internal virtual bool Remove(T item, out object newSet)
+        internal virtual bool Remove(T item, out object? newSet)
         {
             int index = this.IndexOf(item);
             if (index >= 0)
@@ -201,11 +204,13 @@ namespace SciTech.Collections
         /// <param name="index"></param>
         /// <exception cref="ArgumentOutOfRangeException"/>
         /// <returns></returns>
-        internal abstract object RemoveAt(int index);
+        internal abstract object? RemoveAt(int index);
 
-        internal abstract object SetAt(int index, T item);
+        internal abstract object? SetAt(int index, [AllowNull]T item);
 
-        internal abstract bool TryGet(T item, out T existingItem);
+        internal abstract bool TryGet(T item, [MaybeNull]out T existingItem);
+
+        IEnumerator IEnumerable.GetEnumerator() { return this.GetEnumerator(); }
 
         void ICollection<T>.Add(T item)
         {
@@ -217,7 +222,6 @@ namespace SciTech.Collections
             throw new NotSupportedException();
         }
 
-        IEnumerator IEnumerable.GetEnumerator() { return this.GetEnumerator(); }
 
         bool ICollection<T>.Remove(T item)
         {
@@ -226,19 +230,19 @@ namespace SciTech.Collections
 
         private sealed class FourItemCollection : SmallCollection<T>
         {
+            [AllowNull]
             private T value_0;
 
+            [AllowNull]
             private T value_1;
 
+            [AllowNull]
             private T value_2;
 
+            [AllowNull]
             private T value_3;
-            internal FourItemCollection()
-            {
 
-            }
-
-            internal FourItemCollection(T value_0, T value_1, T value_2, T value_3)
+            internal FourItemCollection([AllowNull]T value_0, [AllowNull]T value_1, [AllowNull]T value_2, [AllowNull]T value_3)
             {
                 this.value_0 = value_0;
                 this.value_1 = value_1;
@@ -255,19 +259,14 @@ namespace SciTech.Collections
             {
                 get
                 {
-                    switch (index)
+                    return index switch
                     {
-                        case 0:
-                            return this.value_0;
-                        case 1:
-                            return this.value_1;
-                        case 2:
-                            return this.value_2;
-                        case 3:
-                            return this.value_3;
-                    }
-
-                    throw new ArgumentOutOfRangeException(nameof(index));
+                        0 => this.value_0,
+                        1 => this.value_1,
+                        2 => this.value_2,
+                        3 => this.value_3,
+                        _ => throw new ArgumentOutOfRangeException(nameof(index)),
+                    };
                 }
             }
 
@@ -276,20 +275,25 @@ namespace SciTech.Collections
                 return new FourItemCollection(this.value_0, this.value_1, this.value_2, this.value_3);
             }
 
-            public override void CopyTo(T[] array, int arrayIndex)
-            {
-                array[arrayIndex] = this.value_0;
-                array[arrayIndex + 1] = this.value_1;
-                array[arrayIndex + 2] = this.value_2;
-                array[arrayIndex + 3] = this.value_3;
-            }
-
             public override IEnumerator<T> GetEnumerator()
             {
                 yield return this.value_0;
                 yield return this.value_1;
                 yield return this.value_2;
                 yield return this.value_3;
+            }
+
+            internal override object Add(T item, CollectionCreator<ICollection<T>> fullListCreator)
+            {
+                return this.CreateFullCollection(fullListCreator, item);
+            }
+
+            public override void CopyTo(T[] array, int arrayIndex)
+            {
+                array[arrayIndex] = this.value_0;
+                array[arrayIndex + 1] = this.value_1;
+                array[arrayIndex + 2] = this.value_2;
+                array[arrayIndex + 3] = this.value_3;
             }
 
             public override int IndexOf(T item)
@@ -317,56 +321,49 @@ namespace SciTech.Collections
                 return -1;
             }
 
-            internal override object Add(T item, CollectionCreator<ICollection<T>> fullListCreator)
-            {
-                ICollection<T> list = this.CreateFullCollection(fullListCreator);
-                list.Add(item);
-                return list;
-            }
-
             internal override object Insert(int index, T item, CollectionCreator<IList<T>> fullListCreator)
             {
-                var list = fullListCreator();
-                switch (index)
-                {
-                    case 0:
-                        list[0] = item;
-                        list[1] = this.value_0;
-                        list[2] = this.value_1;
-                        list[3] = this.value_2;
-                        list[4] = this.value_3;
-                        break;
-                    case 1:
-                        list[0] = this.value_0;
-                        list[1] = item;
-                        list[2] = this.value_1;
-                        list[3] = this.value_2;
-                        list[4] = this.value_3;
-                        break;
-                    case 2:
-                        list[0] = this.value_0;
-                        list[1] = this.value_1;
-                        list[2] = item;
-                        list[3] = this.value_2;
-                        list[4] = this.value_3;
-                        break;
-                    case 3:
-                        list[0] = this.value_0;
-                        list[1] = this.value_1;
-                        list[2] = this.value_2;
-                        list[3] = item;
-                        list[4] = this.value_3;
-                        break;
-                    case 4:
-                        list[0] = this.value_0;
-                        list[1] = this.value_1;
-                        list[2] = this.value_2;
-                        list[3] = this.value_3;
-                        list[4] = item;
-                        break;
-                }
+                return fullListCreator(this, index, item);
+                //switch (index)
+                //{
+                //    case 0:
+                //        list[0] = item;
+                //        list[1] = this.value_0;
+                //        list[2] = this.value_1;
+                //        list[3] = this.value_2;
+                //        list[4] = this.value_3;
+                //        break;
+                //    case 1:
+                //        list[0] = this.value_0;
+                //        list[1] = item;
+                //        list[2] = this.value_1;
+                //        list[3] = this.value_2;
+                //        list[4] = this.value_3;
+                //        break;
+                //    case 2:
+                //        list[0] = this.value_0;
+                //        list[1] = this.value_1;
+                //        list[2] = item;
+                //        list[3] = this.value_2;
+                //        list[4] = this.value_3;
+                //        break;
+                //    case 3:
+                //        list[0] = this.value_0;
+                //        list[1] = this.value_1;
+                //        list[2] = this.value_2;
+                //        list[3] = item;
+                //        list[4] = this.value_3;
+                //        break;
+                //    case 4:
+                //        list[0] = this.value_0;
+                //        list[1] = this.value_1;
+                //        list[2] = this.value_2;
+                //        list[3] = this.value_3;
+                //        list[4] = item;
+                //        break;
+                //}
 
-                throw new ArgumentOutOfRangeException(nameof(index));
+                //throw new ArgumentOutOfRangeException();
             }
 
             internal override object RemoveAt(int index)
@@ -386,7 +383,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull] T item)
             {
                 switch (index)
                 {
@@ -409,7 +406,7 @@ namespace SciTech.Collections
                 return this;
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull]out T existingItem)
             {
                 if (Comparer.Equals(this.value_0, item))
                 {
@@ -439,14 +436,9 @@ namespace SciTech.Collections
                 return false;
             }
 
-            private ICollection<T> CreateFullCollection(CollectionCreator<ICollection<T>> fullListCreator)
+            private ICollection<T> CreateFullCollection(CollectionCreator<ICollection<T>> fullListCreator, [AllowNull]T newItem)
             {
-                var list = fullListCreator();
-                list.Add(this.value_0);
-                list.Add(this.value_1);
-                list.Add(this.value_2);
-                list.Add(this.value_3);
-                return list;
+                return fullListCreator(this, 4, newItem);
             }
         }
 
@@ -463,7 +455,7 @@ namespace SciTech.Collections
                 {
                     if (index == 0)
                     {
-                        return default;
+                        return default!;
                     }
 
                     throw new ArgumentOutOfRangeException(nameof(index));
@@ -472,24 +464,9 @@ namespace SciTech.Collections
 
             public override SmallCollection<T> Clone() => this;
 
-            public override bool Contains(T item)
-            {
-                return item == null;
-            }
-
-            public override void CopyTo(T[] array, int arrayIndex)
-            {
-                array[arrayIndex] = default;
-            }
-
             public override IEnumerator<T> GetEnumerator()
             {
                 return new SingleEnumerator<T>(default);
-            }
-
-            public override int IndexOf(T item)
-            {
-                return (item == null) ? 0 : -1;
             }
 
             internal override object Add(T item, CollectionCreator<ICollection<T>> fullSetCreator)
@@ -509,6 +486,21 @@ namespace SciTech.Collections
                 return false;
             }
 
+            public override bool Contains(T item)
+            {
+                return item == null;
+            }
+
+            public override void CopyTo(T[] array, int arrayIndex)
+            {
+                array[arrayIndex] = default!;
+            }
+
+            public override int IndexOf(T item)
+            {
+                return (item == null) ? 0 : -1;
+            }
+
             internal override object Insert(int index, T item, CollectionCreator<IList<T>> fullSetCreator)
             {
                 switch (index)
@@ -522,7 +514,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override bool Remove(T item, out object newSet)
+            internal override bool Remove(T item, out object? newSet)
             {
                 if (item == null)
                 {
@@ -534,7 +526,7 @@ namespace SciTech.Collections
                 return false;
             }
 
-            internal override object RemoveAt(int index)
+            internal override object? RemoveAt(int index)
             {
                 if (index == 0)
                 {
@@ -546,7 +538,7 @@ namespace SciTech.Collections
                 }
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull] T item)
             {
                 if (index == 0)
                 {
@@ -562,7 +554,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull] out T existingItem)
             {
                 existingItem = default;
                 return item == null;
@@ -894,17 +886,16 @@ namespace SciTech.Collections
         //}
         private sealed class ThreeItemCollection : SmallCollection<T>
         {
+            [AllowNull]
             private T value_0;
 
+            [AllowNull]
             private T value_1;
 
+            [AllowNull]
             private T value_2;
 
-            internal ThreeItemCollection()
-            {
-            }
-
-            internal ThreeItemCollection(T value_0, T value_1, T value_2)
+            internal ThreeItemCollection([AllowNull]T value_0, [AllowNull]T value_1, [AllowNull]T value_2)
             {
                 this.value_0 = value_0;
                 this.value_1 = value_1;
@@ -939,18 +930,23 @@ namespace SciTech.Collections
                 return new ThreeItemCollection(this.value_0, this.value_1, this.value_2);
             }
 
-            public override void CopyTo(T[] array, int arrayIndex)
-            {
-                array[arrayIndex] = this.value_0;
-                array[arrayIndex + 1] = this.value_1;
-                array[arrayIndex + 2] = this.value_2;
-            }
-
             public override IEnumerator<T> GetEnumerator()
             {
                 yield return this.value_0;
                 yield return this.value_1;
                 yield return this.value_2;
+            }
+
+            internal override object Add(T item, CollectionCreator<ICollection<T>> fullListCreator)
+            {
+                return new FourItemCollection(this.value_0, this.value_1, this.value_2, item);
+            }
+
+            public override void CopyTo(T[] array, int arrayIndex)
+            {
+                array[arrayIndex] = this.value_0;
+                array[arrayIndex + 1] = this.value_1;
+                array[arrayIndex + 2] = this.value_2;
             }
 
             public override int IndexOf(T item)
@@ -971,11 +967,6 @@ namespace SciTech.Collections
                 }
 
                 return -1;
-            }
-
-            internal override object Add(T item, CollectionCreator<ICollection<T>> fullListCreator)
-            {
-                return new FourItemCollection(this.value_0, this.value_1, this.value_2, item);
             }
 
             internal override object Insert(int index, T item, CollectionCreator<IList<T>> fullSetCreator)
@@ -1010,7 +1001,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull]T item)
             {
                 switch (index)
                 {
@@ -1030,7 +1021,7 @@ namespace SciTech.Collections
                 return this;
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull] out T existingItem)
             {
                 if (Comparer.Equals(this.value_0, item))
                 {
@@ -1057,15 +1048,13 @@ namespace SciTech.Collections
 
         private sealed class TwoItemCollection : SmallCollection<T>
         {
+            [AllowNull] 
             private T value_0;
 
+            [AllowNull] 
             private T value_1;
 
-            internal TwoItemCollection()
-            {
-            }
-
-            internal TwoItemCollection(T value_0, T value_1)
+            internal TwoItemCollection([AllowNull]T value_0, [AllowNull] T value_1)
             {
                 this.value_0 = value_0;
                 this.value_1 = value_1;
@@ -1097,38 +1086,10 @@ namespace SciTech.Collections
                 return new TwoItemCollection(this.value_0, this.value_1);
             }
 
-            public override bool Contains(T item)
-            {
-                return
-                       Comparer.Equals(this.value_0, item)
-                    || Comparer.Equals(this.value_1, item);
-            }
-
-            public override void CopyTo(T[] array, int arrayIndex)
-            {
-                array[arrayIndex] = this.value_0;
-                array[arrayIndex + 1] = this.value_1;
-            }
-
             public override IEnumerator<T> GetEnumerator()
             {
                 yield return this.value_0;
                 yield return this.value_1;
-            }
-
-            public override int IndexOf(T item)
-            {
-                if (Comparer.Equals(this.value_0, item))
-                {
-                    return 0;
-                }
-
-                if (Comparer.Equals(this.value_1, item))
-                {
-                    return 1;
-                }
-
-                return -1;
             }
 
             internal override object Add(T item, CollectionCreator<ICollection<T>> fullListCreator)
@@ -1146,6 +1107,34 @@ namespace SciTech.Collections
 
                 newSet = this;
                 return false;
+            }
+
+            public override bool Contains(T item)
+            {
+                return
+                       Comparer.Equals(this.value_0, item)
+                    || Comparer.Equals(this.value_1, item);
+            }
+
+            public override void CopyTo(T[] array, int arrayIndex)
+            {
+                array[arrayIndex] = this.value_0;
+                array[arrayIndex + 1] = this.value_1;
+            }
+
+            public override int IndexOf(T item)
+            {
+                if (Comparer.Equals(this.value_0, item))
+                {
+                    return 0;
+                }
+
+                if (Comparer.Equals(this.value_1, item))
+                {
+                    return 1;
+                }
+
+                return -1;
             }
 
             internal override object Insert(int index, T item, CollectionCreator<IList<T>> fullSetCreator)
@@ -1196,7 +1185,7 @@ namespace SciTech.Collections
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            internal override object SetAt(int index, T item)
+            internal override object SetAt(int index, [AllowNull]T item)
             {
                 switch (index)
                 {
@@ -1213,7 +1202,7 @@ namespace SciTech.Collections
                 return this;
             }
 
-            internal override bool TryGet(T item, out T existingItem)
+            internal override bool TryGet(T item, [MaybeNull] out T existingItem)
             {
                 if (Comparer.Equals(this.value_0, item))
                 {

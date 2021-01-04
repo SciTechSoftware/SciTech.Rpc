@@ -10,6 +10,7 @@
 #endregion
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
 
 namespace SciTech.Rpc
@@ -51,14 +52,14 @@ namespace SciTech.Rpc
 
         [DataMember(Order = 3)]
 #pragma warning disable CA1819 // Properties should not return arrays
-        public string[]? ImplementedServices { get; protected set; }
+        public string[]? ImplementedServices { get; set; }
 #pragma warning restore CA1819 // Properties should not return arrays
 
         [DataMember(Order = 1)]
-        public RpcObjectId ObjectId { get; protected set; }
+        public RpcObjectId ObjectId { get; set; }
 
         [DataMember(Order = 2)]
-        public RpcServerConnectionInfo? ServerConnection { get; protected set; }
+        public RpcServerConnectionInfo? ServerConnection { get; set; }
 
         public RpcObjectRef<TService> Cast<TService>() where TService : class
         {
@@ -80,12 +81,12 @@ namespace SciTech.Rpc
             return this;
         }
 
-        public bool Equals(RpcObjectRef other)
+        public bool Equals([AllowNull]RpcObjectRef other)
         {
             return other != null && this.ObjectId == other.ObjectId;
         }
 
-        public sealed override bool Equals(object obj)
+        public sealed override bool Equals(object? obj)
         {
             return obj is RpcObjectRef other && this.Equals(other);
         }

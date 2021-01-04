@@ -1,0 +1,70 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net472;netcoreapp2.0;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>
+    <AssemblyName>SciTech.Rpc.Benchmark</AssemblyName>
+    <RootNamespace>SciTech.Rpc.Benchmark</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="SimpleService.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\..\Benchmark\Certs\TestCertificates.Client.cs" Link="TestCertificates.Client.cs" />
+    <Compile Include="..\..\..\Benchmark\Certs\TestCertificates.Server.cs" Link="TestCertificates.Server.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\Benchmark\Certs\ca.crt" Link="ca.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Benchmark\Certs\ca.key" Link="ca.key">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Benchmark\Certs\client.crt" Link="client.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Benchmark\Certs\client.key" Link="client.key">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Benchmark\Certs\server.crt" Link="server.crt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Benchmark\Certs\server.key" Link="server.key">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\..\Benchmark\Certs\server.pfx" Link="server.pfx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.11.5" />
+    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.11.5" />
+    <PackageReference Include="Google.Protobuf" Version="3.10.0" />
+    <PackageReference Include="Grpc.Core" Version="2.24.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.24.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework) == 'netcoreapp3.0'">
+    <ProjectReference Include="..\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc.NetGrpc\SciTech.Rpc.NetGrpc.csproj" />
+
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="SimpleService.proto" />
+  </ItemGroup>
+
+</Project>

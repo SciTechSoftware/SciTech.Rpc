@@ -1,9 +1,20 @@
-﻿using Grpc.AspNetCore.Server;
+﻿#region Copyright notice and license
+// Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
+// All rights reserved.
+//
+// Licensed under the BSD 3-Clause License. 
+// You may obtain a copy of the License at:
+//
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+#endregion
+
+using Grpc.AspNetCore.Server;
 using Grpc.AspNetCore.Server.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
-using SciTech.Rpc.Grpc.Server.Internal;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Server;
@@ -11,29 +22,29 @@ using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.ServiceModel;
 using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.NetGrpc.Server
 {
     /// <summary>
-    /// A builder abstraction for configuring SciTech.Rpc servers.
-    /// </summary>
-    public interface IRpcServerBuilder
-    {
-        /// <summary>
-        /// Gets the builder service collection.
-        /// </summary>
-        IServiceCollection Services { get; }
-    }
-
-    /// <summary>
     /// Extension methods for the SciTech.Rpc gRPC services.
-    /// TODO: Move non-gRPC to the SciTech.Rpc project (e.g. AddServiceOptions, RegisterKnownType etc.).
     /// </summary>
     public static class NetGrpcServiceCollectionExtensions
     {
+        static NetGrpcServiceCollectionExtensions()
+        {
+            ServiceCollectionExtensions.ServiceRegistered += RpcServiceCollectionExtensions_ServiceRegistered;
+        }
+
         /// <summary>
         /// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
+        /// <note type="note">
+        /// <para>This method tries to register common RPC services, like <see cref="IRpcServiceDefinitionsBuilder"/>
+        /// and <see cref="IRpcServicePublisher"/>. To provide specific implementations of these interfaces, add them 
+        /// to the service collection prior to calling this method.
+        /// </para>
+        /// </note>
         /// </summary>
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
@@ -41,118 +52,54 @@ namespace SciTech.Rpc.NetGrpc.Server
         {
             services.AddGrpc();
 
-            services.TryAddSingleton<NetGrpcServer>();
-
             services.TryAddTransient<IServiceMethodProvider<NetGrpcServer>, RpcCoreServiceMethodProvider>();
 
-            services.TryAddEnumerable(ServiceDescriptor.Transient(typeof(IServiceMethodProvider<>), typeof(NetGrpcServiceMethodProvider<>)));
+            // Use reflection to get NetGrpcServiceMethodProvider<> type. For some reason using typeof(NetGrpcServiceMethodProvider<>)
+            // causes a BadImageFormatException in .NET Core 3.0 Preview 9. Hopefully this hack can be removed soon.
+            var providerType = typeof(NetGrpcServiceCollectionExtensions).Assembly.GetType("SciTech.Rpc.NetGrpc.Server.NetGrpcServiceMethodProvider`1");
+            //var providerType = typeof(NetGrpcServiceMethodProvider<>);
+
+            services.TryAddEnumerable(ServiceDescriptor.Transient(typeof(IServiceMethodProvider<>), providerType));
+
             services.TryAdd(ServiceDescriptor.Scoped(typeof(NetGrpcServiceActivator<>), typeof(NetGrpcServiceActivator<>)));
-            services.AddTransient(typeof(NetGrpcServiceStubBuilder<>));
 
-            services.AddSingleton<RpcServiceDefinitionBuilder>()
-                .AddSingleton<IRpcServiceDefinitionBuilder>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>())
-                .AddSingleton<IRpcServiceDefinitionsProvider>(s => s.GetRequiredService<RpcServiceDefinitionBuilder>());
-
-            services.TryAddSingleton(s => new RpcServicePublisher(s.GetRequiredService<IRpcServiceDefinitionsProvider>()));
-            services.TryAddSingleton<IRpcServicePublisher>(s => s.GetRequiredService<RpcServicePublisher>());
-            services.TryAddSingleton<IRpcServiceActivator>(s => s.GetRequiredService<RpcServicePublisher>());
-
-            return new RpcServerBuilder(services);
+            return services.AddRpcServer<NetGrpcServer>();
         }
+
 
         /// <summary>
         /// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
         /// </summary>
+        /// <inheritdoc/>
+        /// <param name="options"></param>
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IRpcServerBuilder AddNetGrpc(this IServiceCollection services, Action<RpcServiceOptions> options)
+        public static IRpcServerBuilder AddNetGrpc(this IServiceCollection services, Action<RpcServerOptions> options)
         {
             return services.Configure(options).AddNetGrpc();
         }
 
-        /// <summary>
-        /// Adds service specific options to an <see cref="IRpcServerBuilder"/>.
-        /// </summary>
-        /// <typeparam name="TService">The service type to configure.</typeparam>
-        /// <param name="rpcBuilder">The <see cref="IGrpcServerBuilder"/>.</param>
-        /// <param name="configure">A callback to configure the service options.</param>
-        /// <returns>The same instance of the <see cref="IRpcServerBuilder"/> for chaining.</returns>
-        public static IRpcServerBuilder AddServiceOptions<TService>(this IRpcServerBuilder rpcBuilder, Action<RpcServiceOptions<TService>> configure) where TService : class
+        private static void RpcServiceCollectionExtensions_ServiceRegistered(object? sender, ServiceRegistrationEventArgs e)
         {
-            if (rpcBuilder == null)
+            List<RpcServiceInfo> allServices = RpcBuilderUtil.GetAllServices(e.ServiceType, RpcServiceDefinitionSide.Server, true);
+            foreach (var rpcService in allServices)
             {
-                throw new ArgumentNullException(nameof(rpcBuilder));
+                e.Services.TryAddEnumerable(ServiceDescriptor.Singleton(
+                    typeof(IConfigureOptions<>).MakeGenericType(typeof(GrpcServiceOptions<>).MakeGenericType(typeof(NetGrpcServiceActivator<>).MakeGenericType(rpcService.Type))),
+                    typeof(NetGrpcServiceActivatorConfig<>).MakeGenericType(rpcService.Type)));
             }
-
-            rpcBuilder.Services.TryAddEnumerable(ServiceDescriptor.Singleton(typeof(IConfigureOptions<GrpcServiceOptions<NetGrpcServiceActivator<TService>>>), typeof(NetGrpcServiceActivatorConfig<TService>)));
-
-            rpcBuilder.Services.Configure(configure);
-            return rpcBuilder;
-        }
-
-        /// <summary>
-        /// Registers a known serializable type that should be available for RPC serializers.
-        /// </summary>
-        /// <typeparam name="T">The known type.</typeparam>
-        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
-        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IServiceCollection RegisterKnownType<T>(this IServiceCollection services)
-        {
-            services.AddSingleton(new KnownSerializationType(typeof(T)));
-            return services;
-        }
-
-        /// <summary>
-        /// Registers a known serializable type that should be available for RPC serializers.
-        /// </summary>
-        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
-        /// <param name="type">The known type.</param>
-        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IServiceCollection RegisterKnownType(this IServiceCollection builder, Type type)
-        {
-            builder.AddSingleton(new KnownSerializationType(type));
-            return builder;
-        }
-
-        /// <summary>
-        /// Registers an RPC service interface that could be used to implement an RPC service.
-        /// </summary>
-        /// <typeparam name="TService">The service interface type. Must be an interface with the <see cref="RpcServiceAttribute"/> applied.</typeparam>
-        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
-        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IServiceCollection RegisterRpcService<TService>(this IServiceCollection services, RpcServiceOptions? options = null) where TService : class
-        {
-            // Could have been added as transient, since it's only used once during initialization. However,
-            // that would cause a factory delegate to be kept in memory, which probably consumes as much as the RpcServiceRegistration
-            // instance.
-            services.AddSingleton<IRpcServiceRegistration>(new RpcServiceRegistration(typeof(TService), options));
-            return services;
-        }
-
-        /// <summary>
-        /// Registers an RPC service interface that could be used to implement an RPC service.
-        /// </summary>
-        /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
-        /// <param name="type">The service interface type. Must be an interface with the <see cref="RpcServiceAttribute"/> applied.</param>
-        /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IServiceCollection RegisterRpcService(this IServiceCollection services, Type type, RpcServiceOptions? options = null)
-        {
-            // See RegisterRpcService<TService>
-            services.AddSingleton<IRpcServiceRegistration>(new RpcServiceRegistration(type, options));
-            return services;
-        }
-
-        public static IServiceCollection RegisterRpcServicesAssembly(this IServiceCollection builder, Assembly assembly, RpcServiceOptions? options = null)
-        {
-            // See RegisterRpcService<TService>
-            builder.AddSingleton<IRpcServiceRegistration>(new RpcServicesAssemblyRegistration(assembly, options));
-            return builder;
         }
     }
 
-    internal class NetGrpcServiceMethodProvider<TActivator> : IServiceMethodProvider<TActivator> where TActivator : class
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
+    public class NetGrpcServiceMethodProvider<TActivator> : IServiceMethodProvider<TActivator> where TActivator : class
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
-        private static MethodInfo BuildServiceStubMethod = typeof(NetGrpcServiceMethodProvider<TActivator>).GetMethod(nameof(BuildServiceStub), BindingFlags.Instance | BindingFlags.NonPublic);
+        private static MethodInfo BuildServiceStubMethod =
+            typeof(NetGrpcServiceMethodProvider<TActivator>)
+            .GetMethod(nameof(BuildServiceStub), BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new NotImplementedException(
+                $"{nameof(BuildServiceStub)} not correctly implemented on {nameof(NetGrpcServiceMethodProvider<TActivator>)}");
         //private RpcServiceOptions options;
 
         private NetGrpcServer rpcServer;
@@ -174,6 +121,9 @@ namespace SciTech.Rpc.NetGrpc.Server
             {
                 var serviceType = activatorType.GetGenericArguments()[0];
 
+                //MethodInfo buildServiceStubMethod = typeof(NetGrpcServiceMethodProvider<TActivator>)
+                //    .GetMethod(nameof(BuildServiceStub), BindingFlags.Instance | BindingFlags.NonPublic)!;
+
                 var typedBuildServiceStubMethod = BuildServiceStubMethod.MakeGenericMethod(serviceType);
                 typedBuildServiceStubMethod.Invoke(this, new object[] { context });
             }
@@ -184,30 +134,32 @@ namespace SciTech.Rpc.NetGrpc.Server
             var typedContext = context as ServiceMethodProviderContext<NetGrpcServiceActivator<TService>>;
             if (typedContext == null)
             {
-                // This shouldn't happen, since OnServiceMethodDiscover should have already checked the type
+                // This shouldn't happen, since OnServiceMethodDiscovery should have already checked the type
                 throw new InvalidCastException("Unexpected failure when casting to ServiceMethodProviderContext<NetGrpcServiceActivator<TService>>.");
             }
 
-            var stubBuilder = this.serviceProvider.GetService<NetGrpcServiceStubBuilder<TService>>();
-            if (stubBuilder != null)
+            var serviceInfo = this.rpcServer.ServiceDefinitionsProvider.GetRegisteredServiceInfo(typeof(TService));
+            if( serviceInfo == null )
             {
-                stubBuilder.Bind(typedContext);
+                throw new InvalidOperationException($"Service '{typeof(TService)}' not registered.");
             }
-            else
-            {
-                // TODO: What now? Log warning or throw exception?
-            }
+
+            var stubBuilder = new NetGrpcServiceStubBuilder<TService>(
+                serviceInfo, 
+                this.serviceProvider.GetService<IOptions<RpcServiceOptions<TService>>>()?.Value);
+            stubBuilder.Bind(this.rpcServer, typedContext);
         }
     }
 
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
     internal class RpcCoreServiceMethodProvider : IServiceMethodProvider<NetGrpcServer>
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
     {
         private readonly NetGrpcServer server;
 
         public RpcCoreServiceMethodProvider(NetGrpcServer server)
         {
             this.server = server;
-
         }
 
         public void OnServiceMethodDiscovery(ServiceMethodProviderContext<NetGrpcServer> context)
@@ -219,15 +171,5 @@ namespace SciTech.Rpc.NetGrpc.Server
                 new List<object>(),
                 NetGrpcServer.QueryServices);// (s, request, context) => Task.FromResult(s.QueryServices(request)));
         }
-    }
-
-    internal class RpcServerBuilder : IRpcServerBuilder
-    {
-        internal RpcServerBuilder(IServiceCollection services)
-        {
-            this.Services = services ?? throw new ArgumentNullException(nameof(services));
-        }
-
-        public IServiceCollection Services { get; }
     }
 }

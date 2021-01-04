@@ -26,7 +26,7 @@ namespace SciTech.Collections.Generic
             this.hashCode = 0;
             foreach (var item in this.hashSet)
             {
-                this.hashCode += item.GetHashCode();
+                this.hashCode += item?.GetHashCode() ?? 0;
             }
         }
 
@@ -36,7 +36,7 @@ namespace SciTech.Collections.Generic
             this.hashCode = 0;
             foreach (var item in hashSet)
             {
-                this.hashCode += item.GetHashCode();
+                this.hashCode += item?.GetHashCode() ?? 0;
             }
         }
 
@@ -54,7 +54,7 @@ namespace SciTech.Collections.Generic
             return this.hashSet.SetEquals(other.hashSet);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is HashSetKey<T> other && this.Equals(other);
         }

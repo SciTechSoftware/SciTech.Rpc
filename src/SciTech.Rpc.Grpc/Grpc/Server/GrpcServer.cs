@@ -10,15 +10,19 @@
 #endregion
 
 
+using Grpc.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Reflection;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
@@ -26,31 +30,33 @@ using GrpcCore = Grpc.Core;
 namespace SciTech.Rpc.Grpc.Server
 {
     /// <summary>
-    /// The managed/native gRPC implementation of <see cref="RpcServerBase"/>. 
+    /// The managed/native gRPC implementation of <see cref="IRpcServer"/>. 
     /// </summary>
-    public sealed class GrpcServer : RpcServerBase
+    public sealed class GrpcServer : RpcServerHostBase
     {
-        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(GrpcServer).GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly MethodInfo CreateServiceStubBuilderMethod = typeof(GrpcServer)
+            .GetMethod(nameof(CreateServiceStubBuilder), BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new NotImplementedException($"Method {nameof(CreateServiceStubBuilder)} not found on type '{typeof(GrpcServer)}'.");
 
         private List<GrpcServerEndPoint> endPoints = new List<GrpcServerEndPoint>();
 
         private GrpcCore.Server? grpcServer;
 
-        public GrpcServer(IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
+        public GrpcServer(IRpcServiceDefinitionsProvider? definitionsProvider = null, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
             : this(RpcServerId.Empty, definitionsProvider, serviceProvider, options)
         {
         }
 
-        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
-            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)), 
-                  servicePublisher, 
-                  servicePublisher.DefinitionsProvider, 
+        public GrpcServer(RpcServicePublisher servicePublisher, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
+            : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
+                  servicePublisher,
+                  servicePublisher.DefinitionsProvider,
                   serviceProvider, options)
         {
         }
 
-        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IServiceProvider? serviceProvider = null, RpcServiceOptions? options = null)
-            : this(new RpcServicePublisher(definitionsProvider, serverId), serviceProvider, options)
+        public GrpcServer(RpcServerId serverId, IRpcServiceDefinitionsProvider? definitionsProvider=null, IServiceProvider? serviceProvider = null, RpcServerOptions? options = null)
+            : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(), serverId), serviceProvider, options)
         {
         }
 
@@ -60,18 +66,31 @@ namespace SciTech.Rpc.Grpc.Server
         /// <param name="servicePublisher"></param>
         /// <param name="serviceImplProvider"></param>
         /// <param name="serviceDefinitionsProvider"></param>
-        /// <param name="serializer"></param>
+        [EditorBrowsable(EditorBrowsableState.Never)]
         public GrpcServer(
             IRpcServicePublisher servicePublisher,
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             IServiceProvider? serviceProvider,
-            RpcServiceOptions? options = null)
+            RpcServerOptions? options = null)
             : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
         {
             this.ServiceProvider = serviceProvider;
 
-            IEnumerable<GrpcCore.ChannelOption>? channelOptions = null;// TODO: Create from options
+            List<GrpcCore.ChannelOption> channelOptions = new List<GrpcCore.ChannelOption>();
+
+            var maxReceiveMessageSize = options?.ReceiveMaxMessageSize;
+            if (maxReceiveMessageSize != null)
+            {
+                channelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxReceiveMessageLength, maxReceiveMessageSize.Value));
+            }
+
+            var maxSendMessageSize = options?.SendMaxMessageSize;
+            if (maxSendMessageSize != null)
+            {
+                channelOptions.Add(new GrpcCore.ChannelOption(GrpcCore.ChannelOptions.MaxSendMessageLength, maxSendMessageSize.Value));
+            }
+
             this.grpcServer = new GrpcCore.Server(channelOptions);
         }
 
@@ -88,7 +107,7 @@ namespace SciTech.Rpc.Grpc.Server
             if (endPoint is null) throw new ArgumentNullException(nameof(endPoint));
 
             bool firstEndPoint = false;
-            lock (this.syncRoot)
+            lock (this.SyncRoot)
             {
                 this.CheckIsInitializing();
 
@@ -102,12 +121,7 @@ namespace SciTech.Rpc.Grpc.Server
             }
         }
 
-        internal Task<RpcServicesQueryResponse> QueryServices(RpcObjectRequest request, GrpcCore.ServerCallContext context)
-        {
-            return Task.FromResult(this.QueryServices(request.Id));
-        }
-
-        protected override void AddEndPoint(IRpcServerEndPoint endPoint)
+        public override void AddEndPoint(IRpcServerEndPoint endPoint)
         {
             if (endPoint is GrpcServerEndPoint grpcEndPoint)
             {
@@ -119,12 +133,17 @@ namespace SciTech.Rpc.Grpc.Server
             }
         }
 
+        internal Task<RpcServicesQueryResponse> QueryServices(RpcObjectRequest request, GrpcCore.ServerCallContext context)
+        {
+            return Task.FromResult(this.QueryServices(request.Id));
+        }
+
         protected override void BuildServiceStub(Type serviceType)
         {
             var server = this.grpcServer ?? throw new InvalidOperationException("BuildServiceStub should not be called after shutdown");
 
             var typedMethod = CreateServiceStubBuilderMethod.MakeGenericMethod(serviceType);
-            var stubBuilder = (IGrpcServiceStubBuilder)typedMethod.Invoke(this, null);
+            var stubBuilder = (IGrpcServiceStubBuilder)typedMethod.Invoke(this, null)!;
             var serviceDef = stubBuilder.Build(this);
 
             server.Services.Add(serviceDef);
@@ -153,13 +172,13 @@ namespace SciTech.Rpc.Grpc.Server
 
         protected override IRpcSerializer CreateDefaultSerializer()
         {
-            return new ProtobufSerializer();
+            return new ProtobufRpcSerializer();
         }
 
-        protected async override Task ShutdownCoreAsync()
+        protected override async Task ShutdownCoreAsync()
         {
             GrpcCore.Server? grpcServer;
-            lock (this.syncRoot)
+            lock (this.SyncRoot)
             {
                 grpcServer = this.grpcServer;
                 this.grpcServer = null;
@@ -188,8 +207,43 @@ namespace SciTech.Rpc.Grpc.Server
 
         private IGrpcServiceStubBuilder CreateServiceStubBuilder<TService>() where TService : class
         {
+            // TODO: Try to abstract IOptions away somehow. My idea was that SciTech.Rpc should not depend 
+            // on Microsoft.Extensions (except SciTech.Rpc.NetGrpc and SciTech.Rpc.DependencyInjection (of course)).
             IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
+
             return new GrpcServiceStubBuilder<TService>(options?.Value);
+        }
+
+        protected override void HandleCallException(Exception exception, IRpcSerializer? serializer )
+        {
+            var rpcError = RpcError.TryCreate(exception, serializer);
+            if( rpcError != null )
+            {
+                if( serializer != null )
+                {
+                    var serializedError = serializer.Serialize(rpcError);
+                    throw new GrpcCore.RpcException(new Status(StatusCode.Unknown, rpcError.Message),
+                        new Metadata
+                        {
+                            {WellKnownHeaderKeys.ErrorInfo, serializedError }
+                        } );
+                } else
+                {
+                    var metadata = new Metadata
+                    {
+                        { WellKnownHeaderKeys.ErrorType, rpcError.ErrorType },
+                        { WellKnownHeaderKeys.ErrorMessage, rpcError.Message },
+                        { WellKnownHeaderKeys.ErrorCode, rpcError.ErrorCode }
+                    };
+
+                    if ( rpcError.ErrorDetails != null )
+                    {
+                        metadata.Add(new Metadata.Entry( WellKnownHeaderKeys.ErrorDetails, rpcError.ErrorDetails));
+                    }
+
+                    throw new GrpcCore.RpcException(new Status(StatusCode.Unknown, rpcError.Message), metadata);
+                }
+            }
         }
     }
 }

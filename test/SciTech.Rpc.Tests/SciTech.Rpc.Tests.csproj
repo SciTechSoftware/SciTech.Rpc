@@ -1,16 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net461;net472;netcoreapp2.0;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>
+    <TargetFrameworks>net472;net5.0</TargetFrameworks>
+    <!--<TargetFramework>netcoreapp3.1</TargetFramework>-->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <Import Project="../../src/Platform.props" />
+
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+  
   <PropertyGroup>
     <CodeAnalysisRuleSet>SciTech.Rpc.Tests.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="SimpleService.proto" />
-  </ItemGroup>
+  
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+  </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\..\Certs\TestCertificates.Client.cs" Link="TestCertificates.Client.cs" />
@@ -42,27 +50,51 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="3.8.0" />
-    <PackageReference Include="Grpc.Core.Testing" Version="1.21.0" />
-    <PackageReference Include="Grpc.Tools" Version="1.21.0">
+    <PackageReference Include="Google.Protobuf" Version="3.10.0" />
+    <PackageReference Include="Grpc.Core.Testing" Version="2.24.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.24.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Moq" Version="4.11.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
+    <PackageReference Include="Moq" Version="4.13.0" />
     <PackageReference Include="nunit" Version="3.12.0" />
-    <PackageReference Include="NUnit3TestAdapter" Version="3.13.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.1.1" />
-    <PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.0.22" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
+  </ItemGroup>
+
+
+  <ItemGroup Condition="'$(HasAsyncEnum)' == 'false'">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc.DataContract\SciTech.Rpc.DataContract.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(HasNetGrpc)' == 'true'">
+    <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc\SciTech.Rpc.NetGrpc.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProtoBuf Include="SimpleService.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="SimpleService.proto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="security.runsettings">
+    </None>
   </ItemGroup>
 
 </Project>

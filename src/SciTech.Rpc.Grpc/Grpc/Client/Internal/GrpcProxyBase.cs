@@ -12,60 +12,35 @@
 using SciTech.Collections;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;
-using SciTech.Rpc.Grpc.Server.Internal;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Threading;
-
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
+#if FEATURE_NET_GRPC
+namespace SciTech.Rpc.NetGrpc.Client.Internal
+#else
 namespace SciTech.Rpc.Grpc.Client.Internal
+#endif
 {
-    internal class GrpcMethodsCache
-    {
-        private readonly Dictionary<GrpcProxyMethod, GrpcCore.IMethod> proxyToGrpcMethod = new Dictionary<GrpcProxyMethod, GrpcCore.IMethod>();
-
-        private readonly IRpcSerializer serializer;
-
-        private readonly object syncRoot = new object();
-
-        internal GrpcMethodsCache(IRpcSerializer serializer)
-        {
-            this.serializer = serializer;
-        }
-
-        internal GrpcCore.Method<TRequest, TResponse> GetGrpcMethod<TRequest, TResponse>(GrpcProxyMethod proxyMethod)
-            where TRequest : class
-            where TResponse : class
-        {
-            lock (this.syncRoot)
-            {
-                if (this.proxyToGrpcMethod.TryGetValue(proxyMethod, out var grpcMethod))
-                {
-                    return (GrpcCore.Method<TRequest, TResponse>)grpcMethod;
-                }
-
-                var newGrpcMethod = proxyMethod.CreateMethod<TRequest, TResponse>(this.serializer);
-                this.proxyToGrpcMethod.Add(proxyMethod, newGrpcMethod);
-
-                return newGrpcMethod;
-            }
-        }
-    }
-
-#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class GrpcProxyBase : RpcProxyBase<GrpcProxyMethod>
     {
+
         private readonly GrpcCore.CallInvoker grpcInvoker;
 
         private readonly GrpcMethodsCache grpcMethodsCache;
 
         protected GrpcProxyBase(GrpcProxyArgs proxyArgs, GrpcProxyMethod[] proxyMethods) : base(proxyArgs, proxyMethods)
         {
+            if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
+
             this.grpcInvoker = proxyArgs.CallInvoker;
             this.Serializer = proxyArgs.Serializer;
             this.grpcMethodsCache = proxyArgs.MethodsCache;
@@ -73,14 +48,31 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         public IRpcSerializer Serializer { get; }
 
+        /// <summary>
+        /// Will be called by generated code. A RpcProxyBase implementation class must have a static 
+        /// method named CreateMethodDef, with this signature.
+        /// </summary>
+        /// <typeparam name="TRequest"></typeparam>
+        /// <typeparam name="TResponse"></typeparam>
+        /// <param name="methodType"></param>
+        /// <param name="serviceName"></param>
+        /// <param name="methodName"></param>
+        /// <param name="serializerOverride"></param>
+        /// <param name="faultHandler"></param>
+        /// <returns></returns>
         public static GrpcProxyMethod CreateMethodDef<TRequest, TResponse>(
             RpcMethodType methodType, string serviceName, string methodName,
             IRpcSerializer? serializerOverride,
             RpcClientFaultHandler? faultHandler)
+            where TRequest : class
+            where TResponse : class
         {
             GrpcCore.MethodType grpcMethodType;
             switch (methodType)
             {
+                case RpcMethodType.ServerStreaming:
+                    grpcMethodType = GrpcCore.MethodType.ServerStreaming;
+                    break;
                 case RpcMethodType.EventAdd:
                     grpcMethodType = GrpcCore.MethodType.ServerStreaming;
                     break;
@@ -93,26 +85,16 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 default:
                     throw new ArgumentException($"Unknown methodType 'methodType'", nameof(methodType));
             }
-            //var grpcMethod = new GrpcCore.Method<TRequest, TResponse>(
-            //    type: grpcMethodType,
-            //    serviceName: serviceName,
-            //    name: methodName,
-            //    requestMarshaller: GrpcCore.Marshallers.Create(
-            //        serializer: serializer.ToBytes,
-            //        deserializer: serializer.FromBytes<TRequest>
-            //        ),
-            //    responseMarshaller: GrpcCore.Marshallers.Create(
-            //        serializer: serializer.ToBytes,
-            //        deserializer: serializer.FromBytes<TResponse>
-            //        )
-            //    );
 
-            return new GrpcProxyMethod(grpcMethodType, serviceName, methodName, serializerOverride, faultHandler);
+            return new GrpcProxyMethod<TRequest, TResponse>(grpcMethodType, serviceName, methodName, serializerOverride, faultHandler);
         }
 
-        protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, GrpcProxyMethod method, CancellationToken ct)
+        protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, GrpcProxyMethod method, CancellationToken cancellationToken)
         {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: ct);
+            if (method is null) throw new ArgumentNullException(nameof(method));
+
+            DateTime? deadline = this.GetStreamingCallDeadline();
+            var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
 
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(method);
 
@@ -122,18 +104,25 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 #pragma warning restore CA2000 // Dispose objects before losing scope
         }
 
-        protected override TResponse CallUnaryMethodImpl<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request)
+        protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: CancellationToken.None);
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
+            DateTime? deadline = this.GetCallDeadline();
+            var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
+
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
 
             var response = this.grpcInvoker.BlockingUnaryCall(typedMethod, null, callOptions, request);
             return response;
         }
 
-        protected async override Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
+        protected override async Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
         {
-            var callOptions = new GrpcCore.CallOptions(cancellationToken: cancellationToken);
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
+            DateTime? deadline = this.GetCallDeadline();
+            var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
 
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
             using (var asyncCall = this.grpcInvoker.AsyncUnaryCall(typedMethod, null, callOptions, request))
@@ -149,18 +138,82 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             return CreateMethodDef<TRequest, TResponse>(RpcMethodType.Unary, serviceName, operationName, this.Serializer, null);
         }
 
-        protected override void HandleCallException(Exception e)
+        protected override void HandleCallException(GrpcProxyMethod methodDef, Exception e)
         {
+            Contract.Requires(methodDef != null);
+            Contract.Requires(e != null);
+
             if (e is GrpcCore.RpcException rpcException)
             {
                 switch (rpcException.StatusCode)
                 {
                     case GrpcCore.StatusCode.Unavailable:
                         throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
+                    case GrpcCore.StatusCode.ResourceExhausted:
+                        throw new RpcFailureException(RpcFailure.SizeLimitExceeded, e.Message, e);
+                    case GrpcCore.StatusCode.Cancelled:
+                        throw new OperationCanceledException(e.Message, e);
+                    case GrpcCore.StatusCode.DeadlineExceeded:
+                        throw new TimeoutException(e.Message, e);
                     default:
-                        throw new RpcFailureException(e.Message, e);
+                        this.HandleErrorException(methodDef!, e, rpcException);
+                        break;
+                }                
+            }
+        }
+
+        private void HandleErrorException(GrpcProxyMethod method, Exception e, GrpcCore.RpcException rpcException)
+        {
+            string? errorType = null;
+            string? message = null;
+            string? faultCode = null; ;
+            byte[]? faultDetails = null;
+            byte[]? serializedErrorInfo = null;
+            foreach (var entry in rpcException.Trailers)
+            {
+                switch (entry.Key)
+                {
+                    case WellKnownHeaderKeys.ErrorType:
+                        errorType = entry.Value;
+                        break;
+                    case WellKnownHeaderKeys.ErrorMessage:
+                        message = entry.Value;
+                        break;
+                    case WellKnownHeaderKeys.ErrorCode:
+                        faultCode = entry.Value;
+                        break;
+                    case WellKnownHeaderKeys.ErrorDetails:
+                        faultDetails = entry.ValueBytes;
+                        break;
+                    case WellKnownHeaderKeys.ErrorInfo:
+                        serializedErrorInfo = entry.ValueBytes;
+                        break;
+                }
+
+                if (serializedErrorInfo != null)
+                {
+                    // Serialized error info takes precedence, so no need to look for other error keys.
+                    break;
                 }
             }
+
+            RpcError? rpcError = null;
+            if (serializedErrorInfo != null)
+            {
+                var actualSerializer = method.SerializerOverride ?? this.serializer;
+                rpcError = actualSerializer.Deserialize<RpcError>(serializedErrorInfo);
+            }
+            else if (!string.IsNullOrEmpty(errorType))
+            {
+                rpcError = new RpcError { ErrorType = errorType, ErrorCode = faultCode, Message = message, ErrorDetails = faultDetails };
+            }
+
+            if (rpcError != null)
+            {
+                this.HandleRpcError(method, rpcError);
+            }
+
+            throw new RpcFailureException(RpcFailure.Unknown, e.Message, e);
         }
 
         protected override bool IsCancellationException(Exception exception)
@@ -173,32 +226,48 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             return base.IsCancellationException(exception);
         }
 
-        protected override bool IsCommunicationException(Exception exception)
+        private DateTime? GetCallDeadline()
         {
-            return exception is GrpcCore.RpcException rpcException;
+            var callTimeOut = this.Channel.Options.CallTimeout;
+            if (callTimeOut != null)
+            {
+                return DateTime.UtcNow + callTimeOut;
+            }
+
+            return null;
+        }
+
+        private DateTime? GetStreamingCallDeadline()
+        {
+            var callTimeOut = this.Channel.Options.StreamingCallTimeout;
+            if (callTimeOut != null)
+            {
+                return DateTime.UtcNow + callTimeOut;
+            }
+
+            return null;
         }
 
         private sealed class GrpcAsyncServerStreamingCall<TResponse> : IAsyncStreamingServerCall<TResponse>
             where TResponse : class
         {
+
             private GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall;
 
             internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall)
             {
                 this.grpcCall = grpcCall;
                 this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream);
-
-
             }
 
-            public IAsyncStream<TResponse> ResponseStream { get; }
+            public IAsyncEnumerator<TResponse> ResponseStream { get; }
 
             public void Dispose()
             {
                 this.grpcCall.Dispose();
             }
 
-            private class AsyncStreamWrapper : IAsyncStream<TResponse>
+            private class AsyncStreamWrapper : IAsyncEnumerator<TResponse>
             {
                 private GrpcCore.IAsyncStreamReader<TResponse> reader;
 
@@ -209,9 +278,11 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
                 public TResponse Current => this.reader.Current;
 
+                public ValueTask DisposeAsync() => default;
+
                 public ValueTask<bool> MoveNextAsync()
                 {
-                    var task = this.reader.MoveNext();
+                    var task = this.reader.MoveNext(CancellationToken.None);
                     if (task.Status == TaskStatus.RanToCompletion)
                     {
                         return new ValueTask<bool>(task.Result);
@@ -224,9 +295,9 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             }
         }
     }
-#pragma warning restore CA1062 // Validate arguments of public methods
 
-    public class GrpcProxyMethod : RpcProxyMethod
+
+    public abstract class GrpcProxyMethod : RpcProxyMethod
     {
         internal readonly string MethodName;
 
@@ -234,7 +305,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
         internal readonly string ServiceName;
 
-        public GrpcProxyMethod(
+        protected GrpcProxyMethod(
             GrpcCore.MethodType methodType,
             string serviceName,
             string methodName,
@@ -246,10 +317,29 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             this.ServiceName = serviceName;
             this.MethodName = methodName;
         }
+    }
 
-        public GrpcCore.Method<TRequest, TResponse> CreateMethod<TRequest, TResponse>(IRpcSerializer serializer)
-            where TRequest : class
-            where TResponse : class
+    public class GrpcProxyMethod<TRequest, TResponse> : GrpcProxyMethod
+        where TRequest : class
+        where TResponse : class
+
+    {
+        public GrpcProxyMethod(
+            GrpcCore.MethodType methodType,
+            string serviceName,
+            string methodName,
+            IRpcSerializer? serializerOverride,
+            RpcClientFaultHandler? faultHandler)
+            : base(methodType, serviceName, methodName, serializerOverride, faultHandler)
+        {
+
+        }
+
+        protected internal override Type RequestType => typeof(TRequest);
+
+        protected internal override Type ResponseType => typeof(TResponse);
+
+        internal GrpcCore.Method<TRequest, TResponse> CreateMethod(IRpcSerializer serializer)
         {
             IRpcSerializer actualSerializer = this.SerializerOverride ?? serializer;
             return GrpcMethodDefinition.Create<TRequest, TResponse>(
@@ -257,7 +347,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 serviceName: this.ServiceName,
                 methodName: this.MethodName,
                 actualSerializer);
-#nullable restore
         }
+
     }
 }

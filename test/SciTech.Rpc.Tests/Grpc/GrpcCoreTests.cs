@@ -4,10 +4,11 @@ using SciTech.Rpc.Tests;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     public class GrpcCoreFullStackTestsBase
     {
@@ -139,7 +140,7 @@ namespace SciTech.Rpc.Grpc.Tests
             using (var streamingCall = client.ServerStreamTest(new StreamRequest { ClientId = clientId, StartValue = 10 }))
             {
                 int expectedValue = 10;
-                while (await streamingCall.ResponseStream.MoveNext())
+                while (await streamingCall.ResponseStream.MoveNext(CancellationToken.None))
                 {
                     Assert.AreEqual(expectedValue, streamingCall.ResponseStream.Current.Value);
                     expectedValue++;

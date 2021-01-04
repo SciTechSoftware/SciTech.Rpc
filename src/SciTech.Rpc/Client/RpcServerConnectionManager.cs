@@ -21,87 +21,120 @@ namespace SciTech.Rpc.Client
 {
     public class RpcServerConnectionManager : IRpcServerConnectionManager
     {
-        private readonly List<RpcClientCallInterceptor> callInterceptors = new List<RpcClientCallInterceptor>();
 
-        private readonly Dictionary<RpcServerId, IRpcServerConnection> idToKnownConnection
-            = new Dictionary<RpcServerId, IRpcServerConnection>();
+        private readonly Dictionary<RpcServerId, IRpcChannel> idToKnownConnection
+            = new Dictionary<RpcServerId, IRpcChannel>();
 
-        private readonly Dictionary<RpcServerId, WeakReference<IRpcServerConnection>> idToServerConnection
-            = new Dictionary<RpcServerId, WeakReference<IRpcServerConnection>>();
+        private readonly Dictionary<RpcServerId, WeakReference<IRpcChannel>> idToServerConnection
+            = new Dictionary<RpcServerId, WeakReference<IRpcChannel>>();
 
         private readonly object syncRoot = new object();
 
-        private readonly Dictionary<string, IRpcServerConnection> urlToKnownConnection
-            = new Dictionary<string, IRpcServerConnection>();
+        private readonly Dictionary<Uri, IRpcChannel> urlToKnownConnection
+            = new Dictionary<Uri, IRpcChannel>();
 
-        private readonly Dictionary<string, WeakReference<IRpcServerConnection>> urlToServerConnection
-            = new Dictionary<string, WeakReference<IRpcServerConnection>>();
+        private readonly Dictionary<Uri, WeakReference<IRpcChannel>> urlToServerConnection
+            = new Dictionary<Uri, WeakReference<IRpcChannel>>();
 
         private ImmutableArray<IRpcConnectionProvider> connectionProviders;
 
         // Constructor overload currently removed, since it causes ambiguity when using 
         // dependency injection.
-        //public RpcServerConnectionManager(params IRpcConnectionProvider[] connectionProviders)
-        //    : this( (IEnumerable<IRpcConnectionProvider>)connectionProviders )
-        //{           
-        //}
+        public RpcServerConnectionManager(params IRpcConnectionProvider[] connectionProviders)
+            : this((IEnumerable<IRpcConnectionProvider>)connectionProviders)
+        {
+        }
 
-        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders)
+
+        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IRpcClientOptions? options = null)
         {
             this.connectionProviders = connectionProviders.ToImmutableArray();
+            this.Options = new ImmutableRpcClientOptions(options);
         }
 
-        public void AddCallInterceptor(RpcClientCallInterceptor callInterceptor)
-        {
-            lock (this.syncRoot)
-            {
-                this.callInterceptors.Add(callInterceptor);
-            }
-        }
+        public ImmutableRpcClientOptions Options { get; }
 
-        public void AddKnownConnection(IRpcServerConnection connection)
+        public void AddKnownChannel(IRpcChannel channel)
         {
-            if (connection == null || connection.ConnectionInfo == null)
+            if (channel == null || channel.ConnectionInfo == null)
             {
-                throw new ArgumentNullException(nameof(connection));
+                throw new ArgumentNullException(nameof(channel));
             }
 
-            var connectionInfo = connection.ConnectionInfo;
+            var connectionInfo = channel.ConnectionInfo;
+            Uri? hostUrl = connectionInfo?.HostUrl;
             if (connectionInfo == null
-                || (connectionInfo.ServerId == RpcServerId.Empty && string.IsNullOrWhiteSpace(connectionInfo.HostUrl)))
+                || (connectionInfo.ServerId == RpcServerId.Empty && hostUrl == null))
             {
                 throw new ArgumentException("Known connection must include a ServerId or HostUrl.");
             }
 
             lock (this.syncRoot)
             {
-                if (this.idToKnownConnection.ContainsKey(connection.ConnectionInfo.ServerId)
-                    || this.urlToKnownConnection.ContainsKey(connection.ConnectionInfo.HostUrl ?? "")
-                    || this.idToServerConnection.ContainsKey(connection.ConnectionInfo.ServerId)
-                    || this.urlToServerConnection.ContainsKey(connection.ConnectionInfo.HostUrl ?? ""))
+                if (this.idToKnownConnection.ContainsKey(channel.ConnectionInfo.ServerId)
+                    || (hostUrl != null && this.urlToKnownConnection.ContainsKey(hostUrl))
+                    || this.idToServerConnection.ContainsKey(channel.ConnectionInfo.ServerId)
+                    || (hostUrl != null && this.urlToServerConnection.ContainsKey(hostUrl)))
                 {
-                    throw new InvalidOperationException($"Known connection '{connection}' already added.");
+                    throw new InvalidOperationException($"Known connection '{channel}' already added.");
                 }
 
                 if (connectionInfo.ServerId != RpcServerId.Empty)
                 {
-                    this.idToKnownConnection.Add(connectionInfo.ServerId, connection);
+                    this.idToKnownConnection.Add(connectionInfo.ServerId, channel);
                 }
 
-                if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
+                if (connectionInfo.HostUrl != null)
                 {
-                    this.urlToKnownConnection.Add(connectionInfo.HostUrl, connection);
+                    this.urlToKnownConnection.Add(connectionInfo.HostUrl, channel);
                 }
             }
         }
 
-        public IReadOnlyList<RpcClientCallInterceptor> GetCallInterceptors()
+        public IRpcChannel GetServerConnection(RpcServerConnectionInfo connectionInfo)
         {
+            if (connectionInfo is null) throw new ArgumentNullException(nameof(connectionInfo));
+
             lock (this.syncRoot)
             {
-                return this.callInterceptors.ToArray();
+                IRpcChannel? existingConnection = this.GetExistingConnection(connectionInfo);
+
+                if (existingConnection != null)
+                {
+                    return existingConnection;
+                }
+            }
+
+            var newConnection = this.CreateServerConnection(connectionInfo);
+            lock (this.syncRoot)
+            {
+                IRpcChannel? existingConnection = this.GetExistingConnection(connectionInfo);
+
+                if (existingConnection != null)
+                {
+                    // Somebody beat us to it, let's just shut down the newConnection and return the already created one.
+                    return existingConnection;
+                }
+
+                var wrNewConnection = new WeakReference<IRpcChannel>(newConnection);
+                if (connectionInfo.ServerId != RpcServerId.Empty)
+                {
+                    this.idToServerConnection[connectionInfo.ServerId] = wrNewConnection;
+                }
+
+                if (connectionInfo.HostUrl != null)
+                {
+                    if (!this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var currUrlConnection)
+                        || currUrlConnection.ConnectionInfo.ServerId == RpcServerId.Empty)
+                    {
+                        this.urlToServerConnection[connectionInfo.HostUrl] = wrNewConnection;
+                    }
+                }
+
+                return newConnection;
             }
         }
+
 
         public TService GetServiceInstance<TService>(RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class
         {
@@ -111,7 +144,7 @@ namespace SciTech.Rpc.Client
             }
 
             var connection = serviceRef.ServerConnection;
-            if( connection == null )
+            if (connection == null)
             {
                 throw new ArgumentException("ServiceRef connection not initialized.", nameof(serviceRef));
             }
@@ -126,61 +159,9 @@ namespace SciTech.Rpc.Client
             return serverConnection.GetServiceSingleton<TService>(syncContext);
         }
 
-        public IRpcServerConnection GetServerConnection(RpcServerConnectionInfo connectionInfo)
+        public bool RemoveKnownChannel(IRpcChannel channel)
         {
-            if (connectionInfo is null) throw new ArgumentNullException(nameof(connectionInfo));
-
-            lock (this.syncRoot)
-            {
-                IRpcServerConnection? existingConnection = this.GetExistingConnection(connectionInfo);
-
-                if (existingConnection != null)
-                {
-                    return existingConnection;
-                }
-            }
-
-            var newConnection = this.CreateServerConnection(connectionInfo, this.callInterceptors);
-            lock (this.syncRoot)
-            {
-                IRpcServerConnection? existingConnection = this.GetExistingConnection(connectionInfo);
-
-                if (existingConnection != null)
-                {
-                    // Somebody beat us to it, let's just shut down the newConnection and return the already created one.
-                    return existingConnection;
-                }
-
-                var wrNewConnection = new WeakReference<IRpcServerConnection>(newConnection);
-                if (connectionInfo.ServerId != RpcServerId.Empty)
-                {
-                    this.idToServerConnection[connectionInfo.ServerId] = wrNewConnection;
-                }
-
-                if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
-                {
-                    if (!this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var currUrlConnection)
-                        || currUrlConnection.ConnectionInfo.ServerId == RpcServerId.Empty)
-                    {
-                        this.urlToServerConnection[connectionInfo.HostUrl] = wrNewConnection;
-                    }
-                }
-
-                return newConnection;
-            }
-        }
-
-        public void RemoveCallInterceptor(RpcClientCallInterceptor callInterceptor)
-        {
-            lock (this.syncRoot)
-            {
-                this.callInterceptors.Remove(callInterceptor);
-            }
-        }
-
-        public bool RemoveKnownConnection(IRpcServerConnection connection)
-        {
-            var connectionInfo = connection?.ConnectionInfo;
+            var connectionInfo = channel?.ConnectionInfo;
             if (connectionInfo == null)
             {
                 return false;
@@ -193,7 +174,7 @@ namespace SciTech.Rpc.Client
                 {
                     if (this.idToKnownConnection.TryGetValue(connectionInfo.ServerId, out var currConnection))
                     {
-                        if (connection == currConnection)
+                        if (channel == currConnection)
                         {
                             this.idToKnownConnection.Remove(connectionInfo.ServerId);
                             removed = true;
@@ -201,11 +182,11 @@ namespace SciTech.Rpc.Client
                     }
                 }
 
-                if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
+                if (connectionInfo.HostUrl != null)
                 {
                     if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var currConnection))
                     {
-                        if (connection == currConnection)
+                        if (channel == currConnection)
                         {
                             this.urlToKnownConnection.Remove(connectionInfo.HostUrl);
                             removed = true;
@@ -219,8 +200,8 @@ namespace SciTech.Rpc.Client
 
         public async Task ShutdownAsync()
         {
-            var wrConnections = new List<WeakReference<IRpcServerConnection>>();
-            lock( this.syncRoot )
+            var wrConnections = new List<WeakReference<IRpcChannel>>();
+            lock (this.syncRoot)
             {
                 wrConnections.AddRange(this.idToServerConnection.Values);
                 wrConnections.AddRange(this.urlToServerConnection.Values);
@@ -231,9 +212,9 @@ namespace SciTech.Rpc.Client
 
 
             List<Task> shutdownTasks = new List<Task>();
-            foreach( var wrConnection in wrConnections)
+            foreach (var wrConnection in wrConnections)
             {
-                if( wrConnection.TryGetTarget( out var connection ))
+                if (wrConnection.TryGetTarget(out var connection))
                 {
                     shutdownTasks.Add(connection.ShutdownAsync());
                 }
@@ -242,20 +223,20 @@ namespace SciTech.Rpc.Client
             await Task.WhenAll(shutdownTasks).ContextFree();
         }
 
-        protected virtual IRpcServerConnection CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo, IReadOnlyList<RpcClientCallInterceptor> callInterceptors)
+        protected virtual IRpcChannel CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo)
         {
             foreach (var connectionProvider in this.connectionProviders)
             {
-                if (connectionProvider.CanCreateConnection(serverConnectionInfo))
+                if (connectionProvider.CanCreateChannel(serverConnectionInfo))
                 {
-                    return connectionProvider.CreateConnection(serverConnectionInfo, callInterceptors);
+                    return connectionProvider.CreateChannel(serverConnectionInfo, this.Options);
                 }
             }
 
             throw new NotSupportedException("Cannot create a connection for the specified connection info.");
         }
 
-        private IRpcServerConnection? GetExistingConnection(RpcServerConnectionInfo connectionInfo)
+        private IRpcChannel? GetExistingConnection(RpcServerConnectionInfo connectionInfo)
         {
             if (connectionInfo.ServerId != RpcServerId.Empty)
             {
@@ -263,7 +244,8 @@ namespace SciTech.Rpc.Client
                 {
                     return knownIdConnection;
                 }
-            } else if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl))
+            }
+            else if (connectionInfo.HostUrl != null)
             {
                 if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var knownUrlConnection))
                 {
@@ -303,5 +285,6 @@ namespace SciTech.Rpc.Client
 
             //return null;
         }
+
     }
 }

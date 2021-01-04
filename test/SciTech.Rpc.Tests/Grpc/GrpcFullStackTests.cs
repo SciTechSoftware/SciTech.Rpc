@@ -2,6 +2,7 @@
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client;
 using SciTech.Rpc.Grpc.Server;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Rpc.Tests;
@@ -9,7 +10,7 @@ using SciTech.Threading;
 using System;
 using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Grpc.Tests
+namespace SciTech.Rpc.Tests.Grpc
 {
     /// <summary>
     /// These are old initial tests. Should probably be moved/merged with GrpcClientServerTests
@@ -18,21 +19,23 @@ namespace SciTech.Rpc.Grpc.Tests
     public class GrpcFullStackTests : GrpcCoreFullStackTestsBase
     {
         private static object[] FixtureArgs = {
-            new object[] { new ProtobufSerializer() },
-            new object[] { new DataContractGrpcSerializer(null) }
+            new object[] { new ProtobufRpcSerializer() },
+            new object[] { new DataContractRpcSerializer(null) }
         };
 
-        private RpcServiceOptions options;
+        private RpcServerOptions options;
+        private RpcClientOptions clientOptions;
 
         public GrpcFullStackTests(IRpcSerializer serializer)
         {
-            this.options = new RpcServiceOptions { Serializer = serializer };
+            this.options = new RpcServerOptions { Serializer = serializer };
+            this.clientOptions = new RpcClientOptions { Serializer = serializer };
         }
 
         [Test]
         public async Task BlockingServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder
                 .RegisterService<IBlockingService>()
                 .RegisterService<ISimpleService>();
@@ -46,12 +49,11 @@ namespace SciTech.Rpc.Grpc.Tests
             try
             {
                 var serviceImpl = new TestBlockingSimpleServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
 
-                    var proxyGenerator = new GrpcProxyProvider();
-                    var connection = this.CreateGrpcConnection(proxyGenerator);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<IBlockingServiceClient>(objectId);
 
@@ -83,7 +85,7 @@ namespace SciTech.Rpc.Grpc.Tests
         [Test]
         public async Task DeviceServiceTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IThermostatService>();
             var host = new GrpcServer(serverBuilder, null, this.options);
 
@@ -93,11 +95,10 @@ namespace SciTech.Rpc.Grpc.Tests
             try
             {
                 var serviceImpl = new ThermostatServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    var proxyGenerator = new GrpcProxyProvider();
-                    GrpcServerConnection connection = this.CreateGrpcConnection(proxyGenerator);
+                    GrpcServerConnection connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<IThermostatServiceClient>(objectId);
                     var acoId = clientService.DeviceAcoId;
@@ -117,7 +118,7 @@ namespace SciTech.Rpc.Grpc.Tests
         [Test]
         public async Task EventHandlersTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
             var host = new GrpcServer(serverBuilder, null, this.options);
@@ -127,12 +128,11 @@ namespace SciTech.Rpc.Grpc.Tests
             try
             {
                 var serviceImpl = new TestServiceWithEventsImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
 
-                    var proxyGenerator = new GrpcProxyProvider();
-                    var connection = this.CreateGrpcConnection(proxyGenerator);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<ISimpleServiceWithEvents>(objectId);
 
@@ -144,7 +144,7 @@ namespace SciTech.Rpc.Grpc.Tests
 
                     clientService.DetailedValueChanged += detailedHandler;
 
-                    await ((IRpcService)clientService).WaitForPendingEventHandlers();
+                    await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
 
                     clientService.SetValueAsync(12).Forget();
 
@@ -155,7 +155,7 @@ namespace SciTech.Rpc.Grpc.Tests
                     var detailedArgs = detailedTcs.Task.Result;
 
                     clientService.DetailedValueChanged -= detailedHandler;
-                    await ((IRpcService)clientService).WaitForPendingEventHandlers();
+                    await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
                     clientService.SetValueAsync(13).Forget();
 
                     await Task.Delay(200);
@@ -182,7 +182,7 @@ namespace SciTech.Rpc.Grpc.Tests
         [Test]
         public async Task ReverseDeviceServiceTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IThermostatService>();
             var host = new GrpcServer(serverBuilder, null, this.options);
 
@@ -192,11 +192,10 @@ namespace SciTech.Rpc.Grpc.Tests
             try
             {
                 var serviceImpl = new ThermostatServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    var proxyGenerator = new GrpcProxyProvider();
-                    var connection = this.CreateGrpcConnection(proxyGenerator);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<IDeviceServiceClient>(objectId);
                     var acoId = clientService.DeviceAcoId;
@@ -216,7 +215,7 @@ namespace SciTech.Rpc.Grpc.Tests
         [Test]
         public async Task ServiceProviderServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<IServiceProviderService>()
                 .RegisterService<ISimpleService>();
 
@@ -230,8 +229,7 @@ namespace SciTech.Rpc.Grpc.Tests
 
                 using (var publishScope = host.PublishSingleton<IServiceProviderService>(serviceImpl))
                 {
-                    var proxyGenerator = new GrpcProxyProvider();
-                    var connection = this.CreateGrpcConnection(proxyGenerator);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceSingleton<IServiceProviderServiceClient>();
                     var serviceRef = await clientService.GetSimpleServiceAsync();
@@ -253,7 +251,7 @@ namespace SciTech.Rpc.Grpc.Tests
         [Test]
         public async Task SimpleObjectServiceCallTest()
         {
-            var serverBuilder = new RpcServiceDefinitionBuilder();
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleService>();
             var host = new GrpcServer(serverBuilder, null, this.options);
             host.AddEndPoint(CreateEndPoint());
@@ -262,11 +260,10 @@ namespace SciTech.Rpc.Grpc.Tests
             try
             {
                 var serviceImpl = new TestSimpleServiceImpl();
-                using (var publishScope = host.PublishServiceInstance(serviceImpl))
+                using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    var proxyGenerator = new GrpcProxyProvider();
-                    var connection = this.CreateGrpcConnection(proxyGenerator);
+                    var connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<ISimpleService>(objectId);
                     int res = await clientService.AddAsync(8, 9);
@@ -280,9 +277,9 @@ namespace SciTech.Rpc.Grpc.Tests
             }
         }
 
-        private GrpcServerConnection CreateGrpcConnection(GrpcProxyProvider proxyGenerator)
+        private GrpcServerConnection CreateGrpcConnection()
         {
-            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, proxyGenerator, this.options.Serializer);
+            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, this.clientOptions.AsImmutable());
         }
     }
 }

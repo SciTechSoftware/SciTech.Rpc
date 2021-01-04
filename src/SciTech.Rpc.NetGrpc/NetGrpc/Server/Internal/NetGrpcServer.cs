@@ -10,8 +10,10 @@
 #endregion
 
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
@@ -26,8 +28,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// </summary>
     internal sealed class NetGrpcServer : RpcServerBase
     {
-        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServiceOptions> options)
-            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value)
+        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServerOptions> options, ILogger<NetGrpcServer>? logger)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value, logger)
         {
         }
 
@@ -36,49 +38,55 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             //ServiceMethodProviderContext<NetGrpcServiceActivator>? context,
-            RpcServiceOptions? options)
-            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options)
+            RpcServerOptions? options,
+            ILogger<NetGrpcServer>? logger)
+            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options, logger)
         {
         }
 
-        internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request, GrpcCore.ServerCallContext callContext)
+
+        internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request,
+            GrpcCore.ServerCallContext callContext)
         {
             return Task.FromResult(server.QueryServices(request.Id));
         }
 
-        protected override void AddEndPoint(IRpcServerEndPoint endPoint)
-        {
-            throw new NotSupportedException("End points cannot be added to NetGrpc, use ASP.NET configuration instead.");
-        }
-
-        protected override void BuildServiceStub(Type serviceType)
-        {
-            throw new NotSupportedException("Service stubs should be built by NetGrpcServiceMethodProvider<TService>, using BuildServiceStub<TService>.");
-        }
-
-        protected override void BuildServiceStubs()
-        {
-            // Not much to do here. Service stubs are built by NetGrpcServiceMethodProvider.
-            this.ServiceDefinitionsProvider.Freeze();
-        }
-
-        protected override void CheckCanStart()
-        {
-            base.CheckCanStart();
-        }
-
         protected override IRpcSerializer CreateDefaultSerializer()
         {
-            return new ProtobufSerializer();
+            return new ProtobufRpcSerializer();
         }
 
-        protected override Task ShutdownCoreAsync()
+        protected override void HandleCallException(Exception exception, IRpcSerializer? serializer )
         {
-            return Task.CompletedTask;
-        }
+            var rpcError = RpcError.TryCreate(exception, serializer);
+            if (rpcError != null)
+            {
+                if (serializer != null)
+                {
+                    var serializedError = serializer.Serialize(rpcError);
+                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message),
+                        new GrpcCore.Metadata
+                        {
+                            {WellKnownHeaderKeys.ErrorInfo, serializedError }
+                        });
+                }
+                else
+                {
+                    var metadata = new GrpcCore.Metadata
+                    {
+                        { WellKnownHeaderKeys.ErrorType, rpcError.ErrorType },
+                        { WellKnownHeaderKeys.ErrorMessage, rpcError.Message },
+                        { WellKnownHeaderKeys.ErrorCode, rpcError.ErrorCode }
+                    };
 
-        protected override void StartCore()
-        {
+                    if (rpcError.ErrorDetails != null)
+                    {
+                        metadata.Add(new GrpcCore.Metadata.Entry(WellKnownHeaderKeys.ErrorDetails, rpcError.ErrorDetails));
+                    }
+
+                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message), metadata);
+                }
+            }
         }
     }
 }

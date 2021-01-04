@@ -9,6 +9,9 @@
 //
 #endregion
 
+using SciTech.Collections.Immutable;
+using SciTech.Rpc.Internal;
+using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Immutable;
 
@@ -18,8 +21,10 @@ namespace SciTech.Rpc.Server.Internal
     /// Extends the <see cref="IRpcServer"/> with a property to retrieve 
     /// the <see cref="IRpcServiceActivator"/> associated with <see cref="IRpcServer.ServicePublisher"/>.
     /// </summary>
-    public interface IRpcServerImpl : IRpcServer
+    public interface IRpcServerCore : IRpcServer
     {
+        ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors { get; }
+
         /// <summary>
         /// Gets the custom <see cref="RpcServerFaultHandler"/> that has been initialized 
         /// using the <see cref="ExceptionConverters"/>. If there are no <c>ExceptionConverters</c>
@@ -34,7 +39,9 @@ namespace SciTech.Rpc.Server.Internal
         /// not empty, the <see cref="CustomFaultHandler"/> will represent the fault handler
         /// for the combined exception converters.
         /// </summary>
-        ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; }
+        ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; }
+
+        bool HasContextAccessor { get; }
 
         IRpcSerializer Serializer { get; }
 
@@ -46,8 +53,10 @@ namespace SciTech.Rpc.Server.Internal
         /// <summary>
         /// Gets the <see cref="IRpcServiceActivator"/> associated with <see cref="IRpcServer.ServicePublisher"/>.
         /// </summary>
-        IRpcServiceActivator ServiceImplProvider { get; }
+        IRpcServiceActivator ServiceActivator { get; }
 
         IServiceProvider? ServiceProvider { get; }
+
+        void HandleCallException(Exception exception, IRpcSerializer? serializer);
     }
 }

@@ -1,13 +1,15 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
+
+#endregion Copyright notice and license
 
 using SciTech.Rpc.Internal;
 using SciTech.Threading;
@@ -28,27 +30,33 @@ namespace SciTech.Rpc.Server.Internal
     /// Note, this class will only generate an implementation for the declared members of the interface, nothing
     /// is generated for inherited members.
     /// </summary>
-#pragma warning disable CA1062 // Validate arguments of public methods
     public abstract class RpcServiceStubBuilder<TService, TMethodBinder> where TService : class
     {
-        private HashSet<string> addedOperations = new HashSet<string>();
+        private readonly HashSet<string> addedOperations = new HashSet<string>();
 
-        private IReadOnlyList<IRpcServerExceptionConverter> serviceErrorGenerators;
-
+        private RpcServerFaultHandler FaultHandler;
         private RpcStub<TService>? serviceStub;
-
-        protected RpcServiceStubBuilder(RpcServiceOptions<TService>? options) :
-            this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options)
-        {
-        }
 
         protected RpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
         {
-            this.ServiceInfo = serviceInfo;
+            this.ServiceInfo = serviceInfo ?? throw new ArgumentNullException(nameof(serviceInfo));
+
             this.Options = options;
 
-            var faultAttributes = serviceInfo.Type.GetCustomAttributes(typeof(RpcFaultAttribute));
-            this.serviceErrorGenerators = RetrieveErrorGenerators(faultAttributes);
+            var converterAttributes = serviceInfo.Type.GetCustomAttributes<RpcFaultConverterAttribute>();
+            var exceptionConverters = RetrieveServerExceptionConverters(converterAttributes);
+
+            var faultAttributes = serviceInfo.Type.GetCustomAttributes<RpcFaultAttribute>();
+            var mappings = GetFaultToDetailsMapping(faultAttributes);
+
+            if (exceptionConverters.Count > 0 || mappings.Count > 0)
+            {
+                this.FaultHandler = new RpcServerFaultHandler(null, exceptionConverters, mappings);
+            }
+            else
+            {
+                this.FaultHandler = RpcServerFaultHandler.Default;
+            }
         }
 
         protected RpcServiceOptions<TService>? Options { get; }
@@ -59,17 +67,17 @@ namespace SciTech.Rpc.Server.Internal
         /// Generates the RPC method definitions and stub handlers and adds them to the provided methodBinder.
         /// </summary>
         /// <returns></returns>
-        public RpcStub<TService> GenerateOperationHandlers(IRpcServerImpl server, TMethodBinder methodBinder)
+        public RpcStub<TService> GenerateOperationHandlers(IRpcServerCore server, TMethodBinder methodBinder)
         {
             this.serviceStub = this.CreateServiceStub(server);
-            
-            foreach( var memberInfo in RpcBuilderUtil.EnumOperationHandlers(this.ServiceInfo, true) )
+
+            foreach (var memberInfo in RpcBuilderUtil.EnumOperationHandlers(this.ServiceInfo, true))
             {
-                if( memberInfo is RpcEventInfo eventInfo )
+                if (memberInfo is RpcEventInfo eventInfo)
                 {
-                    AddEventHandler(this.serviceStub, eventInfo, methodBinder);
+                    this.AddEventHandler(this.serviceStub, eventInfo, methodBinder);
                 }
-                else  if (memberInfo is RpcOperationInfo opInfo)
+                else if (memberInfo is RpcOperationInfo opInfo)
                 {
                     switch (opInfo.MethodType)
                     {
@@ -77,44 +85,51 @@ namespace SciTech.Rpc.Server.Internal
                             this.CheckMethod(opInfo);
                             this.AddUnaryMethod(this.serviceStub, opInfo, methodBinder);
                             break;
+
+                        case RpcMethodType.ServerStreaming:
+                            this.CheckMethod(opInfo);
+                            this.AddServerStreamingMethod(this.serviceStub, opInfo, methodBinder);
+                            break;
+
                         default:
                             throw new NotImplementedException();
                     }
-                } else
+                }
+                else
                 {
                     throw new NotImplementedException();
                 }
             }
-            
+
             return this.serviceStub;
         }
 
         internal void AddEventHandler(RpcStub<TService> serviceStub, RpcEventInfo eventInfo, TMethodBinder binder)
         {
-            if (eventInfo.Event.EventHandlerType.Equals(typeof(EventHandler)))
+            if (typeof(EventHandler).Equals(eventInfo.Event.EventHandlerType))
             {
                 this.AddPlainEventHandler(serviceStub, eventInfo, binder);
                 return;
             }
+
             // TODO: Cache.
-            var addEventHandlerDelegate = (Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>)this.GetType()
-                .GetMethod(nameof(this.AddGenericEventHandler), BindingFlags.Instance | BindingFlags.NonPublic)
+            var addEventHandlerDelegate = (Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>)
+                GetBuilderMethod(nameof(this.AddGenericEventHandler))
                 .MakeGenericMethod(eventInfo.EventArgsType)
                 .CreateDelegate(typeof(Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>), this);
 
             addEventHandlerDelegate(serviceStub, eventInfo, binder);
-
         }
 
         internal void AddGenericEventHandler<TEventArgs>(RpcStub<TService> serviceStub, RpcEventInfo eventInfo, TMethodBinder binder) where TEventArgs : class
         {
-            var baseName = eventInfo.Name;
-            var beginEventProducerName = $"Begin{baseName}";
+            if (eventInfo.Event.EventHandlerType == null || eventInfo.Event.AddMethod == null || eventInfo.Event.RemoveMethod == null)
+            {
+                throw new NotSupportedException($"Service event handler for '{eventInfo.DeclaringMember.Name}' must be full defined.");
+            }
 
             var serviceParameter = Expression.Parameter(typeof(TService));
             var delegateParameter = Expression.Parameter(typeof(Delegate));
-
-            var eventHandlerParameter = Expression.Parameter(eventInfo.Event.EventHandlerType);
 
             var castDelegateExpression = Expression.Convert(delegateParameter, eventInfo.Event.EventHandlerType);
 
@@ -124,120 +139,68 @@ namespace SciTech.Rpc.Server.Internal
             var removeHandlerExpression = Expression.Call(serviceParameter, eventInfo.Event.RemoveMethod, castDelegateExpression);
             var removeHandlerAction = Expression.Lambda<Action<TService, Delegate>>(removeHandlerExpression, serviceParameter, delegateParameter).Compile();
 
-            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TEventArgs> responseStream, IRpcCallContext context)
+            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TEventArgs> responseStream, IRpcContext context)
             {
                 var eventProducer = new GenericEventHandlerProducer<TEventArgs>(responseStream, addHandlerAction, removeHandlerAction, context.CancellationToken);
-                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer, context);
+                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer);
             }
 
             this.AddEventHandlerDefinition<TEventArgs>(eventInfo, LocalBeginEventProducer, serviceStub, binder);
         }
 
-        protected static Func<TService, TRequest, TResult> GenerateBlockingUnaryMethodHandler<TRequest, TResult>(RpcOperationInfo operationInfo)
+        protected static Func<TService, TRequest, CancellationToken, TResult> GenerateBlockingUnaryMethodHandler<TRequest, TResult>(RpcOperationInfo operationInfo)
         {
-            var requestParameter = Expression.Parameter(typeof(TRequest));
+            if (operationInfo is null) throw new ArgumentNullException(nameof(operationInfo));
 
-            List<Expression> parameters = new List<Expression>();
-            for (int paramIndex = 1; paramIndex < operationInfo.RequestTypeCtorArgTypes.Length; paramIndex++)
-            {
-                var parameterType = operationInfo.RequestTypeCtorArgTypes[paramIndex];
-                parameters.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{paramIndex}"));
-            }
+            var requestParameter = Expression.Parameter(typeof(TRequest));
+            var cancellationTokenParameter = Expression.Parameter(typeof(CancellationToken));
+
+            List<Expression> parameterExpressions = GetParameterExpressions<TRequest>(operationInfo, requestParameter, cancellationTokenParameter);
 
             var serviceParameter = Expression.Parameter(typeof(TService));
 
-            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameters);
-            var func = Expression.Lambda<Func<TService, TRequest, TResult>>(invocation, false, serviceParameter, requestParameter).Compile();
-
+            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameterExpressions);
+            var func = Expression.Lambda<Func<TService, TRequest, CancellationToken, TResult>>(
+                invocation, false, serviceParameter, requestParameter, cancellationTokenParameter).Compile();
 
             return func;
         }
-        ///// <summary>
-        ///// Generates an expression function that calls a service implementation method that returns an RPC service instance (i.e. an
-        ///// interface marked with an <see cref="RpcServiceAttribute"/>).
-        ///// </summary>
-        ///// <remarks>
-        ///// Assuming that the service interface is defined as:
-        ///// <code>
-        ///// [RpcService]
-        ///// public interface IImplicitServiceProviderService
-        ///// {
-        /////     ISimpleService GetSimpleService( int serviceId );
-        ///// } 
-        ///// </code>
-        ///// 
-        ///// This method will generate a function similar to (for the GetSimpleService stub):
-        ///// <code>
-        ///// (IImplicitServiceProviderService service, IRpcServicePublisher servicePublisher, RpcObjectRequest<int> request) 
-        /////     => CreateServiceResponse(servicePublisher, service.GetSimpleService( request.Value1 ) );
-        ///// </code>
-        ///// </remarks>
-        ///// <typeparam name="TRequest"></typeparam>
-        ///// <typeparam name="TResult"></typeparam>
-        ///// <param name="operationInfo"></param>
-        ///// <returns></returns>
-        //protected static Func<TService, IRpcServicePublisher, TRequest, RpcResponse<RpcObjectRef<TServiceResult>>>
-        //    GenerateBlockingUnaryServiceMethodHandler<TRequest, TServiceResult>(RpcOperationInfo operationInfo)
-        //    where TServiceResult : class
-        //{
-        //    var requestParameter = Expression.Parameter(typeof(TRequest));
-        //    List<Expression> parameters = new List<Expression>();
-        //    for (int paramIndex = 1; paramIndex < operationInfo.RequestTypeCtorArgTypes.Length; paramIndex++)
-        //    {
-        //        var parameterType = operationInfo.RequestTypeCtorArgTypes[paramIndex];
-        //        parameters.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{paramIndex}"));
-        //    }
-        //    var serviceParameter = Expression.Parameter(typeof(TService));
-        //    var publisherParameter = Expression.Parameter(typeof(IRpcServicePublisher));
-        //    var serviceCall = Expression.Call(serviceParameter, operationInfo.Method, parameters);
-        //    var createServiceResponseMethodDef = typeof(RpcStub).GetMethod(nameof(RpcStub.CreateServiceResponse), BindingFlags.Static | BindingFlags.NonPublic);
-        //    var createServiceResponseMethod = createServiceResponseMethodDef.MakeGenericMethod(typeof(TServiceResult));
-        //    var createResponseCall = Expression.Call(null, createServiceResponseMethod, publisherParameter, serviceCall);
-        //    var func = Expression.Lambda<Func<TService, IRpcServicePublisher, TRequest, RpcResponse<RpcObjectRef<TServiceResult>>>>(
-        //        createResponseCall, false,
-        //        serviceParameter,
-        //        publisherParameter,
-        //        requestParameter).Compile();
-        //    return func;
-        //}
 
-        protected static Func<TService, TRequest, Task<TResponse>> GenerateUnaryMethodHandler<TRequest, TResponse>(RpcOperationInfo operationInfo)
+        protected static Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> GenerateServerStreamingMethodHandler<TRequest, TReturn>(RpcOperationInfo operationInfo)
             where TRequest : class
         {
-            var requestParameter = Expression.Parameter(typeof(TRequest));
+            if (operationInfo is null) throw new ArgumentNullException(nameof(operationInfo));
 
-            List<Expression> parameters = new List<Expression>();
-            for (int paramIndex = 1; paramIndex < operationInfo.RequestTypeCtorArgTypes.Length; paramIndex++)
-            {
-                var parameterType = operationInfo.RequestTypeCtorArgTypes[paramIndex];
-                parameters.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{paramIndex}"));
-            }
+            var requestParameter = Expression.Parameter(typeof(TRequest));
+            var cancellationTokenParameter = Expression.Parameter(typeof(CancellationToken));
+
+            List<Expression> parameterExpressions = GetParameterExpressions<TRequest>(operationInfo, requestParameter, cancellationTokenParameter);
 
             var serviceParameter = Expression.Parameter(typeof(TService));
 
-            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameters);
-            Expression<Func<TService, TRequest, Task<TResponse>>> expression = Expression.Lambda<Func<TService, TRequest, Task<TResponse>>>(invocation, false, serviceParameter, requestParameter);
+            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameterExpressions);
+            var expression = Expression.Lambda<Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>>>(
+                invocation, false, serviceParameter, requestParameter, cancellationTokenParameter);
 
             var func = expression.Compile();
             return func;
         }
 
-        protected static Func<TService, TRequest, Task<TResult>> GenerateUnaryServiceMethodHandler<TRequest, TResult>(RpcOperationInfo operationInfo)
-            where TRequest : class
+        protected static Func<TService, TRequest, CancellationToken, Task<TResponse>> GenerateUnaryMethodHandler<TRequest, TResponse>(RpcOperationInfo operationInfo)
+                    where TRequest : class
         {
-            var requestParameter = Expression.Parameter(typeof(TRequest));
+            if (operationInfo is null) throw new ArgumentNullException(nameof(operationInfo));
 
-            List<Expression> parameters = new List<Expression>();
-            for (int paramIndex = 1; paramIndex < operationInfo.RequestTypeCtorArgTypes.Length; paramIndex++)
-            {
-                var parameterType = operationInfo.RequestTypeCtorArgTypes[paramIndex];
-                parameters.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{paramIndex}"));
-            }
+            var requestParameter = Expression.Parameter(typeof(TRequest));
+            var cancellationTokenParameter = Expression.Parameter(typeof(CancellationToken));
+
+            List<Expression> parameterExpressions = GetParameterExpressions<TRequest>(operationInfo, requestParameter, cancellationTokenParameter);
 
             var serviceParameter = Expression.Parameter(typeof(TService));
 
-            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameters);
-            Expression<Func<TService, TRequest, Task<TResult>>> expression = Expression.Lambda<Func<TService, TRequest, Task<TResult>>>(invocation, false, serviceParameter, requestParameter);
+            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameterExpressions);
+            var expression = Expression.Lambda<Func<TService, TRequest, CancellationToken, Task<TResponse>>>(
+                invocation, false, serviceParameter, requestParameter, cancellationTokenParameter);
 
             var func = expression.Compile();
             return func;
@@ -245,13 +208,13 @@ namespace SciTech.Rpc.Server.Internal
 
         protected abstract void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             TMethodBinder binder)
             where TEventArgs : class;
 
-        protected abstract void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, Task<TReturn>> serviceCaller,
+        protected abstract void AddGenericAsyncMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -262,23 +225,25 @@ namespace SciTech.Rpc.Server.Internal
         protected void AddGenericBlockingMethod<TRequest, TReturn, TResponseReturn>(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
             where TRequest : class, IObjectRequest
         {
+            if (opInfo is null) throw new ArgumentNullException(nameof(opInfo));
+
             Func<TReturn, TResponseReturn>? responseCreator = GetResponseCreator<TReturn, TResponseReturn>(opInfo);
             RpcServerFaultHandler faultHandler = this.CreateFaultHandler(opInfo);
 
             if (opInfo.IsAsync)
             {
                 var serviceCaller = GenerateUnaryMethodHandler<TRequest, TReturn>(opInfo);
-                this.AddGenericAsyncMethodImpl(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
+                this.AddGenericAsyncMethodCore(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
             }
             else
             {
                 var serviceCaller = GenerateBlockingUnaryMethodHandler<TRequest, TReturn>(opInfo);
-                this.AddGenericBlockingMethodImpl(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
+                this.AddGenericBlockingMethodCore(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
             }
         }
 
-        protected abstract void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, TReturn> serviceCaller,
+        protected abstract void AddGenericBlockingMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -286,21 +251,53 @@ namespace SciTech.Rpc.Server.Internal
             TMethodBinder binder)
             where TRequest : class, IObjectRequest;
 
-        protected abstract void AddGenericVoidAsyncMethodImpl<TRequest>(
-            Func<TService, TRequest, Task> serviceCaller,
+        protected void AddGenericServerStreamingMethod<TRequest, TReturn, TResponseReturn>(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
+            where TRequest : class, IObjectRequest
+            where TResponseReturn : class
+        {
+            if (opInfo is null) throw new ArgumentNullException(nameof(opInfo));
+
+            Func<TReturn, TResponseReturn>? responseCreator = GetResponseCreator<TReturn, TResponseReturn>(opInfo);
+            RpcServerFaultHandler faultHandler = this.CreateFaultHandler(opInfo);
+
+            var serviceCaller = GenerateServerStreamingMethodHandler<TRequest, TReturn>(opInfo);
+            this.AddServerStreamingMethodCore(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
+        }
+
+        protected abstract void AddGenericVoidAsyncMethodCore<TRequest>(
+                    Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             TMethodBinder binder)
             where TRequest : class, IObjectRequest;
 
-        protected abstract void AddGenericVoidBlockingMethodImpl<TRequest>(
-            Action<TService, TRequest> serviceCaller,
+        protected abstract void AddGenericVoidBlockingMethodCore<TRequest>(
+            Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             TMethodBinder binder)
             where TRequest : class, IObjectRequest;
+
+        protected abstract void AddServerStreamingMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            TMethodBinder binder)
+            where TRequest : class, IObjectRequest
+            where TResponseReturn : class;
+
+        protected virtual ImmutableRpcServerOptions CreateStubOptions(IRpcServerCore server)
+        {
+            if (server is null) throw new ArgumentNullException(nameof(server));
+
+            var registeredOptions = server.ServiceDefinitionsProvider.GetServiceOptions(typeof(TService));
+
+            return ImmutableRpcServerOptions.Combine(this.Options, registeredOptions);
+        }
 
         private static void CheckPropertySet(RpcPropertyInfo propertyInfo)
         {
@@ -310,61 +307,131 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private static Action<TService, TRequest> GenerateVoidBlockingUnaryMethodHandler<TRequest>(RpcOperationInfo operationInfo)
+        private static IRpcServerExceptionConverter CreateServerExceptionConverter(RpcFaultConverterAttribute faultAttribute)
+        {
+            if (faultAttribute.ConverterType != null)
+            {
+                var converterCtor = faultAttribute.ConverterType.GetConstructor(Type.EmptyTypes)
+                    ?? throw new NotImplementedException($"{faultAttribute.ConverterType} constructor not found.");
+
+                var converter = (IRpcServerExceptionConverter)converterCtor.Invoke(null);
+                return converter;
+            }
+            else if (!string.IsNullOrWhiteSpace(faultAttribute.FaultCode) && faultAttribute.ExceptionType != null)
+            {
+                var faultConverterType = typeof(RpcExceptionConverter<>).MakeGenericType(faultAttribute.ExceptionType);
+                var converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string), typeof(bool) })
+                    ?? throw new NotImplementedException($"{faultConverterType.Name} constructor not found.");
+
+                var converter = (IRpcServerExceptionConverter)converterCtor.Invoke(new object[] { faultAttribute.FaultCode!, faultAttribute.IncludeSubTypes });
+                return converter;
+            }
+
+            throw new RpcDefinitionException("Converter or FaultCode with ExceptionType must be specified in RpcFaultAttribute.");
+        }
+
+        private static Action<TService, TRequest, CancellationToken> GenerateVoidBlockingUnaryMethodHandler<TRequest>(RpcOperationInfo operationInfo)
         {
             var requestParameter = Expression.Parameter(typeof(TRequest));
+            var cancellationTokenParameter = Expression.Parameter(typeof(CancellationToken));
 
-            List<Expression> parameters = new List<Expression>();
-            for (int paramIndex = 1; paramIndex < operationInfo.RequestTypeCtorArgTypes.Length; paramIndex++)
-            {
-                var parameterType = operationInfo.RequestTypeCtorArgTypes[paramIndex];
-                parameters.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{paramIndex}"));
-            }
+            List<Expression> parameterExpressions = GetParameterExpressions<TRequest>(operationInfo, requestParameter, cancellationTokenParameter);
 
             var serviceParameter = Expression.Parameter(typeof(TService));
 
-            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameters);
-            var func = Expression.Lambda<Action<TService, TRequest>>(invocation, false, serviceParameter, requestParameter).Compile();
+            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameterExpressions);
+            var func = Expression.Lambda<Action<TService, TRequest, CancellationToken>>(
+                invocation, false, serviceParameter, requestParameter, cancellationTokenParameter).Compile();
             return func;
         }
 
-        private static Func<TService, TRequest, Task> GenerateVoidUnaryMethodHandler<TRequest>(RpcOperationInfo operationInfo)
+        private static Func<TService, TRequest, CancellationToken, Task> GenerateVoidUnaryMethodHandler<TRequest>(RpcOperationInfo operationInfo)
         {
             var requestParameter = Expression.Parameter(typeof(TRequest));
+            var cancellationTokenParameter = Expression.Parameter(typeof(CancellationToken));
 
-            List<Expression> parameters = new List<Expression>();
-            for (int paramIndex = 1; paramIndex < operationInfo.RequestTypeCtorArgTypes.Length; paramIndex++)
-            {
-                var parameterType = operationInfo.RequestTypeCtorArgTypes[paramIndex];
-                parameters.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{paramIndex}"));
-            }
+            List<Expression> parameterExpressions = GetParameterExpressions<TRequest>(operationInfo, requestParameter, cancellationTokenParameter);
 
             var serviceParameter = Expression.Parameter(typeof(TService));
 
-            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameters);
-            var func = Expression.Lambda<Func<TService, TRequest, Task>>(invocation, false, serviceParameter, requestParameter).Compile();
+            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameterExpressions);
+            var func = Expression.Lambda<Func<TService, TRequest, CancellationToken, Task>>(
+                invocation, false, serviceParameter, requestParameter, cancellationTokenParameter).Compile();
             return func;
         }
 
-        private static List<IRpcServerExceptionConverter> RetrieveErrorGenerators(IEnumerable<Attribute> faultAttributes)
+        private static MethodInfo GetBuilderMethod(string name, BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance)
         {
-            var errorGenerators = new List<IRpcServerExceptionConverter>();
-            foreach (RpcFaultAttribute faultAttribute in faultAttributes)
-            {
+            return typeof(RpcServiceStubBuilder<TService, TMethodBinder>)
+                .GetMethod(name, bindingFlags)
+                ?? throw new NotImplementedException($"Method {name} not found on type '{typeof(RpcServiceStubBuilder<TService, TMethodBinder>)}'.");
+        }
 
-                if (faultAttribute.FaultType != null)
+        private static List<FaultMapping> GetFaultToDetailsMapping(IEnumerable<RpcFaultAttribute> faultAttributes)
+        {
+            List<FaultMapping> mappings = new List<FaultMapping>();
+
+            foreach (var faultAttribute in faultAttributes)
+            {
+                mappings.Add(new FaultMapping(faultAttribute.FaultCode, faultAttribute.FaultType));
+            }
+
+            return mappings;
+        }
+
+        private static List<Expression> GetParameterExpressions<TRequest>(RpcOperationInfo operationInfo, ParameterExpression requestParameter, ParameterExpression cancellationTokenParameter)
+        {
+            var parameterExpressions = new List<Expression>();
+            var parameters = operationInfo.Method.GetParameters();
+
+            for (int paramIndex = 0; paramIndex < parameters.Length; paramIndex++)
+            {
+                if (paramIndex == operationInfo.CancellationTokenIndex)
                 {
-                    var rpcErrorGenerator = (IRpcServerExceptionConverter)typeof(RpcFaultExceptionConverter<>)
-                        .MakeGenericType(faultAttribute.FaultType)
-                        .GetField(nameof(RpcFaultExceptionConverter<object>.Default), BindingFlags.Static | BindingFlags.Public)
-                        .GetValue(null);
-                    errorGenerators.Add(rpcErrorGenerator);
+                    parameterExpressions.Add(cancellationTokenParameter);
                 }
                 else
                 {
-                    var exceptionConverter = new RpcFaultExceptionConverter(faultAttribute.FaultCode);
-                    errorGenerators.Add(exceptionConverter);
+                    int valueIndex = GetRequestValueIndex(operationInfo.RequestParameters, paramIndex);
+                    if (valueIndex < 0)
+                    {
+                        throw new RpcDefinitionException("Failed to find RPC method parameter.");
+                    }
+
+                    parameterExpressions.Add(Expression.Property(requestParameter, typeof(TRequest), $"Value{valueIndex}"));
+                    //parameterExpressions.Add(Expression.Field(requestParameter, typeof(TRequest), $"Value{valueIndex}"));
                 }
+            }
+
+            return parameterExpressions;
+        }
+
+        private static int GetRequestValueIndex(ImmutableArray<RpcRequestParameter> requestParameters, int paramIndex)
+        {
+            for (int requestParamIndex = 0; requestParamIndex < requestParameters.Length; requestParamIndex++)
+            {
+                var rp = requestParameters[requestParamIndex];
+                if (rp.Index == paramIndex)
+                {
+                    return requestParamIndex + 1;
+                }
+            }
+
+            return -1;
+        }
+
+        private static MethodInfo GetStubMethod(string name, BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
+        {
+            return typeof(RpcStub).GetMethod(name, bindingFlags)
+                ?? throw new NotImplementedException($"Method {name} not found on type '{nameof(RpcStub)}'.");
+        }
+
+        private static List<IRpcServerExceptionConverter> RetrieveServerExceptionConverters(IEnumerable<RpcFaultConverterAttribute> faultAttributes)
+        {
+            var errorGenerators = new List<IRpcServerExceptionConverter>();
+            foreach (var attribute in faultAttributes)
+            {
+                errorGenerators.Add(CreateServerExceptionConverter(attribute));
             }
 
             return errorGenerators;
@@ -378,45 +445,23 @@ namespace SciTech.Rpc.Server.Internal
             if (opInfo.IsAsync)
             {
                 var serviceCaller = GenerateVoidUnaryMethodHandler<TRequest>(opInfo);
-                this.AddGenericVoidAsyncMethodImpl(serviceCaller, faultHandler, serviceStub, opInfo, binder);
+                this.AddGenericVoidAsyncMethodCore(serviceCaller, faultHandler, serviceStub, opInfo, binder);
             }
             else
             {
                 var serviceCaller = GenerateVoidBlockingUnaryMethodHandler<TRequest>(opInfo);
-                this.AddGenericVoidBlockingMethodImpl(serviceCaller, faultHandler, serviceStub, opInfo, binder);
+                this.AddGenericVoidBlockingMethodCore(serviceCaller, faultHandler, serviceStub, opInfo, binder);
             }
         }
 
-        //private void AddGetProperty(RpcStub<TService> serviceStub, RpcPropertyInfo rpcPropertyInfo, TMethodBinder binder)
-        //{
-        //    var propertyInfo = rpcPropertyInfo.Property;
-
-        //    this.AddUnaryMethod(serviceStub, new RpcOperationInfo
-        //    (
-        //        service: rpcPropertyInfo.Service,
-        //        name: $"Get{propertyInfo.Name}",
-        //        method: propertyInfo.GetMethod,
-        //        requestType: typeof(RpcObjectRequest),
-        //        requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId)),
-        //        methodType: RpcMethodType.Unary,
-        //        isAsync: false,
-        //        parametersCount: 0,
-        //        responseType: typeof(RpcResponse<>).MakeGenericType(rpcPropertyInfo.ResponseReturnType),
-        //        returnType: propertyInfo.PropertyType,
-        //        responseReturnType: rpcPropertyInfo.ResponseReturnType,
-        //        returnKind: rpcPropertyInfo.PropertyTypeKind
-        //    ),
-        //    binder
-        //    );
-        //}
-
         private void AddPlainEventHandler(RpcStub<TService> serviceStub, RpcEventInfo eventInfo, TMethodBinder binder)
         {
-            var baseName = eventInfo.Name;
-            var beginEventProducerName = $"Begin{baseName}";
+            if (eventInfo.Event.EventHandlerType == null || eventInfo.Event.AddMethod == null || eventInfo.Event.RemoveMethod == null)
+            {
+                throw new NotSupportedException($"Service event handler for '{eventInfo.DeclaringMember.Name}' must be full defined.");
+            }
 
             var serviceParameter = Expression.Parameter(typeof(TService));
-            var eventHandlerParameter = Expression.Parameter(eventInfo.Event.EventHandlerType);
             var delegateParameter = Expression.Parameter(typeof(Delegate));
 
             var castDelegateExpression = Expression.Convert(delegateParameter, eventInfo.Event.EventHandlerType);
@@ -427,46 +472,33 @@ namespace SciTech.Rpc.Server.Internal
             var removeHandlerExpression = Expression.Call(serviceParameter, eventInfo.Event.RemoveMethod, castDelegateExpression);
             var removeHandlerAction = Expression.Lambda<Action<TService, Delegate>>(removeHandlerExpression, serviceParameter, delegateParameter).Compile();
 
-            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<EventArgs> responseStream, IRpcCallContext context)
+            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<EventArgs> responseStream, IRpcContext context)
             {
                 var eventProducer = new PlainEventHandlerProducer(responseStream, addHandlerAction, removeHandlerAction, context.CancellationToken);
-                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer, context);
+                return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer);
             }
 
             this.AddEventHandlerDefinition<EventArgs>(eventInfo, LocalBeginEventProducer, serviceStub, binder);
         }
 
-        //private void AddSetProperty(RpcStub<TService> serviceStub, RpcPropertyInfo rpcPropertyInfo, TMethodBinder binder)
-        //{
-        //    var propertyInfo = rpcPropertyInfo.Property;
+        private void AddServerStreamingMethod(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
+        {
+            // TODO: Cache.
+            var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                GetBuilderMethod(nameof(this.AddGenericServerStreamingMethod))
+                .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
+                .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
 
-        //    this.AddUnaryMethod(serviceStub, new RpcOperationInfo
-        //    (
-        //        service: rpcPropertyInfo.Service,
-        //        name: $"Set{propertyInfo.Name}",
-        //        method: propertyInfo.SetMethod,
-        //        requestType: typeof(RpcObjectRequest<>).MakeGenericType(propertyInfo.PropertyType),
-        //        requestTypeCtorArgTypes: ImmutableArray.Create(typeof(RpcObjectId), propertyInfo.PropertyType),
-        //        methodType: RpcMethodType.Unary,
-        //        isAsync: false,
-        //        parametersCount: 1,
-        //        responseType: typeof(RpcResponse),
-        //        returnType: typeof(void),
-        //        responseReturnType: typeof(void),
-        //        returnKind: rpcPropertyInfo.PropertyTypeKind
-        //    ),
-        //    binder
-        //    );
-        //}
+            addUnaryMethodDelegate(serviceStub, opInfo, binder);
+        }
 
         private void AddUnaryMethod(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
         {
             if (!opInfo.ReturnType.Equals(typeof(void)))
             {
-                // TODO: Cache.                
+                // TODO: Cache.
                 var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
-                    typeof(RpcServiceStubBuilder<TService, TMethodBinder>)
-                    .GetMethod(nameof(this.AddGenericBlockingMethod), BindingFlags.Instance | BindingFlags.NonPublic)
+                    GetBuilderMethod(nameof(this.AddGenericBlockingMethod))
                     .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
                     .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
 
@@ -476,13 +508,11 @@ namespace SciTech.Rpc.Server.Internal
             {
                 // TODO: Cache.
                 var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
-                    typeof(RpcServiceStubBuilder<TService, TMethodBinder>)
-                    .GetMethod(nameof(this.AddGenericVoidUnaryMethod), BindingFlags.Instance | BindingFlags.NonPublic)
+                    GetBuilderMethod(nameof(this.AddGenericVoidUnaryMethod))
                     .MakeGenericMethod(opInfo.RequestType)
                     .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
 
                 addUnaryMethodDelegate(serviceStub, opInfo, binder);
-
             }
         }
 
@@ -517,21 +547,29 @@ namespace SciTech.Rpc.Server.Internal
         /// <returns></returns>
         private RpcServerFaultHandler CreateFaultHandler(RpcOperationInfo opInfo)
         {
-            var faultAttributes = opInfo.Method.GetCustomAttributes(typeof(RpcFaultAttribute));
-            List<IRpcServerExceptionConverter> exceptionConverters = RetrieveErrorGenerators(faultAttributes);
+            var converterAttributes = opInfo.Method.GetCustomAttributes<RpcFaultConverterAttribute>();
+            List<IRpcServerExceptionConverter> exceptionConverters = RetrieveServerExceptionConverters(converterAttributes);
+            var faultAttributes = opInfo.Method.GetCustomAttributes<RpcFaultAttribute>();
+            var mappings = GetFaultToDetailsMapping(faultAttributes);
 
-            if (exceptionConverters.Count > 0 || this.serviceErrorGenerators.Count > 0)
+            if (exceptionConverters.Count > 0 || mappings.Count > 0)
             {
-                exceptionConverters.AddRange(this.serviceErrorGenerators);
-                return new RpcServerFaultHandler(exceptionConverters);
+                return new RpcServerFaultHandler(this.FaultHandler, exceptionConverters, mappings);
             }
 
-            return RpcServerFaultHandler.Default;
+            return this.FaultHandler;
         }
 
-        private RpcStub<TService> CreateServiceStub(IRpcServerImpl server)
+        private RpcStub<TService> CreateServiceStub(IRpcServerCore server)
         {
-            return new RpcStub<TService>(server, this.Options);
+            var options = this.CreateStubOptions(server);
+            return new RpcStub<TService>(server, options);
+        }
+
+        private FieldInfo GetBuilderField(string name, BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Instance)
+        {
+            return this.GetType().GetField(name, bindingFlags)
+                ?? throw new NotImplementedException($"Field {name} not found on type '{this.GetType()}'.");
         }
 
         private Func<TReturn, TResponseReturn>? GetResponseCreator<TReturn, TResponseReturn>(RpcOperationInfo opInfo)
@@ -541,8 +579,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 case ServiceOperationReturnKind.Service:
                     {
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceResponse))
+                        var method = GetStubMethod(nameof(RpcStub.ConvertServiceResponse))
                             .MakeGenericMethod(typeof(TReturn));
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>), this.serviceStub);
@@ -554,9 +591,9 @@ namespace SciTech.Rpc.Server.Internal
 
                 case ServiceOperationReturnKind.ServiceArray:
                     {
-                        var elementType = typeof(TReturn).GetElementType();
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceArrayResponse))
+                        var elementType = typeof(TReturn).GetElementType()
+                            ?? throw new InvalidOperationException($"Return type '{typeof(TReturn)}' should be an array");
+                        var method = GetStubMethod(nameof(RpcStub.ConvertServiceArrayResponse))
                             .MakeGenericMethod(elementType);
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>), this.serviceStub);
@@ -567,8 +604,8 @@ namespace SciTech.Rpc.Server.Internal
                     }
                 case ServiceOperationReturnKind.ServiceRef:
                     {
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceRefResponse))
+                        var method =
+                            GetStubMethod(nameof(RpcStub.ConvertServiceRefResponse))
                             .MakeGenericMethod(typeof(TReturn));
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>));
@@ -579,10 +616,11 @@ namespace SciTech.Rpc.Server.Internal
                     }
                 case ServiceOperationReturnKind.ServiceRefArray:
                     {
-                        var elementType = typeof(TReturn).GetElementType();
+                        var elementType = typeof(TReturn).GetElementType()
+                            ?? throw new InvalidOperationException($"Return type '{typeof(TReturn)}' should be an array");
 
-                        var method = typeof(RpcStub)
-                            .GetMethod(nameof(RpcStub.ConvertServiceRefArrayResponse))
+                        var method =
+                            GetStubMethod(nameof(RpcStub.ConvertServiceRefArrayResponse))
                             .MakeGenericMethod(elementType);
 
                         var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>));
@@ -613,10 +651,9 @@ namespace SciTech.Rpc.Server.Internal
             {
                 this.addHandlerAction = addHandlerAction;
                 this.removeHandlerAction = removeHandlerAction;
-
             }
 
-            protected override async Task RunImpl(TService service)
+            protected override async Task RunCore(TService service)
             {
                 this.addHandlerAction(service, this.Handler);
 
@@ -635,7 +672,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
             }
 
-            private void Handler(object s, TEventArgs e)
+            private void Handler(object? s, TEventArgs e)
             {
                 this.HandleEvent(e);
             }
@@ -655,10 +692,9 @@ namespace SciTech.Rpc.Server.Internal
             {
                 this.addHandlerAction = addHandlerAction;
                 this.removeHandlerAction = removeHandlerAction;
-
             }
 
-            protected override async Task RunImpl(TService service)
+            protected override async Task RunCore(TService service)
             {
                 this.addHandlerAction(service, this.Handler);
 
@@ -677,11 +713,10 @@ namespace SciTech.Rpc.Server.Internal
                 }
             }
 
-            private void Handler(object s, EventArgs e)
+            private void Handler(object? s, EventArgs e)
             {
                 this.HandleEvent(e);
             }
         }
     }
-#pragma warning restore CA1062 // Validate arguments of public methods
 }

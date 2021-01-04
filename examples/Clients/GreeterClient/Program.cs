@@ -1,6 +1,9 @@
 ﻿using Greeter;
 using SciTech.Rpc;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Lightweight.Client;
+using SciTech.Rpc.Lightweight.Server;
+using SciTech.Rpc.Server;
 using System;
 using System.Threading.Tasks;
 
@@ -12,14 +15,18 @@ namespace GrpcGreeter
         {
             var credentials = TestCertificates.GrpcSslCredentials;
             var sslOptions = TestCertificates.SslClientOptions;
-            
+
             var connectionManager = new RpcServerConnectionManager(
                 new IRpcConnectionProvider[] {
                     new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
                     new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)
                 });
-            
-            var connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
+
+            var connection = new NamedPipeRpcConnection("Test");
+            connection.GetServiceSingleton<IGreeterServiceClient>();
+
+
+            RpcServerConnectionInfo connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
 
             var greeter = connectionManager.GetServiceSingleton<IGreeterServiceClient>(connectionInfo);
 
@@ -36,6 +43,23 @@ namespace GrpcGreeter
             Console.WriteLine("Press any key to exit...");
 
             Console.ReadKey();
+
+
+            //var server = new LightweightRpcServer();
+            //server.AddEndPoint(new NamedPipeRpcEndPoint("GreeterPipe"));
+            //server.PublishSingleton<IGreeterService>(new GreeterServiceImpl());
+            //server.Start();
+
+
+            //Console.WriteLine("Press any key to exit...");
+
+            //Console.ReadKey();
+
+
+            //var connection = new NamedPipeRpcConnection("GreeterPipe");
+            //var greeter2 = connection.GetServiceSingleton<IGreeterServiceClient>();
+
+            
 
 
         }

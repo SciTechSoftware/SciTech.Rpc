@@ -9,19 +9,18 @@
 //
 #endregion
 
-using SciTech.Collections.Generic;
-using SciTech.Diagnostics;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Logging;
+using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-
-using ExceptionManager = SciTech.Diagnostics.ExceptionManager;
 
 namespace SciTech.Rpc.Client.Internal
 {
@@ -31,20 +30,18 @@ namespace SciTech.Rpc.Client.Internal
     public class RpcProxyArgs
     {
         public RpcProxyArgs(
-            IRpcServerConnection connection, RpcObjectId objectId, IRpcSerializer serializer,
+            IRpcChannel connection, RpcObjectId objectId, IRpcSerializer serializer,
             IReadOnlyCollection<string>? implementedServices,
-            IRpcProxyDefinitionsProvider proxyServicesProvider,
             SynchronizationContext? syncContext)
         {
-            this.Connection = connection ?? throw new ArgumentNullException(nameof(connection));
+            this.Channel = connection ?? throw new ArgumentNullException(nameof(connection));
             this.ObjectId = objectId;
             this.Serializer = serializer;
             this.ImplementedServices = implementedServices;
-            this.ProxyServicesProvider = proxyServicesProvider;
             this.SyncContext = syncContext;
         }
 
-        public IRpcServerConnection Connection { get; }
+        public IRpcChannel Channel { get; }
 
         /// <summary>
         /// The services implemented by the server side of this proxy. May be <c>null</c> or empty if
@@ -54,32 +51,21 @@ namespace SciTech.Rpc.Client.Internal
 
         public RpcObjectId ObjectId { get; }
 
-        public IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }
-
         public IRpcSerializer Serializer { get; }
 
         public SynchronizationContext? SyncContext { get; }
     }
 
-#pragma warning disable CA1051 // Do not declare visible instance fields
-#pragma warning disable CA1062 // Validate arguments of public methods
+    [SuppressMessage("Naming", "CA1708: Identifiers should differ by more than case", Justification = "Accessed by generated code")]
     public abstract class RpcProxyBase
     {
-        /// <summary>
-        /// Protected to make it easier to use by dynamically generated code.
-        /// </summary>
-        protected readonly RpcObjectId objectId;
-
-        protected readonly IRpcSerializer serializer;
-
-        private HashSet<string>? implementedServices;
-
         protected RpcProxyBase(RpcProxyArgs proxyArgs)
         {
+            if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
+
             this.objectId = proxyArgs.ObjectId;
-            this.Connection = proxyArgs.Connection;
+            this.Channel = proxyArgs.Channel;
             this.serializer = proxyArgs.Serializer;
-            this.ProxyServicesProvider = proxyArgs.ProxyServicesProvider;
             this.SyncContext = proxyArgs.SyncContext;
             if (proxyArgs.ImplementedServices?.Count > 0)
             {
@@ -94,7 +80,7 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        public IRpcServerConnection Connection { get; }
+        public IRpcChannel Channel { get; }
 
         /// <summary>
         /// The services implemented by the server side this proxy. May be empty if
@@ -106,8 +92,6 @@ namespace SciTech.Rpc.Client.Internal
 
         public SynchronizationContext? SyncContext { get; }
 
-        protected IRpcProxyDefinitionsProvider ProxyServicesProvider { get; }
-
         protected object SyncRoot { get; } = new object();
 
         public bool ImplementsServices(IReadOnlyCollection<string>? otherServices)
@@ -115,16 +99,38 @@ namespace SciTech.Rpc.Client.Internal
             return otherServices == null || otherServices.Count == 0
                 || (this.implementedServices != null && this.implementedServices.IsSupersetOf(otherServices));
         }
-    }
-#pragma warning restore CA1062 // Validate arguments of public methods
-#pragma warning restore CA1051 // Do not declare visible instance fields
 
-#pragma warning disable CA1031 // Do not catch general exception types
-#pragma warning disable CA1051 // Do not declare visible instance fields
-#pragma warning disable CA1062 // Validate arguments of public methods
+
+        /// <summary>
+        /// Protected to make it easier to use by dynamically generated code.
+        /// </summary>
+        [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
+        protected readonly RpcObjectId objectId;
+
+        /// <summary>
+        /// Protected to make it easier to use by dynamically generated code.
+        /// </summary>
+        [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
+        protected readonly IRpcSerializer serializer;
+
+        private HashSet<string>? implementedServices;
+
+    }
+
+    /// <summary>
+    /// Base implementation of an RPC proxy. Derived classes must, in addition to implementing the abstract methods, also 
+    /// include a static method named "CreateMethodDef", with the signature 
+    /// TMethodDef CreateMethodDef{TRequest, TResponse}(RpcMethodType,string,string,IRpcSerializer?,RpcClientFaultHandler?).
+    /// TODO: Try to implement the "CreateMethodDef" functionality using a virtual method in <see cref="RpcProxyGenerator{TRpcProxy, TProxyArgs, TMethodDef}"/>
+    /// instead.
+    /// </summary>
+    /// <typeparam name="TMethodDef"></typeparam>
     public abstract class RpcProxyBase<TMethodDef> : RpcProxyBase, IRpcService where TMethodDef : RpcProxyMethod
     {
+
         internal const string AddEventHandlerAsyncName = nameof(AddEventHandlerAsync);
+
+        internal const string CallAsyncEnumerableMethodName = nameof(CallAsyncEnumerableMethod);
 
         internal const string CallUnaryMethodAsyncName = nameof(CallUnaryMethodAsync);
 
@@ -144,7 +150,10 @@ namespace SciTech.Rpc.Client.Internal
 
         internal const string RemoveEventHandlerAsyncName = nameof(RemoveEventHandlerAsync);
 
-        protected readonly TMethodDef[] proxyMethods;
+        [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
+        protected internal readonly TMethodDef[] proxyMethods;
+
+        // private static readonly ILog Logger = LogProvider.For<RpcProxyBase<TMethodDef>>();
 
         private readonly List<Task> pendingEventTasks = new List<Task>();
 
@@ -166,17 +175,19 @@ namespace SciTech.Rpc.Client.Internal
             this.proxyMethods = proxyMethods;
         }
 
-        public TService Cast<TService>() where TService : class
+        public event EventHandler? EventHandlerFailed;
+
+        public void Dispose()
         {
-            return this.Connection.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
+            this.Dispose(true);
         }
 
-        public bool Equals(IRpcService other)
+        public bool Equals([AllowNull]IRpcService other)
         {
             return other != null && other.ObjectId == this.objectId;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is IRpcService other && this.Equals(other);
         }
@@ -195,7 +206,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 if (this.implementedServices != null)
                 {
-                    // return this.implementedServices;
+                    return this.implementedServices;
                 }
 
                 if (this.servicesTcs == null)
@@ -221,7 +232,7 @@ namespace SciTech.Rpc.Client.Internal
                     "SciTech.Rpc.RpcService", "QueryServices");
             }
 
-            var servicesResponse = await this.CallUnaryMethodImplAsync<RpcObjectRequest, RpcServicesQueryResponse>(
+            var servicesResponse = await this.CallUnaryMethodCoreAsync<RpcObjectRequest, RpcServicesQueryResponse>(
                 this.queryServicesMethodDef,
                 new RpcObjectRequest(this.objectId),
                 CancellationToken.None).ContextFree();
@@ -238,6 +249,16 @@ namespace SciTech.Rpc.Client.Internal
             return implementedServices;
         }
 
+        /// <summary>
+        /// <para>
+        /// Tries to cast this proxy to a type that implements the service <typeparamref name="TService"/>. 
+        /// </para>
+        /// <para>
+        /// NOTE. If information about implemented services are not available for this proxy, 
+        /// a remote call to the RPC server will be performed to retrieve this information.</para>
+        /// </summary>
+        /// <typeparam name="TService"></typeparam>
+        /// <returns></returns>
         public async Task<TService?> TryCastAsync<TService>() where TService : class
         {
             string serviceName = GetServiceName<TService>();
@@ -254,10 +275,10 @@ namespace SciTech.Rpc.Client.Internal
 
         public TService UnsafeCast<TService>() where TService : class
         {
-            return this.Connection.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
+            return this.Channel.GetServiceInstance<TService>(this.objectId, this.implementedServices, this.SyncContext);
         }
 
-        public Task WaitForPendingEventHandlers()
+        public Task WaitForPendingEventHandlersAsync()
         {
             Task[] pendingEventTasksCopy;
             lock (this.SyncRoot)
@@ -291,6 +312,8 @@ namespace SciTech.Rpc.Client.Internal
                 {
                     newEventData = this.CreateEventDataSynchronized<TEventHandler>(eventMethodIndex);
                     Debug.Assert(newEventData.eventHandler == null);
+                    var finishedTask = newEventData.eventListenerFinishedTcs!.Task;
+                    finishedTask.ContinueWith(t => { lock (this.SyncRoot) { this.RemoveEventDataSynchronized(newEventData); } }, TaskScheduler.Default);
 
                     eventData = newEventData;
                 }
@@ -314,159 +337,160 @@ namespace SciTech.Rpc.Client.Internal
             return addTask;
         }
 
-        protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken ct)
+        protected async IAsyncEnumerable<TReturn> CallAsyncEnumerableMethod<TRequest, TResponseReturn, TReturn>(
+            TMethodDef method,
+            TRequest request,
+            Func<IRpcService, object?, object?> responseConverter,
+            [EnumeratorCancellation]CancellationToken cancellationToken)
+            where TRequest : class
+            where TResponseReturn : class
+        {
+            using var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
+
+            var sequence = streamingCall.ResponseStream;
+            while (true)
+            {
+                TReturn retVal;
+
+                try
+                {
+                    if (await sequence.MoveNextAsync().ContextFree())
+                    {
+                        retVal = this.ConvertResult<TResponseReturn, TReturn>(responseConverter, sequence.Current);
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                catch (Exception e)
+                {
+                    this.HandleCallException(method, e);
+                    throw;
+                }
+
+                yield return retVal;
+            }
+        }
+
+        protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
         protected TReturnType CallUnaryMethod<TRequest, TResponseType, TReturnType>(
             TMethodDef methodDef,
             TRequest request,
-            Func<IRpcService, object?, object?> responseConverter)
+            Func<IRpcService, object?, object?> responseConverter,
+            CancellationToken cancellationToken)
             where TRequest : class
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             RpcResponse<TResponseType> response;
             try
             {
-                response = this.CallUnaryMethodImpl<TRequest, RpcResponse<TResponseType>>(methodDef, request);
+                response = this.CallUnaryMethodCore<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
-            }
-
-            if (responseConverter != null)
-            {
-                return (TReturnType)responseConverter(this, response.Result)!;
-            }
-
-            if (response.Result is TReturnType returnValue)
-            {
-                return returnValue;
-            }
-
-            return default!;
-
+            return this.ConvertResult<TResponseType, TReturnType>(responseConverter, response.Result);
         }
 
         protected async Task<TReturnType> CallUnaryMethodAsync<TRequest, TResponseType, TReturnType>(
             TMethodDef methodDef,
             TRequest request,
-            Func<IRpcService, object?, object?> responseConverter, 
-            CancellationToken ct)
+            Func<IRpcService, object?, object?> responseConverter,
+            CancellationToken cancellationToken)
             where TRequest : class
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             RpcResponse<TResponseType> response;
             try
             {
-                response = await this.CallUnaryMethodImplAsync<TRequest, RpcResponse<TResponseType>>(methodDef, request, ct).ContextFree();
+                response = await this.CallUnaryMethodCoreAsync<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken).ContextFree();
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
             }
 
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
-            }
-
-            if (responseConverter != null)
-            {
-                return (TReturnType)responseConverter(this, response.Result)!;
-            }
-
-            if (response.Result is TReturnType returnValue)
-            {
-                return returnValue;
-            }
-
-            return default!;
+            return this.ConvertResult<TResponseType, TReturnType>(responseConverter, response.Result);
         }
 
-        protected abstract TResponse CallUnaryMethodImpl<TRequest, TResponse>(TMethodDef methodDef, TRequest request)
+
+        protected abstract TResponse CallUnaryMethodCore<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
-        protected abstract Task<TResponse> CallUnaryMethodImplAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken ct )
+        protected abstract Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
-        protected void CallUnaryVoidMethod<TRequest>(TMethodDef methodDef, TRequest request)
+
+
+        protected void CallUnaryVoidMethod<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
         {
-            RpcResponse response;
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             try
             {
-                response = this.CallUnaryMethodImpl<TRequest, RpcResponse>(methodDef, request);
+                this.CallUnaryMethodCore<TRequest, RpcResponse>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
-            }
-
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
             }
         }
 
-        protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken ct )
+        protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
         {
-            RpcResponse response;
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+
             try
             {
-                response = await this.CallUnaryMethodImplAsync<TRequest, RpcResponse>(methodDef, request, ct).ContextFree();
+                await this.CallUnaryMethodCoreAsync<TRequest, RpcResponse>(methodDef, request, cancellationToken).ContextFree();
             }
             catch (Exception e)
             {
-                this.HandleCallException(e);
+                this.HandleCallException(methodDef, e);
                 throw;
-            }
-
-            if (response.Error != null)
-            {
-                this.HandleRpcError(methodDef, response.Error);
             }
         }
 
-        protected abstract TMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName);
 
-        protected abstract void HandleCallException(Exception e);
+        protected abstract TMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)
+            where TRequest : class
+            where TResponse : class;
+
+        protected virtual void Dispose(bool disposing)
+        {
+            this.ClearEventHandlers();
+            // TODO: Use IAsyncDisposable when available.
+            this.WaitForPendingEventHandlersAsync().AwaiterResult();
+            // TODO: Dispose (and end) owning RPC call.
+        }
+
+        protected abstract void HandleCallException(TMethodDef methodDef, Exception e);
 
         protected virtual bool IsCancellationException(Exception exception)
         {
             return exception is OperationCanceledException;
         }
 
-        protected abstract bool IsCommunicationException(Exception exception);
-
         protected async Task RemoveEventHandlerAsync<TEventHandler, TEventArgs>(TEventHandler value, int eventMethodIndex)
             where TEventArgs : class
             where TEventHandler : Delegate
         {
-            EventData<TEventHandler>? removedEventData = null;
-            lock (this.SyncRoot)
-            {
-                var eventData = GetEventDataSynchronized<TEventHandler>(eventMethodIndex);
-                if (eventData?.eventHandler != null)
-                {
-                    eventData.eventHandler = (TEventHandler)Delegate.Remove(eventData.eventHandler, value);
-                    if (eventData.eventHandler == null)
-                    {
-                        this.RemoveEventDataSynchronized(eventData);
-                        removedEventData = eventData;
-                    }
-                }
-            }
+            RpcProxyBase<TMethodDef>.EventData<TEventHandler>? removedEventData = this.RemoveEventHandler(value, eventMethodIndex);
 
             if (removedEventData != null)
             {
@@ -477,57 +501,19 @@ namespace SciTech.Rpc.Client.Internal
                     this.AddPendingEventTask(finishedTask);
                     await finishedTask.ContextFree();
                 }
-                catch (Exception e) when (this.IsCancellationException(e))
+                catch (Exception x1) when (this.IsCancellationException(x1))
                 {
                 }
+#pragma warning disable CA1031 // Do not catch general exception types
                 catch (Exception)
                 {
-                    // TODO: Log
+                    // TODO: Logger.Warn(x2, "Error when removing event handler.");
                 }
-            } else
+#pragma warning restore CA1031 // Do not catch general exception types
+            }
+            else
             {
                 return;
-            }
-        }
-
-        private void ClearEventHandlers()
-        {
-            List<EventData>? eventsCopy = null;
-            lock (this.SyncRoot)
-            {
-                if (this.activeEvents != null)
-                {
-                    eventsCopy = this.activeEvents.Values.ToList();
-                    this.activeEvents = null;
-
-                }
-            }
-            //        foreach (var eventData in this.activeEvents.Values.ToList())
-            //        {
-            //            this.RemoveEventDataSynchronized(eventData);
-            //            if (eventData != null && eventData.Clear())
-            //            {
-            //                removedEventDatas.Add(eventData);
-            //            }
-
-            //        }
-            //    }
-
-            //    this.activeEvents = null;
-            //}
-
-            if (eventsCopy != null )
-            {
-                foreach (var eventData in eventsCopy)
-                {
-                    if (eventData != null && eventData.Clear())
-                    {
-                        eventData.cancellationSource.Cancel();
-
-                        var finishedTask = eventData.eventListenerFinishedTcs.Task;
-                        this.AddPendingEventTask(finishedTask);
-                    }
-                }
             }
         }
 
@@ -552,6 +538,49 @@ namespace SciTech.Rpc.Client.Internal
                     this.pendingEventTasks.Remove(t);
                 }
             }, TaskScheduler.Default);
+        }
+
+        private void ClearEventHandlers()
+        {
+            List<EventData>? eventsCopy = null;
+            lock (this.SyncRoot)
+            {
+                if (this.activeEvents != null)
+                {
+                    eventsCopy = this.activeEvents.Values.ToList();
+                    this.activeEvents = null;
+
+                }
+            }
+
+            if (eventsCopy != null)
+            {
+                foreach (var eventData in eventsCopy)
+                {
+                    if (eventData != null && eventData.Clear())
+                    {
+                        eventData.cancellationSource.Cancel();
+
+                        var finishedTask = eventData.eventListenerFinishedTcs.Task;
+                        this.AddPendingEventTask(finishedTask);
+                    }
+                }
+            }
+        }
+
+        private TReturnType ConvertResult<TResponseType, TReturnType>(Func<IRpcService, object?, object?>? responseConverter, TResponseType result)
+        {
+            if (responseConverter != null)
+            {
+                return (TReturnType)responseConverter(this, result)!;
+            }
+
+            if (result is TReturnType returnValue)
+            {
+                return returnValue;
+            }
+
+            return default!;
         }
 
         private EventData<TEventHandler> CreateEventDataSynchronized<TEventHandler>(int methodIndex) where TEventHandler : class, Delegate
@@ -581,81 +610,62 @@ namespace SciTech.Rpc.Client.Internal
             return null;
         }
 
-        private void HandleRpcError(TMethodDef methodDef, RpcError error)
+        protected void HandleRpcError(TMethodDef methodDef, RpcError error)
         {
+            if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
+            if (error is null) throw new ArgumentNullException(nameof(error));
+
+            string message = error.Message ?? $"Error occured in server handler of 'xxx'";// {methodDef.Operation}'";
             switch (error.ErrorType)
             {
                 case WellKnownRpcErrors.ServiceUnavailable:
-                    throw new RpcServiceUnavailableException(error.Message);
+                    throw new RpcServiceUnavailableException(message);
                 case WellKnownRpcErrors.Failure:
-                    throw new RpcFailureException(error.Message);
+                    throw new RpcFailureException(RpcFailureException.GetFailureFromFaultCode(error.ErrorCode), message);
                 case WellKnownRpcErrors.Fault:
                     // Just leave switch and handle fault below.
                     break;
                 default:
-                    throw new RpcFailureException($"Operation returned an unknown error of type '{error.ErrorType}'. {error.Message}");
+                    throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {message}");
             }
 
-            if (methodDef.FaultHandler != null
-                && !string.IsNullOrEmpty(error.FaultCode)
-                && methodDef.FaultHandler.TryGetFaultConverter(error.FaultCode, out var faultConverter))
+            var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
+            var faultException = methodDef.FaultHandler.CreateFaultException(error, actualSerializer);
+            var convertedException = methodDef.FaultHandler.TryConvertException(faultException);
+            if( convertedException == null )
             {
-                // It's a declared fault.
-                var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
-
-                object? details = null;
-                if (faultConverter!.FaultDetailsType != null)
+                // Could not be converted by a declared converter, but maybe a registered converter can.
+                // TODO: Currently there's no support for service level exception converters (as exists on the server side).
+                foreach( var converter in this.Channel.Options.ExceptionConverters)
                 {
-                    details = actualSerializer.FromBytes(faultConverter.FaultDetailsType, error.FaultDetails);
-                }
-
-                Exception exception;
-
-                // First check whether there's a custom converter for this fault.
-                if (this.ProxyServicesProvider.GetExceptionConverter(error.FaultCode) is IRpcClientExceptionConverter customConverter)
-                {
-                    if (!Equals(customConverter.FaultDetailsType, faultConverter.FaultDetailsType))
+                    convertedException = converter.TryCreateException(faultException);
+                    if( convertedException != null )
                     {
-                        throw new RpcDefinitionException("Custom exception converter must have the same details type as the default exception converter.");
+                        break;
                     }
-
-                    exception = customConverter.CreateException(error.Message, details);
                 }
-                else
-                {
-                    // No custom converter. Let's use the default converter function.
-                    exception = faultConverter.CreateException(error.Message, details);
-                }
-
-                throw exception;
             }
 
-            // If we get here, no one handled the fault. Let's just handle it by throwing a plain RpcFaultException.
-            throw new RpcFaultException(error.FaultCode, error.Message);
+            throw convertedException ?? faultException;
         }
+
+
 
         private void InvokeDelegate<TEventHandler, TEventArgs>(TEventHandler eventHandler, TEventArgs eventArgs)
             where TEventHandler : Delegate
             where TEventArgs : class
         {
-            try
+            if (eventHandler is EventHandler<TEventArgs> genericHandler)
             {
-                if (eventHandler is EventHandler<TEventArgs> genericHandler)
-                {
-                    genericHandler.Invoke(this, eventArgs);
-                }
-                else if (eventHandler is EventHandler plainHandler)
-                {
-                    plainHandler.Invoke(this, eventArgs as EventArgs);
-                }
-                else
-                {
-                    Debug.Fail("RPC events only support EventHandler and EventHandler<>.");
-                }
+                genericHandler.Invoke(this, eventArgs);
             }
-            catch (Exception e)
+            else if (eventHandler is EventHandler plainHandler)
             {
-                ExceptionManager.UnexpectedException(e);
+                plainHandler.Invoke(this, (eventArgs as EventArgs)!);
+            }
+            else
+            {
+                Debug.Fail("RPC events only support EventHandler and EventHandler<>.");
             }
         }
 
@@ -666,9 +676,46 @@ namespace SciTech.Rpc.Client.Internal
                 && activeEventData == eventData;
         }
 
+        private void NotifyEventHandlerFailed()
+        {
+            if (this.SyncContext != null)
+            {
+                this.SyncContext.Post(self => ((RpcProxyBase<TMethodDef>)self!).EventHandlerFailed?.Invoke(self, EventArgs.Empty), this);
+            }
+            else
+            {
+                this.EventHandlerFailed?.Invoke(this, EventArgs.Empty);
+            }
+
+        }
+
         private void RemoveEventDataSynchronized(EventData eventData)
         {
-            this.activeEvents?.Remove(eventData.eventMethodIndex);
+            if (!eventData.isRemoved)
+            {
+                eventData.isRemoved = true;
+                this.activeEvents?.Remove(eventData.eventMethodIndex);
+            }
+        }
+
+        private RpcProxyBase<TMethodDef>.EventData<TEventHandler>? RemoveEventHandler<TEventHandler>(TEventHandler value, int eventMethodIndex) where TEventHandler : Delegate
+        {
+            EventData<TEventHandler>? removedEventData = null;
+            lock (this.SyncRoot)
+            {
+                var eventData = GetEventDataSynchronized<TEventHandler>(eventMethodIndex);
+                if (eventData?.eventHandler != null)
+                {
+                    eventData.eventHandler = (TEventHandler?)Delegate.Remove(eventData.eventHandler, value);
+                    if (eventData.eventHandler == null)
+                    {
+                        this.RemoveEventDataSynchronized(eventData);
+                        removedEventData = eventData;
+                    }
+                }
+            }
+
+            return removedEventData;
         }
 
         private async void StartEventRetrieverAsync<TEventHandler, TEventArgs>(EventData<TEventHandler> eventData)
@@ -691,19 +738,12 @@ namespace SciTech.Rpc.Client.Internal
                     // allow the client (us) to know that the event handler has been properly added 
                     // on the server side.
                     // The empty EventArgs is just ignored.
-//#if PLAT_ASYNC_ENUM
-//                    await responseStream.MoveNext().ContextFree();
-//#else
                     await responseStream.MoveNextAsync().ContextFree();
-//#endif
+
                     // Mark the listener as completed once we have received the initial EventArgs
                     eventData.eventListenerStartedTcs.SetResult(true);
 
-//#if PLAT_ASYNC_ENUM
-//                    while (await responseStream.MoveNext().ContextFree())
-//#else
                     while (await responseStream.MoveNextAsync().ContextFree())
-//#endif
                     {
                         TEventHandler? eventHandler = null;
                         lock (this.SyncRoot)
@@ -728,10 +768,7 @@ namespace SciTech.Rpc.Client.Internal
                             }
                             else
                             {
-                                // TODO: This will prevent strict ordering of events, but
-                                // without this there will be a dead-lock if the handler calls back into 
-                                // the proxy (why?). Maybe invoke through a queue?
-                                Task.Run(() => this.InvokeDelegate(eventHandler, eventArgs)).Forget();
+                                this.InvokeDelegate(eventHandler, eventArgs);
                             }
                         }
                     }
@@ -741,54 +778,43 @@ namespace SciTech.Rpc.Client.Internal
             }
             catch (Exception ce) when (this.IsCancellationException(ce))
             {
-                // Try to set exception on started task as well, in case
-                // the exception occcured while starting.
-                eventData.eventListenerStartedTcs.TrySetResult(true);
+                if (eventData.cancellationSource.IsCancellationRequested)
+                {
+                    // If cancellation has been requested, let's just
+                    // silently end the retriever
 
-                eventData.eventListenerFinishedTcs.SetResult(true);
+                    eventData.eventListenerStartedTcs.TrySetResult(false);
+
+                    eventData.eventListenerFinishedTcs.TrySetResult(false);
+                }
+                else
+                {
+                    // This is most likely some error, the
+                    // retrieve loop should only be cancelled through
+                    // eventData.cancellationSource (e.g. NetGrpc returns cancelled
+                    // when streaming call fails due to authorization error).
+                    // Should maybe SetException instead of SetCanceled.
+                    // Try to set exception on started task as well, in case
+                    // the exception occurred while starting.
+                    eventData.eventListenerStartedTcs.TrySetCanceled();
+
+                    eventData.eventListenerFinishedTcs.TrySetCanceled();
+                    this.NotifyEventHandlerFailed();
+                }
             }
+#pragma warning disable CA1031 // Do not catch general exception types
             catch (Exception e)
             {
                 // Try to set exception on started task as well, in case 
-                // the exception occcured while starting.
+                // the exception occurred while starting.
                 eventData.eventListenerStartedTcs.TrySetException(e);
 
                 eventData.eventListenerFinishedTcs.SetException(e);
+
+                this.NotifyEventHandlerFailed();
             }
+#pragma warning restore CA1031 // Do not catch general exception types
         }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            this.ClearEventHandlers();
-            // TODO: Use IAsyncDisposable when available.
-            this.WaitForPendingEventHandlers().AwaiterResult();
-            // TODO: Dispose (and end) owning RPC call.
-        }
-
-        public void Dispose()
-        {
-            this.Dispose(true);
-        }
-
-
-        protected internal abstract class EventData
-        {
-            internal readonly CancellationTokenSource cancellationSource = new CancellationTokenSource();
-
-            internal readonly TaskCompletionSource<bool> eventListenerFinishedTcs = new TaskCompletionSource<bool>();
-
-            internal readonly TaskCompletionSource<bool> eventListenerStartedTcs = new TaskCompletionSource<bool>();
-
-            internal readonly int eventMethodIndex;
-
-            public EventData(int eventMethodIndex)
-            {
-                this.eventMethodIndex = eventMethodIndex;
-            }
-
-            internal abstract bool Clear();
-        }
-
         protected internal sealed class EventData<TEventHandler> : EventData where TEventHandler : class, Delegate
         {
             internal TEventHandler? eventHandler;
@@ -800,7 +826,7 @@ namespace SciTech.Rpc.Client.Internal
 
             internal override bool Clear()
             {
-                if( this.eventHandler != null )
+                if (this.eventHandler != null)
                 {
                     this.eventHandler = null;
                     return true;
@@ -809,11 +835,34 @@ namespace SciTech.Rpc.Client.Internal
                 return false;
             }
         }
+
+#pragma warning disable CA1001 // Types that own disposable fields should be disposable
+        protected internal abstract class EventData
+        {
+            internal readonly CancellationTokenSource cancellationSource = new CancellationTokenSource();
+
+            internal readonly TaskCompletionSource<bool> eventListenerFinishedTcs = new TaskCompletionSource<bool>();
+
+            internal readonly TaskCompletionSource<bool> eventListenerStartedTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            internal readonly int eventMethodIndex;
+
+            internal bool isRemoved;
+
+            protected EventData(int eventMethodIndex)
+            {
+                this.eventMethodIndex = eventMethodIndex;
+            }
+
+            internal abstract bool Clear();
+        }
+#pragma warning restore CA1001 // Types that own disposable fields should be disposable
+
     }
 
-#pragma warning restore CA1031 // Do not catch general exception types
-#pragma warning restore CA1051 // Do not declare visible instance fields
-#pragma warning restore CA1062 // Validate arguments of public methods
+    //#pragma warning restore CA1031 // Do not catch general exception types
+    //#pragma warning restore CA1051 // Do not declare visible instance fields
+    //#pragma warning restore CA1062 // Validate arguments of public methods
 
     public class RpcProxyMethodsCache<TMethodDef>
     {
@@ -845,13 +894,26 @@ namespace SciTech.Rpc.Client.Internal
         }
     }
 
+    /// <summary>
+    /// Contains global proxy options, mainly intended for testing.
+    /// </summary>
+    internal static class RpcProxyOptions
+    {
+        /// <summary>
+        /// Indicates that cancellations and timeouts should round-trip to the server
+        /// before being completed.
+        /// Should only be set to true when running tests.
+        /// </summary>
+        internal static bool RoundTripCancellationsAndTimeouts = false;
+    }
+
     public static class ServiceConverter<TService> where TService : class
     {
         public static readonly Func<IRpcService, object?, object?> Default = (proxy, input) =>
         {
             if (input is RpcObjectRef serviceRef)
             {
-                return proxy.Connection.GetServiceInstance<TService>(serviceRef, proxy.SyncContext);
+                return proxy.Channel.GetServiceInstance<TService>(serviceRef, proxy.SyncContext);
             }
 
             if (input != null)
@@ -868,7 +930,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 var services = new TService?[serviceRefs.Length];
 
-                var connection = proxy.Connection;
+                var connection = proxy.Channel;
                 for (int i = 0; i < services.Length; i++)
                 {
                     var serviceRef = serviceRefs[i];
@@ -898,7 +960,7 @@ namespace SciTech.Rpc.Client.Internal
             {
                 var typedServiceRefs = new RpcObjectRef<TService>?[serviceRefs.Length];
 
-                var connection = proxy.Connection;
+                _ = proxy.Channel;
                 for (int i = 0; i < typedServiceRefs.Length; i++)
                 {
                     var serviceRef = serviceRefs[i];

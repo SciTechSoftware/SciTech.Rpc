@@ -10,10 +10,11 @@ namespace SciTech.Rpc
     /// The exception that is thrown when a communication error occurs with an RPC server. This 
     /// usually indicates a transient error such as an unreachable host, or other network problems.
     /// </summary>
-#pragma warning disable CA2237 // Mark ISerializable types with serializable
-#pragma warning disable CA1032 // Implement standard exception constructors
-    public class RpcCommunicationException : Exception
+    public class RpcCommunicationException : RpcBaseException
     {
+        /// <summary>
+        /// Gets the communication status for the communication error that caused the exception.
+        /// </summary>
         public RpcCommunicationStatus Status { get; }
 
         /// <summary>Initializes a new instance of the <see cref="RpcCommunicationException"></see> class.</summary>
@@ -36,8 +37,6 @@ namespace SciTech.Rpc
             this.Status = status;
         }
     }
-#pragma warning restore CA1032 // Implement standard exception constructors
-#pragma warning restore CA2237 // Mark ISerializable types with serializable
 
     public enum RpcCommunicationStatus
     {

@@ -1,43 +1,73 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net461;net472;netcoreapp2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.1;net5.0</TargetFrameworks>
   </PropertyGroup>
   
   <PropertyGroup>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Copyright>Copyright 2019. SciTech Software AB</Copyright>
+    <Copyright>Copyright 2020-2021. SciTech Software AB</Copyright>
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>0.6.1-alpha1</Version>
-    <Description>Contains utility/helper classes used by the SciTech.Rpc project. This 
-package is currently not intended for other use.</Description>
+    <Version>1.0.0-beta.13</Version>
+    <Description>Contains utility/helper classes used by the SciTech.Rpc project. This package is currently not intended for other use.</Description>
   </PropertyGroup>
 
-  <Import Project="..\Platform.props" />
-
-  <PropertyGroup>
-    <CodeAnalysisRuleSet>..\SciTech.Rpc.ruleset</CodeAnalysisRuleSet>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>IDT002;1573;1591;$(NoWarn)</NoWarn>
+    
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Diagnostics\LoggerManager.cs" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
   </ItemGroup>
+
+  <Import Project="..\Platform.props" />
+  
+  <PropertyGroup>
+    <NoWarn>NU5105;$(NoWarn)</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SciTech</RootNamespace>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+  </PropertyGroup>
+
+  <!--<PropertyGroup Condition="'$(HasNullableAttributes)' == 'true'">
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(HasNullableAttributes)' != 'true'">
+    <Nullable>annotations</Nullable>
+  </PropertyGroup>-->
+  
   <ItemGroup>
     <None Include="..\..\LICENSE">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
     </None>
-    <None Include="Diagnostics\LoggerManager.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="2.9.3">
+    <!--<PackageReference Include="GitVersionTask" Version="5.3.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="System.Collections.Immutable" Version="1.5.0" />
-    <PackageReference Include="System.IO.Pipelines" Version="4.5.3" />
+    </PackageReference>-->
+    <PackageReference Include="System.IO.Pipelines" Version="4.7.0" />
+    <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />
   </ItemGroup>
 </Project>

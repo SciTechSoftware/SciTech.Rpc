@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
@@ -7,7 +8,7 @@ namespace SciTech.Collections
     {
         public static readonly ReferenceEqualityComparer<T> Comparer = new ReferenceEqualityComparer<T>();
 
-        public bool Equals(T x, T y)
+        public bool Equals([AllowNull]T x, [AllowNull] T y)
         {
             return object.ReferenceEquals(x, y);
         }

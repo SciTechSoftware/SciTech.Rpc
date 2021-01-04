@@ -9,15 +9,16 @@
 //
 #endregion
 
+using SciTech.Rpc.Serialization;
 using System;
 
 namespace SciTech.Rpc.Server.Internal
 {
     public interface IRpcMethodStub
     {
-        IRpcSerializer Serializer { get; }
-
         RpcServerFaultHandler? FaultHandler { get; }
+
+        IRpcSerializer Serializer { get; }
     }
 
     public class RpcMethodStub : IRpcMethodStub
@@ -28,8 +29,8 @@ namespace SciTech.Rpc.Server.Internal
             this.FaultHandler = faultHandler;
         }
 
-        public IRpcSerializer Serializer { get; }
-
         public RpcServerFaultHandler? FaultHandler { get; }
+
+        public IRpcSerializer Serializer { get; }
     }
 }

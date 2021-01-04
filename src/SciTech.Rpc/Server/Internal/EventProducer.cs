@@ -53,7 +53,11 @@ namespace SciTech.Rpc.Server.Internal
 
                 while (true)
                 {
-                    await Task.WhenAny(this.pendingTask, this.CancellationToken.AsTask()).ContextFree();
+                    var tcs = new TaskCompletionSource<bool>();
+                    using (this.CancellationToken.Register(() => tcs.SetResult(true)))
+                    {
+                        await Task.WhenAny(this.pendingTask, tcs.Task).ContextFree();
+                    }
                     // this.CancellationToken.ThrowIfCancellationRequested();
                     if (this.CancellationToken.IsCancellationRequested)
                     {
@@ -98,7 +102,7 @@ namespace SciTech.Rpc.Server.Internal
 
         internal Task Run(TService service)
         {
-            this.runTask = this.RunImpl(service);
+            this.runTask = this.RunCore(service);
 
             return this.runTask;
         }
@@ -109,6 +113,6 @@ namespace SciTech.Rpc.Server.Internal
             return this.runTask ?? Task.CompletedTask;
         }
 
-        protected abstract Task RunImpl(TService service);
+        protected abstract Task RunCore(TService service);
     }
 }

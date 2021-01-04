@@ -10,7 +10,6 @@
 #endregion
 
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 
@@ -24,78 +23,11 @@ namespace SciTech.Rpc.Server
         /// </summary>
         bool AllowAutoPublish { get; }
 
-        ImmutableArray<RpcServerCallInterceptor> CallInterceptors { get; }
-
         IRpcServicePublisher ServicePublisher { get; }
 
-        void AddEndPoint(IRpcServerEndPoint endPoint);
-
-        Task ShutdownAsync();
-
-        void Start();
-    }
-
-    /// <summary>
-    /// Contains options for the server side implementation of RPC services.
-    /// TODO: Service options are still being designed. This class and the way options
-    /// are configured will be changed in future releases.
-    /// </summary>
-    public class RpcServiceOptions
-    {
-        private List<IRpcServerExceptionConverter>? exceptionConverters;
-
-        private List<RpcServerCallInterceptor>? interceptors;
-
         /// <summary>
-        /// Gets or sets a value indicating whether service instances may be automatically published
-        /// when returned from a service implementation method.
+        /// Gets the server id associated with this RPC server.
         /// </summary>
-        public bool? AllowAutoPublish { get; set; }
-
-        public TimeSpan? CallTimeout { get; set; }
-
-        public List<IRpcServerExceptionConverter> ExceptionConverters
-        {
-            get
-            {
-                if (this.exceptionConverters == null)
-                {
-                    this.exceptionConverters = new List<IRpcServerExceptionConverter>();
-                }
-
-                return this.exceptionConverters;
-            }
-        }
-
-        public List<RpcServerCallInterceptor> Interceptors
-        {
-            get
-            {
-                if (this.interceptors == null)
-                {
-                    this.interceptors = new List<RpcServerCallInterceptor>();
-                }
-
-                return this.interceptors;
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the maximum message size in bytes that can be received by the server.
-        /// </summary>
-        public int? ReceiveMaxMessageSize { get; set; }
-
-        /// <summary>
-        /// Gets or sets the maximum message size in bytes that can be sent from the server.
-        /// </summary>
-        public int? SendMaxMessageSize { get; set; }
-
-        public IRpcSerializer? Serializer { get; set; }
-
-        public TimeSpan? StreamingCallTimeout { get; set; }
-    }
-
-    public class RpcServiceOptions<T> : RpcServiceOptions
-    {
+        RpcServerId ServerId { get; }
     }
 }

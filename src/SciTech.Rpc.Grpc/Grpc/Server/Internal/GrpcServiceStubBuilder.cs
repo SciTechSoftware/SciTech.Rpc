@@ -10,10 +10,13 @@
 #endregion
 
 using Microsoft.Extensions.DependencyInjection;
+using SciTech.Rpc.Grpc.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
 
@@ -21,15 +24,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 {
     internal interface IGrpcServiceStubBuilder
     {
-        GrpcCore.ServerServiceDefinition Build(IRpcServerImpl server);
-    }
-
-    public class GrpcMethodStub : RpcMethodStub
-    {
-        public GrpcMethodStub(IRpcSerializer serializer, RpcServerFaultHandler faultHandler)
-            : base(serializer, faultHandler)
-        {
-        }
+        GrpcCore.ServerServiceDefinition Build(IRpcServerCore server);
     }
 
     /// <summary>
@@ -49,7 +44,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
         {
         }
 
-        public GrpcCore.ServerServiceDefinition Build(IRpcServerImpl server)
+        public GrpcCore.ServerServiceDefinition Build(IRpcServerCore server)
         {
             var grpcServiceBuilder = new GrpcCore.ServerServiceDefinition.Builder();
             var binder = new GrpcMethodBinder(grpcServiceBuilder);
@@ -62,7 +57,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 
         protected override void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             IGrpcMethodBinder binder)
         {
@@ -88,8 +83,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericAsyncMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, Task<TReturn>> serviceCaller,
+        protected override void AddGenericAsyncMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, Task<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -97,7 +92,6 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
             {
                 using (var callScope = serviceStub.ServiceProvider?.CreateScope())
@@ -112,8 +106,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericBlockingMethodImpl<TRequest, TReturn, TResponseReturn>(
-            Func<TService, TRequest, TReturn> serviceCaller,
+        protected override void AddGenericBlockingMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, TReturn> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
@@ -121,16 +115,15 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
-            GrpcCore.UnaryServerMethod<TRequest, RpcResponse<TResponseReturn>> handler = (request, context) =>
+            Task<RpcResponse<TResponseReturn>> handler(TRequest request, GrpcCore.ServerCallContext context)
             {
                 using (var serviceScope = CreateServiceScope(serviceStub))
                 {
                     return serviceStub.CallBlockingMethod(
-                        request, serviceScope?.ServiceProvider, new GrpcCallContext(context), serviceCaller,
-                        responseConverter, faultHandler, serializer).AsTask();
+                        request, new GrpcCallContext(context), serviceCaller, responseConverter,
+                        faultHandler, serializer, serviceScope?.ServiceProvider).AsTask();
                 }
-            };
+            }
 
             binder.AddMethod(
                 GrpcMethodDefinition.Create<TRequest, RpcResponse<TResponseReturn>>(GrpcCore.MethodType.Unary,
@@ -138,15 +131,14 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericVoidAsyncMethodImpl<TRequest>(
-            Func<TService, TRequest, Task> serviceCaller,
+        protected override void AddGenericVoidAsyncMethodCore<TRequest>(
+            Func<TService, TRequest, CancellationToken, Task> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
             {
                 using (var serviceScope = CreateServiceScope(serviceStub))
@@ -163,15 +155,14 @@ namespace SciTech.Rpc.Grpc.Server.Internal
                 handler);
         }
 
-        protected override void AddGenericVoidBlockingMethodImpl<TRequest>(
-            Action<TService, TRequest> serviceCaller,
+        protected override void AddGenericVoidBlockingMethodCore<TRequest>(
+            Action<TService, TRequest, CancellationToken> serviceCaller,
             RpcServerFaultHandler faultHandler,
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
         {
             var serializer = serviceStub.Serializer;
-            var methodStub = new GrpcMethodStub(serializer, faultHandler);
             GrpcCore.UnaryServerMethod<TRequest, RpcResponse> handler = (request, context) =>
             {
                 using (var serviceScope = CreateServiceScope(serviceStub))
@@ -185,6 +176,41 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             binder.AddMethod(
                 GrpcMethodDefinition.Create<TRequest, RpcResponse>(GrpcCore.MethodType.Unary,
                     operationInfo.FullServiceName, operationInfo.Name, serializer),
+                handler);
+        }
+
+        protected override void AddServerStreamingMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            IGrpcMethodBinder binder)
+        {
+            var serializer = serviceStub.Serializer;
+
+            GrpcCore.ServerStreamingServerMethod<TRequest, TResponseReturn> handler = (request, responseStream, context) =>
+            {
+                using (var serviceScope = CreateServiceScope(serviceStub))
+                {
+                    return serviceStub.CallServerStreamingMethod(
+                        request,
+                        serviceScope?.ServiceProvider,
+                        new GrpcCallContext(context),
+                        new GrpcAsyncStreamWriter<TResponseReturn>(responseStream),
+                        serviceCaller,
+                        responseConverter,
+                        faultHandler,
+                        serializer).AsTask();
+                }
+            };
+
+            binder.AddMethod(
+                GrpcMethodDefinition.Create<TRequest, TResponseReturn>(
+                    GrpcCore.MethodType.ServerStreaming,
+                    operationInfo.FullServiceName,
+                     operationInfo.Name,
+                    serviceStub.Serializer),
                 handler);
         }
 

@@ -1,11 +1,36 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.0</TargetFramework>
+    <TargetFrameworks>netstandard2.1</TargetFrameworks>
   </PropertyGroup>
 
   <Import Project="..\Package.props" />
   <Import Project="..\Platform.props" />
+
+  <PropertyGroup>
+    <Copyright>Copyright 2019. SciTech Software AB</Copyright>
+    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
+This package contains the client communication layer for the fully managed ASP.NET Core implementation of the gRPC library (https://github.com/grpc/grpc-dotnet).
+    </Description>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);FEATURE_NET_GRPC</DefineConstants>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcCallMetadata.cs" Link="NetGrpc\Client\Internal\GrpcCallMetadata.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcMethodsCache.cs" Link="NetGrpc\Client\Internal\GrpcMethodsCache.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyBase.cs" Link="NetGrpc\Client\Internal\GrpcProxyBase.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyGenerator.cs" Link="NetGrpc\Client\Internal\GrpcProxyGenerator.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\IGrpcServerConnection.cs" Link="NetGrpc\Client\Internal\IGrpcServerConnection.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Internal\GrpcMethodDefinition.cs" />
+  </ItemGroup>
+  
   
   <ItemGroup>
     <None Include="..\..\LICENSE">
@@ -15,7 +40,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.Net.Client" Version="0.1.22-pre1" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.24.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Grpc\Internal\" />
   </ItemGroup>
 
 </Project>

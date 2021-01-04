@@ -11,18 +11,19 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Threading;
 
 namespace SciTech.Rpc.Client.Internal
 {
-    public delegate RpcProxyBase RpcObjectProxyFactory(RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? synchronizationContext);
+    public delegate RpcProxyBase RpcObjectProxyFactory(RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? synchronizationContext);
 
-    public delegate object RpcSingletonProxyFactory(RpcObjectId objectId, IRpcServerConnection connection, SynchronizationContext? synchronizationContext);
+    public delegate RpcProxyBase RpcSingletonProxyFactory(RpcObjectId objectId, IRpcChannel connection, SynchronizationContext? synchronizationContext);
 
     public interface IRpcProxyGenerator
     {
-        RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(IReadOnlyCollection<string>? implementedServices) where TService : class;
-
-        RpcSingletonProxyFactory GenerateSingletonProxy<TService>() where TService : class;
+        RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
+            IReadOnlyCollection<string>? implementedServices,
+            IReadOnlyDictionary<string, ImmutableArray<Type>> knownServiceTypes) where TService : class;
     }
 }

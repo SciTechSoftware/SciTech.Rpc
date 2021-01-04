@@ -1,17 +1,14 @@
 ﻿<Project >
 
   <PropertyGroup>
-    <!-- this is how we will configure the builds relatively cleanly -->
-
-    <!--<FeatureXXX>true</FeatureXXX>-->
-    <PlatformMemoryStreamBuffer>true</PlatformMemoryStreamBuffer>
-    <PlatformSpans>true</PlatformSpans>
-    <HasPlatformSpans>false</HasPlatformSpans>
+    <!-- Defaults based on net472 -->
     <HasAsyncEnum>false</HasAsyncEnum>
-    <HasReflectionEmit>false</HasReflectionEmit>
-    <HasTaskExtensions>false</HasTaskExtensions>
-    <PlatformSpanOverloads>false</PlatformSpanOverloads>
+    <HasNullableAttributes>false</HasNullableAttributes>
+    <HasPlatformSpanOverloads>false</HasPlatformSpanOverloads>
+    <HasReflectionEmit>true</HasReflectionEmit>
     <HasSystemSslProtocols>true</HasSystemSslProtocols>
+    <HasCollectibleAssemblies>true</HasCollectibleAssemblies>
+    <HasNetGrpc>false</HasNetGrpc>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
@@ -20,45 +17,64 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+
+    <!--AssemblyBuilderAccess.RunAndCollect seems to unload collectible assemblies
+    even though they are still on stack when running under .NET Core 2.0 and .NET Core 2.1    
+    To be safe, they have to be disabled for .NET Standard as well.-->
+    <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
+    <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <HasAsyncEnum>true</HasAsyncEnum>
+    <HasNullableAttributes>true</HasNullableAttributes>
+    <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
-    <HasPlatformSpans>true</HasPlatformSpans>
-    <HasAsyncEnum>true</HasAsyncEnum>
-    <HasTaskExtensions>true</HasTaskExtensions>
-    <HasReflectionEmit>true</HasReflectionEmit>
+    <!--AssemblyBuilderAccess.RunAndCollect seems to unload collectible assemblies
+    even though they are still on stack when running under .NET Core 2.0 and .NET Core 2.1 -->
+    <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
   
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
-    <HasPlatformSpans>true</HasPlatformSpans>
-    <PlatformSpanOverloads>true</PlatformSpanOverloads>
     <HasAsyncEnum>true</HasAsyncEnum>
-    <HasTaskExtensions>true</HasTaskExtensions>
-    <HasReflectionEmit>true</HasReflectionEmit>
+    <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
+    
+    <!--AssemblyBuilderAccess.RunAndCollect seems to unload collectible assemblies
+    even though they are still on stack when running under .NET Core 2.0 and .NET Core 2.1 -->
+    <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
-    <HasPlatformSpans>true</HasPlatformSpans>
-    <PlatformSpanOverloads>true</PlatformSpanOverloads>
-    <!--<HasAsyncEnum>true</HasAsyncEnum>-->
-    <HasTaskExtensions>true</HasTaskExtensions>
-    <HasReflectionEmit>true</HasReflectionEmit>
+    <HasAsyncEnum>true</HasAsyncEnum>
+    <HasNullableAttributes>true</HasNullableAttributes>
+    <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
+    <HasNetGrpc>true</HasNetGrpc>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(PlatformSpans)' == 'true'">
-    <DefineConstants>$(DefineConstants);PLAT_SPANS</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(PlatformSpans)' == 'true' and '$(PlatformSpanOverloads)' == 'true'">
+  <PropertyGroup Condition="'$(HasPlatformSpanOverloads)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_SPAN_OVERLOADS</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(HasAsyncEnum)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_ASYNC_ENUM</DefineConstants>
   </PropertyGroup>
-
+  <PropertyGroup Condition="'$(HasNullableAttributes)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_NULLABLE_ATTRIBUTES</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasReflectionEmit)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_REFLECTION_EMIT</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(HasSystemSslProtocols)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_SYSTEM_SSL_PROTOCOLS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasCollectibleAssemblies)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_SUPPORT_COLLECTIBLE_ASSEMBLIES</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasNetGrpc)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_NET_GRPC</DefineConstants>
   </PropertyGroup>
 </Project>

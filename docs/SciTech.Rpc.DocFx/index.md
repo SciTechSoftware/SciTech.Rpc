@@ -209,7 +209,7 @@ The [GreeterClient example](examples/Clients/GreeterClient/Program.cs) shows how
 
 ## EventHandlers and Delegates
 
-It is also allowed to include events in the service definition. The events must currently be declared using EventHandler, or EventHandler<TEventArgs>, but support for any delegate (returning void) type will be implemented. The event handler implementation is completely transparent, you can use the events as you would with a local interface. However, the RPC proxy is associated with a SynchronizationContext, which allows event callbacks to be properly marshalled to the correct synchronization context, e.g. the main user interface thread. 
+It is also allowed to include events in the service definition. The events must currently be declared using `EventHandler`, or `EventHandler<TEventArgs>`, but support for any delegate (returning void) type will be implemented. The event handler implementation is completely transparent, you can use the events as you would with a local interface. However, the RPC proxy is associated with a SynchronizationContext, which allows event callbacks to be properly marshalled to the correct synchronization context, e.g. the main user interface thread. 
   
 The SynchronizationContext can be specified when retrieving the service proxy using GetRpcServiceInstance,for example:
 

@@ -300,6 +300,7 @@ namespace SciTech.Rpc.Tests.Grpc
             hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
+            hostMock.Setup(p => p.HasContextAccessor).Returns(false);
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }
@@ -335,7 +336,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
         private readonly int nExpectedMessages;
 
-        private TaskCompletionSource<bool> completedTcs = new TaskCompletionSource<bool>();
+        private readonly TaskCompletionSource<bool> completedTcs = new TaskCompletionSource<bool>();
 
         private bool isFirst = true;
 

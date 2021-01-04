@@ -243,6 +243,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             hostMock.Setup(h => h.AllowAutoPublish).Returns(false);
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
+            hostMock.Setup(p => p.HasContextAccessor).Returns(false);
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }
@@ -260,6 +261,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
             hostMock.Setup(h => h.HandleCallException(It.IsAny<Exception>(), It.IsAny<IRpcSerializer>()));
             hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArrayList<RpcServerCallInterceptor>.Empty);
+            hostMock.Setup(p => p.HasContextAccessor).Returns(false);
 
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
@@ -318,7 +320,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             TResponse response;
 
-            var context = new LightweightCallContext(new TestRpcEndPoint(), ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty, CancellationToken.None);
+            var context = new LightweightCallContext(new TestRpcEndPoint(), null, ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty, CancellationToken.None);
             var requestPipe = new Pipe();
             var responsePipe = new Pipe();
             var duplexPipe = new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer);

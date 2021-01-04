@@ -139,6 +139,8 @@ namespace SciTech.Rpc.Tests
                             Assert.ThrowsAsync<RpcFaultException<DeclaredFault>>(() => faultService.GenerateAsyncAnotherDeclaredFaultAsync(true));
                             Assert.ThrowsAsync<RpcFaultException<AnotherDeclaredFault>>(() => faultService.GenerateAsyncAnotherDeclaredFaultAsync(false));
                             break;
+                        default:
+                            throw new NotImplementedException(operationType.ToString());
                     }
 
                     // Make sure that the connection is still usable after exception

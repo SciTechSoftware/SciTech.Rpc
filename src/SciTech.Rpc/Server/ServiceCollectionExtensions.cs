@@ -58,5 +58,11 @@ namespace SciTech.Rpc.Server
         {
             return services.Configure(options).AddRpcServer<TRpcServer>();
         }
+
+        public static IServiceCollection AddRpcContextAccessor(this IServiceCollection services)
+        {
+            services.TryAddSingleton<IRpcContextAccessor>(new RpcContextAccessor());
+            return services;
+        }
     }
 }

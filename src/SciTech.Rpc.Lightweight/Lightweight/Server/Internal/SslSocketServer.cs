@@ -24,6 +24,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
 using System.Threading.Tasks;
@@ -157,6 +158,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         SocketConnection.SetRecommendedServerOptions(clientSocket);
 
                         Stream socketStream = new NetworkStream(clientSocket, true);
+                        IPrincipal? user = null;
 
                         if (this.sslOptions?.ServerCertificate != null)
                         {
@@ -175,14 +177,15 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                 await negotiateStream.AuthenticateAsServerAsync(
                                     this.negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials, 
                                     ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
+                                user = CreatePrincipal(negotiateStream.RemoteIdentity);
                             }
                             catch
                             {
                                 try { negotiateStream.Dispose(); } catch { }
                                 throw;
                             }
-
-                                socketStream = negotiateStream;
+                            
+                            socketStream = negotiateStream;
                         }
 
                         var pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);
@@ -194,7 +197,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         }
 
                         StartOnScheduler((receiveOptions ?? PipeOptions.Default).ReaderScheduler, this.RunClientAsync,
-                            new ClientConnection(pipe, remoteEndPoint)); // boxed, but only once per client
+                            new ClientConnection(pipe, remoteEndPoint, user)); // boxed, but only once per client
                     }
                 }
             }
@@ -205,16 +208,27 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 #pragma warning restore CA1031 // Do not catch general exception types
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
+        private static IPrincipal? CreatePrincipal(IIdentity? identity)
+        {
+            return identity switch
+            {
+                null => null,
+                WindowsIdentity windowsIdentity => new WindowsPrincipal(windowsIdentity),
+                ClaimsIdentity claimsIdentity => new ClaimsPrincipal(claimsIdentity),
+                _ => new GenericPrincipal(identity, null),
+            };
+        }
 
         /// <summary>
         /// The state of a client connection
         /// </summary>
         protected readonly struct ClientConnection
         {
-            internal ClientConnection(IDuplexPipe transport, EndPoint remoteEndPoint)
+            internal ClientConnection(IDuplexPipe transport, EndPoint remoteEndPoint, IPrincipal? user)
             {
                 this.Transport = transport;
                 this.RemoteEndPoint = remoteEndPoint;
+                this.User = user;
             }
 
             /// <summary>
@@ -226,6 +240,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             /// The transport to use for this connection
             /// </summary>
             public IDuplexPipe Transport { get; }
+
+            public IPrincipal? User { get; }
         }
     }
 }

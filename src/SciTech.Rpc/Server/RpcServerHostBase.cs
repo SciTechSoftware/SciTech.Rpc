@@ -20,7 +20,8 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerHostBase : RpcServerBase, IRpcServerHost
     {
-        protected RpcServerHostBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options, ILogger<RpcServerHostBase>? logger=null) :
+        protected RpcServerHostBase(RpcServicePublisher servicePublisher, 
+            IRpcServerOptions? options, ILogger<RpcServerHostBase>? logger=null) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,

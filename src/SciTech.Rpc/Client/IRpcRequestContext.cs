@@ -18,10 +18,10 @@ using System.Threading;
 namespace SciTech.Rpc.Client
 {
     /// <summary>
-    /// Extends the <see cref="IRpcCallContext"/> with the possibility to add meta data header 
+    /// Extends the <see cref="IRpcContext"/> with the possibility to add meta data header 
     /// values. Can be used by client call interceptors to supply metadata with an RPC operation.
     /// </summary>
-    public interface IRpcRequestContext : IRpcCallContext
+    public interface IRpcRequestContext : IRpcContext
     {
         /// <summary>
         /// Adds a meta data header string under the specified <paramref name="key"/>.
@@ -33,4 +33,5 @@ namespace SciTech.Rpc.Client
         void AddBinaryHeader(string key, IReadOnlyList<byte> value);
 
     }
+   
 }

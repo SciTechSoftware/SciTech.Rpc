@@ -1,23 +1,22 @@
 ﻿#region Copyright notice and license
-// Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
+
+// Copyright (c) 2019-2021, SciTech Software AB and TA Instrument Inc.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
+
+#endregion Copyright notice and license
 
 using SciTech.Collections;
 using SciTech.Rpc.Internal;
-using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,8 +31,8 @@ namespace SciTech.Rpc.Server.Internal
         Task WriteAsync(T message);
     }
 
-
 #pragma warning disable CA1062 // Validate arguments of public methods
+
     public abstract class RpcStub
     {
         protected RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options)
@@ -101,7 +100,6 @@ namespace SciTech.Rpc.Server.Internal
             }
 
             return null;
-
         }
 
         public RpcObjectRef? ConvertServiceResponse<TReturnService>(TReturnService? service) where TReturnService : class
@@ -140,9 +138,12 @@ namespace SciTech.Rpc.Server.Internal
     {
         private readonly IRpcServiceActivator serviceActivator;
 
+        private readonly bool hasContextAccessor;
+
         public RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options) : base(server, options)
         {
             this.serviceActivator = server.ServiceActivator;
+            this.hasContextAccessor = server.HasContextAccessor;
         }
 
         public IServiceProvider? ServiceProvider { get; }
@@ -163,12 +164,12 @@ namespace SciTech.Rpc.Server.Internal
                 await eventProducer.Run(service.Service!).ContextFree();
                 // TODO: Logger.Trace("EventProducer.Run returned successfully.");
             }
-            catch (OperationCanceledException )
+            catch (OperationCanceledException)
             {
                 // TODO: Logger.Trace("EventProducer.Run cancelled.", oce);
                 throw;
             }
-            catch (Exception )
+            catch (Exception)
             {
                 // TODO: Logger.Trace("EventProducer.Run error.", e);
                 throw;
@@ -178,9 +179,8 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <typeparam name="TRequest"></typeparam>
         /// <typeparam name="TResult"></typeparam>
@@ -192,7 +192,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse<TResponse>> CallAsyncMethod<TRequest, TResult, TResponse>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContext context,
+            IRpcServerContextBuilder context,
             Func<TService, TRequest, CancellationToken, Task<TResult>> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,
@@ -213,7 +213,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    EndCall(activatedService, interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -223,10 +223,9 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-
         public ValueTask<RpcResponse<TResponse>> CallBlockingMethod<TRequest, TResult, TResponse>(
             TRequest request,
-            IRpcCallContext context,
+            IRpcServerContextBuilder context,
             Func<TService, TRequest, CancellationToken, TResult> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,
@@ -240,8 +239,18 @@ namespace SciTech.Rpc.Server.Internal
                 {
                     var (activatedService, interceptDisposables) = beginCallTask.Result;
 
-                    return new ValueTask<RpcResponse<TResponse>>(
-                        this.DoCall(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables));
+                    try
+                    {
+                        return new ValueTask<RpcResponse<TResponse>>(
+                            this.CallCore(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables));
+                    }
+                    finally
+                    {
+                        if (this.hasContextAccessor)
+                        {
+                            RpcContextAccessor.Clear();
+                        }
+                    }
                 }
                 else
                 {
@@ -252,18 +261,16 @@ namespace SciTech.Rpc.Server.Internal
                         try
                         {
                             var (activatedService, interceptDisposables) = await beginCallTask.ContextFree();
-                            return this.DoCall(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables);
+                            return this.CallCore(request, context, implCaller, responseConverter, faultHandler, serializer, activatedService, interceptDisposables);
                         }
                         catch (Exception e)
                         {
-                            // This will not be 
+                            // This will not be
                             this.Server.HandleCallException(e, null);
                             throw;
                         }
                     }
-
                 }
-
             }
             catch (Exception e)
             {
@@ -275,7 +282,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask CallServerStreamingMethod<TRequest, TResult, TResponse>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContext context,
+            IRpcServerContextBuilder context,
             IRpcAsyncStreamWriter<TResponse> responseWriter,
             Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TResult>> implCaller,
             Func<TResult, TResponse>? responseConverter,
@@ -298,7 +305,7 @@ namespace SciTech.Rpc.Server.Internal
                     Task<bool>? taskHasNext = null;
 
                     try
-                    { 
+                    {
                         // Call the actual implementation method.
                         var result = implCaller(activatedService.Service, request, combinedCts.Token);
                         if (!activatedService.ShouldDispose || !(activatedService.Service is IDisposable))
@@ -309,9 +316,9 @@ namespace SciTech.Rpc.Server.Internal
                             activatedService = default;
                         }
 
-                        // Async enumerator implementation is a bit complicated, since we want to end  the 
+                        // Async enumerator implementation is a bit complicated, since we want to end  the
                         // loop if the service is unpublished or if an auto-published instance is GCed.
-                        // Cannot use await foreach because we need a timeout for each MoveNextAsync and 
+                        // Cannot use await foreach because we need a timeout for each MoveNextAsync and
                         // not just for the whole numerator. Furthermore the timeout should not actually end
                         // the enumeration, it should just wake it up so that we can check if the service
                         // is still published.
@@ -345,7 +352,6 @@ namespace SciTech.Rpc.Server.Internal
                                         break;
                                     }
 
-
                                     var response = CreateResponse(responseConverter, asyncEnum.Current);
                                     await responseWriter.WriteAsync(response.Result).ContextFree();
                                 }
@@ -368,10 +374,10 @@ namespace SciTech.Rpc.Server.Internal
                             enumCts.Dispose();
                         }
 
-                        if ( taskHasNext != null )
+                        if (taskHasNext != null)
                         {
                             // Still waiting for next enumerator item so the enumerator cannot be disposed yet.
-                            // Let's cancel the enumerator and dispose once finished. Let's not 
+                            // Let's cancel the enumerator and dispose once finished. Let's not
                             // wait for cancellation to finish, since it may take awhile for the enumerator to notice it.
                             enumCts.Cancel();
 
@@ -379,7 +385,8 @@ namespace SciTech.Rpc.Server.Internal
                                {
                                    CleanupAsyncEnum().Forget();
                                }, TaskScheduler.Default).Forget();
-                        } else
+                        }
+                        else
                         {
                             await CleanupAsyncEnum().ContextFree();
                         }
@@ -387,7 +394,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    EndCall(activatedService, interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -400,7 +407,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse> CallVoidAsyncMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContext context,
+            IRpcServerContextBuilder context,
             Func<TService, TRequest, CancellationToken, Task> implCaller) where TRequest : IObjectRequest
         {
             var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
@@ -415,15 +422,14 @@ namespace SciTech.Rpc.Server.Internal
             }
             finally
             {
-                EndCall(activatedService, interceptDisposables);
+                this.EndCall(activatedService, interceptDisposables);
             }
         }
-
 
         public async ValueTask<RpcResponse> CallVoidAsyncMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContext context,
+            IRpcServerContextBuilder context,
             Func<TService, TRequest, CancellationToken, Task> implCaller,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer) where TRequest : IObjectRequest
@@ -442,7 +448,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    EndCall(activatedService, interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -455,7 +461,7 @@ namespace SciTech.Rpc.Server.Internal
         public async ValueTask<RpcResponse> CallVoidBlockingMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContext context,
+            IRpcServerContextBuilder context,
             Action<TService, TRequest, CancellationToken> implCaller)
             where TRequest : IObjectRequest
         {
@@ -471,14 +477,14 @@ namespace SciTech.Rpc.Server.Internal
             }
             finally
             {
-                EndCall(activatedService, interceptDisposables);
+                this.EndCall(activatedService, interceptDisposables);
             }
         }
 
         public async ValueTask<RpcResponse> CallVoidBlockingMethod<TRequest>(
             TRequest request,
             IServiceProvider? serviceProvider,
-            IRpcCallContext context,
+            IRpcServerContextBuilder context,
             Action<TService, TRequest, CancellationToken> implCaller,
             RpcServerFaultHandler? faultHandler,
             IRpcSerializer serializer)
@@ -498,7 +504,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    EndCall(activatedService, interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -537,7 +543,6 @@ namespace SciTech.Rpc.Server.Internal
 
             return rpcResponse;
         }
-
 
         //private static RpcResponseWithError<TResponse> CreateResponseWithError<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
         //{
@@ -591,11 +596,16 @@ namespace SciTech.Rpc.Server.Internal
         //    return null;
         //}
 
-        private static void EndCall(in ActivatedService<TService> activatedService, CompactList<IDisposable?> interceptDisposables)
+        private void EndCall(in ActivatedService<TService> activatedService, CompactList<IDisposable?> interceptDisposables)
         {
             if (activatedService.ShouldDispose)
             {
                 (activatedService.Service as IDisposable)?.Dispose();
+            }
+
+            if (this.hasContextAccessor)
+            {
+                RpcContextAccessor.Clear();
             }
 
             for (int index = interceptDisposables.Count - 1; index >= 0; index--)
@@ -614,31 +624,20 @@ namespace SciTech.Rpc.Server.Internal
 
         /// <summary>
         /// <para>
-        /// Prepares a call to the RPC implementation method. Must be combined with a corresponding call to 
+        /// Prepares a call to the RPC implementation method. Must be combined with a corresponding call to
         /// <see cref="EndCall(in ActivatedService{TService}, CompactList{IDisposable?})"/>.
         /// </para>
         /// <para>IMPORTANT! This method must not be an async method, since it's likely that an interceptor will update
-        /// an AsyncLocal (e.g. session or security token). Changes to AsyncLocals will not propagate out of an async 
+        /// an AsyncLocal (e.g. session or security token). Changes to AsyncLocals will not propagate out of an async
         /// method.</para>
         /// </summary>
         /// <param name="serviceProvider"></param>
         /// <param name="objectId"></param>
         /// <param name="context"></param>
-        /// <returns>A tuple containing the service implementation instance, and an array of disposables that must 
+        /// <returns>A tuple containing the service implementation instance, and an array of disposables that must
         /// be disposed when the call is finished.</returns>
-        private ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcCallContext context)
+        private ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcServerContextBuilder context)
         {
-            async ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> AwaitPendingInterceptors(
-                ActivatedService<TService> service,
-                CompactList<Task<IDisposable>> pendingInterceptors,
-                CompactList<IDisposable?> interceptDisposables)
-            {
-                var disposables = await Task.WhenAll(pendingInterceptors).ContextFree();
-                interceptDisposables.AddRange(disposables);
-                return (service, interceptDisposables);
-            }
-
-            var service = this.GetServiceImpl(serviceProvider, objectId);
             var interceptors = this.Server.CallInterceptors;
 
             CompactList<IDisposable?> interceptDisposables = default;
@@ -669,10 +668,19 @@ namespace SciTech.Rpc.Server.Internal
 
                 if (pendingInterceptors.IsEmpty)
                 {
+                    if (this.hasContextAccessor)
+                    {
+                        RpcContextAccessor.Init(context);
+                    }
+
+                    var service = this.GetServiceImpl(serviceProvider, objectId);
+
                     return new ValueTask<(ActivatedService<TService>, CompactList<IDisposable?>)>((service, interceptDisposables));
                 }
 
-                return AwaitPendingInterceptors(service, pendingInterceptors, interceptDisposables);
+                return AwaitPendingInterceptors(pendingInterceptors, interceptDisposables,
+                    serviceProvider, objectId,
+                    this.hasContextAccessor ? context : null);
             }
             catch (Exception)
             {
@@ -685,11 +693,30 @@ namespace SciTech.Rpc.Server.Internal
 
                 throw;
             }
+
+            async ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> AwaitPendingInterceptors(
+                CompactList<Task<IDisposable>> pendingInterceptors,
+                CompactList<IDisposable?> interceptDisposables,
+                IServiceProvider? serviceProvider, RpcObjectId objectId,
+                IRpcServerContext? context)
+            {
+                var disposables = await Task.WhenAll(pendingInterceptors).ContextFree();
+                interceptDisposables.AddRange(disposables);
+
+                if (context != null)
+                {
+                    RpcContextAccessor.Init(context);
+                }
+
+                var service = this.GetServiceImpl(serviceProvider, objectId);
+
+                return (service, interceptDisposables);
+            }
         }
 
-        private RpcResponse<TResponse> DoCall<TRequest, TResult, TResponse>(
+        private RpcResponse<TResponse> CallCore<TRequest, TResult, TResponse>(
             TRequest request,
-            IRpcCallContext context,
+            IRpcServerContext context,
             Func<TService, TRequest, CancellationToken, TResult> implCaller,
             Func<TResult, TResponse>? responseConverter,
             RpcServerFaultHandler? faultHandler,
@@ -709,7 +736,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 finally
                 {
-                    EndCall(activatedService, interceptDisposables);
+                    this.EndCall(activatedService, interceptDisposables);
                 }
             }
             catch (Exception e)
@@ -741,7 +768,7 @@ namespace SciTech.Rpc.Server.Internal
         {
             RpcFaultException? faultException = declaredFaultHandler?.TryCreateFaultException(e);
 
-            if( faultException == null && this.CustomFaultHandler is RpcServerFaultHandler registeredFaultHandler)
+            if (faultException == null && this.CustomFaultHandler is RpcServerFaultHandler registeredFaultHandler)
             {
                 faultException = registeredFaultHandler.TryCreateFaultException(e);
             }
@@ -758,7 +785,6 @@ namespace SciTech.Rpc.Server.Internal
                 }
             }
 
-
             //if (declaredFaultHandler != null)
             //{
             //    // Start by checking custom exception converters.
@@ -766,7 +792,7 @@ namespace SciTech.Rpc.Server.Internal
             //    {
             //        if (customFaultHandler.TryGetExceptionConverter(e, out var customConverters))
             //        {
-            //            // Using the methodStub fault handler as the faultHandler argument, since 
+            //            // Using the methodStub fault handler as the faultHandler argument, since
             //            // this faultHandler is used to check whether the fault is declared for the specific operation.
             //            faultException = TryConvertToFault(e, customConverters!, declaredFaultHandler);
             //        }
@@ -774,7 +800,7 @@ namespace SciTech.Rpc.Server.Internal
 
             //    if (faultException == null)
             //    {
-            //        // Not handled by a custom converter, so let's try the declared converters. 
+            //        // Not handled by a custom converter, so let's try the declared converters.
             //        if (declaredFaultHandler.TryGetExceptionConverter(e, out var declaredConverters))
             //        {
             //            TryConvertToFault(e, declaredConverters!, declaredFaultHandler);
@@ -782,8 +808,7 @@ namespace SciTech.Rpc.Server.Internal
             //    }
             //}
 
-
-            // Give the server an oppurtunity to convert the exception to a suitable type 
+            // Give the server an oppurtunity to convert the exception to a suitable type
             // to be "returned" to client.
             this.Server.HandleCallException(faultException ?? e, serializer);
 
@@ -803,9 +828,9 @@ namespace SciTech.Rpc.Server.Internal
             //    }
             //    else
             //    {
-            //        // TODO: Log and/or call unhandled exception handler. This is an unexpected error that may be serious and 
+            //        // TODO: Log and/or call unhandled exception handler. This is an unexpected error that may be serious and
             //        // should cause the server to shutdown.
-            //        // Note, in case the server is shutdown, it would be very good if the response is sent to the client first (add 
+            //        // Note, in case the server is shutdown, it would be very good if the response is sent to the client first (add
             //        // suitable tests).
 
             //        //// TODO: Implement IncludeExceptionDetailInFaults

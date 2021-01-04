@@ -56,8 +56,9 @@ namespace SciTech.Rpc.Tests
             var (host, connection) = this.CreateServerAndConnection(definitionBuilder,
                 configClientOptions: options =>
                 {
-                    options.CallTimeout = TimeSpan.FromMilliseconds(300);
+                    options.CallTimeout = TimeSpan.FromMilliseconds(400);
                 });
+
             host.Start();
             try
             {

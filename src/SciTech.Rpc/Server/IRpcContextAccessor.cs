@@ -9,12 +9,11 @@
 //
 #endregion
 
-using System;
-using System.Linq;
-using System.Security.Principal;
-using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
-    public delegate Task<IDisposable> RpcServerCallInterceptor(IRpcServerContextBuilder metadata);
+    public interface IRpcContextAccessor
+    {
+        IRpcServerContext? RpcContext { get; }
+    }
 }

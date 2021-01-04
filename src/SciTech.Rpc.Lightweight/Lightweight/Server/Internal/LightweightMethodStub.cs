@@ -19,21 +19,25 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
-    internal class LightweightCallContext : IRpcCallContext
+    internal class LightweightCallContext : IRpcServerContext, IRpcServerContextBuilder
     {
         private readonly IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers;
 
-        public LightweightCallContext(LightweightRpcEndPoint endPoint, IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers, CancellationToken cancellationToken)
+        public LightweightCallContext(LightweightRpcEndPoint endPoint, IPrincipal? user, IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers, CancellationToken cancellationToken)
         {
             this.EndPoint = endPoint;
+            this.User = user;
             this.CancellationToken = cancellationToken;
             this.headers = headers;
         }
+
+        public IPrincipal? User { get; set; }
 
         public CancellationToken CancellationToken { get; }
 

@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO.Pipelines;
 using System.Linq;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -42,15 +43,18 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private LightweightRpcEndPoint endPoint;
 
+            private readonly IPrincipal? user;
+
             private readonly object syncRoot = new object();
 
             private IRpcSerializer serializer;
 
-            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, LightweightRpcEndPoint endPoint, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
+            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, LightweightRpcEndPoint endPoint, IPrincipal? user, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
                 : base(pipe, maxResponseSize, maxRequestSize, skipLargeFrames)
             {
                 this.server = server;
                 this.endPoint = endPoint;
+                this.user = user;
                 this.serializer = server.Serializer;
             }
 
@@ -307,7 +311,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                         Task messageTask;
 
-                        var context = new LightweightCallContext(this.endPoint, frame.Headers, cancellationSource?.Token ?? default);
+                        var context = new LightweightCallContext(this.endPoint, this.user, frame.Headers, cancellationSource?.Token ?? default);
                         scope = this.server.ServiceProvider?.CreateScope();
 
                         switch (frame.FrameType)

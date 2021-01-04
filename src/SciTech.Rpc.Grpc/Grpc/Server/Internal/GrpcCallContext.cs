@@ -4,11 +4,12 @@ using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Immutable;
+using System.Security.Principal;
 using System.Threading;
 
 namespace SciTech.Rpc.Grpc.Server.Internal
 {
-    internal class GrpcCallContext : IRpcCallContext
+    internal class GrpcCallContext : IRpcServerContext, IRpcServerContextBuilder
     {
         private readonly ServerCallContext callContext;
 
@@ -18,6 +19,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
         }
 
         public CancellationToken CancellationToken => this.callContext.CancellationToken;
+
+        public IPrincipal? User { get; set; }
 
         public string? GetHeaderString(string key)
         {

@@ -103,7 +103,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 if (this.isListening || this.pipe == null) throw new InvalidOperationException("DirectListener is already listening or has been stopped.");
                 this.isListening = true;
                 this.clientCts = new CancellationTokenSource();
-                this.clientTask = this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, this.clientCts.Token);
+                this.clientTask = this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, Thread.CurrentPrincipal, this.clientCts.Token);
             }
 
             public async Task StopAsync()

@@ -28,6 +28,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.Reflection;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -102,7 +103,8 @@ namespace SciTech.Rpc.Lightweight.Server
             IRpcServerOptions? options,
             LightweightOptions? lightweightOptions = null,
             ILogger<LightweightRpcServer>? logger=null)
-            : base(servicePublisher, serviceImplProvider, definitionsProvider, options, 
+            : base(servicePublisher, serviceImplProvider, definitionsProvider, 
+                  options, 
                   logger ?? RpcLogger.CreateLogger<LightweightRpcServer>())
         {
             this.ServiceProvider = serviceProvider;
@@ -206,9 +208,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected virtual ValueTask OnReceiveAsync(IMemoryOwner<byte> message) => default;
 
-        protected async Task RunClientAsync(IDuplexPipe pipe, LightweightRpcEndPoint endPoint, CancellationToken cancellationToken = default)
-        {
-            using (var client = new ClientPipeline(pipe, this, endPoint, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive))
+        protected async Task RunClientAsync(IDuplexPipe pipe, LightweightRpcEndPoint endPoint, IPrincipal? user, CancellationToken cancellationToken = default)
+        {            
+            using (var client = new ClientPipeline(pipe, this, endPoint, user, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive))
             {
                 try
                 {
@@ -263,7 +265,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 try
                 {
-                    var context = new LightweightCallContext(endPoint, frame.Headers, actualCancellationToken );
+                    var context = new LightweightCallContext(endPoint, null, frame.Headers, actualCancellationToken );
 
                     using IServiceScope? scope = this.ServiceProvider?.CreateScope();
                     using var frameWriter = new LightweightRpcFrameWriter(65536);
@@ -370,8 +372,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 => this.server.HandleDatagramAsync(endPoint, data, cancellationToken);
 
 
-            public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, CancellationToken cancellationToken)
-                => this.server.RunClientAsync(clientPipe, endPoint, cancellationToken);
+            public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user, CancellationToken cancellationToken)
+                => this.server.RunClientAsync(clientPipe, endPoint, user, cancellationToken);
         }
 
 

@@ -1,13 +1,15 @@
 ﻿#region Copyright notice and license
-// Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
+
+// Copyright (c) 2019-2021, SciTech Software AB and TA Instrument Inc.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
+
+#endregion Copyright notice and license
 
 using Microsoft.Extensions.Logging;
 using SciTech.Collections;
@@ -17,7 +19,6 @@ using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using System;
-using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Linq;
 
@@ -25,7 +26,7 @@ namespace SciTech.Rpc.Server
 {
     public abstract class RpcServerBase : IRpcServerCore
     {
-
+        private bool? hasContextAccessor;
         private volatile IRpcSerializer? serializer;
 
         protected RpcServerBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options, ILogger<RpcServerBase>? logger) :
@@ -72,21 +73,16 @@ namespace SciTech.Rpc.Server
             if (this.ExceptionConverters.Count > 0)
             {
                 this.CustomFaultHandler = new RpcServerFaultHandler(null, this.ExceptionConverters, null);
-            } else
+            }
+            else
             {
                 this.CustomFaultHandler = RpcServerFaultHandler.Default;
             }
         }
 
-        protected ILogger<RpcServerBase> Logger { get; }
-
-
         public bool AllowAutoPublish { get; }
 
         public bool AllowDiscovery { get; } = true;
-
-        /// <inheritdoc/>
-        public RpcServerId ServerId => this.ServicePublisher.ServerId;
 
         public ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
 
@@ -109,18 +105,37 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        public IRpcServiceDefinitionsProvider ServiceDefinitionsProvider { get; private set; }
-
         public IRpcServiceActivator ServiceActivator { get; }
 
+        public IRpcServiceDefinitionsProvider ServiceDefinitionsProvider { get; private set; }
+
         public IRpcServicePublisher ServicePublisher { get; }
+
+        /// <inheritdoc/>
+        public RpcServerId ServerId => this.ServicePublisher.ServerId;
+
+        IServiceProvider? IRpcServerCore.ServiceProvider => this.ServiceProvider;
+
+        bool IRpcServerCore.HasContextAccessor => this.HasContextAccessor;
+
+        protected ILogger<RpcServerBase> Logger { get; }
+
+        protected bool HasContextAccessor
+        {
+            get
+            {
+                if (this.hasContextAccessor == null)
+                {
+                    this.hasContextAccessor = this.ServiceProvider?.GetService(typeof(IRpcContextAccessor)) is RpcContextAccessor;
+                }
+
+                return this.hasContextAccessor.Value;
+            }
+        }
 
         protected virtual IServiceProvider? ServiceProvider => null;
 
         protected object SyncRoot { get; } = new object();
-
-        IServiceProvider? IRpcServerCore.ServiceProvider => this.ServiceProvider;
-
 
         public void Dispose()
         {
@@ -133,8 +148,6 @@ namespace SciTech.Rpc.Server
         {
             this.HandleCallException(exception, serializer);
         }
-
-        protected virtual void HandleCallException(Exception exception, IRpcSerializer? serializer) { }
 
         protected virtual void CheckCanStart()
         {
@@ -150,6 +163,9 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        protected virtual void HandleCallException(Exception exception, IRpcSerializer? serializer)
+        {
+        }
 
         protected RpcServicesQueryResponse QueryServices(RpcObjectId objectId)
         {

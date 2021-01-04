@@ -41,6 +41,8 @@ namespace SciTech.Rpc.Server.Internal
         /// </summary>
         ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
+        bool HasContextAccessor { get; }
+
         IRpcSerializer Serializer { get; }
 
         /// <summary>

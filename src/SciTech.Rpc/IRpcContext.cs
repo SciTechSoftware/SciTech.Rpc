@@ -18,13 +18,12 @@ namespace SciTech.Rpc
 {
     /// <summary>
     /// <para>
-    /// Represents an RPC call context. Currently only provides access to meta-data header values,
-    /// but may be extended in the future.
+    /// Represents an RPC call context. 
     /// </para>
     /// <para>The call context can currently only be accessed using client and call server interceptors. It
     /// is not possible to supply or receive it on RPC operation methods.</para>
     /// </summary>
-    public interface IRpcCallContext
+    public interface IRpcContext
     {
         /// <summary>
         /// Gets a meta-data header string identified by <paramref name="key"/>.

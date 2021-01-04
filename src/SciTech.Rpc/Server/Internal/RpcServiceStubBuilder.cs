@@ -139,7 +139,7 @@ namespace SciTech.Rpc.Server.Internal
             var removeHandlerExpression = Expression.Call(serviceParameter, eventInfo.Event.RemoveMethod, castDelegateExpression);
             var removeHandlerAction = Expression.Lambda<Action<TService, Delegate>>(removeHandlerExpression, serviceParameter, delegateParameter).Compile();
 
-            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TEventArgs> responseStream, IRpcCallContext context)
+            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TEventArgs> responseStream, IRpcContext context)
             {
                 var eventProducer = new GenericEventHandlerProducer<TEventArgs>(responseStream, addHandlerAction, removeHandlerAction, context.CancellationToken);
                 return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer);
@@ -208,7 +208,7 @@ namespace SciTech.Rpc.Server.Internal
 
         protected abstract void AddEventHandlerDefinition<TEventArgs>(
             RpcEventInfo eventInfo,
-            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcCallContext, ValueTask> beginEventProducer,
+            Func<RpcObjectRequest, IServiceProvider?, IRpcAsyncStreamWriter<TEventArgs>, IRpcContext, ValueTask> beginEventProducer,
             RpcStub<TService> serviceStub,
             TMethodBinder binder)
             where TEventArgs : class;
@@ -472,7 +472,7 @@ namespace SciTech.Rpc.Server.Internal
             var removeHandlerExpression = Expression.Call(serviceParameter, eventInfo.Event.RemoveMethod, castDelegateExpression);
             var removeHandlerAction = Expression.Lambda<Action<TService, Delegate>>(removeHandlerExpression, serviceParameter, delegateParameter).Compile();
 
-            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<EventArgs> responseStream, IRpcCallContext context)
+            ValueTask LocalBeginEventProducer(RpcObjectRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<EventArgs> responseStream, IRpcContext context)
             {
                 var eventProducer = new PlainEventHandlerProducer(responseStream, addHandlerAction, removeHandlerAction, context.CancellationToken);
                 return serviceStub.BeginEventProducer(request, serviceProvider, eventProducer);

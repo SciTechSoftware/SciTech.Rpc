@@ -92,4 +92,9 @@
     <None Remove="SimpleService.proto" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="security.runsettings">
+    </None>
+  </ItemGroup>
+
 </Project>

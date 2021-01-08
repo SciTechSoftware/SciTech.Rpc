@@ -120,11 +120,20 @@ namespace SciTech.Rpc.Lightweight.Client
                         switch (endPoint)
                         {
                             case IPEndPoint ipEndPoint:
+#if PLAT_CONNECT_CANCELLATION
+                                await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port,cancellationToken).ContextFree();
+#else
                                 await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ContextFree();
+#endif
                                 sslHost = ipEndPoint.Address.ToString();
                                 break;
                             case DnsEndPoint dnsEndPoint:
+#if PLAT_CONNECT_CANCELLATION
+                                await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port, cancellationToken).ContextFree();
+#else
                                 await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port).ContextFree();
+#endif
+
                                 sslHost = dnsEndPoint.Host;
                                 break;
                             default:
@@ -141,10 +150,23 @@ namespace SciTech.Rpc.Lightweight.Client
                                 sslOptions.EncryptionPolicy);
 
                             workStream = authenticatedStream = sslStream;
-                            
+
+#if PLAT_CONNECT_CANCELLATION
+                            var authOptions = new SslClientAuthenticationOptions()
+                            {
+                                TargetHost = sslHost,
+                                ClientCertificates = sslOptions.ClientCertificates,
+                                EnabledSslProtocols=sslOptions.EnabledSslProtocols,
+                                CertificateRevocationCheckMode = sslOptions.CertificateRevocationCheckMode
+                            };
+
+                            await sslStream.AuthenticateAsClientAsync(authOptions, cancellationToken).ContextFree();
+#else
                             await sslStream.AuthenticateAsClientAsync(sslHost, sslOptions.ClientCertificates, sslOptions.EnabledSslProtocols,
                                 sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
-                        } else if( this.authenticationOptions is NegotiateClientOptions negotiateOptions)
+#endif
+                        }
+                        else if( this.authenticationOptions is NegotiateClientOptions negotiateOptions)
                         {
                             var negotiateStream = new NegotiateStream(workStream, false);
                             workStream = authenticatedStream = negotiateStream;

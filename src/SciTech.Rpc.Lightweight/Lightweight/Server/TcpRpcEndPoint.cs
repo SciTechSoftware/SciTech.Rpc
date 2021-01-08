@@ -113,7 +113,7 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        private class RpcSocketServer : SocketServer, ILightweightRpcListener
+        private sealed class RpcSocketServer : SocketServer, ILightweightRpcListener
         {
             private readonly TcpRpcEndPoint rpcEndPoint;
 
@@ -152,10 +152,18 @@ namespace SciTech.Rpc.Lightweight.Server
                 return Task.CompletedTask;
             }
 
+            public ValueTask DisposeAsync()
+            {
+                this.Stop();
+
+                return default;
+
+            }
+
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
                 // TODO: Implement CancellationToken
-                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, null, CancellationToken.None);
+                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, null);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)
@@ -188,9 +196,11 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.maxRequestSize = maxRequestSize;
             }
 
-            public void Dispose()
+            public ValueTask DisposeAsync()
             {
                 this.Stop();
+
+                return default;
             }
 
             public void Listen()
@@ -218,7 +228,7 @@ namespace SciTech.Rpc.Lightweight.Server
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
                 // TODO: Implement CancellationToken
-                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, client.User, CancellationToken.None);
+                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, client.User);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)

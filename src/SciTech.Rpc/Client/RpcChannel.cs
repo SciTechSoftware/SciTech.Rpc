@@ -1,13 +1,15 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019, SciTech Software AB and TA Instrument Inc.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
+
+#endregion Copyright notice and license
 
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Serialization;
@@ -70,12 +72,24 @@ namespace SciTech.Rpc.Client
         {
             if (!this.isDisposed)
             {
-                this.Dispose(true);
-
                 this.isDisposed = true;
+
+                this.Dispose(true);
+                GC.SuppressFinalize(this);
             }
         }
 
+        public async ValueTask DisposeAsync()
+        {
+            if (!this.isDisposed)
+            {
+                this.isDisposed = true;
+                await DisposeAsyncCore().ContextFree();
+
+                this.Dispose(false);
+                GC.SuppressFinalize(this);
+            }
+        }
 
         /// <inheritdoc/>
         public TService GetServiceInstance<TService>(RpcObjectId objectId,
@@ -97,20 +111,22 @@ namespace SciTech.Rpc.Client
         /// <inheritdoc/>
         public abstract Task ShutdownAsync();
 
-
         protected abstract IRpcSerializer CreateDefaultSerializer();
 
         protected virtual void Dispose(bool disposing)
         {
             if (disposing)
             {
-                // Shut down connection in case it's still connected, but let's 
+                // Shut down connection in case it's still connected, but let's
                 // not wait for it to finish (to avoid dead-locks).
-                // TODO: Implement IAsyncDisposable
                 this.ShutdownAsync().Forget();
             }
         }
 
+        protected async virtual ValueTask DisposeAsyncCore()
+        {
+            await this.ShutdownAsync().ContextFree();
+        }
 
         private TService GetServiceInstanceCore<TService>(RpcObjectId refObjectId, SynchronizationContext? syncContext) where TService : class
         {
@@ -169,6 +185,5 @@ namespace SciTech.Rpc.Client
                 return (TService)(object)serviceInstance;
             }
         }
-
     }
 }

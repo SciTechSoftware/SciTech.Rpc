@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <param name="user">The connected user; <c>null</c> if not available.</param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user, CancellationToken cancellationToken);
+        Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user);
 
         /// <summary>
         /// Handles a single datagram packet and returns a datagram response.

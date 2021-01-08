@@ -98,7 +98,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
-                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.endPoint, null, client.CancellationToken);
+                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.endPoint, null);//, client.CancellationToken);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)

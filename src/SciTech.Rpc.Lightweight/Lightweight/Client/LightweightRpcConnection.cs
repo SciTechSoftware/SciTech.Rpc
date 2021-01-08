@@ -88,11 +88,11 @@ namespace SciTech.Rpc.Lightweight.Client
         /// <inheritdoc/>
         public override async Task ShutdownAsync()
         {
-            var prevClient = this.ResetConnection(RpcConnectionState.Disconnected, null);
+            var prevClient = await this.ResetConnectionAsync(RpcConnectionState.Disconnected, null).ContextFree();
 
             if (prevClient != null)
             {
-                await prevClient.AwaitFinished().ContextFree();
+                await prevClient.WaitFinishedAsync().ContextFree();
             }
 
             this.NotifyDisconnected();
@@ -219,12 +219,16 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private void ConnectedClient_ReceiveLoopFaulted(object? sender, ExceptionEventArgs e)
         {
-            this.ResetConnection(RpcConnectionState.ConnectionLost, e.Exception);
+            ResetAndNotifyAsync().Forget();
 
-            this.NotifyConnectionLost();
+            async Task ResetAndNotifyAsync()
+            {
+                await this.ResetConnectionAsync(RpcConnectionState.ConnectionLost, e.Exception).ContextFree();
+                this.NotifyConnectionLost();
+            }
         }
 
-        private RpcPipelineClient? ResetConnection(RpcConnectionState state, Exception? ex)
+        private async Task<RpcPipelineClient?> ResetConnectionAsync(RpcConnectionState state, Exception? ex)
         {
             TaskCompletionSource<RpcPipelineClient>? connectionTcs;
             RpcPipelineClient? connectedClient;
@@ -255,7 +259,7 @@ namespace SciTech.Rpc.Lightweight.Client
             if (connectedClient != null)
             {
                 connectedClient.ReceiveLoopFaulted -= this.ConnectedClient_ReceiveLoopFaulted;
-                connectedClient.Close(TranslateConnectionException(ex, state));
+                await connectedClient.CloseAsync(TranslateConnectionException(ex, state)).ContextFree();
             }
 
             return connectedClient;

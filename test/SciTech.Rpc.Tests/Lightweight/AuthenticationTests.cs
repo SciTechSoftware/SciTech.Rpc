@@ -6,78 +6,39 @@ using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
+using System.Security.Authentication;
 using System.Security.Principal;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests.Lightweight
 {
-    public class AuthenticationTests 
+    public class AuthenticationTests
     {
-        //public NegotiateTests() : base(new JsonRpcSerializer(), RpcConnectionType.LightweightNegotiateTcp)
-        //{
-
-        //}
-
-        [TestCase(TestOperationType.BlockingBlocking)]
-        [TestCase(TestOperationType.AsyncBlocking)]
-        [TestCase(TestOperationType.BlockingAsync)]
-        [TestCase(TestOperationType.AsyncAsync)]
-        [TestCase(TestOperationType.BlockingBlockingVoid)]
-        public async Task DefaultNegotiateTest(TestOperationType operationType)
+        [RpcService]
+        public interface INegotiateService
         {
-            LightweightRpcServer server = CreateServer();
+            Task<string> GetAsyncIdentityAsync();
 
-            using var _ = server.PublishSingleton<INegotiateService>();
+            string GetIdentity();
 
-            server.Start();
-            try
-            {
-                var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
+            Task ThrowAsyncIdentity();
 
-                await connection.ConnectAsync(default).ContextFree();
-                Assert.IsTrue(connection.IsConnected);
-                Assert.IsTrue(connection.IsEncrypted);
-                Assert.IsTrue(connection.IsSigned);
-
-                var negotiateService = connection.GetServiceSingleton<INegotiateServiceClient>();
-
-                string identity = operationType switch
-                {
-                    TestOperationType.BlockingBlocking => negotiateService.GetIdentity(),
-                    TestOperationType.AsyncBlocking => await negotiateService.GetIdentityAsync(),
-                    TestOperationType.BlockingAsync => negotiateService.GetAsyncIdentity(),
-                    TestOperationType.AsyncAsync => await negotiateService.GetAsyncIdentityAsync(),
-                    TestOperationType.BlockingBlockingVoid => Assert.Throws<RpcFaultException>(() => negotiateService.ThrowIdentity()).FaultCode,
-                    TestOperationType.AsyncBlockingVoid => Assert.ThrowsAsync<RpcFaultException>(() => negotiateService.ThrowIdentityAsync()).FaultCode,
-                    TestOperationType.AsyncAsyncVoid => Assert.ThrowsAsync<RpcFaultException>(() => negotiateService.ThrowAsyncIdentityAsync()).FaultCode,
-                    _ => throw new NotImplementedException(operationType.ToString()),
-                };
-
-                Assert.AreEqual(WindowsIdentity.GetCurrent()?.Name, identity);
-            }
-            finally
-            {
-                await server.ShutdownAsync().ContextFree();
-            }
+            void ThrowIdentity();
         }
 
-        private static LightweightRpcServer CreateServer()
+        [RpcService(ServerDefinitionType = typeof(INegotiateService))]
+        public interface INegotiateServiceClient : INegotiateService
         {
-            var serviceCollection = new ServiceCollection();
-            serviceCollection.AddRpcContextAccessor();
+            string GetAsyncIdentity();
 
-            serviceCollection.AddTransient<INegotiateService, NegotiateServiceImpl>();
+            Task<string> GetIdentityAsync();
 
-            var services = serviceCollection.BuildServiceProvider();
-            var server = new LightweightRpcServer(services);
+            Task ThrowAsyncIdentityAsync();
 
-            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new NegotiateServerOptions()));
-
-            return server;
+            Task ThrowIdentityAsync();
         }
 
         [TestCase("LOCALTESTACCOUNT")]
@@ -86,7 +47,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             string userName = Environment.GetEnvironmentVariable(FormattableString.Invariant($"RPC_{accountKey}_NAME"));
             string userPw = Environment.GetEnvironmentVariable(FormattableString.Invariant($"RPC_{accountKey}_PASSWORD"));
-            string expectedIdentity = Environment.GetEnvironmentVariable( FormattableString.Invariant($"RPC_{accountKey}_IDENTITY"));
+            string expectedIdentity = Environment.GetEnvironmentVariable(FormattableString.Invariant($"RPC_{accountKey}_IDENTITY"));
 
             Assert.IsNotEmpty(userName);
             Assert.IsNotEmpty(userPw);
@@ -120,28 +81,108 @@ namespace SciTech.Rpc.Tests.Lightweight
             }
         }
 
-        [RpcService]
-        public interface INegotiateService
+        [TestCase(TestOperationType.BlockingBlocking)]
+        [TestCase(TestOperationType.AsyncBlocking)]
+        [TestCase(TestOperationType.BlockingAsync)]
+        [TestCase(TestOperationType.AsyncAsync)]
+        [TestCase(TestOperationType.BlockingBlockingVoid)]
+        public async Task DefaultNegotiateTest(TestOperationType operationType)
         {
-            string GetIdentity();
+            if( !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
 
-            void ThrowIdentity();
+            LightweightRpcServer server = CreateServer();
 
-            Task ThrowAsyncIdentity();
+            using var _ = server.PublishSingleton<INegotiateService>();
 
-            Task<string> GetAsyncIdentityAsync();
+            server.Start();
+            try
+            {
+                var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
+
+                await connection.ConnectAsync(default).ContextFree();
+                Assert.IsTrue(connection.IsConnected);
+                Assert.IsTrue(connection.IsEncrypted);
+                Assert.IsTrue(connection.IsSigned);
+
+                var negotiateService = connection.GetServiceSingleton<INegotiateServiceClient>();
+
+                string identity = operationType switch
+                {
+                    TestOperationType.BlockingBlocking => negotiateService.GetIdentity(),
+                    TestOperationType.AsyncBlocking => await negotiateService.GetIdentityAsync(),
+                    TestOperationType.BlockingAsync => negotiateService.GetAsyncIdentity(),
+                    TestOperationType.AsyncAsync => await negotiateService.GetAsyncIdentityAsync(),
+                    TestOperationType.BlockingBlockingVoid => Assert.Throws<RpcFaultException>(() => negotiateService.ThrowIdentity()).FaultCode,
+                    TestOperationType.AsyncBlockingVoid => Assert.ThrowsAsync<RpcFaultException>(() => negotiateService.ThrowIdentityAsync()).FaultCode,
+                    TestOperationType.AsyncAsyncVoid => Assert.ThrowsAsync<RpcFaultException>(() => negotiateService.ThrowAsyncIdentityAsync()).FaultCode,
+                    _ => throw new NotImplementedException(operationType.ToString()),
+                };
+
+                Assert.AreEqual(WindowsIdentity.GetCurrent()?.Name, identity);
+
+                await connection.DisposeAsync();
+            }
+            finally
+            {
+                await server.ShutdownAsync().ContextFree();
+            }
         }
 
-        [RpcService(ServerDefinitionType =typeof(INegotiateService))]
-        public interface INegotiateServiceClient : INegotiateService
+        [Test]
+        public void MismatchedAuthenication_Should_Throw()
         {
-            Task<string> GetIdentityAsync();
-            
-            string GetAsyncIdentity();
+            using var server = new LightweightRpcServer();
+            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate)));
+            server.Start();
 
-            Task ThrowIdentityAsync();
-            
-            Task ThrowAsyncIdentityAsync();
+            var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
+
+            var x = Assert.CatchAsync(() => connection.ConnectAsync(CancellationToken.None).DefaultTimeout());
+            Assert.IsNotInstanceOf<TimeoutException>(x);
+        }
+
+        [Test]
+        public async Task Server_Should_KeepRunning_After_FailedConnection()
+        {
+            var server = new LightweightRpcServer();
+            await using (server.ContextFree())
+            {
+                server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate)));
+                server.Start();
+
+                await using (var failConnection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions()))
+                {
+                    try
+                    {
+                        await failConnection.ConnectAsync(CancellationToken.None).DefaultTimeout();
+                        Assert.Fail();
+                    }
+                    catch (Exception x) when (!(x is TimeoutException)) { }
+                }
+
+                await using var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), TestCertificates.SslClientOptions);
+                Assert.DoesNotThrowAsync(() => connection.ConnectAsync(CancellationToken.None).DefaultTimeout());
+                Assert.IsTrue(connection.IsConnected);
+                Assert.IsTrue(connection.IsEncrypted);
+            }
+        }
+
+        private static LightweightRpcServer CreateServer()
+        {
+            var serviceCollection = new ServiceCollection();
+            serviceCollection.AddRpcContextAccessor();
+
+            serviceCollection.AddTransient<INegotiateService, NegotiateServiceImpl>();
+
+            var services = serviceCollection.BuildServiceProvider();
+            var server = new LightweightRpcServer(services);
+
+            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new NegotiateServerOptions()));
+
+            return server;
         }
 
         public class NegotiateServiceImpl : INegotiateService

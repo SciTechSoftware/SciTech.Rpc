@@ -18,6 +18,7 @@ using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Serialization.Internal;
 using SciTech.Threading;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,7 +35,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         public Exception Exception { get; }
     }
 
-    internal abstract class RpcPipeline : ILightweightRpcFrameWriter, IDisposable
+    internal abstract class RpcPipeline : ILightweightRpcFrameWriter, IAsyncDisposable
     {
         /// <summary>
         /// Mutex that provides single access for pipe writers. 
@@ -50,6 +51,8 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         private readonly object syncRoot = new object();
 
+        private Task? receiveLoopTask;
+        private CancellationTokenSource? receiveLoopCts = new CancellationTokenSource();
         //private LightweightRpcFrame.WriteState currentWriteState;
 
         //private BufferWriterStream? frameWriterStream;
@@ -89,12 +92,17 @@ namespace SciTech.Rpc.Lightweight.Internal
             BufferWriterPool.Return((BufferWriterStreamImpl)writeState.Writer);
         }
 
+        public Task WaitFinishedAsync()
+        {
+            return this.receiveLoopTask ?? Task.CompletedTask;
+        }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
-        public void Close(Exception? ex = null)
+        public async Task CloseAsync(Exception? ex = null)
         {
             IDuplexPipe? pipe;
 
-            this.singleWriter.Wait();
+            await this.singleWriter.WaitAsync().ContextFree();
 
             lock (this.syncRoot)
             {
@@ -116,14 +124,14 @@ namespace SciTech.Rpc.Lightweight.Internal
                     try { d.Dispose(); } catch { }
                 }
 
+
+                this.receiveLoopCts?.Cancel();
+
                 this.OnClosed(ex);
             }            
         }
 
-        public void Dispose()
-        {
-            this.Dispose(true);
-        }
+        public ValueTask DisposeAsync() => new ValueTask(this.CloseAsync());
 
         public ValueTask EndWriteAsync(in LightweightRpcFrame.WriteState writeState, bool throwOnError )
         {
@@ -205,13 +213,6 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
         }
 
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                this.Close();
-            }
-        }
 
         protected virtual void OnClosed(Exception? ex)
         {
@@ -241,106 +242,117 @@ namespace SciTech.Rpc.Lightweight.Internal
         /// <returns></returns>
         protected abstract Task OnReceiveLargeFrameAsync(LightweightRpcFrame frame);
 
-        protected virtual void OnReceiveLoopFaulted(ExceptionEventArgs e)
+        protected virtual Task OnReceiveLoopFaultedAsync(ExceptionEventArgs e)
         {
             this.ReceiveLoopFaulted?.Invoke(this, e);
+
+            return Task.CompletedTask;
         }
 
         protected virtual ValueTask OnStartReceiveLoopAsync() => default;
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Silent receive loop.")]
-        protected async Task StartReceiveLoopAsync(CancellationToken cancellationToken = default)
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Silent receive loop.")]
+        protected Task StartReceiveLoopAsync()
         {
-            var reader = this.Pipe?.Input ?? throw new ObjectDisposedException(this.ToString());
-            try
+            if (this.receiveLoopCts == null) throw new ObjectDisposedException(nameof(RpcPipeline));
+            if (this.receiveLoopTask != null) throw new InvalidOperationException("Receive loop already started.");
+
+            this.receiveLoopTask = ReceiveLoopAsync(this.receiveLoopCts.Token);
+            return this.receiveLoopTask;
+
+            async Task ReceiveLoopAsync(CancellationToken cancellationToken)
             {
-                await this.OnStartReceiveLoopAsync().ContextFree();
-                bool makingProgress = false;
-                while (!cancellationToken.IsCancellationRequested)
+                var reader = this.Pipe?.Input ?? throw new ObjectDisposedException(this.ToString());
+                try
                 {
-                    if (!(makingProgress && reader.TryRead(out var readResult)))
+                    await this.OnStartReceiveLoopAsync().ContextFree();
+                    bool makingProgress = false;
+                    while (!cancellationToken.IsCancellationRequested)
                     {
-                        readResult = await reader.ReadAsync(cancellationToken).ContextFree();
-                    }
-
-                    if (readResult.IsCanceled)
-                    {
-                        break;
-                    }
-
-                    var buffer = readResult.Buffer;
-
-                    makingProgress = false;
-
-                    switch (LightweightRpcFrame.TryRead(ref buffer, this.MaxReceiveFrameLength, out var frame))
-                    {
-                        case RpcFrameState.Full:
-
-                            makingProgress = true;
-                            await this.OnReceiveAsync(frame).ContextFree();
-
-                            // record that we consumed up to the (now updated) buffer.Start,
-                            // but we have not looked at anything after the updated start.
-                            reader.AdvanceTo(buffer.Start);
-                            break;
-                        case RpcFrameState.Header:
-                            if (frame.FrameLength > this.MaxReceiveFrameLength)
-                            {
-                                if (this.skipLargeFrames)
-                                {
-                                    makingProgress = true; // There might be another frame after this one.
-                                    await this.OnReceiveLargeFrameAsync(frame).ContextFree();
-
-                                    int bytesToSkip = frame.FrameLength.Value;
-                                    var advanceBytes = (int)Math.Min(buffer.Length, bytesToSkip);
-                                    reader.AdvanceTo(buffer.Slice(advanceBytes).Start);
-                                    bytesToSkip -= advanceBytes;
-                                    if (bytesToSkip > 0)
-                                    {
-                                        await SkipSequenceBytes(reader, bytesToSkip, cancellationToken).ContextFree();
-                                    }
-                                }
-                                else
-                                {
-                                    throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable,//  RpcFailure.SizeLimitExceeded,
-                                        $"Size of received frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).");
-                                }
-                                break;
-                            }
-                            goto case RpcFrameState.None;
-                        case RpcFrameState.None:
-                            // record that we consumed up to the (NOT updated) buffer.Start,
-                            // and tried to look at everything - hence buffer.End
-                            reader.AdvanceTo(buffer.Start, buffer.End);
-                            break;
-                    }
-
-                    // exit the loop electively, or because we've consumed everything
-                    // that we can usefully consume
-                    if (!makingProgress && readResult.IsCompleted)
-                    {
-                        if (!this.IsClosed)
+                        if (!(makingProgress && reader.TryRead(out var readResult)))
                         {
-                            // If we get here while not closed it indicates that
-                            // the server side connection has been lost.
-                            throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost);
+                            readResult = await reader.ReadAsync(cancellationToken).ContextFree();
                         }
 
-                        break;
-                    }
-                }
-                try { reader.Complete(); } catch { }
-            }
-            catch (Exception ex)
-            {
-                // TODO: Logger.Warn(ex, "RpcPipeline receive loop ended with error '{Error}'", ex.Message);
+                        if (readResult.IsCanceled)
+                        {
+                            break;
+                        }
 
-                try { reader.Complete(ex); } catch { }
-                try { this.OnReceiveLoopFaulted(new ExceptionEventArgs(ex)); } catch { }
-            }
-            finally
-            {
-                try { await this.OnEndReceiveLoopAsync().ContextFree(); } catch { }
+                        var buffer = readResult.Buffer;
+
+                        makingProgress = false;
+
+                        switch (LightweightRpcFrame.TryRead(ref buffer, this.MaxReceiveFrameLength, out var frame))
+                        {
+                            case RpcFrameState.Full:
+
+                                makingProgress = true;
+                                await this.OnReceiveAsync(frame).ContextFree();
+
+                                // record that we consumed up to the (now updated) buffer.Start,
+                                // but we have not looked at anything after the updated start.
+                                reader.AdvanceTo(buffer.Start);
+                                break;
+                            case RpcFrameState.Header:
+                                if (frame.FrameLength > this.MaxReceiveFrameLength)
+                                {
+                                    if (this.skipLargeFrames)
+                                    {
+                                        makingProgress = true; // There might be another frame after this one.
+                                        await this.OnReceiveLargeFrameAsync(frame).ContextFree();
+
+                                        int bytesToSkip = frame.FrameLength.Value;
+                                        var advanceBytes = (int)Math.Min(buffer.Length, bytesToSkip);
+                                        reader.AdvanceTo(buffer.Slice(advanceBytes).Start);
+                                        bytesToSkip -= advanceBytes;
+                                        if (bytesToSkip > 0)
+                                        {
+                                            await SkipSequenceBytes(reader, bytesToSkip, cancellationToken).ContextFree();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable,//  RpcFailure.SizeLimitExceeded,
+                                            $"Size of received frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).");
+                                    }
+                                    break;
+                                }
+                                goto case RpcFrameState.None;
+                            case RpcFrameState.None:
+                                // record that we consumed up to the (NOT updated) buffer.Start,
+                                // and tried to look at everything - hence buffer.End
+                                reader.AdvanceTo(buffer.Start, buffer.End);
+                                break;
+                        }
+
+                        // exit the loop electively, or because we've consumed everything
+                        // that we can usefully consume
+                        if (!makingProgress && readResult.IsCompleted)
+                        {
+                            if (!this.IsClosed)
+                            {
+                                // If we get here while not closed it indicates that
+                                // the connection has been lost.
+                                // On the the server side this is expected when a client disconnects.
+                                // On the client side it indicates that connection to the server has been lost.
+                                throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost);
+                            }
+
+                            break;
+                        }
+                    }
+                    try { reader.Complete(); } catch { }
+                }
+                catch (Exception ex)
+                {                    
+                    try { reader.Complete(ex); } catch { }
+                    try { await this.OnReceiveLoopFaultedAsync(new ExceptionEventArgs(ex)).ContextFree(); } catch { }
+                }
+                finally
+                {
+                    try { await this.OnEndReceiveLoopAsync().ContextFree(); } catch { }
+                }
             }
         }
 
@@ -376,50 +388,6 @@ namespace SciTech.Rpc.Lightweight.Internal
         {
             var writer = BufferWriterPool.Get();
             return responseHeader.BeginWrite(writer);
-            //SemaphoreSlim? writerMutex = this.singleWriter;
-            //if (writerMutex.Wait(0))
-            //{
-            //    try
-            //    {
-            //        var writer = this.frameWriterStream;
-            //        if (writer == null)
-            //        {
-            //            return !throwOnError ? new LightweightRpcFrame.WriteState() : throw new ObjectDisposedException(this.ToString());
-            //        }
-
-            //        var writeState = responseHeader.BeginWrite(writer);
-            //        writerMutex = null; // Prevent mutex from being released (will be released in EndWrite/AbortWrite
-            //        return writeState;
-            //    }
-            //    finally
-            //    {
-            //        writerMutex?.Release();
-            //    }
-            //}
-
-            //var header = responseHeader;
-            //async ValueTask<BufferWriterStream?> AwaitSingleWriter()
-            //{
-            //    await writerMutex!.WaitAsync().ContextFree();
-            //    try
-            //    {
-            //        var writer = this.frameWriterStream;
-            //        if (writer == null)
-            //        {
-            //            return !throwOnError ? (BufferWriterStream?)null : throw new ObjectDisposedException(this.ToString());
-            //        }
-
-            //        this.currentWriteState = header.BeginWrite(writer);
-            //        writerMutex = null; // Prevent mutex from being released (will be released in EndWrite/AbortWrite
-            //        return writer;
-            //    }
-            //    finally
-            //    {
-            //        writerMutex?.Release();
-            //    }
-            //}
-
-            //return AwaitSingleWriter();
         }
 
         private void ReleaseWriteStream(BufferWriterStream writerStream)

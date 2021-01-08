@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.Collections.Immutable;
 using Microsoft.Extensions.Logging;
+using SciTech.Threading;
 
 #if PLAT_NET_GRPC
 using SciTech.Rpc.NetGrpc.Server.Internal;
@@ -337,11 +338,18 @@ namespace SciTech.Rpc.Tests
         {
             this.server.Dispose();
             this.webHost.Dispose();
+
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await this.server.DisposeAsync().ContextFree();
+            this.webHost.Dispose();
         }
 
         public async Task ShutdownAsync()
         {
-            await this.webHost.StopAsync().ConfigureAwait(false);
+            await this.webHost.StopAsync().ContextFree();
         }
 
         public void Start()

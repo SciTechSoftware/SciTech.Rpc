@@ -31,7 +31,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     /// <summary>
     /// A named pipe server, inspired by the <see cref="SocketServer"/> implementation.
     /// </summary>
-    internal abstract class NamedPipeServer : IDisposable
+    internal abstract class NamedPipeServer : IAsyncDisposable
     {
 #if !COREFX
         private static readonly PipeSecurity DefaultSecurity = CreateDefaultSecurity();
@@ -171,9 +171,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             (scheduler ?? PipeScheduler.ThreadPool).Schedule(callback, state);
         }
 
-        void IDisposable.Dispose()
+        ValueTask IAsyncDisposable.DisposeAsync()
         {
             this.Stop();
+            return default;
         }
 
         private async Task ListenForConnectionsAsync(int listenBacklog, System.IO.Pipelines.PipeOptions sendOptions, System.IO.Pipelines.PipeOptions receiveOptions, CancellationToken cancellationToken)
@@ -193,7 +194,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
                     Debug.Assert(!string.IsNullOrEmpty(pipeName));
 
-                    NamedPipeServerStream? pipeServerStream = CreatePipeServerStream(pipeName, listenBacklog); try
+                    NamedPipeServerStream? pipeServerStream = CreatePipeServerStream(pipeName, listenBacklog); 
+                    try
                     {
                         await pipeServerStream.WaitForConnectionAsync(cancellationToken).ContextFree();
 
@@ -206,7 +208,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         }
                         pipeServerStream = null;
 
-                        StartOnScheduler(receiveOptions.ReaderScheduler, this.RunClientAsync, new ClientConnection(pipe, cancellationToken)); // boxed, but only once per client
+                        StartOnScheduler(receiveOptions.ReaderScheduler, this.RunClientAsync, new ClientConnection(pipe)); // boxed, but only once per client
                     }
                     finally
                     {
@@ -225,13 +227,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// </summary>
         protected readonly struct ClientConnection
         {
-            internal ClientConnection(IDuplexPipe transport, CancellationToken cancellationToken)
+            internal ClientConnection(IDuplexPipe transport)
             {
                 this.Transport = transport;
-                this.CancellationToken = cancellationToken;
             }
-
-            public CancellationToken CancellationToken { get; }
 
             /// <summary>
             /// The transport to use for this connection

@@ -14,11 +14,14 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 #endregion
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Pipelines.Sockets.Unofficial;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
@@ -36,6 +39,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     /// </summary>
     internal abstract class SslSocketServer
     {
+        private readonly ILogger logger = NullLogger.Instance;
+
         private readonly Action<object?> RunClientAsync;
 
         private readonly AuthenticationServerOptions? authenticationOptions;
@@ -91,6 +96,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             listener.Bind(endPoint);
             listener.Listen(listenBacklog);
 
+
             this.listener = listener;
             StartOnScheduler(receiveOptions?.ReaderScheduler, _ => this.ListenForConnectionsAsync(
                 sendOptions ?? PipeOptions.Default, receiveOptions ?? PipeOptions.Default).Forget(), null);
@@ -98,9 +104,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             this.OnStarted(endPoint);
         }
 
-#pragma warning disable CA1031 // Do not catch general exception types
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         public void Stop()
-        {
+        {            
             var socket = this.listener;
             this.listener = null;
             if (socket != null)
@@ -109,7 +115,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             }
         }
 
-#pragma warning restore CA1031 // Do not catch general exception types
 
         /// <summary>
         /// Invoked when a new client connects
@@ -137,76 +142,128 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             (scheduler ?? PipeScheduler.ThreadPool).Schedule(callback, state);
         }
 
-#pragma warning disable CA1031 // Do not catch general exception types
-#pragma warning disable CA2000 // Dispose objects before losing scope
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Logging errors")]
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "False positive")]
         private async Task ListenForConnectionsAsync(PipeOptions sendOptions, PipeOptions receiveOptions)
         {
             try
             {
+                var localEndPoint = this.listener?.LocalEndPoint;
+                this.logger.LogInformation("Begin ListenForConnectionsAsync on local end point: {LocalEndPoint}.", localEndPoint);
+
                 while (true)
                 {
                     var listener = this.listener;
-                    if (listener == null) break;
+                    if (listener == null)
+                    {
+                        this.logger.LogInformation("End ListenForConnectionsAsync after close. Local end point: {LocalEndPoint}.", localEndPoint);
+                        break;
+                    }
 
-                    var clientSocket = await listener.AcceptAsync().ContextFree();
+                    Socket clientSocket;
+                    try
+                    {
+                        clientSocket = await listener.AcceptAsync().ContextFree();
+                    }
+                    catch( Exception x ) when ((x is ObjectDisposedException || x is SocketException) && this.listener == null )
+                    {
+                        // Continue to allow end logging.
+                        continue;
+                    }
+
                     var remoteEndPoint = clientSocket.RemoteEndPoint;
                     if (remoteEndPoint != null)
                     {
+                        this.logger.LogInformation("Client connection accepted. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
+
                         SocketConnection.SetRecommendedServerOptions(clientSocket);
 
-                        Stream socketStream = new NetworkStream(clientSocket, true);
-                        IPrincipal? user = null;
-
-                        if (this.authenticationOptions is SslServerOptions sslOptions)
+                        Stream? socketStream = new NetworkStream(clientSocket, true);
+                        try
                         {
-                            if (sslOptions.ServerCertificate != null)
-                            {
-                                var sslStream = new SslStream(socketStream);
-                                await sslStream.AuthenticateAsServerAsync(sslOptions.ServerCertificate,
-                                    sslOptions.ClientCertificateRequired,
-                                    sslOptions.EnabledSslProtocols,
-                                    sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+                            IPrincipal? user = null;
 
-                                socketStream = sslStream;
-                            }
-                        } else if ( this.authenticationOptions is NegotiateServerOptions negotiateOptions)
-                        {
-                            var negotiateStream = new NegotiateStream(socketStream);
-                            try
+                            if (this.authenticationOptions is SslServerOptions sslOptions)
                             {
-                                await negotiateStream.AuthenticateAsServerAsync(
-                                    negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials, 
-                                    ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
-                                user = CreatePrincipal(negotiateStream.RemoteIdentity);
+                                if (sslOptions.ServerCertificate != null)
+                                {
+                                    var sslStream = new SslStream(socketStream);
+                                    try
+                                    {
+                                        await sslStream.AuthenticateAsServerAsync(sslOptions.ServerCertificate,
+                                            sslOptions.ClientCertificateRequired,
+                                            sslOptions.EnabledSslProtocols,
+                                            sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+
+                                        socketStream = sslStream;
+                                    }
+                                    catch (Exception x)
+                                    {
+                                        this.logger.LogInformation(x, "SslStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
+
+                                        try { sslStream.Dispose(); } catch { }
+                                        socketStream = null;
+                                    }
+
+                                }
                             }
-                            catch
+                            else if (this.authenticationOptions is NegotiateServerOptions negotiateOptions)
                             {
-                                try { negotiateStream.Dispose(); } catch { }
-                                throw;
+                                var negotiateStream = new NegotiateStream(socketStream);
+                                try
+                                {
+                                    await negotiateStream.AuthenticateAsServerAsync(
+                                        negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials,
+                                        ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
+                                    user = CreatePrincipal(negotiateStream.RemoteIdentity);
+                                    socketStream = negotiateStream;
+                                }
+                                catch (Exception x)
+                                {
+                                    this.logger.LogInformation(x, "NegotiateStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
+                                    try { negotiateStream.Dispose(); } catch { }
+                                    socketStream = null;
+                                }
                             }
-                            
-                            socketStream = negotiateStream;
+
+                            if (socketStream != null)
+                            {
+                                IDuplexPipe? pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);
+                                
+                                try
+                                {
+                                    if (!(pipe is IDisposable))
+                                    {
+                                        // Rather dummy, we need to dispose the stream when pipe is disposed, but
+                                        // this is not performed by the pipe returned by StreamConnection.
+                                        pipe = new OwnerDuplexPipe(pipe, socketStream);
+                                    }
+                                    socketStream = null;
+
+                                    StartOnScheduler((receiveOptions ?? PipeOptions.Default).ReaderScheduler, this.RunClientAsync,
+                                        new ClientConnection(pipe, remoteEndPoint, user)); // boxed, but only once per client
+                                    pipe = null;
+                                }
+                                finally
+                                {
+                                    (pipe as IDisposable)?.Dispose();
+                                }
+                            }
                         }
-
-                        var pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);
-                        if (!(pipe is IDisposable))
+                        finally
                         {
-                            // Rather dummy, we need to dispose the stream when pipe is disposed, but
-                            // this is not performed by the pipe returned by StreamConnection.
-                            pipe = new OwnerDuplexPipe(pipe, socketStream);
+                            socketStream?.Dispose();
                         }
-
-                        StartOnScheduler((receiveOptions ?? PipeOptions.Default).ReaderScheduler, this.RunClientAsync,
-                            new ClientConnection(pipe, remoteEndPoint, user)); // boxed, but only once per client
                     }
                 }
             }
-            catch (NullReferenceException) { }
-            catch (ObjectDisposedException) { }
-            catch (Exception ex) { this.OnServerFaulted(ex); }
+            catch (Exception ex) 
+            {
+                this.logger.LogInformation(ex, "Unexpected exception in ListenForConnectionsAsync.");
+
+                this.OnServerFaulted(ex); 
+            }
         }
-#pragma warning restore CA1031 // Do not catch general exception types
-#pragma warning restore CA2000 // Dispose objects before losing scope
 
         private static IPrincipal? CreatePrincipal(IIdentity? identity)
         {

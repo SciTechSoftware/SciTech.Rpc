@@ -18,7 +18,7 @@ namespace SciTech.Rpc
         public RpcCommunicationStatus Status { get; }
 
         /// <summary>Initializes a new instance of the <see cref="RpcCommunicationException"></see> class.</summary>
-        public RpcCommunicationException(RpcCommunicationStatus status) : this( status, "", null)
+        public RpcCommunicationException(RpcCommunicationStatus status) : this( status, GetDefaultMessage(status), null)
         {
         }
 
@@ -36,6 +36,15 @@ namespace SciTech.Rpc
         {
             this.Status = status;
         }
+
+        private static string GetDefaultMessage(RpcCommunicationStatus status)
+            => status switch
+            {
+                RpcCommunicationStatus.ConnectionLost => "RPC connection lost.",
+                RpcCommunicationStatus.Disconnected => "RPC disconnected.",
+                RpcCommunicationStatus.Unavailable => "RPC service unavailable.",
+                _ => "Unknown RPC communication error.",
+            };
     }
 
     public enum RpcCommunicationStatus

@@ -10,6 +10,8 @@ namespace SciTech.Rpc.Tests.Lightweight
     [TestFixture(RpcConnectionType.LightweightSslTcp, false)]
     [TestFixture(RpcConnectionType.LightweightInproc, true)]
     [TestFixture(RpcConnectionType.LightweightInproc, false)]
+    [TestFixture(RpcConnectionType.LightweightNamedPipe, true)]
+    [TestFixture(RpcConnectionType.LightweightNamedPipe, false)]
     public class LightweightCancellationTests : CancellationTests
     {
         public bool RoundTripCancellation { get; }

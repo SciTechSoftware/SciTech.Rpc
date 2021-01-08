@@ -25,8 +25,10 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
+using System.Linq;
 using System.Reflection;
 using System.Security.Principal;
 using System.Threading;
@@ -189,39 +191,63 @@ namespace SciTech.Rpc.Lightweight.Server
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         protected override void Dispose(bool disposing)
         {
-            if (!this.IsDisposed)
-            {
-                foreach (var client in this.clients)
-                {
-                    try { client.Key.Dispose(); } catch (Exception x) { this.Logger.LogWarning(x, "Error when disposing client."); }
-                }
-                this.clients.Clear();
+            bool isStopped = this.State == ServerState.Stopped || this.State == ServerState.Failed;
 
-                //foreach (var endPoint in endPoints)
-                //{
-                //    endPoint.Stop();
-                //}
+            if( !isStopped )
+            {
+                this.Logger.LogWarning("Synchronous dispose while RPC server is running.");
+                // Hopefully this will not dead-lock.
+                this.ShutdownAsync().AwaiterResult();
             }
 
             base.Dispose(disposing);
         }
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
+        protected async override ValueTask DisposeAsyncCore()
+        {
+            await this.ShutdownAsync().ContextFree();
+
+            foreach (var client in this.clients)
+            {
+                try 
+                {
+                    await client.Key.DisposeAsync().ContextFree(); 
+                } catch (Exception x) { 
+                    this.Logger.LogWarning(x, "Error when disposing client.");
+                }
+            }
+
+            this.clients.Clear();
+
+            await base.DisposeAsyncCore().ContextFree();
+        }
+
         protected virtual ValueTask OnReceiveAsync(IMemoryOwner<byte> message) => default;
 
-        protected async Task RunClientAsync(IDuplexPipe pipe, LightweightRpcEndPoint endPoint, IPrincipal? user, CancellationToken cancellationToken = default)
-        {            
-            using (var client = new ClientPipeline(pipe, this, endPoint, user, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive))
+        private async Task RunClientAsync(IDuplexPipe pipe, LightweightRpcEndPoint endPoint, IPrincipal? user)
+        {
+            var client = new ClientPipeline(pipe, this, endPoint, user, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive);
+            try
             {
                 try
                 {
                     this.AddClient(client);
 
-                    await client.RunAsync(cancellationToken).ContextFree();
+                    await client.RunAsync().ContextFree();
                 }
                 finally
                 {
-                    this.RemoveClient(client);
+                    await client.DisposeAsync().ContextFree();
                 }
+            }
+            finally
+            {
+                // Late removal of client (after dispose and wait) to avoid that shut down returns
+                // before all clients have ended. Make sure that a client is not accidentally used
+                // after dispose.
+                this.RemoveClient(client);
+
             }
         }
 
@@ -296,9 +322,22 @@ namespace SciTech.Rpc.Lightweight.Server
             foreach (var startedEndPoint in this.startedEndpoints)
             {
                 await startedEndPoint.StopAsync().ContextFree();
-                startedEndPoint.Dispose();
+                await startedEndPoint.DisposeAsync().ContextFree();
             }
             this.startedEndpoints.Clear();
+
+            var clients = this.clients.ToArray();
+            this.clients.Clear();
+
+            var disposeTasks = clients.Select(p => p.Key.DisposeAsync().AsTask()).ToList();
+            await Task.WhenAll(disposeTasks).ContextFree();
+
+            foreach( var client in clients)
+            {
+                await client.Key.WaitFinishedAsync().ContextFree();
+            }
+
+            Debug.Assert(this.clients.IsEmpty, "Client should not be added after Shutdown has been called.");
 
             await base.ShutdownCoreAsync().ContextFree();
         }
@@ -319,7 +358,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private void AddClient(ClientPipeline client)
         {
-            if (this.IsDisposed)
+            if (this.IsStopped)
             {
                 throw new ObjectDisposedException(this.ToString());
             }
@@ -357,13 +396,16 @@ namespace SciTech.Rpc.Lightweight.Server
             return new LightweightServiceStubBuilder<TService>(options?.Value);
         }
 
-        private void RemoveClient(ClientPipeline client) => this.clients.TryRemove(client, out _);
+        private void RemoveClient(ClientPipeline client)
+        {
+            this.clients.TryRemove(client, out _);
+        }
 
         private class ConnectionHandler : IRpcConnectionHandler
         {
             private readonly LightweightRpcServer server;
 
-            public ConnectionHandler(LightweightRpcServer server)
+            internal ConnectionHandler(LightweightRpcServer server)
             {
                 this.server = server;
             }
@@ -372,8 +414,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 => this.server.HandleDatagramAsync(endPoint, data, cancellationToken);
 
 
-            public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user, CancellationToken cancellationToken)
-                => this.server.RunClientAsync(clientPipe, endPoint, user, cancellationToken);
+            public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user)
+                => this.server.RunClientAsync(clientPipe, endPoint, user);
         }
 
 

@@ -48,12 +48,16 @@
     <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0' OR '$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
     <HasAsyncEnum>true</HasAsyncEnum>
     <HasNullableAttributes>true</HasNullableAttributes>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
     <HasNetGrpc>true</HasNetGrpc>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net5.0'">
+    <HasConnectCancellation>true</HasConnectCancellation>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(HasPlatformSpanOverloads)' == 'true'">
@@ -76,5 +80,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(HasNetGrpc)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_NET_GRPC</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasConnectCancellation)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_CONNECT_CANCELLATION</DefineConstants>
   </PropertyGroup>
 </Project>

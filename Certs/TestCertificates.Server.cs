@@ -28,6 +28,7 @@
 
 using System;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 
 namespace SciTech.Rpc
 {
@@ -35,5 +36,7 @@ namespace SciTech.Rpc
     {
         public static readonly string ServerCertDir = AppContext.BaseDirectory;// Path.Combine(GetSolutionDirectory(), "examples", "Certs");
         public static readonly string ServerPFXPath = Path.Combine(ServerCertDir, "server.pfx");
+        public static X509Certificate ServerCertificate { get; } = new X509Certificate2(TestCertificates.ServerPFXPath, "1111");
+
     }
 }

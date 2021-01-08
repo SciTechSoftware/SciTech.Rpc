@@ -66,10 +66,6 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private readonly IRpcConnectionHandler connectionHandler;
 
-            private CancellationTokenSource? clientCts;
-
-            private Task? clientTask;
-
             private bool isListening;
 
             private IDuplexPipe? pipe;
@@ -81,20 +77,14 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.connectionHandler = connectionHandler;
             }
 
-            public void Dispose()
+            public async ValueTask DisposeAsync()
             {
                 if( this.isListening )
                 {
-                    // TODO: Log warning
-                    this.StopAsync().Forget();
+                    await this.StopAsync().ContextFree();
                 }
 
                 (this.pipe as IDisposable)?.Dispose();
-                this.clientCts?.Dispose();
-                this.clientTask?.Dispose();
-
-                this.clientCts = null;
-                this.clientTask = null;
                 this.pipe = null;
             }
 
@@ -102,34 +92,16 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 if (this.isListening || this.pipe == null) throw new InvalidOperationException("DirectListener is already listening or has been stopped.");
                 this.isListening = true;
-                this.clientCts = new CancellationTokenSource();
-                this.clientTask = this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, Thread.CurrentPrincipal, this.clientCts.Token);
+
+                this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, Thread.CurrentPrincipal);//, this.clientCts.Token);
+                this.pipe = null;
             }
 
-            public async Task StopAsync()
+            public Task StopAsync()
             {
                 if (!this.isListening) throw new InvalidOperationException("DirectListener is not listening.");
 
-                var clientCts = this.clientCts;
-                var clientTask = this.clientTask;
-                var pipe = this.pipe;
-                this.clientCts = null;
-                this.clientTask = null;
-                this.pipe = null;
-
-                clientCts?.Cancel();
-                if (clientTask != null)
-                {
-                    try
-                    {
-                        await clientTask.ContextFree();
-                    }
-                    catch (OperationCanceledException) { }
-                }
-
-                (pipe as IDisposable)?.Dispose();
-                clientCts?.Dispose();
-                clientTask?.Dispose();
+                return Task.CompletedTask;
             }
         }
     }

@@ -324,7 +324,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var requestPipe = new Pipe();
             var responsePipe = new Pipe();
             var duplexPipe = new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer);
-            using (var pipeline = new TestPipeline(duplexPipe))
+            await using (var pipeline = new TestPipeline(duplexPipe))
             {
                 var payload = new ReadOnlySequence<byte>(serializer.Serialize(request));
 

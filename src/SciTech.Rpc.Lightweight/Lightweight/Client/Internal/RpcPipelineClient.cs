@@ -42,8 +42,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private int nextMessageId;
 
-        private Task? receiveLoopTask;
-
         public RpcPipelineClient(IDuplexPipe pipe, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
             : base(pipe, maxRequestSize, maxResponseSize, skipLargeFrames)
         {
@@ -58,10 +56,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             bool HandleResponse(LightweightRpcFrame frame);
         }
 
-        public Task AwaitFinished()
-        {
-            return this.receiveLoopTask ?? Task.CompletedTask;
-        }
+
 
 #pragma warning disable CA2000 // Dispose objects before losing scope
         public IAsyncStreamingServerCall<TResponse> BeginStreamingServerCall<TRequest, TResponse>(
@@ -112,15 +107,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
 
-        public void RunAsyncCore(CancellationToken cancellationToken = default)
-        {
-            if (this.receiveLoopTask != null)
-            {
-                throw new InvalidOperationException("Receive loop is already running.");
-            }
+        public void RunAsyncCore() => this.StartReceiveLoopAsync();
 
-            this.receiveLoopTask = this.StartReceiveLoopAsync(cancellationToken);
-        }
 
         internal Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
             RpcFrameType frameType,
@@ -232,8 +220,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         protected override ValueTask OnEndReceiveLoopAsync()
         {
-            this.Close();
-            return default;
+            return new ValueTask(this.CloseAsync());
         }
 
         protected override ValueTask OnReceiveAsync(in LightweightRpcFrame frame)
@@ -293,11 +280,13 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return Task.CompletedTask;
         }
 
-        protected override void OnReceiveLoopFaulted(ExceptionEventArgs e)
+        protected override async Task OnReceiveLoopFaultedAsync(ExceptionEventArgs e)
         {
-            base.OnReceiveLoopFaulted(e);
+            // TODO: Logger.Warn(ex, "RpcPipeline receive loop ended with error '{Error}'", ex.Message);
+            
+            await base.OnReceiveLoopFaultedAsync(e).ContextFree();
 
-            this.Close(e.Exception);
+            await this.CloseAsync(e.Exception).ContextFree();
         }
 
         private int AddAwaitingResponse(IResponseHandler responseHandler)

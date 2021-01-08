@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
-    public interface IRpcServer : IDisposable
+    public interface IRpcServer : IAsyncDisposable, IDisposable
     {
         /// <summary>
         /// Indicates that service instances returned from an RPC call is 

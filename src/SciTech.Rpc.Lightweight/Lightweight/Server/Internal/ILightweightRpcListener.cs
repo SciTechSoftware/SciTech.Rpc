@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
-    public interface ILightweightRpcListener : IDisposable
+    public interface ILightweightRpcListener : IAsyncDisposable
     {
         void Listen();
 

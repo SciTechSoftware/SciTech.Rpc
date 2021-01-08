@@ -22,6 +22,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Security.Principal;
@@ -37,19 +38,52 @@ namespace SciTech.Rpc.Lightweight.Server
         /// </summary>
         private class ClientPipeline : RpcPipeline
         {
+            private static readonly Action<ILogger, string, Exception?> LogBeginHandleStreamingRequest = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(1, "BeginHandleStreamingRequest"),
+                "Begin handle streaming request '{Operation}'.");
+
+            private static readonly Action<ILogger, string, Exception?> LogBeginHandleUnaryRequest = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(2, "BeginHandleUnaryRequest"),
+                "Begin handle unary request '{Operation}'.");
+
+            private static readonly Action<ILogger, string, Exception?> LogRequestCancelled = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(3, "RequestCancelled"),
+                "Request '{Operation}' was cancelled.");
+
+            private static readonly Action<ILogger, string, Exception?> LogRequestError = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(4, "RequestError"),
+                "Request '{Operation}' threw exception.");
+
+            private static readonly Action<ILogger, string, Exception?> LogRequestFailed = LoggerMessage.Define<string>(LogLevel.Warning,
+                new EventId(5, "RequestFailed"),
+                "Request '{Operation}' failed.");
+
+            private static readonly Action<ILogger, string, Exception?> LogRequestHandledAsynchronously = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(6, "RequestHandledAsynchronously"),
+                "Request '{Operation}' handled asynchronously.");
+
+            private static readonly Action<ILogger, string, Exception?> LogRequestHandledSynchronously = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(7, "RequestHandledSynchronously"),
+                "Request '{Operation}' handled synchronously.");
+
+            private static readonly Action<ILogger, string, Exception?> LogRequestTimedOut = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(8, "RequestTimedOut"),
+                "Request '{Operation}' timed out.");
+
+            private static readonly Action<ILogger, string,int,int, Exception?> LogReceivedLargeFrame = LoggerMessage.Define<string,int,int>(LogLevel.Warning,
+                new EventId(9, "ReceivedLargeFrame"),
+                "Size of received request frame for operation '{Operation}' exceeds size limit(frame size={FrameLength}, max size={MaxReceiveFrameLength}).");
+
             private readonly Dictionary<int, ActiveOperation> activeOperations = new Dictionary<int, ActiveOperation>();
 
             private readonly LightweightRpcServer server;
 
-            private LightweightRpcEndPoint endPoint;
-
-            private readonly IPrincipal? user;
-
             private readonly object syncRoot = new object();
+            private readonly IPrincipal? user;
+            private readonly LightweightRpcEndPoint endPoint;
+            private readonly IRpcSerializer serializer;
 
-            private IRpcSerializer serializer;
-
-            public ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, LightweightRpcEndPoint endPoint, IPrincipal? user, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
+            internal ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, LightweightRpcEndPoint endPoint, IPrincipal? user, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
                 : base(pipe, maxResponseSize, maxRequestSize, skipLargeFrames)
             {
                 this.server = server;
@@ -58,8 +92,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.serializer = server.Serializer;
             }
 
-            public Task RunAsync(CancellationToken cancellationToken)
-                => this.StartReceiveLoopAsync(cancellationToken);
+            public Task RunAsync() => this.StartReceiveLoopAsync();
 
             protected override void OnClosed(Exception? ex)
             {
@@ -80,24 +113,6 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
             }
 
-            //private async ValueTask HandleDiscoveryRequest(LightweightRpcFrame frame)
-            //{
-            //    IRpcDiscoveryHandler discoveryHandler;
-
-            //    var response = discoveryHandler.HandleDiscoveryRequest(frame);
-
-            //    var writer = await this.BeginWriteAsync(response);
-            //    try
-            //    {
-            //        await writer.WriteAsync(response.Payload.).ContextFree();
-            //        await this.EndWriteAsync();
-            //    }
-            //    catch
-            //    {
-            //        this.AbortWrite();
-            //    }
-            //}
-
             protected override sealed ValueTask OnReceiveAsync(in LightweightRpcFrame frame)
             {
                 ValueTask handleRequestTask;
@@ -107,13 +122,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     case RpcFrameType.StreamingRequest:
                         handleRequestTask = this.HandleRequestAsync(frame);
                         break;
-                    //case RpcFrameType.ServiceDiscoveryRequest:
-                    //    handleRequestTask = HandleDiscoveryRequest(frame);
-                    //    break;
 
-                    //case RpcFrameType.StreamingRequest:
-                    //handleRequestTask = this.HandleStreamingRequestAsync(frame);
-                    //break;
                     case RpcFrameType.CancelRequest:
                         {
                             // It is possible that the PipeScheduler is set to Inline (which
@@ -132,17 +141,29 @@ namespace SciTech.Rpc.Lightweight.Server
 
             protected override Task OnReceiveLargeFrameAsync(LightweightRpcFrame frame)
             {
+                LogReceivedLargeFrame(this.server.Logger, frame.RpcOperation, frame.FrameLength ?? 0, this.MaxReceiveFrameLength, null);
+
                 string msg = $"Size of received request frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).";
 
                 return this.WriteFailureResponseAsync(frame.MessageNumber, "", msg, RpcFailure.SizeLimitExceeded, null);
             }
 
-            protected override void OnReceiveLoopFaulted(ExceptionEventArgs e)
+            protected override async Task OnReceiveLoopFaultedAsync(ExceptionEventArgs e)
             {
-                base.OnReceiveLoopFaulted(e);
+                if( e.Exception is RpcCommunicationException rce && rce.Status == RpcCommunicationStatus.ConnectionLost)
+                {
+                    // A connection lost exception is expected when a client disconnects.
+                    // Log: Client disconnecteed
+                }
+                else
+                {
+                    // Log warning.
+                }
 
+                await base.OnReceiveLoopFaultedAsync(e).ContextFree();
+
+                await this.CloseAsync(e.Exception).ContextFree();
                 this.server.RemoveClient(this);
-                this.Close(e.Exception);
             }
 
             private void AddActiveOperation(ActiveOperation activeOperation)
@@ -164,39 +185,6 @@ namespace SciTech.Rpc.Lightweight.Server
                 return activeOperation;
             }
 
-            private static readonly Action<ILogger, string, Exception?> LogBeginHandleUnaryRequest = LoggerMessage.Define<string>(LogLevel.Information,
-                new EventId(1, "BeginHandleUnaryRequest"),
-                "Begin handle unary request '{Operation}'.");
-
-            private static readonly Action<ILogger, string, Exception?> LogBeginHandleStreamingRequest = LoggerMessage.Define<string>(LogLevel.Information,
-                new EventId(2, "BeginHandleStreamingRequest"),
-                "Begin handle streaming request '{Operation}'.");
-
-            private static readonly Action<ILogger, string, Exception?> LogRequestHandledSynchronously = LoggerMessage.Define<string>(LogLevel.Information,
-                new EventId(3, "RequestHandledSynchronously"),
-                "Request '{Operation}' handled synchronously.");
-
-            private static readonly Action<ILogger, string, Exception?> LogRequestHandledAsynchronously = LoggerMessage.Define<string>(LogLevel.Information,
-                new EventId(4, "RequestHandledAsynchronously"),
-                "Request '{Operation}' handled asynchronously.");
-
-            private static readonly Action<ILogger, string, Exception?> LogRequestFailed = LoggerMessage.Define<string>(LogLevel.Warning,
-                new EventId(5, "RequestFailed"),
-                "Request '{Operation}' failed.");
-
-            private static readonly Action<ILogger, string, Exception?> LogRequestCancelled = LoggerMessage.Define<string>(LogLevel.Information,
-                new EventId(6, "RequestCancelled"),
-                "Request '{Operation}' was cancelled.");
-
-            private static readonly Action<ILogger, string, Exception?> LogRequestTimedOut = LoggerMessage.Define<string>(LogLevel.Information,
-                new EventId(7, "RequestTimedOut"),
-                "Request '{Operation}' timed out.");
-
-            private static readonly Action<ILogger, string, Exception?> LogRequestError = LoggerMessage.Define<string>(LogLevel.Information,
-                new EventId(8, "RequestError"),
-                "Request '{Operation}' threw exception.");
-
-
             /// <summary>
             /// Handles an operation that could not be completed synchronously. Called when an operation handler has returned an unfinished task,
             /// or an error occurred.
@@ -206,7 +194,7 @@ namespace SciTech.Rpc.Lightweight.Server
             /// <param name="messageTask"></param>
             /// <returns>A task that should be awaited before the next frame is handled. Normally
             /// just the default ValueTask, unless active operations have been throttled.</returns>
-            [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types")]
+            [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
             private ValueTask HandleAsyncOperation(
                 in LightweightRpcFrame frame, ActiveOperation activeOperation, IServiceScope? scope, IRpcSerializer? serializer, Task messageTask)
             {
@@ -247,7 +235,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     catch (Exception e)
                     {
                         LogRequestFailed(this.server.Logger, operationName, e);
-                        this.Close(e);  // Will not throw.
+                        await this.CloseAsync(e).ContextFree();  // Will not throw.
                     }
                     finally
                     {
@@ -398,27 +386,6 @@ namespace SciTech.Rpc.Lightweight.Server
                 await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
-            private Task WriteExceptionResponseAsync(int messageId, string operationName, Exception e, IRpcSerializer? serializer)
-            {
-                RpcError? rpcError = RpcError.TryCreate(e, serializer);
-                if (rpcError != null)
-                {
-                    return this.WriteErrorResponseAsync(messageId, operationName, rpcError, serializer);
-                }
-
-                if (e is OperationCanceledException)
-                {
-                    return this.WriteCancelResponseAsync(messageId, operationName);
-                }
-                else
-                {
-                    // TODO: Implement IncludeExceptionDetailInFaults
-                    string message = $"The server was unable to process the request for operation '{operationName}' due to an internal error. "
-                        + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
-                    return this.WriteFailureResponseAsync(messageId, operationName, message, RpcFailure.Unknown, serializer);
-                }
-            }
-
             private async Task WriteErrorResponseAsync(int messageId, string operationName, RpcError rpcError, IRpcSerializer? serializer)
             {
                 //// TODO: Should any additional headers be returned?
@@ -449,6 +416,27 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 var writeState = this.BeginWrite(errorFrame);
                 await this.EndWriteAsync(writeState, false).ContextFree();
+            }
+
+            private Task WriteExceptionResponseAsync(int messageId, string operationName, Exception e, IRpcSerializer? serializer)
+            {
+                RpcError? rpcError = RpcError.TryCreate(e, serializer);
+                if (rpcError != null)
+                {
+                    return this.WriteErrorResponseAsync(messageId, operationName, rpcError, serializer);
+                }
+
+                if (e is OperationCanceledException)
+                {
+                    return this.WriteCancelResponseAsync(messageId, operationName);
+                }
+                else
+                {
+                    // TODO: Implement IncludeExceptionDetailInFaults
+                    string message = $"The server was unable to process the request for operation '{operationName}' due to an internal error. "
+                        + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
+                    return this.WriteFailureResponseAsync(messageId, operationName, message, RpcFailure.Unknown, serializer);
+                }
             }
 
             private Task WriteFailureResponseAsync(int messageId, string operationName, string message, RpcFailure failure, IRpcSerializer? serializer)

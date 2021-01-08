@@ -18,9 +18,11 @@ using SciTech.Rpc.Internal;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
+using SciTech.Threading;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
@@ -111,14 +113,12 @@ namespace SciTech.Rpc.Server
 
         public IRpcServicePublisher ServicePublisher { get; }
 
+        bool IRpcServerCore.HasContextAccessor => this.HasContextAccessor;
+
         /// <inheritdoc/>
         public RpcServerId ServerId => this.ServicePublisher.ServerId;
 
         IServiceProvider? IRpcServerCore.ServiceProvider => this.ServiceProvider;
-
-        bool IRpcServerCore.HasContextAccessor => this.HasContextAccessor;
-
-        protected ILogger<RpcServerBase> Logger { get; }
 
         protected bool HasContextAccessor
         {
@@ -133,6 +133,7 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        protected ILogger<RpcServerBase> Logger { get; }
         protected virtual IServiceProvider? ServiceProvider => null;
 
         protected object SyncRoot { get; } = new object();
@@ -140,8 +141,26 @@ namespace SciTech.Rpc.Server
         public void Dispose()
         {
             // Do not change this code. Put cleanup code in Dispose(bool disposing).
-            this.Dispose(true);
-            GC.SuppressFinalize(this);
+            if (!this.IsDisposed)
+            {
+                this.IsDisposed = true;
+
+                this.Dispose(true);
+                GC.SuppressFinalize(this);
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (!this.IsDisposed)
+            {
+                this.IsDisposed = true;
+
+                await this.DisposeAsyncCore().ContextFree();
+
+                this.Dispose(false);
+                GC.SuppressFinalize(this);
+            }
         }
 
         void IRpcServerCore.HandleCallException(Exception exception, IRpcSerializer? serializer)
@@ -157,10 +176,11 @@ namespace SciTech.Rpc.Server
 
         protected virtual void Dispose(bool disposing)
         {
-            if (!this.IsDisposed)
-            {
-                this.IsDisposed = true;
-            }
+        }
+
+        protected virtual ValueTask DisposeAsyncCore()
+        {
+            return default;
         }
 
         protected virtual void HandleCallException(Exception exception, IRpcSerializer? serializer)

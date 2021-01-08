@@ -29,6 +29,7 @@
 using SciTech.Rpc.Client;
 using System;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 using GrpcCore=Grpc.Core;
 
 namespace SciTech.Rpc
@@ -49,7 +50,5 @@ namespace SciTech.Rpc
             // Just for testing! Allow any server certificate
             RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors)=>true
         };
-            
-            
     }
 }

@@ -424,11 +424,13 @@ namespace SciTech.Rpc.Tests.Lightweight
         internal bool HasStopped { get; private set; }
         internal bool IsStopped { get; private set; }
 
-        public void Dispose()
+        public ValueTask DisposeAsync()
         {
             if (this.IsListening) this.DisposedWhileListening = true;
 
             this.IsDisposed = true;
+
+            return default;
         }
 
         public void Listen()

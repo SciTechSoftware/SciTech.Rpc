@@ -64,11 +64,10 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.logger = logger;
             }
 
-            public void Dispose()
+            public ValueTask DisposeAsync()
             {
-                this.StopAsync().AwaiterResult();
+                return new ValueTask(this.StopAsync());
             }
-
 
             public void Listen()
             {

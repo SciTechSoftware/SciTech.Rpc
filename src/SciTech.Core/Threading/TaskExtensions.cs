@@ -86,6 +86,21 @@ namespace SciTech.Threading
             return task.ConfigureAwait(false);
         }
 
+        public static ConfiguredAsyncDisposable ContextFree(this IAsyncDisposable asyncDisposable)
+        {
+            if (asyncDisposable == null) throw new ArgumentNullException(nameof(asyncDisposable));
+
+            return asyncDisposable.ConfigureAwait(false);
+        }
+
+        public static ConfiguredAsyncDisposable WithContext(this IAsyncDisposable asyncDisposable)
+        {
+            if (asyncDisposable == null) throw new ArgumentNullException(nameof(asyncDisposable));
+
+            return asyncDisposable.ConfigureAwait(true);
+        }
+
+
         public static ConfiguredValueTaskAwaitable<T> ContextFree<T>(this ValueTask<T> task)
         {
             return task.ConfigureAwait(false);

@@ -62,6 +62,22 @@ namespace SciTech.Rpc.Server
 
         protected ServerState State { get; private set; }
 
+        protected bool IsStopped
+        {
+            get
+            {
+                switch( this.State)
+                {
+                    case ServerState.Failed:
+                    case ServerState.Stopped:
+                    case ServerState.Stopping:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        }
+
         public abstract void AddEndPoint(IRpcServerEndPoint endPoint);
 
         public async Task ShutdownAsync()
@@ -90,7 +106,7 @@ namespace SciTech.Rpc.Server
 
             if (waitForState)
             {
-                throw new NotImplementedException();
+                throw new NotImplementedException("Shutdown should not be called during startup or shutdown.");
             }
 
             try
@@ -150,6 +166,12 @@ namespace SciTech.Rpc.Server
                     }
                 }
             }
+        }
+
+        protected async override ValueTask DisposeAsyncCore()
+        {
+            await this.ShutdownAsync().ContextFree();
+            await base.DisposeAsyncCore().ContextFree();
         }
 
         protected abstract void BuildServiceStub(Type serviceType);

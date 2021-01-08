@@ -20,7 +20,7 @@ namespace SciTech.Rpc.Client
     /// Defines methods and properties for a communication channel to an RPC server, e.g. for retrieving proxies to
     /// remote services. 
     /// </summary>
-    public interface IRpcChannel : IDisposable
+    public interface IRpcChannel : IAsyncDisposable, IDisposable
     {
         /// <summary>
         /// Gets information about how a connection to the RPC server can be established using this channel.

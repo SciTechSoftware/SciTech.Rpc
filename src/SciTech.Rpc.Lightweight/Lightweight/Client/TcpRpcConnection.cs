@@ -11,10 +11,13 @@
 
 using Pipelines.Sockets.Unofficial;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -22,6 +25,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,10 +34,12 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     public class TcpRpcConnection : LightweightRpcConnection
     {
+        private const int MaxConnectionFrameSize = 65536;
+
         // TODO: Add logging.
         //private static readonly ILog Logger = LogProvider.For<TcpLightweightRpcConnection>();
 
-        private AuthenticationClientOptions? authenticationOptions;
+        private AuthenticationClientOptions authenticationOptions;
 
         private volatile AuthenticatedStream? authenticatedStream;
 
@@ -71,13 +77,16 @@ namespace SciTech.Rpc.Lightweight.Client
 
             if( authenticationOptions != null )
             {
-                if( authenticationOptions is SslClientOptions || authenticationOptions is NegotiateClientOptions)
+                if( authenticationOptions is SslClientOptions || authenticationOptions is NegotiateClientOptions || authenticationOptions is AnonymousAuthenticationClientOptions)
                 {
                     this.authenticationOptions = authenticationOptions;
                 } else
                 {
                     throw new ArgumentException("Authentication options not supported.", nameof(authenticationOptions));
                 }
+            } else
+            {
+                this.authenticationOptions = AnonymousAuthenticationClientOptions.Instance;
             }
         }
 
@@ -95,7 +104,7 @@ namespace SciTech.Rpc.Lightweight.Client
             IDuplexPipe? connection;
 
             var endPoint = this.CreateNetEndPoint();
-            AuthenticatedStream? authenticatedStream = null;
+            Stream? authenticatedStream = null;
             Stream? workStream = null;
 
             var sendOptions = new PipeOptions(
@@ -142,7 +151,9 @@ namespace SciTech.Rpc.Lightweight.Client
                         workStream = new NetworkStream(socket, true);
                         socket = null;  // Prevent closing, NetworkStream has taken ownership
 
-                        if (this.authenticationOptions is SslClientOptions sslOptions)
+                        var selectedAuthentication = await this.GetAuthenticationOptionsAsync(workStream, cancellationToken).ContextFree();
+
+                        if (selectedAuthentication is SslClientOptions sslOptions)
                         {
                             var sslStream = new SslStream(workStream, false,
                                 sslOptions.RemoteCertificateValidationCallback,
@@ -166,7 +177,7 @@ namespace SciTech.Rpc.Lightweight.Client
                                 sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
 #endif
                         }
-                        else if( this.authenticationOptions is NegotiateClientOptions negotiateOptions)
+                        else if(selectedAuthentication is NegotiateClientOptions negotiateOptions)
                         {
                             var negotiateStream = new NegotiateStream(workStream, false);
                             workStream = authenticatedStream = negotiateStream;
@@ -174,6 +185,9 @@ namespace SciTech.Rpc.Lightweight.Client
                             await negotiateStream.AuthenticateAsClientAsync(
                                 negotiateOptions!.Credential ?? CredentialCache.DefaultNetworkCredentials, 
                                 negotiateOptions.TargetName ?? "").ContextFree();
+                        } else if(selectedAuthentication is AnonymousAuthenticationClientOptions)
+                        {
+                            authenticatedStream = workStream;
                         } else
                         {
                             throw new NotSupportedException("Authentication options not supported.");
@@ -200,7 +214,7 @@ namespace SciTech.Rpc.Lightweight.Client
                     Debug.Assert(connection is IDisposable);
                 }
 
-                this.authenticatedStream = authenticatedStream;
+                this.authenticatedStream = authenticatedStream as AuthenticatedStream;
                 workStream = null;
 
                 return connection;
@@ -208,6 +222,49 @@ namespace SciTech.Rpc.Lightweight.Client
             finally
             {
                 workStream?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Gets the authentication options to use for a newly connected server.
+        /// </summary>
+        /// <param name="connectedClient"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidDataException">Thrown if a connection frame cannot be retrieved from the sock.et</exception>
+        /// <exception cref="AuthenticationException">Thrown if no supported authentication scheme was provided by the client.</exception>
+        protected async Task<AuthenticationClientOptions> GetAuthenticationOptionsAsync(Stream connectedStream, CancellationToken cancellationToken)
+        {
+            using var frameWriter = new LightweightRpcFrameWriter(MaxConnectionFrameSize);
+
+            string supportedSchemes = this.authenticationOptions.Name;
+            var requestHeaders = new List<KeyValuePair<string, ImmutableArray<byte>>>
+            {
+                new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.AuthenticationScheme, Rpc.Client.RpcRequestContext.ToHeaderBytes(supportedSchemes)),
+            };
+
+            var frameData = frameWriter.WriteFrame(
+                new LightweightRpcFrame(
+                    RpcFrameType.ConnectionRequest,
+                    0, "",
+                    requestHeaders));
+            await connectedStream.WriteAsync(frameData, 0, frameData.Length, cancellationToken).ContextFree();
+
+            LightweightRpcFrame connectionFrame = await LightweightRpcFrame.ReadFrameAsync(connectedStream, MaxConnectionFrameSize, cancellationToken).ContextFree();
+
+            if (connectionFrame.FrameType == RpcFrameType.ConnectionResponse)
+            {
+                // TODO: Should additional frame data be verified (e.g. operation name, messsage id, payload)?
+                var authenticationSchemesString = connectionFrame.GetHeaderString(WellKnownHeaderKeys.AuthenticationScheme);
+                if (!string.Equals(this.authenticationOptions.Name, authenticationSchemesString, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new AuthenticationException($"Server does not support authentication scheme(s): {supportedSchemes}.");
+                }
+
+                return this.authenticationOptions;
+            } else
+            {
+                throw new InvalidDataException($"Unexpected connection frame type {connectionFrame.FrameType}");
             }
         }
 

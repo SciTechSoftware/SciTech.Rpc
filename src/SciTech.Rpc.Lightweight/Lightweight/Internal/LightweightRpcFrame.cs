@@ -13,6 +13,7 @@ using Microsoft.Win32.SafeHandles;
 using SciTech.Buffers;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Serialization;
+using SciTech.Threading;
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
@@ -20,8 +21,11 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipelines;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
@@ -239,7 +243,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             {
                 // Clearly not correct. An empty string is one byte, so we have more pairs than 
                 // could possibly fit in the frame.
-                throw new InvalidDataException();
+                throw new InvalidDataException("Too many header pairs.");
             }
 
             ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>> headers;
@@ -268,6 +272,41 @@ namespace SciTech.Rpc.Lightweight.Internal
             return RpcFrameState.Full;
         }
 
+        internal static async Task<LightweightRpcFrame> ReadFrameAsync(Stream stream, int maxFrameSize, CancellationToken cancellationToken)
+        {
+            var reader = PipeReader.Create(stream, new StreamPipeReaderOptions(leaveOpen: true));
+            try
+            {
+                return await ReadFrameAsync(reader, maxFrameSize, cancellationToken).ContextFree();
+            }
+            finally
+            {
+                await reader.CompleteAsync().ContextFree();
+            }
+        }
+
+
+        internal static async Task<LightweightRpcFrame> ReadFrameAsync(PipeReader reader, int maxFrameSize, CancellationToken cancellationToken)
+        {
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var readResult = await reader.ReadAsync(cancellationToken).ContextFree();
+
+                var buffer = readResult.Buffer;
+                var state = LightweightRpcFrame.TryRead(ref buffer, maxFrameSize, out var frame);
+                switch (state)
+                {
+                    case RpcFrameState.Full:
+                        reader.AdvanceTo(buffer.Start);
+                        return frame;
+                    default:
+                        reader.AdvanceTo(buffer.Start, buffer.End);
+                        break;
+                }
+            }
+        }
         public static RpcFrameState TryRead(ReadOnlyMemory<byte> input, int maxFrameLength, out LightweightRpcFrame message)
         {
             var sequence = new ReadOnlySequence<byte>(input);
@@ -656,7 +695,10 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         ServiceDiscoveryRequest,
 
-        ServiceDiscoveryResponse
+        ServiceDiscoveryResponse,
+
+        ConnectionRequest,
+        ConnectionResponse,
     }
 
     [Flags]

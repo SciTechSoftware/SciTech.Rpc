@@ -26,6 +26,11 @@ namespace SciTech.Rpc.Internal
         /// Serialized <see cref="RpcError"/>. Can be used instead of separate ErrorMessage, ErrorType, ErrorCode, ErrorDetails.
         /// </summary>
         public const string ErrorInfo = "scitech_rpc.error_info-bin";
+
+        /// <summary>
+        /// Semi-colon delimited list of authentication schemes, e.g. "anonymous;negotiate;ssl".
+        /// </summary>
+        public const string AuthenticationScheme = "scitech_rpc.authentication_scheme";
     }
 
 }

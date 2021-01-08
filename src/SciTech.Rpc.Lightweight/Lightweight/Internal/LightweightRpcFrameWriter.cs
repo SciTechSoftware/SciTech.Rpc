@@ -44,6 +44,21 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
         }
 
+        internal byte[] WriteFrame(in LightweightRpcFrame frameHeader)
+        {
+            var state = this.BeginWrite(frameHeader);
+            try
+            {
+                this.EndWrite(state);
+                return this.GetFrameData()!;
+            }
+            catch
+            {
+                this.AbortWrite();
+                throw;
+            }
+        }
+
         private LightweightRpcFrame.WriteState BeginWrite(in LightweightRpcFrame responseHeader)
         {
             if (this.isWriting) throw new InvalidOperationException("Already writing in LightweightRpcFrameWriter.");

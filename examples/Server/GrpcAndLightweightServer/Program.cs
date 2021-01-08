@@ -47,7 +47,7 @@ namespace GrpcAndLightweightServer
 
             var sslOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
             lightweightServer.AddEndPoint(
-                new TcpRpcEndPoint("127.0.0.1", 50052, false, sslOptions));
+                new TcpRpcEndPoint("127.0.0.1", 50052, false, sslOptions ));
 
             Console.WriteLine("Starting gRPC server and lightweight RPC server.");
 

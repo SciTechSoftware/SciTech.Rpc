@@ -8,7 +8,7 @@ namespace SciTech.Rpc.Server
 
     public class SslServerOptions : AuthenticationServerOptions
     {
-        public SslServerOptions()
+        public SslServerOptions() : base( "ssl" )
         {
 #if !PLAT_SYSTEM_SSL_PROTOCOLS
 #pragma warning disable CA5397 // Transport Layer Security protocol version 'Tls11' is deprecated.  Use 'None' to let the Operating System choose a version.

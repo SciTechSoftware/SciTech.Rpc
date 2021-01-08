@@ -135,7 +135,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         public void MismatchedAuthenication_Should_Throw()
         {
             using var server = new LightweightRpcServer();
-            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate)));
+            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
             server.Start();
 
             var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
@@ -150,7 +150,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var server = new LightweightRpcServer();
             await using (server.ContextFree())
             {
-                server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate)));
+                server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
                 server.Start();
 
                 await using (var failConnection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions()))
@@ -180,7 +180,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var services = serviceCollection.BuildServiceProvider();
             var server = new LightweightRpcServer(services);
 
-            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new NegotiateServerOptions()));
+            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new NegotiateServerOptions() ));
 
             return server;
         }

@@ -127,7 +127,7 @@ namespace SciTech.Rpc.Tests
                             sslServerOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
                         }
 
-                        host.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", TcpTestPort, false, sslServerOptions));
+                        host.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", TcpTestPort, false, sslServerOptions ));
 
                         SslClientOptions sslClientOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)

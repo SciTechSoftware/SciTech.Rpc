@@ -30,6 +30,7 @@ using System.Net.Sockets;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
@@ -43,15 +44,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private readonly Action<object?> RunClientAsync;
 
-        private readonly AuthenticationServerOptions? authenticationOptions;
-
         private Socket? listener;
 
-#pragma warning disable CA1031 // Do not catch general exception types
-        protected SslSocketServer(AuthenticationServerOptions? authenticationOptions)
+        protected SslSocketServer()
         {
-            this.authenticationOptions = authenticationOptions;
-
             this.RunClientAsync = async boxed =>
             {
                 if (boxed is ClientConnection client)
@@ -78,7 +74,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 }
             };
         }
-#pragma warning restore CA1031 // Do not catch general exception types
 
 
         /// <summary>
@@ -114,6 +109,16 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 try { socket.Dispose(); } catch { }
             }
         }
+
+        /// <summary>
+        /// Gets the authentication options to use for a newly connected client.
+        /// </summary>
+        /// <param name="connectedClientStream"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidDataException">Thrown if a connection frame cannot be retrieved from the socket</exception>
+        /// <exception cref="AuthenticationException">Thrown if no supported authentication scheme was provided by the client.</exception>
+        protected abstract Task<AuthenticationServerOptions> GetAuthenticationOptionsAsync(Stream connectedClientStream, CancellationToken cancellationToken);
 
 
         /// <summary>
@@ -179,50 +184,66 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         SocketConnection.SetRecommendedServerOptions(clientSocket);
 
                         Stream? socketStream = new NetworkStream(clientSocket, true);
+
                         try
                         {
-                            IPrincipal? user = null;
-
-                            if (this.authenticationOptions is SslServerOptions sslOptions)
+                            AuthenticationServerOptions? authenticationOptions = null; 
+                            try
                             {
-                                if (sslOptions.ServerCertificate != null)
+                                authenticationOptions = await this.GetAuthenticationOptionsAsync(socketStream, default).ContextFree();
+                            }
+                            catch( Exception x )
+                            {
+                                this.logger.LogInformation(x, "GetAuthenticationOptionsAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
+                                socketStream.Dispose();
+                                socketStream = null;
+                            }
+
+
+                            IPrincipal? user = null;
+                            if (authenticationOptions != null)
+                            {
+                                if (authenticationOptions is SslServerOptions sslOptions)
                                 {
-                                    var sslStream = new SslStream(socketStream);
+                                    if (sslOptions.ServerCertificate != null)
+                                    {
+                                        var sslStream = new SslStream(socketStream);
+                                        try
+                                        {
+                                            await sslStream.AuthenticateAsServerAsync(sslOptions.ServerCertificate,
+                                                sslOptions.ClientCertificateRequired,
+                                                sslOptions.EnabledSslProtocols,
+                                                sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
+
+                                            socketStream = sslStream;
+                                        }
+                                        catch (Exception x)
+                                        {
+                                            this.logger.LogInformation(x, "SslStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
+
+                                            try { sslStream.Dispose(); } catch { }
+                                            socketStream = null;
+                                        }
+
+                                    }
+                                }
+                                else if (authenticationOptions is NegotiateServerOptions negotiateOptions)
+                                {
+                                    var negotiateStream = new NegotiateStream(socketStream);
                                     try
                                     {
-                                        await sslStream.AuthenticateAsServerAsync(sslOptions.ServerCertificate,
-                                            sslOptions.ClientCertificateRequired,
-                                            sslOptions.EnabledSslProtocols,
-                                            sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
-
-                                        socketStream = sslStream;
+                                        await negotiateStream.AuthenticateAsServerAsync(
+                                            negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials,
+                                            ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
+                                        user = CreatePrincipal(negotiateStream.RemoteIdentity);
+                                        socketStream = negotiateStream;
                                     }
                                     catch (Exception x)
                                     {
-                                        this.logger.LogInformation(x, "SslStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
-
-                                        try { sslStream.Dispose(); } catch { }
+                                        this.logger.LogInformation(x, "NegotiateStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
+                                        try { negotiateStream.Dispose(); } catch { }
                                         socketStream = null;
                                     }
-
-                                }
-                            }
-                            else if (this.authenticationOptions is NegotiateServerOptions negotiateOptions)
-                            {
-                                var negotiateStream = new NegotiateStream(socketStream);
-                                try
-                                {
-                                    await negotiateStream.AuthenticateAsServerAsync(
-                                        negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials,
-                                        ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
-                                    user = CreatePrincipal(negotiateStream.RemoteIdentity);
-                                    socketStream = negotiateStream;
-                                }
-                                catch (Exception x)
-                                {
-                                    this.logger.LogInformation(x, "NegotiateStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
-                                    try { negotiateStream.Dispose(); } catch { }
-                                    socketStream = null;
                                 }
                             }
 

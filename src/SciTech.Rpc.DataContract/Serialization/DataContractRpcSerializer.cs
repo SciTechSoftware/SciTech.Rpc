@@ -29,6 +29,7 @@ namespace SciTech.Rpc.Serialization
         private static readonly bool TraceEnabled = false; // TODO: Logger.IsTraceEnabled();
 
         private readonly DataContractSerializerSettings? settings;
+        private readonly ISerializationSurrogateProvider? surrogateProvider;
 
         public DataContractRpcSerializer()
         {
@@ -38,10 +39,18 @@ namespace SciTech.Rpc.Serialization
         {
             this.settings = settings;
         }
+        
+        public DataContractRpcSerializer(DataContractSerializerSettings? settings, ISerializationSurrogateProvider? surrogateProvider)
+        {
+            this.settings = settings;
+            this.surrogateProvider = surrogateProvider;
+        }
+
+        
 
         public override IRpcSerializer<T> CreateTyped<T>()
         {
-            return (IRpcSerializer<T>)this.CreateTyped(typeof(T), _ => new DataContractRpcSerializer<T>(this.settings));
+            return (IRpcSerializer<T>)this.CreateTyped(typeof(T), _ => new DataContractRpcSerializer<T>(this.settings, this.surrogateProvider));
         }
 
         public override object? Deserialize(ReadOnlySequence<byte> input, Type type)
@@ -97,9 +106,13 @@ namespace SciTech.Rpc.Serialization
     {
         private readonly DataContractSerializer dataContractSerializer;
 
-        public DataContractRpcSerializer(DataContractSerializerSettings? settings)
+        public DataContractRpcSerializer(DataContractSerializerSettings? settings, ISerializationSurrogateProvider? surrogateProvider)
         {
             this.dataContractSerializer = settings != null ? new DataContractSerializer(typeof(T), settings) : new DataContractSerializer(typeof(T));
+            if( surrogateProvider != null )
+            {
+                this.dataContractSerializer.SetSerializationSurrogateProvider(surrogateProvider);
+            }
         }
 
         [return: MaybeNull]

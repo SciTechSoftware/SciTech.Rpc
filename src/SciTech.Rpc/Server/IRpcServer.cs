@@ -15,6 +15,9 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
+    /// <summary>
+    /// Provides base methods and properties for a SciTech RPC server.
+    /// </summary>
     public interface IRpcServer : IAsyncDisposable, IDisposable
     {
         /// <summary>
@@ -23,6 +26,13 @@ namespace SciTech.Rpc.Server
         /// </summary>
         bool AllowAutoPublish { get; }
 
+        /// <summary>
+        /// Gets the RPC service publisher that is used to publish services on this server.
+        /// <para>Normally it is only necessary to use this interface when publishing the same set of services on
+        /// multiple <see cref="IRpcServer"/>s. The <see cref="RpcServerExtensions"/> class provides extensions methods
+        /// that can be used to publish RPC services directly on an <see cref="IRpcServer"/> interface.
+        /// </para>        
+        /// </summary>
         IRpcServicePublisher ServicePublisher { get; }
 
         /// <summary>

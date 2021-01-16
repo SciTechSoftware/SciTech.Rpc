@@ -275,6 +275,7 @@ namespace SciTech.Rpc.Tests
                 // Make sure that the auto-published instance is GCed (and thus unpublished).
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
+                GC.Collect();
 
                 Assert.NotNull(first);
 

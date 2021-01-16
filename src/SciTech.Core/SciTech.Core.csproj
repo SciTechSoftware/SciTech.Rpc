@@ -68,7 +68,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>-->
-    <PackageReference Include="System.IO.Pipelines" Version="4.7.0" />
+    <!--<PackageReference Include="System.IO.Pipelines" Version="4.7.0" />-->
     <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />
   </ItemGroup>
 </Project>

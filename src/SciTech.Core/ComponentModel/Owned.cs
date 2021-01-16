@@ -24,6 +24,11 @@ namespace SciTech.ComponentModel
             return new OwnedObject<T>(value);
         }
 
+        public static IOwned<T> CreateUnowned<T>(T value)
+        {
+            return new OwnedObject<T>(value, (Action?)null);
+        }
+
         public static IOwned<T> Create<T>(T value, Action disposeAction)
         {
             return new OwnedObject<T>(value, disposeAction);

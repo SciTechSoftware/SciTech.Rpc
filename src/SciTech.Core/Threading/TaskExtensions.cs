@@ -149,19 +149,20 @@ namespace SciTech.Threading
         {
             if (task == null) throw new ArgumentNullException(nameof(task));
 
-            if (exceptionHandler != null)
+            if (!task.IsCompleted || task.IsFaulted)
             {
-                task.ContinueWith(t => exceptionHandler(t.Exception!), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
-            }
+                _ = task.ContinueWith(t => exceptionHandler?.Invoke(t.Exception!), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            }        
         }
 
         public static void Forget(this Task task, IExceptionHandler exceptionHandler)
         {
             if (task == null) throw new ArgumentNullException(nameof(task));
 
-            if (exceptionHandler != null)
+            if (!task.IsCompleted || task.IsFaulted)
             {
-                task.ContinueWith(t => exceptionHandler.HandleException(t.Exception!, UnexpectedExceptionAction.Handle), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                _ = task.ContinueWith(t => exceptionHandler?.HandleException(t.Exception!, UnexpectedExceptionAction.Handle), 
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }
         }
 

@@ -11,6 +11,7 @@
 
 using SciTech.ComponentModel;
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace SciTech.Rpc.Server
@@ -37,10 +38,17 @@ namespace SciTech.Rpc.Server
             return server.ServicePublisher.GetPublishedInstance(serviceInstance);
         }
 
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Ownership transferred")]
         public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServer server, TService serviceInstance, bool takeOwnership = false) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
-            return server.ServicePublisher.PublishInstance(serviceInstance, takeOwnership);
+            return server.ServicePublisher.PublishInstance(takeOwnership ? OwnedObject.Create(serviceInstance) : OwnedObject.CreateUnowned(serviceInstance));
+        }
+
+        public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServer server, IOwned<TService> serviceInstance) where TService : class
+        {
+            if (server is null) throw new ArgumentNullException(nameof(server));
+            return server.ServicePublisher.PublishInstance(serviceInstance);
         }
 
         public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, Func<TService> singletonFactory) where TService : class
@@ -57,11 +65,12 @@ namespace SciTech.Rpc.Server
             return server.ServicePublisher.PublishSingleton<TService>(singletonFactory);
         }
 
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Ownership transferred")]
         public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server, TService singletonService, bool takeOwnership = false) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
-            return server.ServicePublisher.PublishSingleton(singletonService, takeOwnership);
+            return server.ServicePublisher.PublishSingleton(takeOwnership ? OwnedObject.Create(singletonService) : OwnedObject.CreateUnowned(singletonService));
         }
 
 

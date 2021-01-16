@@ -41,7 +41,7 @@ namespace SciTech.Rpc.Server
         RpcServerConnectionInfo? ConnectionInfo { get; }
 
         /// <summary>
-        /// Gets the server id with this publisher. If <see cref="ConnectionInfo"/> has been initialized this
+        /// Gets the server id associated with this publisher. If <see cref="ConnectionInfo"/> has been initialized this
         /// will be the same id as <see cref="RpcServerConnectionInfo.ServerId">ConnectionInfo.ServerId</see>.
         /// </summary>
         RpcServerId ServerId { get; }
@@ -50,7 +50,7 @@ namespace SciTech.Rpc.Server
         /// Get the <see cref="RpcObjectRef{TService}"/> to the published <paramref name="serviceInstance"/>, if it has been previously published.
         /// If it has not been previously published, it will be published as a weak service. A weak service will be automatically unpublished if the <paramref name="serviceInstance"/>
         /// is garbage collected.
-        /// <para>To keep the published instance alive, it needs to be published using <see cref="PublishInstance{TService}(TService, bool)"/>.
+        /// <para>To keep the published instance alive, it needs to be published using <see cref="PublishInstance{TService}(IOwned{TService})"/>.
         /// </para>
         /// </summary>
         /// <typeparam name="TService">Type of the service interface.</typeparam>
@@ -102,16 +102,15 @@ namespace SciTech.Rpc.Server
         /// </summary>
         /// <typeparam name="TService"></typeparam>
         /// <param name="serviceInstance">The </param>
-        /// <param name="takeOwnership"><c>true</c> to indicate that the instance should be disposed when unpublished.</param>
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
-        IOwned<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false) where TService : class;
+        IOwned<RpcObjectRef<TService>> PublishInstance<TService>(IOwned<TService> serviceInstance) where TService : class;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
             where TService : class;
 
-        IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class;
+        IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(IOwned<TService> singletonService) where TService : class;
 
         /// <summary>
         /// Gets the connection info associated with this service publisher. If the connection

@@ -110,7 +110,7 @@ namespace SciTech.Rpc.Server
             InstanceKey key;
             lock (this.syncRoot)
             {
-                key = new InstanceKey(serviceInstance, false);
+                key = new InstanceKey(serviceInstance);
                 if (this.serviceImplToId.TryGetValue(key, out var instanceId))
                 {
                     return new RpcObjectRef<TService>(this.connectionInfo, instanceId, this.GetPublishedServices(instanceId).ToArray());
@@ -135,7 +135,7 @@ namespace SciTech.Rpc.Server
                 }
 
                 var objectId = RpcObjectId.NewId();
-                var newPublishedServices = this.PublishInstanceCore_Locked(allServices, serviceInstance, objectId, true, false);
+                var newPublishedServices = this.PublishInstanceCore_Locked(allServices, OwnedObject.CreateUnowned(serviceInstance), objectId, true);
                 return new RpcObjectRef<TService>(connectionInfo, objectId, newPublishedServices.ToArray());
             }
         }
@@ -146,7 +146,7 @@ namespace SciTech.Rpc.Server
 
             lock (this.syncRoot)
             {
-                var key = new InstanceKey(serviceInstance, false);
+                var key = new InstanceKey(serviceInstance);
                 if (this.serviceImplToId.TryGetValue(key, out var objectId))
                 {
                     return new RpcObjectRef<TService>(connectionInfo, objectId, this.GetPublishedServices(objectId).ToArray());
@@ -228,11 +228,11 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(TService serviceInstance, bool takeOwnership = false)
+        public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(IOwned<TService> serviceInstance)
             where TService : class
         {
             if (serviceInstance is null) throw new ArgumentNullException(nameof(serviceInstance));
-            var allServices = RpcBuilderUtil.GetAllServices(serviceInstance.GetType(), true);
+            var allServices = RpcBuilderUtil.GetAllServices(serviceInstance.Value.GetType(), true);
             this.TryRegisterServiceDefinitions(allServices, null);
 
             var connectionInfo = this.RetrieveConnectionInfo();
@@ -241,21 +241,13 @@ namespace SciTech.Rpc.Server
                 var serviceInstanceId = RpcObjectId.NewId();
 
 
-                var publishedServices = this.PublishInstanceCore_Locked(allServices, serviceInstance, serviceInstanceId, false, takeOwnership);
+                var publishedServices = this.PublishInstanceCore_Locked(allServices, serviceInstance, serviceInstanceId, false);
 
-                Action disposeAction;
-                if (takeOwnership && serviceInstance is IDisposable disposableService)
-                {
-                    disposeAction = () =>
+                Action disposeAction = () =>
                     {
                         this.UnpublishInstance(serviceInstanceId);
-                        disposableService.Dispose();
+                        serviceInstance.Dispose();
                     };
-                }
-                else
-                {
-                    disposeAction = () => this.UnpublishInstance(serviceInstanceId);
-                }
 
                 return OwnedObject.Create(new RpcObjectRef<TService>(
                     connectionInfo, serviceInstanceId, publishedServices.ToArray()), disposeAction);
@@ -274,28 +266,7 @@ namespace SciTech.Rpc.Server
                 () => this.UnpublishSingleton<TService>());
         }
 
-
-        //public ScopedObject<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider, TService> factory)
-        //    where TService : class
-        //{
-        //    ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
-        //    {
-        //        if (services == null)
-        //        {
-        //            throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
-        //        }
-
-        //        return new ActivatedService<TService>(factory(services), false);
-        //    }
-
-        //    this.PublishSingletonFactoryCore(CreateActivatedService);
-
-        //    return new ScopedObject<RpcSingletonRef<TService>>(new RpcSingletonRef<TService>(
-        //        this.RetrieveConnectionInfo()), () => this.UnpublishSingleton<TService>());
-        //}
-
-
-        public IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(TService singletonService, bool takeOwnership = false) where TService : class
+        public IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(IOwned<TService> singletonService) where TService : class
         {
             if (singletonService == null) throw new ArgumentNullException(nameof(singletonService));
 
@@ -307,7 +278,7 @@ namespace SciTech.Rpc.Server
             var connectionInfo = this.RetrieveConnectionInfo();
             lock (this.syncRoot)
             {
-                var instanceKey = new InstanceKey(singletonService, false);
+                var instanceKey = new InstanceKey(singletonService.Value);
 
                 foreach (var serviceType in publishedServices.ServiceTypes)
                 {
@@ -318,9 +289,10 @@ namespace SciTech.Rpc.Server
                 }
 
                 this.singletonTypeToPublishedServices.Add(typeof(TService), publishedServices);
+                var publishedInstance = new PublishedInstance(singletonService);
                 foreach (var serviceType in publishedServices.ServiceTypes)
                 {
-                    this.singletonServiceTypeToServiceImpl.Add(serviceType, instanceKey.GetPublishedInstance(takeOwnership));
+                    this.singletonServiceTypeToServiceImpl.Add(serviceType, publishedInstance);
                 }
             }
 
@@ -436,13 +408,14 @@ namespace SciTech.Rpc.Server
                     var instance = removedInstance.Value.GetInstance();
                     if (instance != null)
                     {
-                        this.serviceImplToId.Remove(new InstanceKey(instance, false));
+                        this.serviceImplToId.Remove(new InstanceKey(instance));
                     }
                 }
             }
 
-            if (removedInstance?.Owned == true && removedInstance.Value.GetInstance() is IDisposable disposable)
+            if (removedInstance?.GetOwnedInstance() is IDisposable disposable)
             {
+                // TODO Async dispose? Add UnpublishInstanceAsync?
                 disposable.Dispose();
             }
         }
@@ -474,8 +447,9 @@ namespace SciTech.Rpc.Server
                 }
             }
 
-            if (removedInstance?.Owned == true && removedInstance.Value.GetInstance() is IDisposable disposable)
+            if (removedInstance?.GetOwnedInstance() is IDisposable disposable)
             {
+                // TODO Async dispose? Add UnpublishInstanceAsync?
                 disposable.Dispose();
             }
         }
@@ -553,14 +527,18 @@ namespace SciTech.Rpc.Server
 
         private IReadOnlyCollection<string> PublishInstanceCore_Locked(
             IReadOnlyList<RpcServiceInfo> allServices,
-            object serviceInstance,
+            IOwned<object> serviceInstance,
             RpcObjectId serviceInstanceId,
-            bool isWeak,
-            bool takeOwnership)
+            bool isWeak)
         {
             Debug.Assert(serviceInstanceId != RpcObjectId.Empty);
 
-            var key = new InstanceKey(serviceInstance, isWeak);
+
+            InstanceKey key;
+            WeakReference? wrInstance = isWeak ? new WeakReference(serviceInstance.Value) : null;
+
+            key = new InstanceKey(wrInstance, serviceInstance.Value);
+
             if (this.serviceImplToId.ContainsKey(key))
             {
                 throw new InvalidOperationException("Service instance already published.");
@@ -577,9 +555,11 @@ namespace SciTech.Rpc.Server
 
             if (serviceInstanceId != RpcObjectId.Empty)
             {
+                var publishedInstance = wrInstance != null ? new PublishedInstance(wrInstance) : new PublishedInstance(serviceInstance);
+
                 foreach (var serviceType in publishedServices.ServiceTypes)
                 {
-                    this.idToServiceImpl.Add(new ServiceImplKey(serviceInstanceId, serviceType), key.GetPublishedInstance(takeOwnership));
+                    this.idToServiceImpl.Add(new ServiceImplKey(serviceInstanceId, serviceType), publishedInstance);
                 }
 
                 this.idToPublishedServices.Add(serviceInstanceId, publishedServices);
@@ -720,16 +700,18 @@ namespace SciTech.Rpc.Server
         private struct PublishedInstance
         {
             /// <summary>
-            /// WeakReference or direct reference to instance.
+            /// WeakReference or direct reference to IOwned instance.
             /// </summary>
             private readonly object instance;
 
-            internal readonly bool Owned;
-
-            public PublishedInstance(object instance, bool owned)
+            public PublishedInstance(IOwned<object> instance)
             {
                 this.instance = instance;
-                this.Owned = owned;
+            }
+
+            public PublishedInstance(WeakReference wrInstance)
+            {
+                this.instance = wrInstance;
             }
 
             internal object? GetInstance()
@@ -739,7 +721,12 @@ namespace SciTech.Rpc.Server
                     return wrInstance.Target;
                 }
 
-                return this.instance;
+                return ((IOwned<object>)this.instance).Value;
+            }
+
+            internal IOwned<object>? GetOwnedInstance()
+            {
+                return this.instance as IOwned<object>;
             }
 
             internal bool IsWeak => this.instance is WeakReference;
@@ -806,18 +793,18 @@ namespace SciTech.Rpc.Server
             /// </summary>
             private object instance;
 
-            internal InstanceKey(object instance, bool isWeak)
+            internal InstanceKey(object instance)
             {
                 this.hashCode = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(instance);
-                if (isWeak)
-                {
-                    this.instance = new WeakReference(instance);
-                }
-                else
-                {
-                    this.instance = instance;
-                }
+                this.instance = instance;
             }
+
+            internal InstanceKey(WeakReference? wrInstance, object instance)
+            {
+                this.hashCode = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(instance);
+                this.instance = wrInstance ?? instance;
+            }
+
 
             public bool Equals([AllowNull] InstanceKey other)
             {
@@ -842,10 +829,7 @@ namespace SciTech.Rpc.Server
                 return this.instance;
             }
 
-            internal PublishedInstance GetPublishedInstance(bool owned)
-            {
-                return new PublishedInstance(this.instance, owned);
-            }
+            internal WeakReference? WeakInstance => this.instance as WeakReference;
 
         }
     }

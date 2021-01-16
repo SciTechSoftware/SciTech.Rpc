@@ -14,6 +14,7 @@ using SciTech.ComponentModel;
 using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace SciTech.Rpc.Server
@@ -60,8 +61,6 @@ namespace SciTech.Rpc.Server
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
 
-            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
-
             ActivatedService<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
             {
                 return new ActivatedService<TService>(factory(objectId), true);
@@ -69,6 +68,27 @@ namespace SciTech.Rpc.Server
 
             return servicePublisher.PublishInstance(CreateActivatedService);
         }
+
+        /// <inheritdoc cref="IRpcServicePublisher.PublishInstance{TService}(IOwned{TService})"/>
+        /// <param name="takeOwnership"><c>true</c> to indicate that the instance should be disposed when unpublished.</param>
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Ownership transferred")]
+        public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServicePublisher servicePublisher, TService serviceInstance, bool takeOwnership = false) where TService : class
+        {
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            return servicePublisher.PublishInstance(takeOwnership ? OwnedObject.Create(serviceInstance) : OwnedObject.CreateUnowned(serviceInstance));
+        }
+
+        /// <inheritdoc cref="IRpcServicePublisher.PublishSingleton{TService}(IOwned{TService})"/>
+        /// <param name="takeOwnership"><c>true</c> to indicate that the instance should be disposed when unpublished.</param>
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Ownership transferred")]
+        public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, TService singletonService, bool takeOwnership = false) where TService : class
+        {
+            if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
+
+            return servicePublisher.PublishSingleton(takeOwnership ? OwnedObject.Create(singletonService) : OwnedObject.CreateUnowned(singletonService));
+        }
+
 
 
         public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServicePublisher servicePublisher, Func<IServiceProvider, TService> factory)

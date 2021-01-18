@@ -156,7 +156,7 @@ namespace SciTech.Rpc.Lightweight.Server
         }
 
 
-        private class RpcSslSocketServer : SslSocketServer, ILightweightRpcListener
+        private class RpcSslSocketServer : AuthenticatedSocketServer, ILightweightRpcListener
         {
             private const int MaxConnectionFrameSize = 65536;
 

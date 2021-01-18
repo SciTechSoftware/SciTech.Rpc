@@ -29,7 +29,7 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
     /// <summary>
-    /// A named pipe server, inspired by the <see cref="SocketServer"/> implementation.
+    /// A named pipe server, inspired by the "Pipelines.Unofficial.SocketServer" implementation.
     /// </summary>
     internal abstract class NamedPipeServer : IAsyncDisposable
     {

@@ -36,9 +36,9 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc.Lightweight.Server.Internal
 {
     /// <summary>
-    /// Modified copy of <see cref="SocketServer"/> with added support for authentication through <see cref="SslStream"/> and <see cref="NegotiateStream"/>.
+    /// Modified copy of "Pipelines.Unofficial.SocketServer" with added support for authentication through <see cref="SslStream"/> and <see cref="NegotiateStream"/>.
     /// </summary>
-    internal abstract class SslSocketServer
+    internal abstract class AuthenticatedSocketServer
     {
         private readonly ILogger logger = NullLogger.Instance;
 
@@ -47,7 +47,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         private Socket? listener;
 
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
-        protected SslSocketServer()
+        protected AuthenticatedSocketServer()
         {
             this.RunClientAsync = async oClient =>
             {

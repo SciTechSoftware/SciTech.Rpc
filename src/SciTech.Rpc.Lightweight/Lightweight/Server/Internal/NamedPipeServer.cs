@@ -14,11 +14,11 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 #endregion
 
-using Pipelines.Sockets.Unofficial;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.IO.Pipes;
 using System.Security.AccessControl;
@@ -48,18 +48,18 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private Uri serverUri;
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         protected NamedPipeServer(Uri serverUri)
         {
             this.serverUri = serverUri;
 
-            this.RunClientAsync = async boxed =>
+            this.RunClientAsync = async oClient =>
             {
-                if (boxed is ClientConnection client)
+                if (oClient is ClientConnection client)
                 {
-#pragma warning disable CA1031 // Do not catch general exception types
                     try
                     {
-                        await this.OnClientConnectedAsync(client).ContextFree();
+                        await this.OnClientConnectedAsync(in client).ContextFree();
                         try { client.Transport.Input.Complete(); } catch { }
                         try { client.Transport.Output.Complete(); } catch { }
                     }
@@ -76,7 +76,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                             try { d.Dispose(); } catch { }
                         }
                     }
-#pragma warning restore CA1031 // Do not catch general exception types
                 }
             };
         }
@@ -87,18 +86,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <summary>
         /// Start listening as a server
         /// </summary>
-        public void Listen(int listenBacklog = -1, System.IO.Pipelines.PipeOptions? sendOptions = null, System.IO.Pipelines.PipeOptions? receiveOptions = null)
+        public void Listen(int listenBacklog = -1)
         {
             if (this.pipeNameHolder != null) throw new InvalidOperationException("Server is already running");
 
             this.pipeNameHolder = PipeUri.CreatePipeName(this.serverUri);
             this.listenerCts = new CancellationTokenSource();
             var cancellationToken = this.listenerCts.Token;
-            StartOnScheduler(receiveOptions?.ReaderScheduler, _ => this.ListenForConnectionsAsync(
-                listenBacklog,
-                sendOptions ?? System.IO.Pipelines.PipeOptions.Default,
-                receiveOptions ?? System.IO.Pipelines.PipeOptions.Default,
-                cancellationToken).Forget(), null);
+            Task.Run(() => this.ListenForConnectionsAsync(listenBacklog, cancellationToken)).Forget();
 
             this.OnStarted();
         }
@@ -165,11 +160,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 #endif
 
-        private static void StartOnScheduler(PipeScheduler? scheduler, Action<object?> callback, object? state)
-        {
-            if (scheduler == PipeScheduler.Inline) scheduler = null;
-            (scheduler ?? PipeScheduler.ThreadPool).Schedule(callback, state);
-        }
 
         ValueTask IAsyncDisposable.DisposeAsync()
         {
@@ -177,7 +167,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             return default;
         }
 
-        private async Task ListenForConnectionsAsync(int listenBacklog, System.IO.Pipelines.PipeOptions sendOptions, System.IO.Pipelines.PipeOptions receiveOptions, CancellationToken cancellationToken)
+        private async Task ListenForConnectionsAsync(int listenBacklog, CancellationToken cancellationToken)
         {
 #pragma warning disable CA1031 // Do not catch general exception types
 #pragma warning disable CA2000 // Dispose objects before losing scope
@@ -199,16 +189,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     {
                         await pipeServerStream.WaitForConnectionAsync(cancellationToken).ContextFree();
 
-                        var pipe = StreamConnection.GetDuplex(pipeServerStream, sendOptions, receiveOptions);
-                        if (!(pipe is IDisposable))
-                        {
-                            // Rather dummy, we need to dispose the stream when pipe is disposed, but
-                            // this is not performed by the pipe returned by StreamConnection.
-                            pipe = new OwnerDuplexPipe(pipe, pipeServerStream);
-                        }
+                        var pipe = new StreamDuplexPipe(pipeServerStream);//, sendOptions, receiveOptions);
                         pipeServerStream = null;
 
-                        StartOnScheduler(receiveOptions.ReaderScheduler, this.RunClientAsync, new ClientConnection(pipe)); // boxed, but only once per client
+                        PipeScheduler.ThreadPool.Schedule(this.RunClientAsync, new ClientConnection(pipe));
                     }
                     finally
                     {

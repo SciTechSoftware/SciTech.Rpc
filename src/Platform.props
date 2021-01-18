@@ -9,6 +9,7 @@
     <HasSystemSslProtocols>true</HasSystemSslProtocols>
     <HasCollectibleAssemblies>true</HasCollectibleAssemblies>
     <HasNetGrpc>false</HasNetGrpc>
+    <HasAsyncDispose>false</HasAsyncDispose>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
@@ -29,6 +30,7 @@
     <HasAsyncEnum>true</HasAsyncEnum>
     <HasNullableAttributes>true</HasNullableAttributes>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
+    <HasAsyncDispose>true</HasAsyncDispose>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.0'">
@@ -54,6 +56,7 @@
     <HasNullableAttributes>true</HasNullableAttributes>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
     <HasNetGrpc>true</HasNetGrpc>
+    <HasAsyncDispose>true</HasAsyncDispose>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net5.0'">
@@ -83,5 +86,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(HasConnectCancellation)' == 'true'">
     <DefineConstants>$(DefineConstants);PLAT_CONNECT_CANCELLATION</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(HasAsyncDispose)' == 'true'">
+    <DefineConstants>$(DefineConstants);PLAT_ASYNC_DISPOSE</DefineConstants>
   </PropertyGroup>
 </Project>

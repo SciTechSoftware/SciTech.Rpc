@@ -1,6 +1,6 @@
 ﻿#region Copyright notice and license
 
-// Copyright (c) 2019, SciTech Software AB
+// Copyright (c) 2019-2021, SciTech Software AB
 // All rights reserved.
 //
 // Licensed under the BSD 3-Clause License.
@@ -11,7 +11,6 @@
 
 #endregion Copyright notice and license
 
-using Pipelines.Sockets.Unofficial;
 using SciTech.Collections;
 using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
@@ -109,18 +108,7 @@ namespace SciTech.Rpc.Lightweight.Server
             IRpcConnectionHandler connectionHandler,
             int maxRequestSize, int maxResponseSize)
         {
-            ILightweightRpcListener socketServer;
-
-            if (this.authenticationOptions != null)
-            {
-                socketServer = new RpcSslSocketServer(this, connectionHandler, maxRequestSize, this.authenticationOptions);
-            }
-            else
-            {
-                socketServer = new RpcSocketServer(this, connectionHandler, maxRequestSize);
-            }
-
-            return socketServer;
+            return new RpcSslSocketServer(this, connectionHandler, maxRequestSize, this.authenticationOptions);
         }
 
         private static IReadOnlyCollection<AuthenticationServerOptions> CreateAuthenticationOptions(AuthenticationServerOptions? authenticationOptions)
@@ -167,66 +155,6 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        private sealed class RpcSocketServer : SocketServer, ILightweightRpcListener
-        {
-            private readonly IRpcConnectionHandler connectionHandler;
-            private readonly int maxRequestSize;
-            private readonly TcpRpcEndPoint rpcEndPoint;
-
-            /// <summary>
-            /// Create a new instance of a socket server
-            /// </summary>
-            internal RpcSocketServer(TcpRpcEndPoint rpcEndPoint, IRpcConnectionHandler connectionHandler, int maxRequestSize)
-            {
-                this.connectionHandler = connectionHandler;
-                this.rpcEndPoint = rpcEndPoint;
-                this.maxRequestSize = maxRequestSize;
-            }
-
-            public ValueTask DisposeAsync()
-            {
-                this.Stop();
-
-                return default;
-            }
-
-            public void Listen()
-            {
-                int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
-                var receiveOptions = new PipeOptions(
-                    pauseWriterThreshold: receivePauseThreshold,
-                    resumeWriterThreshold: receivePauseThreshold / 2,
-                    readerScheduler: PipeScheduler.Inline,
-                    useSynchronizationContext: false);
-                var sendOptions = new PipeOptions(
-                    readerScheduler: PipeScheduler.ThreadPool,
-                    useSynchronizationContext: false);
-                this.Listen(this.rpcEndPoint.EndPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
-            }
-
-            public Task StopAsync()
-            {
-                this.Stop();
-
-                return Task.CompletedTask;
-            }
-
-            protected override Task OnClientConnectedAsync(in ClientConnection client)
-            {
-                // TODO: Implement CancellationToken
-                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, null);
-            }
-
-            protected override void OnClientFaulted(in ClientConnection client, Exception exception)
-            {
-                base.OnClientFaulted(client, exception);
-            }
-
-            protected override void OnServerFaulted(Exception exception)
-            {
-                base.OnServerFaulted(exception);
-            }
-        }
 
         private class RpcSslSocketServer : SslSocketServer, ILightweightRpcListener
         {
@@ -258,17 +186,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
             public void Listen()
             {
-                int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
-                var receiveOptions = new PipeOptions(
-                    pauseWriterThreshold: receivePauseThreshold,
-                    resumeWriterThreshold: receivePauseThreshold / 2,
-                    readerScheduler: PipeScheduler.Inline,
-                    useSynchronizationContext: false);
-                var sendOptions = new PipeOptions(
-                    readerScheduler: PipeScheduler.ThreadPool,
-                    useSynchronizationContext: false);
-
-                this.Listen(this.rpcEndPoint.EndPoint, sendOptions: sendOptions, receiveOptions: receiveOptions);
+                this.Listen(this.rpcEndPoint.EndPoint);
             }
 
             public Task StopAsync()

@@ -173,10 +173,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         {
             switch (e)
             {
-                case Pipelines.Sockets.Unofficial.ConnectionResetException _:
-                    throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, e.Message, e);
-                case Pipelines.Sockets.Unofficial.ConnectionAbortedException _:
-                    throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
+                //case Pipelines.Sockets.Unofficial.ConnectionResetException _:
+                //    throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, e.Message, e);
+                //case Pipelines.Sockets.Unofficial.ConnectionAbortedException _:
+                //    throw new RpcCommunicationException(RpcCommunicationStatus.Unavailable, e.Message, e);
                 case SocketException socketException:
                     switch (socketException.SocketErrorCode)
                     {

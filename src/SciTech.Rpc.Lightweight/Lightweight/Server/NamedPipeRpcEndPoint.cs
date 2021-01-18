@@ -9,7 +9,6 @@
 //
 #endregion
 
-using Pipelines.Sockets.Unofficial;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
@@ -74,21 +73,6 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.maxRequestSize = maxRequestSize;
             }
 
-            public void Listen()
-            {
-                int receivePauseThreshold = Math.Max(this.maxRequestSize, 65536);
-                var receiveOptions = new System.IO.Pipelines.PipeOptions(
-                    pauseWriterThreshold: receivePauseThreshold,
-                    resumeWriterThreshold: receivePauseThreshold / 2,
-                    readerScheduler: PipeScheduler.Inline,
-                    useSynchronizationContext: false);
-                var sendOptions = new System.IO.Pipelines.PipeOptions(
-                    readerScheduler: PipeScheduler.ThreadPool,
-                    useSynchronizationContext: false);
-
-                base.Listen(sendOptions: sendOptions, receiveOptions: receiveOptions);
-            }
-
             public Task StopAsync()
             {
                 this.Stop();
@@ -110,7 +94,8 @@ namespace SciTech.Rpc.Lightweight.Server
             {
                 base.OnServerFaulted(exception);
             }
-        }
 
+            void ILightweightRpcListener.Listen() => this.Listen();
+        }
     }
 }

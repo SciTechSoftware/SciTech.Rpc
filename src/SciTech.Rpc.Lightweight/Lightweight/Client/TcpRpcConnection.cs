@@ -9,7 +9,6 @@
 //
 #endregion
 
-using Pipelines.Sockets.Unofficial;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Client.Internal;
@@ -118,100 +117,87 @@ namespace SciTech.Rpc.Lightweight.Client
 
             try
             {
-                if (this.authenticationOptions != null )
+                Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                try
                 {
-                    Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    try
-                    {
-                        SetRecommendedClientOptions(socket);
+                    SetRecommendedClientOptions(socket);
 
-                        string sslHost;
-                        switch (endPoint)
-                        {
-                            case IPEndPoint ipEndPoint:
+                    string sslHost;
+                    switch (endPoint)
+                    {
+                        case IPEndPoint ipEndPoint:
 #if PLAT_CONNECT_CANCELLATION
-                                await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port,cancellationToken).ContextFree();
+                            await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port, cancellationToken).ContextFree();
 #else
                                 await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ContextFree();
 #endif
-                                sslHost = ipEndPoint.Address.ToString();
-                                break;
-                            case DnsEndPoint dnsEndPoint:
+                            sslHost = ipEndPoint.Address.ToString();
+                            break;
+                        case DnsEndPoint dnsEndPoint:
 #if PLAT_CONNECT_CANCELLATION
-                                await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port, cancellationToken).ContextFree();
+                            await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port, cancellationToken).ContextFree();
 #else
                                 await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port).ContextFree();
 #endif
 
-                                sslHost = dnsEndPoint.Host;
-                                break;
-                            default:
-                                throw new NotSupportedException($"Unsupported end point '{endPoint}',");
-                        }
-                        workStream = new NetworkStream(socket, true);
-                        socket = null;  // Prevent closing, NetworkStream has taken ownership
+                            sslHost = dnsEndPoint.Host;
+                            break;
+                        default:
+                            throw new NotSupportedException($"Unsupported end point '{endPoint}',");
+                    }
 
-                        var selectedAuthentication = await this.GetAuthenticationOptionsAsync(workStream, cancellationToken).ContextFree();
+                    workStream = new NetworkStream(socket, true);
+                    socket = null;  // Prevent closing, NetworkStream has taken ownership
 
-                        if (selectedAuthentication is SslClientOptions sslOptions)
-                        {
-                            var sslStream = new SslStream(workStream, false,
-                                sslOptions.RemoteCertificateValidationCallback,
-                                sslOptions.LocalCertificateSelectionCallback,
-                                sslOptions.EncryptionPolicy);
+                    var selectedAuthentication = await this.GetAuthenticationOptionsAsync(workStream, cancellationToken).ContextFree();
 
-                            workStream = authenticatedStream = sslStream;
+                    if (selectedAuthentication is SslClientOptions sslOptions)
+                    {
+                        var sslStream = new SslStream(workStream, false,
+                            sslOptions.RemoteCertificateValidationCallback,
+                            sslOptions.LocalCertificateSelectionCallback,
+                            sslOptions.EncryptionPolicy);
+
+                        workStream = authenticatedStream = sslStream;
 
 #if PLAT_CONNECT_CANCELLATION
-                            var authOptions = new SslClientAuthenticationOptions()
-                            {
-                                TargetHost = sslHost,
-                                ClientCertificates = sslOptions.ClientCertificates,
-                                EnabledSslProtocols=sslOptions.EnabledSslProtocols,
-                                CertificateRevocationCheckMode = sslOptions.CertificateRevocationCheckMode
-                            };
+                        var authOptions = new SslClientAuthenticationOptions()
+                        {
+                            TargetHost = sslHost,
+                            ClientCertificates = sslOptions.ClientCertificates,
+                            EnabledSslProtocols = sslOptions.EnabledSslProtocols,
+                            CertificateRevocationCheckMode = sslOptions.CertificateRevocationCheckMode
+                        };
 
-                            await sslStream.AuthenticateAsClientAsync(authOptions, cancellationToken).ContextFree();
+                        await sslStream.AuthenticateAsClientAsync(authOptions, cancellationToken).ContextFree();
 #else
                             await sslStream.AuthenticateAsClientAsync(sslHost, sslOptions.ClientCertificates, sslOptions.EnabledSslProtocols,
                                 sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
 #endif
-                        }
-                        else if(selectedAuthentication is NegotiateClientOptions negotiateOptions)
-                        {
-                            var negotiateStream = new NegotiateStream(workStream, false);
-                            workStream = authenticatedStream = negotiateStream;
-
-                            await negotiateStream.AuthenticateAsClientAsync(
-                                negotiateOptions!.Credential ?? CredentialCache.DefaultNetworkCredentials, 
-                                negotiateOptions.TargetName ?? "").ContextFree();
-                        } else if(selectedAuthentication is AnonymousAuthenticationClientOptions)
-                        {
-                            authenticatedStream = workStream;
-                        } else
-                        {
-                            throw new NotSupportedException("Authentication options not supported.");
-                        }
-
-                        connection = StreamConnection.GetDuplex(authenticatedStream, sendOptions, receiveOptions);
-                        if (!(connection is IDisposable))
-                        {
-#pragma warning disable CA2000 // Dispose objects before losing scope
-                            // Rather dummy, we need to dispose the stream when pipe is disposed, but
-                            // this is not performed by the pipe returned by StreamConnection.
-                            connection = new OwnerDuplexPipe(connection, authenticatedStream);
-#pragma warning restore CA2000 // Dispose objects before losing scope
-                        }
                     }
-                    finally
+                    else if (selectedAuthentication is NegotiateClientOptions negotiateOptions)
                     {
-                        socket?.Dispose();
+                        var negotiateStream = new NegotiateStream(workStream, false);
+                        workStream = authenticatedStream = negotiateStream;
+
+                        await negotiateStream.AuthenticateAsClientAsync(
+                            negotiateOptions!.Credential ?? CredentialCache.DefaultNetworkCredentials,
+                            negotiateOptions.TargetName ?? "").ContextFree();
                     }
-                } 
-                else
+                    else if (selectedAuthentication is AnonymousAuthenticationClientOptions)
+                    {
+                        authenticatedStream = workStream;
+                    }
+                    else
+                    {
+                        throw new NotSupportedException("Authentication options not supported.");
+                    }
+
+                    connection = new StreamDuplexPipe(authenticatedStream);//, sendOptions, receiveOptions);
+                }
+                finally
                 {
-                    connection = await SocketConnection.ConnectAsync(endPoint, sendOptions, receiveOptions).ContextFree();
-                    Debug.Assert(connection is IDisposable);
+                    socket?.Dispose();
                 }
 
                 this.authenticatedStream = authenticatedStream as AuthenticatedStream;

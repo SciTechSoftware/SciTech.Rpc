@@ -1,5 +1,4 @@
-﻿using Pipelines.Sockets.Unofficial;
-using SciTech.Rpc.Client;
+﻿using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
@@ -85,13 +84,7 @@ namespace SciTech.Rpc.Lightweight.Client
                         readerScheduler: System.IO.Pipelines.PipeScheduler.Inline,
                         useSynchronizationContext: false);
 
-                    var connection = StreamConnection.GetDuplex(pipeClientStream, sendOptions, receiveOptions);
-                    if (!(connection is IDisposable))
-                    {
-                        // Rather dummy, we need to dispose the stream when pipe is disposed, but
-                        // this is not performed by the pipe returned by StreamConnection.
-                        connection = new OwnerDuplexPipe(connection, pipeClientStream);
-                    }
+                    var connection = new StreamDuplexPipe(pipeClientStream);//, sendOptions, receiveOptions);
 
                     pipeClientStream = null;    // Prevent disposal
 

@@ -16,7 +16,6 @@
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Pipelines.Sockets.Unofficial;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
@@ -50,13 +49,13 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         protected SslSocketServer()
         {
-            this.RunClientAsync = async boxed =>
+            this.RunClientAsync = async oClient =>
             {
-                if (boxed is ClientConnection client)
+                if (oClient is ClientConnection client)
                 {
                     try
                     {
-                        await this.OnClientConnectedAsync(client).ContextFree();
+                        await this.OnClientConnectedAsync(in client).ContextFree();
                         try { client.Transport.Input.Complete(); } catch { }
                         try { client.Transport.Output.Complete(); } catch { }
                     }
@@ -85,8 +84,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             AddressFamily? addressFamily = null,
             SocketType socketType = SocketType.Stream,
             ProtocolType protocolType = ProtocolType.Tcp,
-            int listenBacklog = 20,
-            PipeOptions? sendOptions = null, PipeOptions? receiveOptions = null)
+            int listenBacklog = 20)
         {
             if (this.listener != null) throw new InvalidOperationException("Server is already running");
             Socket listener = new Socket(addressFamily ?? endPoint.AddressFamily, socketType, protocolType);
@@ -95,8 +93,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
 
             this.listener = listener;
-            StartOnScheduler(receiveOptions?.ReaderScheduler, _ => this.ListenForConnectionsAsync(
-                sendOptions ?? PipeOptions.Default, receiveOptions ?? PipeOptions.Default).Forget(), null);
+            Task.Run(this.ListenForConnectionsAsync).Forget();
 
             this.OnStarted(endPoint);
         }
@@ -143,15 +140,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// </summary>
         protected virtual void OnStarted(EndPoint endPoint) { }
 
-        private static void StartOnScheduler(PipeScheduler? scheduler, Action<object?> callback, object? state)
-        {
-            if (scheduler == PipeScheduler.Inline) scheduler = null;
-            (scheduler ?? PipeScheduler.ThreadPool).Schedule(callback, state);
-        }
-
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Logging errors")]
         [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Transferring ownership")]
-        private async Task ListenForConnectionsAsync(PipeOptions sendOptions, PipeOptions receiveOptions)
+        private async Task ListenForConnectionsAsync()
         {
             try
             {
@@ -183,7 +174,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     {
                         this.logger.LogInformation("Client connection accepted. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
 
-                        SocketConnection.SetRecommendedServerOptions(clientSocket);
+                        SetRecommendedServerOptions(clientSocket);
 
                         Stream? socketStream = new NetworkStream(clientSocket, true);
 
@@ -251,20 +242,15 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
                             if (socketStream != null)
                             {
-                                IDuplexPipe? pipe = StreamConnection.GetDuplex(socketStream, sendOptions, receiveOptions);
+                                IDuplexPipe? pipe = new StreamDuplexPipe(socketStream);//, sendOptions, receiveOptions);
                                 
                                 try
                                 {
-                                    if (!(pipe is IDisposable))
-                                    {
-                                        // Rather dummy, we need to dispose the stream when pipe is disposed, but
-                                        // this is not performed by the pipe returned by StreamConnection.
-                                        pipe = new OwnerDuplexPipe(pipe, socketStream);
-                                    }
                                     socketStream = null;
 
-                                    StartOnScheduler((receiveOptions ?? PipeOptions.Default).ReaderScheduler, this.RunClientAsync,
-                                        new ClientConnection(pipe, remoteEndPoint, user)); // boxed, but only once per client
+                                    var clientConnection = new ClientConnection(pipe, remoteEndPoint, user);
+
+                                    PipeScheduler.ThreadPool.Schedule(this.RunClientAsync, clientConnection);
                                     pipe = null;
                                 }
                                 finally
@@ -297,6 +283,19 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 ClaimsIdentity claimsIdentity => new ClaimsPrincipal(claimsIdentity),
                 _ => new GenericPrincipal(identity, null),
             };
+        }
+
+
+        /// <summary>
+        /// Set recommended socket options for server sockets
+        /// </summary>
+        /// <param name="socket">The socket to set options against</param>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
+        private static void SetRecommendedServerOptions(Socket socket)
+        {
+            if (socket.AddressFamily == AddressFamily.Unix) return;
+
+            try { socket.NoDelay = true; } catch (Exception ) {  /* TODO: Log*/ }
         }
 
         /// <summary>

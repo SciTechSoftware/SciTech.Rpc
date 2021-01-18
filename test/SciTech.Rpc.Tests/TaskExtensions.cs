@@ -39,6 +39,15 @@ namespace SciTech.Rpc.Tests
         {
             return task.TimeoutAfter(TimeSpan.FromSeconds(5), filePath, lineNumber);
         }
+
+        public static Task DefaultTimeout(this ValueTask task,
+            [CallerFilePath] string filePath = null,
+            [CallerLineNumber] int lineNumber = default)
+        {
+
+            return task.AsTask().TimeoutAfter(TimeSpan.FromSeconds(5), filePath, lineNumber);
+        }
+
         public static async Task<T> TimeoutAfter<T>(this Task<T> task, TimeSpan timeout,
             [CallerFilePath] string filePath = null,
             [CallerLineNumber] int lineNumber = default)

@@ -161,9 +161,6 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
 
                 await base.OnReceiveLoopFaultedAsync(e).ContextFree();
-
-                await this.CloseAsync(e.Exception).ContextFree();
-                this.server.RemoveClient(this);
             }
 
             private void AddActiveOperation(ActiveOperation activeOperation)

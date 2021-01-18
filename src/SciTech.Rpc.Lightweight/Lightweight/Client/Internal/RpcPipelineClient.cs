@@ -100,6 +100,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             catch (Exception e)
             {
                 this.HandleCallError(messageId, e);
+                streamingCall.DisposeAsync().Forget();
                 throw;
             }
         }
@@ -107,7 +108,17 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
 
-        public void RunAsyncCore() => this.StartReceiveLoopAsync();
+        public async Task RunAsyncCore()
+        {
+            try
+            {
+                await this.StartReceiveLoopAsync().ContextFree();
+            }
+            finally
+            {
+                await this.CloseAsync().ContextFree();
+            }
+        }
 
 
         internal Task<TResponse> SendReceiveFrameAsync<TRequest, TResponse>(
@@ -285,8 +296,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             // TODO: Logger.Warn(ex, "RpcPipeline receive loop ended with error '{Error}'", ex.Message);
             
             await base.OnReceiveLoopFaultedAsync(e).ContextFree();
-
-            await this.CloseAsync(e.Exception).ContextFree();
         }
 
         private int AddAwaitingResponse(IResponseHandler responseHandler)
@@ -441,8 +450,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
             public IAsyncEnumerator<TResponse> ResponseStream => this.responseStream;
 
-            public void Dispose()
+            public ValueTask DisposeAsync()
             {
+                return this.responseStream.DisposeAsync();
             }
 
             public void HandleCancellation()

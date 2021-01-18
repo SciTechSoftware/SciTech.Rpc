@@ -163,10 +163,21 @@ namespace SciTech.Rpc.Tests.Lightweight
                     catch (Exception x) when (!(x is TimeoutException)) { }
                 }
 
-                await using var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), TestCertificates.SslClientOptions);
-                Assert.DoesNotThrowAsync(() => connection.ConnectAsync(CancellationToken.None).DefaultTimeout());
-                Assert.IsTrue(connection.IsConnected);
-                Assert.IsTrue(connection.IsEncrypted);
+                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), TestCertificates.SslClientOptions);
+                try
+                {
+                    Assert.DoesNotThrowAsync(() => connection.ConnectAsync(CancellationToken.None).DefaultTimeout());
+                    Assert.IsTrue(connection.IsConnected);
+                    Assert.IsTrue(connection.IsEncrypted);
+                }
+                finally
+                {
+                    await connection.DisposeAsync().DefaultTimeout();
+                }
+            }
+            finally
+            {
+                await server.DisposeAsync().DefaultTimeout();
             }
         }
 

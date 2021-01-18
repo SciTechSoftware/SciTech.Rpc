@@ -60,7 +60,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             server.Start();
             try
             {
-                var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions
+                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions
                 {
                     Credential = new NetworkCredential(userName, userPw)
                 });
@@ -100,7 +100,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             server.Start();
             try
             {
-                var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
+                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
 
                 await connection.ConnectAsync(default).ContextFree();
                 Assert.IsTrue(connection.IsConnected);
@@ -138,7 +138,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
             server.Start();
 
-            var connection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
+            var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
 
             var x = Assert.CatchAsync(() => connection.ConnectAsync(CancellationToken.None).DefaultTimeout());
             Assert.IsNotInstanceOf<TimeoutException>(x);
@@ -148,12 +148,12 @@ namespace SciTech.Rpc.Tests.Lightweight
         public async Task Server_Should_KeepRunning_After_FailedConnection()
         {
             var server = new LightweightRpcServer();
-            await using (server.ContextFree())
+            try                               
             {
                 server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
                 server.Start();
 
-                await using (var failConnection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions()))
+                await using (var failConnection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions()))
                 {
                     try
                     {

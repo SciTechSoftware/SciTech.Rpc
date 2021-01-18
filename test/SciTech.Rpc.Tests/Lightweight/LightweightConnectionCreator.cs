@@ -14,7 +14,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             this.options = options;
         }
 
-        public (IRpcServer, RpcServerConnection) CreateServerAndConnection(
+        public (IRpcServer, RpcConnection) CreateServerAndConnection(
             RpcServiceDefinitionsBuilder serviceDefinitionsBuilder,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null)

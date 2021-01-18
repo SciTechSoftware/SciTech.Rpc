@@ -27,7 +27,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public abstract string HostName { get; }
 
-        public abstract RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId);
+        public abstract RpcConnectionInfo GetConnectionInfo(RpcServerId serverId);
 
         protected internal abstract ILightweightRpcListener CreateListener(
             IRpcConnectionHandler connectionHandler,

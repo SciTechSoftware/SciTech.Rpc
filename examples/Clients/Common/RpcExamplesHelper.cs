@@ -5,7 +5,7 @@ namespace Client
 {
     internal static class RpcExamplesHelper
     {
-        public static RpcServerConnectionInfo RetrieveConnectionInfo()
+        public static RpcConnectionInfo RetrieveConnectionInfo()
         {
             while (true)
             {
@@ -25,9 +25,9 @@ namespace Client
                     switch (choice)
                     {
                         case 1:
-                            return new RpcServerConnectionInfo(new Uri("grpc://localhost:50051"));
+                            return new RpcConnectionInfo(new Uri("grpc://localhost:50051"));
                         case 2:
-                            return new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50052"));
+                            return new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052"));
                     }
                 }
 

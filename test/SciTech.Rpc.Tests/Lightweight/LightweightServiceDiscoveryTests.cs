@@ -46,7 +46,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         public async Task NoSingletons_ShouldReturn_ConnectionInfo()
         { 
             var server = new LightweightRpcServer();
-            var connectionInfo = new RpcServerConnectionInfo(new Uri("test://test"));
+            var connectionInfo = new RpcConnectionInfo(new Uri("test://test"));
             var endPoint = new TestDiscoveryEndPoint(connectionInfo);
             server.AddEndPoint(endPoint);
             server.Start();
@@ -74,7 +74,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         public async Task Singletons_ShouldReturn_Published()
         {
             var server = new LightweightRpcServer();
-            var connectionInfo = new RpcServerConnectionInfo(new Uri("test://test"));
+            var connectionInfo = new RpcConnectionInfo(new Uri("test://test"));
             var endPoint = new TestDiscoveryEndPoint(connectionInfo);
             server.AddEndPoint(endPoint);
 
@@ -105,7 +105,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         public async Task GetConnections_ShouldReturn_Connection()
         {
             var server = new LightweightRpcServer();
-            var connectionInfo = new RpcServerConnectionInfo(new Uri("test://test"));
+            var connectionInfo = new RpcConnectionInfo(new Uri("test://test"));
             var endPoint = new TestDiscoveryEndPoint(connectionInfo);
             server.AddEndPoint(endPoint);
 
@@ -137,7 +137,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         public async Task ServerEndPoint_Should_CreateStartAndStop_Listener()
         {
             var server = new LightweightRpcServer();
-            var connectionInfo = new RpcServerConnectionInfo(new Uri("test://test"));
+            var connectionInfo = new RpcConnectionInfo(new Uri("test://test"));
             var endPoint = new TestDiscoveryEndPoint(connectionInfo);
             server.AddEndPoint(endPoint);
 
@@ -159,7 +159,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         public async Task Multicast_Singletons_ShouldReturn_Published()
         {
             var server = new LightweightRpcServer();
-            var connectionInfo = new RpcServerConnectionInfo(new Uri("test://test"));
+            var connectionInfo = new RpcConnectionInfo(new Uri("test://test"));
             var endPoint = new LightweightDiscoveryEndPoint(connectionInfo);
             server.AddEndPoint(endPoint);
 
@@ -205,7 +205,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
             var server = new LightweightRpcServer();
             var server2 = new LightweightRpcServer();
-            var connectionInfo = new RpcServerConnectionInfo(new Uri("test://test"));
+            var connectionInfo = new RpcConnectionInfo(new Uri("test://test"));
             var endPoint = new LightweightDiscoveryEndPoint(connectionInfo);
             server.AddEndPoint(endPoint);
             server2.AddEndPoint(endPoint);
@@ -372,11 +372,11 @@ namespace SciTech.Rpc.Tests.Lightweight
 
     internal class TestDiscoveryEndPoint : LightweightRpcEndPoint
     {
-        RpcServerConnectionInfo connectionInfo;
+        RpcConnectionInfo connectionInfo;
 
         List<TestDiscoveryListener> listeners = new List<TestDiscoveryListener>();
 
-        public TestDiscoveryEndPoint(RpcServerConnectionInfo connectionInfo)
+        public TestDiscoveryEndPoint(RpcConnectionInfo connectionInfo)
         {
             this.connectionInfo = connectionInfo;
         }
@@ -387,7 +387,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
         public override string HostName => connectionInfo.HostUrl.Host;
 
-        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        public override RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
         {
             return connectionInfo.SetServerId(serverId);
         }

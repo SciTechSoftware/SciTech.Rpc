@@ -26,7 +26,7 @@ namespace MailerClient
             var credentials = TestCertificates.GrpcSslCredentials;
             var sslOptions = TestCertificates.SslClientOptions;
             
-            var connectionManager = new RpcServerConnectionManager(
+            var connectionManager = new RpcConnectionManager(
                 new IRpcConnectionProvider[] {
                     new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
                     new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)

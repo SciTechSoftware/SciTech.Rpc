@@ -74,7 +74,7 @@ namespace SciTech.Rpc.Client
                 return proxyBase.Channel.GetServiceInstance<TService>(proxyBase.ObjectId, proxyBase.ImplementedServices, syncContext);
             }
 
-            throw new ArgumentException("Can only set synchronization context on services retrieved using IRpcServerConnection.");
+            throw new ArgumentException("Can only set synchronization context on services retrieved using IRpcConnection.");
         }
 
         public static TService? TryCast<TService>(this IRpcService rpcService) where TService : class

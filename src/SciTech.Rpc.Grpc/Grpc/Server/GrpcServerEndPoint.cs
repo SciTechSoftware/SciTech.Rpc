@@ -50,9 +50,9 @@ namespace SciTech.Rpc.Grpc.Server
 
         public int Port { get; }
 
-        public RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        public RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
         {
-            return new RpcServerConnectionInfo(this.DisplayName, new Uri( $"{GrpcScheme}://{this.HostName}:{this.Port}" ), serverId);
+            return new RpcConnectionInfo(this.DisplayName, new Uri( $"{GrpcScheme}://{this.HostName}:{this.Port}" ), serverId);
         }
 
         internal GrpcCore.ServerPort CreateServerPort()

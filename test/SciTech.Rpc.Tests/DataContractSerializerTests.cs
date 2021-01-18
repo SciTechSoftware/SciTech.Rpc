@@ -61,11 +61,11 @@ namespace SciTech.Rpc.Tests
         public void RefObjOfTypeToRefObjTest()
         {
             var ms = new MemoryStream();
-            ToStream(ms, false, new RpcObjectRef<ISimpleService>(new RpcServerConnectionInfo("Test", null, RpcServerId.NewId()), RpcObjectId.NewId(), null));
+            ToStream(ms, false, new RpcObjectRef<ISimpleService>(new RpcConnectionInfo("Test", null, RpcServerId.NewId()), RpcObjectId.NewId(), null));
             string text = Encoding.UTF8.GetString(ms.GetBuffer());
 
             var ms2 = new MemoryStream();
-            ToStream(ms2, true, new RpcObjectRef<ISimpleService>(new RpcServerConnectionInfo("Test", null, RpcServerId.NewId()), RpcObjectId.NewId(), null));
+            ToStream(ms2, true, new RpcObjectRef<ISimpleService>(new RpcConnectionInfo("Test", null, RpcServerId.NewId()), RpcObjectId.NewId(), null));
 
             ms.Seek(0, SeekOrigin.Begin);
             var ref1 = FromStream(typeof(RpcObjectRef<IBlockingService>), false, ms);

@@ -22,9 +22,9 @@ namespace SciTech.Rpc.Tests.Grpc
             this.activeCallCountersDictionary.Clear();
         }
 
-        public static RpcServerConnectionInfo CreateConnectionInfo()
+        public static RpcConnectionInfo CreateConnectionInfo()
         {
-            return new RpcServerConnectionInfo(new Uri($"grpc://localhost:{GrpcTestPort}"));
+            return new RpcConnectionInfo(new Uri($"grpc://localhost:{GrpcTestPort}"));
         }
 
         public static GrpcServerEndPoint CreateEndPoint()

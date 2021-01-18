@@ -18,16 +18,16 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc.Client
 {
     /// <summary>
-    /// Base implementation of the <see cref="IRpcServerConnection"/> interface.
+    /// Base implementation of the <see cref="IRpcConnection"/> interface.
     /// </summary>
-    public abstract class RpcServerConnection : RpcChannel, IRpcServerConnection
+    public abstract class RpcConnection : RpcChannel, IRpcConnection
     {
         private RpcConnectionState connectionState;
 
         private bool hasPendingStateChange;
 
-        protected RpcServerConnection(
-            RpcServerConnectionInfo connectionInfo,
+        protected RpcConnection(
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options,
             IRpcProxyGenerator proxyGenerator) : base(connectionInfo, options, proxyGenerator)
         {

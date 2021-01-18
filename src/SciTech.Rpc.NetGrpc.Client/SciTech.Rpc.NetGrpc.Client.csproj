@@ -27,7 +27,7 @@ This package contains the client communication layer for the fully managed ASP.N
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcMethodsCache.cs" Link="NetGrpc\Client\Internal\GrpcMethodsCache.cs" />
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyBase.cs" Link="NetGrpc\Client\Internal\GrpcProxyBase.cs" />
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\GrpcProxyGenerator.cs" Link="NetGrpc\Client\Internal\GrpcProxyGenerator.cs" />
-    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\IGrpcServerConnection.cs" Link="NetGrpc\Client\Internal\IGrpcServerConnection.cs" />
+    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Client\Internal\IGrpcRpcChannel.cs" Link="NetGrpc\Client\Internal\IGrpcRpcChannel.cs" />
     <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Internal\GrpcMethodDefinition.cs" />
   </ItemGroup>
   

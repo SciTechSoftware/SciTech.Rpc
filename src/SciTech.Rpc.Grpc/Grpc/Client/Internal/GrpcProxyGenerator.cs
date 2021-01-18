@@ -89,7 +89,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 }
                 else
                 {
-                    throw new InvalidOperationException("GrpcProxyGenerator should only be used for GrpcServerConnection.");
+                    throw new InvalidOperationException("GrpcProxyGenerator should only be used for GrpcConnection.");
                 }
             };
         }

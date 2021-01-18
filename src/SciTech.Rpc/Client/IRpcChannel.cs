@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Client
         /// <summary>
         /// Gets information about how a connection to the RPC server can be established using this channel.
         /// </summary>
-        RpcServerConnectionInfo ConnectionInfo { get; }
+        RpcConnectionInfo ConnectionInfo { get; }
 
         /// <summary>
         /// Gets the options for this channel.

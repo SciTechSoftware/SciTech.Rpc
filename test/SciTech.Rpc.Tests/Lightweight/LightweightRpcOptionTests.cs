@@ -13,13 +13,13 @@ namespace SciTech.Rpc.Tests.Lightweight
         {
         }
 
-        protected override RpcServerConnectionInfo CreateConnectionInfo()
+        protected override RpcConnectionInfo CreateConnectionInfo()
         {
             switch (this.ConnectionType)
             {
                 case RpcConnectionType.LightweightTcp:
                 case RpcConnectionType.LightweightSslTcp:
-                    return new RpcServerConnectionInfo(new Uri("lightweight.tcp://machine"));
+                    return new RpcConnectionInfo(new Uri("lightweight.tcp://machine"));
                 default:
                     throw new InvalidOperationException();
             }

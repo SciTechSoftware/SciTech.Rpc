@@ -30,7 +30,7 @@ namespace SciTech.Rpc.Tests
             var generator = new LightweightProxyGenerator();
 
             var factory = generator.GenerateObjectProxyFactory<ISingletonService>(null, null);
-            var proxy = (LightweightProxyBase)factory(RpcObjectId.Empty, new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost"))), null);
+            var proxy = (LightweightProxyBase)factory(RpcObjectId.Empty, new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost"))), null);
 
             var addMethod = proxy.proxyMethods.Single(m => m.OperationName == "SciTech.Rpc.Tests.SingletonService.Add");
             Assert.AreEqual(typeof(RpcRequest<int, int>), addMethod.RequestType);

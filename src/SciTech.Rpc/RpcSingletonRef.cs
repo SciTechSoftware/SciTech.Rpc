@@ -11,13 +11,13 @@ namespace SciTech.Rpc
     {
         public RpcSingletonRef() { }
 
-        internal RpcSingletonRef(RpcServerConnectionInfo? connectionInfo) 
+        internal RpcSingletonRef(RpcConnectionInfo? connectionInfo) 
         {
             this.ServerConnection = connectionInfo;
         }
 
         [DataMember(Order = 1)]
-        public RpcServerConnectionInfo? ServerConnection { get; private set; }
+        public RpcConnectionInfo? ServerConnection { get; private set; }
 
         public RpcSingletonRef<TOtherService> Cast<TOtherService>() where TOtherService : class
         {

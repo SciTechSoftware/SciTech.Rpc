@@ -37,9 +37,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public override string HostName => "direct";
 
-        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        public override RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
         {
-            return new RpcServerConnectionInfo("Direct", new Uri("direct://localhost"), serverId);
+            return new RpcConnectionInfo("Direct", new Uri("direct://localhost"), serverId);
         }
 
         protected internal override ILightweightRpcListener CreateListener(

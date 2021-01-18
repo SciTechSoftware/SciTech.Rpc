@@ -98,7 +98,7 @@ namespace SciTech.Rpc.Tests.Grpc
                 using (var publishScope = host.PublishInstance(serviceImpl))
                 {
                     var objectId = publishScope.Value.ObjectId;
-                    GrpcServerConnection connection = this.CreateGrpcConnection();
+                    GrpcConnection connection = this.CreateGrpcConnection();
 
                     var clientService = connection.GetServiceInstance<IThermostatServiceClient>(objectId);
                     var acoId = clientService.DeviceAcoId;
@@ -277,9 +277,9 @@ namespace SciTech.Rpc.Tests.Grpc
             }
         }
 
-        private GrpcServerConnection CreateGrpcConnection()
+        private GrpcConnection CreateGrpcConnection()
         {
-            return new GrpcServerConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, this.clientOptions.AsImmutable());
+            return new GrpcConnection(CreateConnectionInfo(), TestCertificates.GrpcSslCredentials, this.clientOptions.AsImmutable());
         }
     }
 }

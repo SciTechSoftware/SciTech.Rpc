@@ -26,12 +26,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     {
         /// <summary>
         /// Should be called by listener when a connection to an pipeline has been established.
-        /// This method will read requests and write responses to the pipeline, until the <paramref name="cancellationToken"/>
-        /// is cancelled, or the <paramref name="clientPipe"/> is closed.
+        /// This method will read requests and write responses to the pipeline, until the <paramref name="clientPipe"/> is closed.
         /// </summary>
         /// <param name="clientPipe"></param>
         /// <param name="user">The connected user; <c>null</c> if not available.</param>
-        /// <param name="cancellationToken"></param>
         /// <returns></returns>
         Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user);
 

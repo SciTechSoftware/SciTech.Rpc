@@ -46,14 +46,14 @@ namespace SciTech.Rpc.Lightweight.Client
         }
 
 
-        public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
+        public bool CanCreateChannel(RpcConnectionInfo connectionInfo)
         {            
             return connectionInfo?.HostUrl?.Scheme is string scheme 
                 &&  ( scheme == WellKnownRpcSchemes.LightweightTcp 
                 || scheme == WellKnownRpcSchemes.LightweightPipe );
         }
 
-        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options)
+        public IRpcChannel CreateChannel(RpcConnectionInfo connectionInfo, IRpcClientOptions? options)
         {
             var scheme = connectionInfo?.HostUrl?.Scheme;
             if (scheme == LightweightTcpScheme)

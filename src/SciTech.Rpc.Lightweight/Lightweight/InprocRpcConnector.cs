@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Lightweight
             this.EndPoint = new InprocRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
 
             this.Connection = new InprocRpcConnection(
-                new RpcServerConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId),
+                new RpcConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId),
                 new DuplexPipe(responsePipe.Reader, requestPipe.Writer),
                 options);
         }

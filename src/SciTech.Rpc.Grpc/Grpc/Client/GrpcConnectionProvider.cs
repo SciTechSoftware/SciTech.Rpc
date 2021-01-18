@@ -35,18 +35,18 @@ namespace SciTech.Rpc.Grpc.Client
             this.channelOptions = channelOptions?.ToImmutableArrayList();
         }
 
-        public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
+        public bool CanCreateChannel(RpcConnectionInfo connectionInfo)
         {
             return connectionInfo?.HostUrl?.Scheme == GrpcScheme;
         }
 
-        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options)
+        public IRpcChannel CreateChannel(RpcConnectionInfo connectionInfo, IRpcClientOptions? options)
         {
             if (connectionInfo?.HostUrl?.Scheme == GrpcScheme)
             {
                 var proxyGenerator = GrpcProxyGenerator.Default;
 
-                return new GrpcServerConnection(connectionInfo, this.credentials,
+                return new GrpcConnection(connectionInfo, this.credentials,
                     ImmutableRpcClientOptions.Combine(options, this.options), proxyGenerator, this.channelOptions);
             }
 

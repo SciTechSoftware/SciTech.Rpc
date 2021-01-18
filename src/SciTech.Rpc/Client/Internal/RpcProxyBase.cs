@@ -345,31 +345,33 @@ namespace SciTech.Rpc.Client.Internal
             where TRequest : class
             where TResponseReturn : class
         {
-            using var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
-
-            var sequence = streamingCall.ResponseStream;
-            while (true)
+            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
+            await using (streamingCall.ContextFree())
             {
-                TReturn retVal;
-
-                try
+                var sequence = streamingCall.ResponseStream;
+                while (true)
                 {
-                    if (await sequence.MoveNextAsync().ContextFree())
-                    {
-                        retVal = this.ConvertResult<TResponseReturn, TReturn>(responseConverter, sequence.Current);
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                catch (Exception e)
-                {
-                    this.HandleCallException(method, e);
-                    throw;
-                }
+                    TReturn retVal;
 
-                yield return retVal;
+                    try
+                    {
+                        if (await sequence.MoveNextAsync().ContextFree())
+                        {
+                            retVal = this.ConvertResult<TResponseReturn, TReturn>(responseConverter, sequence.Current);
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        this.HandleCallException(method, e);
+                        throw;
+                    }
+
+                    yield return retVal;
+                }
             }
         }
 
@@ -730,7 +732,8 @@ namespace SciTech.Rpc.Client.Internal
                 var streamingCallTask = this.CallStreamingMethodAsync<RpcObjectRequest, TEventArgs>(
                     request, beginMethod, eventData.cancellationSource.Token);
 
-                using (var streamingCall = await streamingCallTask.ContextFree())
+                var streamingCall = await streamingCallTask.ContextFree();
+                await using (streamingCall.ContextFree())
                 {
                     var responseStream = streamingCall.ResponseStream;
 

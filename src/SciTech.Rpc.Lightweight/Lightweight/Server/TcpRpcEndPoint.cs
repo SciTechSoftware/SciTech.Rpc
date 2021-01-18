@@ -100,9 +100,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public int Port => this.EndPoint.Port;
 
-        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        public override RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
         {
-            return new RpcServerConnectionInfo(this.DisplayName, new Uri($"lightweight.tcp://{this.HostName}:{this.Port}"), serverId);
+            return new RpcConnectionInfo(this.DisplayName, new Uri($"lightweight.tcp://{this.HostName}:{this.Port}"), serverId);
         }
 
         protected internal override ILightweightRpcListener CreateListener(
@@ -278,14 +278,6 @@ namespace SciTech.Rpc.Lightweight.Server
                 return Task.CompletedTask;
             }
 
-            /// <summary>
-            /// Gets the authentication options to use for a newly connected client.
-            /// </summary>
-            /// <param name="connectedClient"></param>
-            /// <param name="cancellationToken"></param>
-            /// <returns></returns>
-            /// <exception cref="InvalidDataException">Thrown if a connection frame cannot be retrieved from the sock.et</exception>
-            /// <exception cref="AuthenticationException">Thrown if no supported authentication scheme was provided by the client.</exception>
             protected async override Task<AuthenticationServerOptions> GetAuthenticationOptionsAsync(Stream connectedClientStream, CancellationToken cancellationToken)
             {
                 AuthenticationServerOptions? selectedOptions = null;

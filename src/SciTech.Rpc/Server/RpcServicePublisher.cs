@@ -60,7 +60,7 @@ namespace SciTech.Rpc.Server
 
         private readonly object syncRoot = new object();
 
-        private RpcServerConnectionInfo? connectionInfo;
+        private RpcConnectionInfo? connectionInfo;
 
         private bool connectionInfoRetrieved;
 
@@ -73,13 +73,13 @@ namespace SciTech.Rpc.Server
         }
 
 
-        public RpcServicePublisher(RpcServerConnectionInfo connectionInfo, IRpcServiceDefinitionsProvider serviceDefinitionsProvider)
+        public RpcServicePublisher(RpcConnectionInfo connectionInfo, IRpcServiceDefinitionsProvider serviceDefinitionsProvider)
         {
             this.InitConnectionInfo(connectionInfo);
             this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
         }
 
-        public RpcServerConnectionInfo? ConnectionInfo
+        public RpcConnectionInfo? ConnectionInfo
         {
             get
             {
@@ -103,6 +103,7 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Not owner")]
         public RpcObjectRef<TService> GetOrPublishInstance<TService>(TService serviceInstance) where TService : class
         {
             if (serviceInstance is null) throw new ArgumentNullException(nameof(serviceInstance));
@@ -173,7 +174,7 @@ namespace SciTech.Rpc.Server
         /// </summary>
         /// <param name="connectionInfo"></param>
         /// <exception cref="InvalidOperationException">Thrown if the <see cref="ConnectionInfo"/> has already been retrieved.</exception>
-        public void InitConnectionInfo(RpcServerConnectionInfo connectionInfo)
+        public void InitConnectionInfo(RpcConnectionInfo connectionInfo)
         {
             if (connectionInfo == null) throw new ArgumentNullException(nameof(connectionInfo));
 
@@ -300,7 +301,7 @@ namespace SciTech.Rpc.Server
                 connectionInfo), () => this.UnpublishSingleton<TService>());
         }
 
-        public RpcServerConnectionInfo RetrieveConnectionInfo()
+        public RpcConnectionInfo RetrieveConnectionInfo()
         {
             lock (this.syncRoot)
             {
@@ -308,7 +309,7 @@ namespace SciTech.Rpc.Server
 
                 if (this.connectionInfo == null)
                 {
-                    this.connectionInfo = new RpcServerConnectionInfo("RpcServer", null, this.serverId);
+                    this.connectionInfo = new RpcConnectionInfo("RpcServer", null, this.serverId);
                 }
                 else if (this.connectionInfo.ServerId != this.serverId)
                 {
@@ -334,7 +335,7 @@ namespace SciTech.Rpc.Server
         /// <summary>
         /// </summary>
         /// <param name="connectionInfo"></param>
-        public RpcServerConnectionInfo TryInitConnectionInfo(RpcServerConnectionInfo connectionInfo)
+        public RpcConnectionInfo TryInitConnectionInfo(RpcConnectionInfo connectionInfo)
         {
             if (connectionInfo == null)
             {

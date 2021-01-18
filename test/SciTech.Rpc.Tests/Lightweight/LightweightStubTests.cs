@@ -385,9 +385,9 @@ namespace SciTech.Rpc.Tests.Lightweight
 
         public override string HostName => "test";
 
-        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        public override RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
         {
-            return new RpcServerConnectionInfo(serverId);
+            return new RpcConnectionInfo(serverId);
         }
 
         protected internal override ILightweightRpcListener CreateListener(IRpcConnectionHandler discoveryHandler, int maxRequestSize, int maxResponseSize)

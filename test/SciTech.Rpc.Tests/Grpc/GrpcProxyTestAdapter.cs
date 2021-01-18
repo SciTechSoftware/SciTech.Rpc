@@ -13,7 +13,7 @@ namespace SciTech.Rpc.Tests.Grpc
             var generator = new GrpcProxyGenerator();
 
             var factory = generator.GenerateObjectProxyFactory<TService>(null, null);
-            var proxy = (RpcProxyBase<GrpcProxyMethod>)factory(RpcObjectId.Empty, new GrpcServerConnection(new RpcServerConnectionInfo(new Uri("grpc://localhost"))), null);
+            var proxy = (RpcProxyBase<GrpcProxyMethod>)factory(RpcObjectId.Empty, new GrpcConnection(new RpcConnectionInfo(new Uri("grpc://localhost"))), null);
             return proxy;
         }
 

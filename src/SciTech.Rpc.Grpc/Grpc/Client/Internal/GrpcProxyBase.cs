@@ -262,9 +262,10 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
             public IAsyncEnumerator<TResponse> ResponseStream { get; }
 
-            public void Dispose()
+            public ValueTask DisposeAsync()
             {
                 this.grpcCall.Dispose();
+                return default;
             }
 
             private class AsyncStreamWrapper : IAsyncEnumerator<TResponse>

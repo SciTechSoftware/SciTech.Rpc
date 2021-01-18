@@ -19,18 +19,18 @@ namespace SciTech.Rpc.NetGrpc.Client
             this.options = options;
         }
 
-        public bool CanCreateChannel(RpcServerConnectionInfo connectionInfo)
+        public bool CanCreateChannel(RpcConnectionInfo connectionInfo)
         {
             return connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc;
         }
 
-        public IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options)
+        public IRpcChannel CreateChannel(RpcConnectionInfo connectionInfo, IRpcClientOptions? options)
         {
             if (connectionInfo?.HostUrl?.Scheme == WellKnownRpcSchemes.Grpc)
             {
                 var proxyGenerator = GrpcProxyGenerator.Default;
 
-                return new NetGrpcServerConnection(connectionInfo, ImmutableRpcClientOptions.Combine(this.options, options), proxyGenerator, this.channelOptions);
+                return new NetGrpcConnection(connectionInfo, ImmutableRpcClientOptions.Combine(this.options, options), proxyGenerator, this.channelOptions);
             }
 
             throw new ArgumentException("Unsupported connection info. Use CanCreateConnection to check whether a connection can be created.");

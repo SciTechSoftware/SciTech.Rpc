@@ -38,11 +38,11 @@ namespace SciTech.Rpc.Server
         /// to provide connection information for <see cref="RpcObjectRef"/>s and <see cref="RpcSingletonRef{TService}"/>s
         /// returned from the server.
         /// </summary>
-        RpcServerConnectionInfo? ConnectionInfo { get; }
+        RpcConnectionInfo? ConnectionInfo { get; }
 
         /// <summary>
         /// Gets the server id associated with this publisher. If <see cref="ConnectionInfo"/> has been initialized this
-        /// will be the same id as <see cref="RpcServerConnectionInfo.ServerId">ConnectionInfo.ServerId</see>.
+        /// will be the same id as <see cref="RpcConnectionInfo.ServerId">ConnectionInfo.ServerId</see>.
         /// </summary>
         RpcServerId ServerId { get; }
 
@@ -66,7 +66,7 @@ namespace SciTech.Rpc.Server
         /// <returns>The <see cref="RpcObjectRef{TService}"/> of the published instance, if available; <c>null</c> otherwise.</returns>
         RpcObjectRef<TService>? GetPublishedInstance<TService>(TService serviceInstance) where TService : class;
 
-        void InitConnectionInfo(RpcServerConnectionInfo connectionInfo);
+        void InitConnectionInfo(RpcConnectionInfo connectionInfo);
 
         /// <summary>
         /// <para>
@@ -118,7 +118,7 @@ namespace SciTech.Rpc.Server
         /// and then return <see cref="ConnectionInfo"/>.
         /// </summary>
         /// <returns>The initialized <see cref="ConnectionInfo"/></returns>
-        RpcServerConnectionInfo RetrieveConnectionInfo();
+        RpcConnectionInfo RetrieveConnectionInfo();
 
         /// <summary>
         /// Gets the server identifier associated with this service publisher. If the server
@@ -128,7 +128,7 @@ namespace SciTech.Rpc.Server
         /// <returns>The initialized <see cref="ServerId"/></returns>
         RpcServerId RetrieveServerId();
 
-        RpcServerConnectionInfo TryInitConnectionInfo(RpcServerConnectionInfo connectionInfo);
+        RpcConnectionInfo TryInitConnectionInfo(RpcConnectionInfo connectionInfo);
 
         void UnpublishInstance(RpcObjectId serviceInstanceId);
 

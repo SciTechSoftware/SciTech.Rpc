@@ -16,7 +16,7 @@ using System.Linq;
 
 namespace SciTech.Rpc.Client.Internal
 {
-    public interface IAsyncStreamingServerCall<TResponse> : IDisposable
+    public interface IAsyncStreamingServerCall<TResponse> : IAsyncDisposable
     {
         IAsyncEnumerator<TResponse> ResponseStream { get; }
     }

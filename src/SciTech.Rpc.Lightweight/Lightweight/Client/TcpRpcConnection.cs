@@ -44,7 +44,7 @@ namespace SciTech.Rpc.Lightweight.Client
         private volatile AuthenticatedStream? authenticatedStream;
 
         public TcpRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             AuthenticationClientOptions? authenticationOptions = null,
             IRpcClientOptions? options = null,
             LightweightOptions? lightweightOptions = null)
@@ -57,7 +57,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
 
         internal TcpRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             AuthenticationClientOptions? authenticationOptions,
             IRpcClientOptions? options,
             LightweightProxyGenerator proxyGenerator,
@@ -228,13 +228,14 @@ namespace SciTech.Rpc.Lightweight.Client
         /// <summary>
         /// Gets the authentication options to use for a newly connected server.
         /// </summary>
-        /// <param name="connectedClient"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         /// <exception cref="InvalidDataException">Thrown if a connection frame cannot be retrieved from the sock.et</exception>
         /// <exception cref="AuthenticationException">Thrown if no supported authentication scheme was provided by the client.</exception>
         protected async Task<AuthenticationClientOptions> GetAuthenticationOptionsAsync(Stream connectedStream, CancellationToken cancellationToken)
         {
+            if (connectedStream is null) throw new ArgumentNullException(nameof(connectedStream));
+
             using var frameWriter = new LightweightRpcFrameWriter(MaxConnectionFrameSize);
 
             string supportedSchemes = this.authenticationOptions.Name;

@@ -22,35 +22,35 @@ using GrpcNet = Grpc.Net;
 
 namespace SciTech.Rpc.NetGrpc.Client
 {
-    public class NetGrpcServerConnection : RpcChannel, IGrpcRpcChannel
+    public class NetGrpcConnection : RpcChannel, IGrpcRpcChannel
     {
         private bool isSecure;
 
-        public NetGrpcServerConnection(
+        public NetGrpcConnection(
             string url,
             IRpcClientOptions? options = null,            
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
             : this(
-                  new RpcServerConnectionInfo(new Uri(url)),
+                  new RpcConnectionInfo(new Uri(url)),
                   options,
                   GrpcProxyGenerator.Default,
                   channelOptions)
         {
         }
-        public NetGrpcServerConnection(
+        public NetGrpcConnection(
             Uri url,
             IRpcClientOptions? options = null,
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
             : this(
-                  new RpcServerConnectionInfo(url),
+                  new RpcConnectionInfo(url),
                   options,
                   GrpcProxyGenerator.Default,
                   channelOptions)
         {
         }
 
-        public NetGrpcServerConnection(
-            RpcServerConnectionInfo connectionInfo,
+        public NetGrpcConnection(
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options = null,            
             GrpcNet.Client.GrpcChannelOptions? channelOptions = null)
             : this(connectionInfo, options, GrpcProxyGenerator.Default,
@@ -58,8 +58,8 @@ namespace SciTech.Rpc.NetGrpc.Client
         {
         }
 
-        internal NetGrpcServerConnection(
-            RpcServerConnectionInfo connectionInfo,
+        internal NetGrpcConnection(
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options,
             GrpcProxyGenerator proxyGenerator,
             GrpcNet.Client.GrpcChannelOptions? channelOptions)
@@ -125,7 +125,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             }
             else
             {
-                throw new NotImplementedException($"NetGrpcServerConnection is only implemented for the '{WellKnownRpcSchemes.Grpc}' scheme.");
+                throw new NotImplementedException($"NetGrpcConnection is only implemented for the '{WellKnownRpcSchemes.Grpc}' scheme.");
             }
         }
 

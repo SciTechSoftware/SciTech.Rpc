@@ -47,7 +47,7 @@ namespace SciTech.Rpc.Tests
 
     public interface ITestConnectionCreator
     {
-        (IRpcServer, RpcServerConnection) CreateServerAndConnection(RpcServiceDefinitionsBuilder serviceDefinitionsBuilder,
+        (IRpcServer, RpcConnection) CreateServerAndConnection(RpcServiceDefinitionsBuilder serviceDefinitionsBuilder,
             Action<RpcServerOptions> configServerOptions = null,
             Action<RpcClientOptions> configClientOptions = null);
     }
@@ -136,7 +136,7 @@ namespace SciTech.Rpc.Tests
 
                         }
                         var connection = new TcpRpcConnection(
-                            new RpcServerConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
+                            new RpcConnectionInfo("TCP", new Uri($"lightweight.tcp://127.0.0.1:{TcpTestPort}"), rpcServerId),
                             sslClientOptions,
                             clientOptions.AsImmutable(),
                             this.LightweightOptions);
@@ -150,7 +150,7 @@ namespace SciTech.Rpc.Tests
                         server.AddEndPoint(new NamedPipeRpcEndPoint("testpipe"));
 
                         var connection = new NamedPipeRpcConnection(
-                            new RpcServerConnectionInfo(new Uri("lightweight.pipe://./testpipe")),
+                            new RpcConnectionInfo(new Uri("lightweight.pipe://./testpipe")),
                             clientOptions.AsImmutable(),
                             this.LightweightOptions);
 
@@ -165,7 +165,7 @@ namespace SciTech.Rpc.Tests
                             logger: services.GetService<ILogger<LightweightRpcServer>>());
                         host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
-                        var connection = new InprocRpcConnection(new RpcServerConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
+                        var connection = new InprocRpcConnection(new RpcConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
                             new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable());
                         return (host, connection);
                     }
@@ -174,8 +174,8 @@ namespace SciTech.Rpc.Tests
                         var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions);
                         host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
-                        var connection = new GrpcServerConnection(
-                            new RpcServerConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
+                        var connection = new GrpcConnection(
+                            new RpcConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
                             TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable());
                         return (host, connection);
                     }
@@ -199,8 +199,8 @@ namespace SciTech.Rpc.Tests
                         };
 
                             
-                        var connection = new NetGrpcServerConnection(
-                            new RpcServerConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
+                        var connection = new NetGrpcConnection(
+                            new RpcConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
                             clientOptions.AsImmutable(), channelOptions);
                         return (server, connection);
                     }

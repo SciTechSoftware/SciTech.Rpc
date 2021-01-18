@@ -69,12 +69,8 @@ namespace SciTech.Rpc.Serialization
         {
             if (typeModel is null) throw new ArgumentNullException(nameof(typeModel));
 
-            var mt = typeModel.Add(typeof(RpcServerConnectionInfo), true);
-            //mt.AddSubType(10, typeof(TcpRpcServerConnectionInfo));
+            var mt = typeModel.Add(typeof(RpcConnectionInfo), true);
             mt.UseConstructor = false;
-
-            //mt = typeModel.Add(typeof(TcpRpcServerConnectionInfo), true);
-            //mt.UseConstructor = false;
 
             typeModel.Add(typeof(EventArgs), true);
 

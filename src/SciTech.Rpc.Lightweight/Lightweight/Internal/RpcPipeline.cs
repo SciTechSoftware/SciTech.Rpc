@@ -40,7 +40,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         /// <summary>
         /// Mutex that provides single access for pipe writers. 
         /// NOTE: This mutex will not be disposed when the pipeline is disposed. Since 
-        /// the <see cref="Close"/> method can be called concurrently, there's no easy way 
+        /// the <see cref="CloseAsync(Exception?)"/> method can be called concurrently, there's no easy way 
         /// of disposing the mutex correctly.
         /// </summary>
 #pragma warning disable CA2213
@@ -60,7 +60,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         protected RpcPipeline(IDuplexPipe pipe, int? maxSendFrameLength, int? maxReceiveFrameLength, bool skipLargeFrames)
         {
-            this.Pipe = pipe;
+            this.Pipe = pipe ?? throw new ArgumentNullException(nameof(pipe));
             this.MaxSendFrameLength = maxSendFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.MaxReceiveFrameLength = maxReceiveFrameLength ?? LightweightRpcFrame.DefaultMaxFrameLength;
             this.skipLargeFrames = skipLargeFrames;
@@ -97,10 +97,11 @@ namespace SciTech.Rpc.Lightweight.Internal
             return this.receiveLoopTask ?? Task.CompletedTask;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         public async Task CloseAsync(Exception? ex = null)
         {
             IDuplexPipe? pipe;
+            CancellationTokenSource? receiveLoopCts;
 
             await this.singleWriter.WaitAsync().ContextFree();
 
@@ -108,6 +109,8 @@ namespace SciTech.Rpc.Lightweight.Internal
             {
                 pipe = this.Pipe;
                 this.Pipe = null;
+                receiveLoopCts = this.receiveLoopCts;
+                this.receiveLoopCts = null;
             }
 
             this.singleWriter.Release();
@@ -125,7 +128,10 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
 
 
-                this.receiveLoopCts?.Cancel();
+                receiveLoopCts?.Cancel();
+
+                await this.WaitFinishedAsync().ContextFree();
+                receiveLoopCts?.Dispose();
 
                 this.OnClosed(ex);
             }            

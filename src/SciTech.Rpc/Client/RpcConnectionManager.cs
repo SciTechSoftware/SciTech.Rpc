@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
-    public class RpcServerConnectionManager : IRpcServerConnectionManager
+    public class RpcConnectionManager : IRpcConnectionManager
     {
 
         private readonly Dictionary<RpcServerId, IRpcChannel> idToKnownConnection
@@ -40,13 +40,13 @@ namespace SciTech.Rpc.Client
 
         // Constructor overload currently removed, since it causes ambiguity when using 
         // dependency injection.
-        public RpcServerConnectionManager(params IRpcConnectionProvider[] connectionProviders)
+        public RpcConnectionManager(params IRpcConnectionProvider[] connectionProviders)
             : this((IEnumerable<IRpcConnectionProvider>)connectionProviders)
         {
         }
 
 
-        public RpcServerConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IRpcClientOptions? options = null)
+        public RpcConnectionManager(IEnumerable<IRpcConnectionProvider> connectionProviders, IRpcClientOptions? options = null)
         {
             this.connectionProviders = connectionProviders.ToImmutableArray();
             this.Options = new ImmutableRpcClientOptions(options);
@@ -91,7 +91,7 @@ namespace SciTech.Rpc.Client
             }
         }
 
-        public IRpcChannel GetServerConnection(RpcServerConnectionInfo connectionInfo)
+        public IRpcChannel GetServerConnection(RpcConnectionInfo connectionInfo)
         {
             if (connectionInfo is null) throw new ArgumentNullException(nameof(connectionInfo));
 
@@ -153,7 +153,7 @@ namespace SciTech.Rpc.Client
             return serverConnection.GetServiceInstance<TService>(serviceRef.ObjectId, serviceRef.ImplementedServices, syncContext);
         }
 
-        public TService GetServiceSingleton<TService>(RpcServerConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class
+        public TService GetServiceSingleton<TService>(RpcConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class
         {
             var serverConnection = this.GetServerConnection(connectionInfo);
             return serverConnection.GetServiceSingleton<TService>(syncContext);
@@ -223,7 +223,7 @@ namespace SciTech.Rpc.Client
             await Task.WhenAll(shutdownTasks).ContextFree();
         }
 
-        protected virtual IRpcChannel CreateServerConnection(RpcServerConnectionInfo serverConnectionInfo)
+        protected virtual IRpcChannel CreateServerConnection(RpcConnectionInfo serverConnectionInfo)
         {
             foreach (var connectionProvider in this.connectionProviders)
             {
@@ -236,7 +236,7 @@ namespace SciTech.Rpc.Client
             throw new NotSupportedException("Cannot create a connection for the specified connection info.");
         }
 
-        private IRpcChannel? GetExistingConnection(RpcServerConnectionInfo connectionInfo)
+        private IRpcChannel? GetExistingConnection(RpcConnectionInfo connectionInfo)
         {
             if (connectionInfo.ServerId != RpcServerId.Empty)
             {

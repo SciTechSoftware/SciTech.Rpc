@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Tests.Grpc
         //            var objectId = publishScope.Value.ObjectId;
 
         //            var proxyGenerator = new GrpcProxyProvider();
-        //            var connection = new GrpcServerConnection(new TcpRpcServerConnectionInfo("localhost", GrpcTestPort), proxyGenerator, this.serializer);
+        //            var connection = new GrpcConnection(new TcpRpcServerConnectionInfo("localhost", GrpcTestPort), proxyGenerator, this.serializer);
 
         //            var clientService = connection.GetRpcServiceInstance<IBlockingServiceClient>(objectId);
 

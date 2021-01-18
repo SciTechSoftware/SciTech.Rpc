@@ -31,11 +31,11 @@ namespace SciTech.Rpc.Lightweight.Client
     /// </para>
     /// <para>To create a connection, use one of the derived classes,
     /// e.g. <see cref="TcpRpcConnection"/>, <see cref="NamedPipeRpcConnection"/>, or <see cref="InprocRpcConnection"/>. 
-    /// Alternatively, a <see cref="LightweightConnectionProvider"/> can be registered with an <see cref="RpcServerConnectionManager"/>
-    /// and then connections can be retrieved using <see cref="RpcServerConnectionManager.CreateServerConnection(RpcServerConnectionInfo)"/>.
+    /// Alternatively, a <see cref="LightweightConnectionProvider"/> can be registered with an <see cref="RpcConnectionManager"/>
+    /// and then connections can be retrieved using <see cref="RpcConnectionManager.CreateServerConnection(RpcConnectionInfo)"/>.
     /// </para>
     /// </summary>
-    public abstract class LightweightRpcConnection : RpcServerConnection
+    public abstract class LightweightRpcConnection : RpcConnection
     {
         public const int DefaultMaxRequestMessageSize = 4 * 1024 * 1024;
 
@@ -46,7 +46,7 @@ namespace SciTech.Rpc.Lightweight.Client
         private TaskCompletionSource<RpcPipelineClient>? connectionTcs;
 
         protected LightweightRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options,           
             LightweightOptions? lightweightOptions)
             : this(connectionInfo, options, LightweightProxyGenerator.Default, lightweightOptions)
@@ -54,7 +54,7 @@ namespace SciTech.Rpc.Lightweight.Client
         }
 
         private protected LightweightRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options,
             LightweightProxyGenerator proxyGenerator,
             LightweightOptions? lightweightOptions)
@@ -155,7 +155,7 @@ namespace SciTech.Rpc.Lightweight.Client
                     var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
 
                     connectedClient.ReceiveLoopFaulted += this.ConnectedClient_ReceiveLoopFaulted;
-                    connectedClient.RunAsyncCore();
+                    connectedClient.RunAsyncCore().Forget();
 
                     TaskCompletionSource<RpcPipelineClient>? connectionTcs;
                     lock (this.SyncRoot)
@@ -219,6 +219,10 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private void ConnectedClient_ReceiveLoopFaulted(object? sender, ExceptionEventArgs e)
         {
+            // ResetConnectionAsync will call CloseAsync which will wait for the receive loop to exit.
+            // Since ReceiveLoopFaulted is invoked from the receive loop, it's important that this 
+            // method does not block.
+
             ResetAndNotifyAsync().Forget();
 
             async Task ResetAndNotifyAsync()

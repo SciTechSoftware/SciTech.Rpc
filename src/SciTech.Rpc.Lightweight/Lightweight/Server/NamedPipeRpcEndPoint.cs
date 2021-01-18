@@ -43,9 +43,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public override string HostName => this.uri.Host;
 
-        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        public override RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
         {
-            return new RpcServerConnectionInfo(this.DisplayName, this.uri, serverId);
+            return new RpcConnectionInfo(this.DisplayName, this.uri, serverId);
         }
 
         protected internal override ILightweightRpcListener CreateListener(

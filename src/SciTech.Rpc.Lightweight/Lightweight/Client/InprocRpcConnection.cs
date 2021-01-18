@@ -25,7 +25,7 @@ namespace SciTech.Rpc.Lightweight.Client
         private IDuplexPipe? clientPipe;
 
         public InprocRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
             IRpcClientOptions? options=null,            
             LightweightOptions? lightweightOptions = null)

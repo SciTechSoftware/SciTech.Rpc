@@ -19,11 +19,11 @@ namespace SciTech.Rpc.Lightweight.Server
         public static readonly IPAddress DefaultMulticastAddressV6_2 = IPAddress.Parse("ff18::9832");
         public const int DefaultDiscoveryPort = 39159;
 
-        private readonly RpcServerConnectionInfo connectionInfo;
+        private readonly RpcConnectionInfo connectionInfo;
 
         private readonly ILogger? logger;
 
-        public LightweightDiscoveryEndPoint(RpcServerConnectionInfo connectionInfo, ILogger? logger = null)
+        public LightweightDiscoveryEndPoint(RpcConnectionInfo connectionInfo, ILogger? logger = null)
         {
             this.connectionInfo = connectionInfo;
             this.logger = logger;
@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
         public override string HostName => this.connectionInfo.HostUrl?.Host ?? "";
 
-        public override RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId)
+        public override RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
             => this.connectionInfo.SetServerId(serverId);
 
         protected internal override ILightweightRpcListener CreateListener(

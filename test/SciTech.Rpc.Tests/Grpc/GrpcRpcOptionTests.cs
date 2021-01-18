@@ -13,9 +13,9 @@ namespace SciTech.Rpc.Tests.Grpc
         {
         }
 
-        protected override RpcServerConnectionInfo CreateConnectionInfo()
+        protected override RpcConnectionInfo CreateConnectionInfo()
         {
-            return new RpcServerConnectionInfo(new Uri("grpc://machine"));
+            return new RpcConnectionInfo(new Uri("grpc://machine"));
         }
 
         protected override IRpcConnectionProvider CreateConnectionProvider(ImmutableRpcClientOptions options)

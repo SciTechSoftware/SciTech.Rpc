@@ -28,10 +28,10 @@ namespace SciTech.Rpc.Client
     /// Extends <see cref="IRpcChannel"/> with methods and properties for a connection oriented channel.
     /// </summary>
     /// <remarks>
-    /// A server connection represents an established connection to a server process. <see cref="RpcServerConnectionInfo"/> is
+    /// A server connection represents an established connection to a server process. <see cref="RpcConnectionInfo"/> is
     /// used to provide information about a connection.
     /// </remarks>
-    public interface IRpcServerConnection : IRpcChannel
+    public interface IRpcConnection : IRpcChannel
     {
         event EventHandler? Connected;
 

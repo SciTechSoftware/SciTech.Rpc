@@ -17,64 +17,64 @@ namespace SciTech.Rpc.Client
 {
     public interface IRpcConnectionProvider
     {
-        bool CanCreateChannel(RpcServerConnectionInfo connectionInfo);
+        bool CanCreateChannel(RpcConnectionInfo connectionInfo);
 
-        IRpcChannel CreateChannel(RpcServerConnectionInfo connectionInfo, IRpcClientOptions? options);
+        IRpcChannel CreateChannel(RpcConnectionInfo connectionInfo, IRpcClientOptions? options);
     }
 
-    public interface IRpcServerConnectionManager
+    public interface IRpcConnectionManager
     {
         void AddKnownChannel(IRpcChannel channel);
 
         TService GetServiceInstance<TService>(RpcObjectRef serviceRef, SynchronizationContext? syncContext) where TService : class;
 
-        TService GetServiceSingleton<TService>(RpcServerConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class;
+        TService GetServiceSingleton<TService>(RpcConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class;
 
-        IRpcChannel GetServerConnection(RpcServerConnectionInfo connectionInfo);
+        IRpcChannel GetServerConnection(RpcConnectionInfo connectionInfo);
         
         bool RemoveKnownChannel(IRpcChannel channel);
 
         ImmutableRpcClientOptions Options { get; }
     }
 
-    public static class RpcServerConnectionManagerExtensions
+    public static class RpcConnectionManagerExtensions
     {
-        public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
+        public static TService GetServiceInstance<TService>(this IRpcConnectionManager connectionManager, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
         {
             if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
 
             return connectionManager.GetServiceInstance<TService>(serviceRef, useSyncContext ? SynchronizationContext.Current : null);
         }
 
-        public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef serviceRef, SynchronizationContext syncContext) where TService : class
+        public static TService GetServiceInstance<TService>(this IRpcConnectionManager connectionManager, RpcObjectRef serviceRef, SynchronizationContext syncContext) where TService : class
         {
             if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
 
             return connectionManager.GetServiceInstance<TService>(serviceRef, syncContext);
         }
 
-        public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef<TService> serviceRef, SynchronizationContext syncContext) where TService : class
+        public static TService GetServiceInstance<TService>(this IRpcConnectionManager connectionManager, RpcObjectRef<TService> serviceRef, SynchronizationContext syncContext) where TService : class
         {
             if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
 
             return connectionManager.GetServiceInstance<TService>(serviceRef, syncContext);
         }
 
-        public static TService GetServiceInstance<TService>(this IRpcServerConnectionManager connectionManager, RpcObjectRef<TService> serviceRef, bool useSyncContext = true) where TService : class
+        public static TService GetServiceInstance<TService>(this IRpcConnectionManager connectionManager, RpcObjectRef<TService> serviceRef, bool useSyncContext = true) where TService : class
         {
             if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
 
             return connectionManager.GetServiceInstance<TService>(serviceRef, useSyncContext ? SynchronizationContext.Current : null);
         }
 
-        public static TService GetServiceSingleton<TService>(this IRpcServerConnectionManager connectionManager, RpcServerConnectionInfo connectionInfo, bool useSyncContext = true) where TService : class
+        public static TService GetServiceSingleton<TService>(this IRpcConnectionManager connectionManager, RpcConnectionInfo connectionInfo, bool useSyncContext = true) where TService : class
         {
             if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
 
             return connectionManager.GetServiceSingleton<TService>(connectionInfo, useSyncContext ? SynchronizationContext.Current : null);
         }
 
-        public static TService GetServiceSingleton<TService>(this IRpcServerConnectionManager connectionManager, RpcSingletonRef<TService> singletonRef, bool useSyncContext = true) where TService : class
+        public static TService GetServiceSingleton<TService>(this IRpcConnectionManager connectionManager, RpcSingletonRef<TService> singletonRef, bool useSyncContext = true) where TService : class
         {
             if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
 
@@ -92,7 +92,7 @@ namespace SciTech.Rpc.Client
             return connectionManager.GetServiceSingleton<TService>(connection, useSyncContext ? SynchronizationContext.Current : null);
         }
 
-        public static TService GetServiceSingleton<TService>(this IRpcServerConnectionManager connectionManager, RpcSingletonRef<TService> singletonRef, SynchronizationContext syncContext) where TService : class
+        public static TService GetServiceSingleton<TService>(this IRpcConnectionManager connectionManager, RpcSingletonRef<TService> singletonRef, SynchronizationContext syncContext) where TService : class
         {
             if (connectionManager == null) throw new ArgumentNullException(nameof(connectionManager));
 

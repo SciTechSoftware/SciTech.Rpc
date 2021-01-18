@@ -38,7 +38,7 @@ namespace SciTech.Rpc.Client
         private volatile IRpcSerializer? serializer;
 
         protected RpcChannel(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options,
             IRpcProxyGenerator proxyGenerator)
         {
@@ -48,7 +48,7 @@ namespace SciTech.Rpc.Client
         }
 
         /// <inheritdoc/>
-        public RpcServerConnectionInfo ConnectionInfo { get; }
+        public RpcConnectionInfo ConnectionInfo { get; }
 
         /// <inheritdoc/>
         public ImmutableRpcClientOptions Options { get; }

@@ -22,6 +22,6 @@ namespace SciTech.Rpc.Server
 
         string HostName { get; }
 
-        RpcServerConnectionInfo GetConnectionInfo(RpcServerId serverId);
+        RpcConnectionInfo GetConnectionInfo(RpcServerId serverId);
     }
 }

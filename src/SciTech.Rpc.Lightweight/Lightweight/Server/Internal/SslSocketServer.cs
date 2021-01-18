@@ -27,6 +27,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
@@ -46,6 +47,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private Socket? listener;
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
         protected SslSocketServer()
         {
             this.RunClientAsync = async boxed =>
@@ -148,7 +150,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Logging errors")]
-        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "False positive")]
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Transferring ownership")]
         private async Task ListenForConnectionsAsync(PipeOptions sendOptions, PipeOptions receiveOptions)
         {
             try
@@ -201,7 +203,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
 
                             IPrincipal? user = null;
-                            if (authenticationOptions != null)
+                            if (socketStream != null && authenticationOptions != null)
                             {
                                 if (authenticationOptions is SslServerOptions sslOptions)
                                 {

@@ -21,7 +21,7 @@ namespace SciTech.Rpc
     {
         public RpcObjectRef() { }
 
-        internal RpcObjectRef(RpcServerConnectionInfo? connectionInfo, RpcObjectId objectId, string[]? implementedServices) : base(connectionInfo, objectId, implementedServices)
+        internal RpcObjectRef(RpcConnectionInfo? connectionInfo, RpcObjectId objectId, string[]? implementedServices) : base(connectionInfo, objectId, implementedServices)
         {
         }
 
@@ -34,7 +34,7 @@ namespace SciTech.Rpc
         public new RpcObjectId ObjectId { get => base.ObjectId; protected set => base.ObjectId = value; }
 
         [DataMember(Order = 2)]
-        public new RpcServerConnectionInfo? ServerConnection { get => base.ServerConnection; protected set => base.ServerConnection = value; }
+        public new RpcConnectionInfo? ServerConnection { get => base.ServerConnection; protected set => base.ServerConnection = value; }
     }
 
     [DataContract]
@@ -43,7 +43,7 @@ namespace SciTech.Rpc
     {
         public RpcObjectRef() { }
 
-        internal RpcObjectRef(RpcServerConnectionInfo? connectionInfo, RpcObjectId objectId, string[]? implementedServices)
+        internal RpcObjectRef(RpcConnectionInfo? connectionInfo, RpcObjectId objectId, string[]? implementedServices)
         {
             this.ServerConnection = connectionInfo;
             this.ObjectId = objectId;
@@ -59,7 +59,7 @@ namespace SciTech.Rpc
         public RpcObjectId ObjectId { get; set; }
 
         [DataMember(Order = 2)]
-        public RpcServerConnectionInfo? ServerConnection { get; set; }
+        public RpcConnectionInfo? ServerConnection { get; set; }
 
         public RpcObjectRef<TService> Cast<TService>() where TService : class
         {

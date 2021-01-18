@@ -82,13 +82,13 @@ namespace SciTech.Rpc
         }
     }
 
-    internal class RpcServerConnectionInfoConverter : JsonConverter<RpcServerConnectionInfo>
+    internal class RpcConnectionInfoConverter : JsonConverter<RpcConnectionInfo>
     {
-        public RpcServerConnectionInfoConverter()
+        public RpcConnectionInfoConverter()
         {
         }
 
-        public override void Write(Utf8JsonWriter writer, RpcServerConnectionInfo value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, RpcConnectionInfo value, JsonSerializerOptions options)
         {
             writer.WriteStartObject();
             writer.WriteString("DisplayName", value.DisplayName);
@@ -97,7 +97,7 @@ namespace SciTech.Rpc
             writer.WriteEndObject();
         }
 
-        public override RpcServerConnectionInfo Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override RpcConnectionInfo Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             if (reader.TokenType != JsonTokenType.StartObject)
             {
@@ -131,7 +131,7 @@ namespace SciTech.Rpc
                             break;
                         }
                     case JsonTokenType.EndObject:
-                        return new RpcServerConnectionInfo(displayName, !string.IsNullOrEmpty(hostUrl) ? new Uri(hostUrl) : null, new RpcServerId(serverId));
+                        return new RpcConnectionInfo(displayName, !string.IsNullOrEmpty(hostUrl) ? new Uri(hostUrl) : null, new RpcServerId(serverId));
                     default:
                         throw new JsonException();
                 }
@@ -142,13 +142,13 @@ namespace SciTech.Rpc
     }
 
     /// <summary>
-    /// The RpcServerConnectionInfo class contains information about a connection 
+    /// The <see cref="RpcConnectionInfo "/> class contains information about a connection 
     /// to an RPC server. 
     /// </summary>
     [DataContract]
     [Serializable]
-    [JsonConverter(typeof(RpcServerConnectionInfoConverter))]
-    public sealed class RpcServerConnectionInfo : IEquatable<RpcServerConnectionInfo>
+    [JsonConverter(typeof(RpcConnectionInfoConverter))]
+    public sealed class RpcConnectionInfo : IEquatable<RpcConnectionInfo>
     {
         [NonSerialized]
         private Uri? hostUrl;
@@ -156,13 +156,13 @@ namespace SciTech.Rpc
         [DataMember(Name = "HostUrl", Order = 2)]
         private string? hostUrlString;
 
-        public RpcServerConnectionInfo()
+        public RpcConnectionInfo()
         {
             this.DisplayName = "";
             this.HostUrl = null;
         }
 
-        public RpcServerConnectionInfo(RpcServerId serverId)
+        public RpcConnectionInfo(RpcServerId serverId)
         {
             this.DisplayName = "";
             this.HostUrl = null;
@@ -173,7 +173,7 @@ namespace SciTech.Rpc
         /// Initializes a new ServerConnectionInfo with the supplied displayName and serverId.
         /// </summary>
         /// <param name="serverId">Id of the server.</param>
-        public RpcServerConnectionInfo(Uri? hostUrl, RpcServerId serverId = default)
+        public RpcConnectionInfo(Uri? hostUrl, RpcServerId serverId = default)
         {
             this.DisplayName = hostUrl?.Host ?? "";
             this.HostUrl = hostUrl;
@@ -185,7 +185,7 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="displayName">The display name of the server connection.</param>
         /// <param name="serverId">Id of the server.</param>
-        public RpcServerConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId = default)
+        public RpcConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId = default)
         {
             this.DisplayName = displayName ?? hostUrl?.Host ?? "";
             this.HostUrl = hostUrl;
@@ -239,10 +239,10 @@ namespace SciTech.Rpc
 
         public override sealed bool Equals(object? obj)
         {
-            return obj is RpcServerConnectionInfo other && this.Equals(other);
+            return obj is RpcConnectionInfo other && this.Equals(other);
         }
 
-        public bool Equals([AllowNull]RpcServerConnectionInfo other)
+        public bool Equals([AllowNull]RpcConnectionInfo other)
         {
             if (other != null )
             {
@@ -264,7 +264,7 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>
-        public bool Matches(RpcServerConnectionInfo other)
+        public bool Matches(RpcConnectionInfo other)
         {
             if (other == null)
             {
@@ -287,14 +287,14 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="serverId"></param>
         /// <returns></returns>
-        public RpcServerConnectionInfo SetServerId(RpcServerId serverId)
+        public RpcConnectionInfo SetServerId(RpcServerId serverId)
         {
-            if (this.GetType() != typeof(RpcServerConnectionInfo))
+            if (this.GetType() != typeof(RpcConnectionInfo))
             {
                 throw new NotImplementedException("SetServerId must be implemented by derived class");
             }
 
-            return new RpcServerConnectionInfo(this.DisplayName, this.HostUrl, serverId);
+            return new RpcConnectionInfo(this.DisplayName, this.HostUrl, serverId);
         }
 
         public override string ToString()

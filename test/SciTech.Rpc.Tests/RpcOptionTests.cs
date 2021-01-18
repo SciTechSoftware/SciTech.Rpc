@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void ConnectionManagerOptions_Should_Propagate()
         {
-            var connectionManager = new RpcServerConnectionManager(new IRpcConnectionProvider[] { this.CreateConnectionProvider(null) }, ConnectionManagerOptions);
+            var connectionManager = new RpcConnectionManager(new IRpcConnectionProvider[] { this.CreateConnectionProvider(null) }, ConnectionManagerOptions);
 
             var connection = connectionManager.GetServerConnection(this.CreateConnectionInfo());
 
@@ -49,14 +49,14 @@ namespace SciTech.Rpc.Tests
         [Test]
         public void ConnectionProviderOptions_Should_Propagate()
         {
-            var connectionManager = new RpcServerConnectionManager(new IRpcConnectionProvider[] { this.CreateConnectionProvider(ProviderOptions.AsImmutable()) }, ConnectionManagerOptions);
+            var connectionManager = new RpcConnectionManager(new IRpcConnectionProvider[] { this.CreateConnectionProvider(ProviderOptions.AsImmutable()) }, ConnectionManagerOptions);
 
             var connection = connectionManager.GetServerConnection(this.CreateConnectionInfo());
 
             AssertOptions(ProviderOptions, connection.Options);
         }
 
-        protected abstract RpcServerConnectionInfo CreateConnectionInfo();
+        protected abstract RpcConnectionInfo CreateConnectionInfo();
 
         protected abstract IRpcConnectionProvider CreateConnectionProvider(ImmutableRpcClientOptions options);
 

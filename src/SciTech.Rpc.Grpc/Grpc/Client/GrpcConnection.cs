@@ -23,12 +23,12 @@ using GrpcCore = Grpc.Core;
 
 namespace SciTech.Rpc.Grpc.Client
 {
-    public class GrpcServerConnection : RpcChannel, IGrpcRpcChannel
+    public class GrpcConnection : RpcChannel, IGrpcRpcChannel
     {
         private bool isSecure;
 
-        public GrpcServerConnection(
-            RpcServerConnectionInfo connectionInfo,
+        public GrpcConnection(
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
             : this(connectionInfo,
@@ -38,8 +38,8 @@ namespace SciTech.Rpc.Grpc.Client
         {
         }
 
-        public GrpcServerConnection(
-            RpcServerConnectionInfo connectionInfo,
+        public GrpcConnection(
+            RpcConnectionInfo connectionInfo,
             GrpcCore.ChannelCredentials credentials,
             IRpcClientOptions? options = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
@@ -50,8 +50,8 @@ namespace SciTech.Rpc.Grpc.Client
         {
         }
 
-        internal GrpcServerConnection(
-            RpcServerConnectionInfo connectionInfo,
+        internal GrpcConnection(
+            RpcConnectionInfo connectionInfo,
             GrpcCore.ChannelCredentials credentials,
             IRpcClientOptions? options,
             GrpcProxyGenerator proxyGenerator,
@@ -103,7 +103,7 @@ namespace SciTech.Rpc.Grpc.Client
             }
             else
             {
-                throw new NotImplementedException($"GrpcServerConnection is only implemented for the '{nameof(GrpcConnectionProvider.GrpcScheme)}' scheme.");
+                throw new NotImplementedException($"GrpcConnection is only implemented for the '{nameof(GrpcConnectionProvider.GrpcScheme)}' scheme.");
             }
         }
 

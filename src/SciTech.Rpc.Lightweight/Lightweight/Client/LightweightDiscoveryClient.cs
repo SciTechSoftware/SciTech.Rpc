@@ -19,24 +19,24 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     public sealed class DiscoveredServerEventArgs : EventArgs
     {
-        internal DiscoveredServerEventArgs(RpcServerConnectionInfo connectionInfo)
+        internal DiscoveredServerEventArgs(RpcConnectionInfo connectionInfo)
         {
             this.DiscoveredServer = connectionInfo;
         }
 
-        public RpcServerConnectionInfo DiscoveredServer { get; }
+        public RpcConnectionInfo DiscoveredServer { get; }
     }
 
     public sealed class DiscoveredService
     {
-        internal DiscoveredService(RpcServerConnectionInfo connectionInfo, string service/*, int version*/)
+        internal DiscoveredService(RpcConnectionInfo connectionInfo, string service/*, int version*/)
         {
             this.ConnectionInfo = connectionInfo;
             this.Service = service;
             //this.Version = version;
         }
 
-        public RpcServerConnectionInfo ConnectionInfo { get; }
+        public RpcConnectionInfo ConnectionInfo { get; }
 
         public string Service { get; }
 
@@ -236,7 +236,7 @@ namespace SciTech.Rpc.Lightweight.Client
             }            
         }
 
-        private void UpdateDiscoveredServices(RpcServerConnectionInfo connectionInfo, ImmutableArray<DiscoveredService> services, ImmutableArray<DiscoveredService> oldServices)
+        private void UpdateDiscoveredServices(RpcConnectionInfo connectionInfo, ImmutableArray<DiscoveredService> services, ImmutableArray<DiscoveredService> oldServices)
         {
             foreach( var service in services )
             {
@@ -329,12 +329,12 @@ namespace SciTech.Rpc.Lightweight.Client
         }
         private sealed class DiscoveredServer
         {
-            internal DiscoveredServer(RpcServerConnectionInfo connectionInfo)
+            internal DiscoveredServer(RpcConnectionInfo connectionInfo)
             {
                 this.ConnectionInfo = connectionInfo;
             }
 
-            internal RpcServerConnectionInfo ConnectionInfo { get; }
+            internal RpcConnectionInfo ConnectionInfo { get; }
 
             internal ImmutableArray<DiscoveredService> Services { get; private set; } = ImmutableArray<DiscoveredService>.Empty;
 

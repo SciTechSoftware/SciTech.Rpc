@@ -99,7 +99,7 @@ namespace SciTech.Rpc.Grpc.Server
         /// <summary>
         /// Initializes the connection info for this server. If the <see cref="IRpcServicePublisher.ConnectionInfo"/> for 
         /// the service publisher has not been initialized, this method will initialize that as well.
-        /// If the publisher connection info is initialized, the server id of the provided <see cref="RpcServerConnectionInfo"/>
+        /// If the publisher connection info is initialized, the server id of the provided <see cref="RpcConnectionInfo"/>
         /// must match the publisher id.
         /// </summary>
         public void AddEndPoint(GrpcServerEndPoint endPoint)

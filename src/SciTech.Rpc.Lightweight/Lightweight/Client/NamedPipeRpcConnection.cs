@@ -17,7 +17,7 @@ namespace SciTech.Rpc.Lightweight.Client
     public class NamedPipeRpcConnection : LightweightRpcConnection
     {
         public NamedPipeRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options = null,
             LightweightOptions? lightweightOptions = null)
             : this(connectionInfo, options,
@@ -31,7 +31,7 @@ namespace SciTech.Rpc.Lightweight.Client
             IRpcClientOptions? options = null,            
             LightweightOptions? lightweightOptions = null)
             : this( 
-                  new RpcServerConnectionInfo( new Uri($"{WellKnownRpcSchemes.LightweightPipe}://./{path}" )), 
+                  new RpcConnectionInfo( new Uri($"{WellKnownRpcSchemes.LightweightPipe}://./{path}" )), 
                   options,
                   LightweightProxyGenerator.Default,
                   lightweightOptions)
@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Lightweight.Client
         }
 
         internal NamedPipeRpcConnection(
-            RpcServerConnectionInfo connectionInfo,
+            RpcConnectionInfo connectionInfo,
             IRpcClientOptions? options,
             LightweightProxyGenerator proxyGenerator,
             LightweightOptions? lightweightOptions)

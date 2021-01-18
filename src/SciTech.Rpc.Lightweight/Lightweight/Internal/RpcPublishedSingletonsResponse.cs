@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         public Guid ClientId { get; set; }
 
         [DataMember(Order = 2)]
-        public RpcServerConnectionInfo? ConnectionInfo { get; set; }
+        public RpcConnectionInfo? ConnectionInfo { get; set; }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Internal serialization")]
         [DataMember(Order = 3)]
@@ -54,7 +54,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         public Guid ClientId { get; set; }
 
         [DataMember(Order = 2)]
-        public RpcServerConnectionInfo? ConnectionInfo { get; set; }
+        public RpcConnectionInfo? ConnectionInfo { get; set; }
     }
 
     [DataContract]

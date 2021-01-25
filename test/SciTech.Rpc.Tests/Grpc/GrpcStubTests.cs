@@ -3,6 +3,7 @@ using Grpc.Core.Testing;
 using Moq;
 using NUnit.Framework;
 using SciTech.Collections.Immutable;
+using SciTech.ComponentModel;
 using SciTech.Rpc.Grpc.Server.Internal;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
@@ -80,7 +81,7 @@ namespace SciTech.Rpc.Tests.Grpc
             var serviceImpl = new ThermostatServiceImpl();
 
             var implProviderMock = new Mock<IRpcServiceActivator>();
-            implProviderMock.Setup(p => p.GetActivatedService<IDeviceService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<IDeviceService>( serviceImpl, false ));
+            implProviderMock.Setup(p => p.GetActivatedService<IDeviceService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(OwnedObject.CreateUnowned<IDeviceService>( serviceImpl));
 
             var callContext = CreateServerCallContext(CancellationToken.None);
             var binder = new TestMethodBinder();
@@ -289,7 +290,7 @@ namespace SciTech.Rpc.Tests.Grpc
             serviceDefinitionsProviderMock.Setup(p => p.GetServiceOptions(It.IsAny<Type>())).Returns((RpcServerOptions)null);
 
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>(MockBehavior.Strict);
-            serviceImplProviderMock.Setup(p => p.GetActivatedService<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<TService>(serviceImpl, false));
+            serviceImplProviderMock.Setup(p => p.GetActivatedService<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(OwnedObject.CreateUnowned(serviceImpl));
 
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);

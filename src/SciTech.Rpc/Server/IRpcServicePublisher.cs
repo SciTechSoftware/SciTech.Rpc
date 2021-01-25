@@ -14,6 +14,7 @@ using SciTech.Rpc.Server.Internal;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server
 {
@@ -70,22 +71,15 @@ namespace SciTech.Rpc.Server
 
         /// <summary>
         /// <para>
-        /// Publishes an RPC service instance with the help of an <see cref="ActivatedService{TService}"/>  factory.
+        /// Publishes an RPC service instance with the help of an <see cref="IOwned{TService}"/>  factory.
         /// </para>
-        /// <note type="note">
-        /// NOTE! The <see cref="ActivatedService{TService}"/> factory is an implementation detail. It is recommended that 
-        /// the extension methods <see cref="RpcServicePublisherExtensions.PublishInstance{TService}(IRpcServicePublisher, Func{IServiceProvider, RpcObjectId, TService})"/> 
-        /// or <see cref="RpcServicePublisherExtensions.PublishInstance{TService}(IRpcServicePublisher, Func{RpcObjectId, TService})"/>
-        /// are used instead of this method.
-        /// </note>
         /// </summary>
         /// <typeparam name="TService">The type of the published instance.</typeparam>
         /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>
         /// with the help of the provided <see cref="IServiceProvider"/>.</param>
         /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
         /// the service instance when disposed.</returns>
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, ActivatedService<TService>> factory)
+        public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, IOwned<TService>> factory)
             where TService : class;
 
 
@@ -106,8 +100,7 @@ namespace SciTech.Rpc.Server
         /// the service instance when disposed.</returns>
         IOwned<RpcObjectRef<TService>> PublishInstance<TService>(IOwned<TService> serviceInstance) where TService : class;
 
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, ActivatedService<TService>> factory)
+        IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(Func<IServiceProvider?, IOwned<TService>> factory)
             where TService : class;
 
         IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(IOwned<TService> singletonService) where TService : class;
@@ -130,9 +123,9 @@ namespace SciTech.Rpc.Server
 
         RpcConnectionInfo TryInitConnectionInfo(RpcConnectionInfo connectionInfo);
 
-        void UnpublishInstance(RpcObjectId serviceInstanceId);
+        ValueTask UnpublishInstanceAsync(RpcObjectId serviceInstanceId);
 
-        void UnpublishSingleton<TService>() where TService : class;
+        ValueTask UnpublishSingletonAsync<TService>() where TService : class;
 
     }
 }

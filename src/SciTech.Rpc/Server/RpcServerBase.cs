@@ -183,6 +183,7 @@ namespace SciTech.Rpc.Server
             return default;
         }
 
+        /// <inheritdoc cref="IRpcServerCore.HandleCallException"/>
         protected virtual void HandleCallException(Exception exception, IRpcSerializer? serializer)
         {
         }

@@ -12,6 +12,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SciTech.ComponentModel;
 using SciTech.Rpc.Server.Internal;
+using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -34,14 +35,14 @@ namespace SciTech.Rpc.Server
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
 
-            ActivatedService<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
+            IOwned<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
             {
                 if (services == null)
                 {
                     throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
                 }
 
-                return new ActivatedService<TService>(factory(services, objectId), false);
+                return OwnedObject.CreateUnowned(factory(services, objectId));
             }
 
             return servicePublisher.PublishInstance(CreateActivatedService);
@@ -61,9 +62,9 @@ namespace SciTech.Rpc.Server
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
 
-            ActivatedService<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
+            IOwned<TService> CreateActivatedService(IServiceProvider? services, RpcObjectId objectId)
             {
-                return new ActivatedService<TService>(factory(objectId), true);
+                return OwnedObject.Create(factory(objectId));
             }
 
             return servicePublisher.PublishInstance(CreateActivatedService);
@@ -96,14 +97,14 @@ namespace SciTech.Rpc.Server
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
 
-            ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
+            IOwned<TService> CreateActivatedService(IServiceProvider? services)
             {
                 if (services == null)
                 {
                     throw new RpcDefinitionException("An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
                 }
 
-                return new ActivatedService<TService>(factory(services), false);
+                return OwnedObject.CreateUnowned(factory(services));
             }
 
             return servicePublisher.PublishSingleton(CreateActivatedService);
@@ -114,7 +115,7 @@ namespace SciTech.Rpc.Server
         {
             if (servicePublisher is null) throw new ArgumentNullException(nameof(servicePublisher));
 
-            ActivatedService<TService> CreateActivatedService(IServiceProvider? _) => new ActivatedService<TService>(factory(), true);
+            IOwned<TService> CreateActivatedService(IServiceProvider? _) => OwnedObject.Create(factory());
 
             return servicePublisher.PublishSingleton(CreateActivatedService);
         }
@@ -184,6 +185,19 @@ namespace SciTech.Rpc.Server
             where TService : class
             => PublishSingleton<TService, TService>(publisher);
 
+        public static void UnpublishInstance(this IRpcServicePublisher publisher, RpcObjectId serviceInstanceId)
+        {
+            if (publisher is null) throw new ArgumentNullException(nameof(publisher));
+
+            publisher.UnpublishInstanceAsync(serviceInstanceId).AsTask().AwaiterResult();
+        }
+
+        public static void UnpublishSingleton<TService>(this IRpcServicePublisher publisher) where TService : class
+        {
+            if (publisher is null) throw new ArgumentNullException(nameof(publisher));
+
+            publisher.UnpublishSingletonAsync<TService>().AsTask().AwaiterResult();
+        }
 
         private sealed class ServiceActivator<TService, TServiceImpl>
             where TServiceImpl : class, TService
@@ -192,7 +206,7 @@ namespace SciTech.Rpc.Server
 
             private static readonly Lazy<ObjectFactory> Factory = new Lazy<ObjectFactory>(() => ActivatorUtilities.CreateFactory(typeof(TServiceImpl), Type.EmptyTypes));
 
-            internal static ActivatedService<TService> CreateActivatedService(IServiceProvider? services)
+            internal static IOwned<TService> CreateActivatedService(IServiceProvider? services)
             {
                 if (services == null)
                 {
@@ -202,11 +216,11 @@ namespace SciTech.Rpc.Server
                 TService service = services.GetService<TServiceImpl>();
                 if (service != null)
                 {
-                    return new ActivatedService<TService>(service, false);
+                    return OwnedObject.CreateUnowned(service);
                 }
 
                 service = (TService)Factory.Value(services, Array.Empty<object>());
-                return new ActivatedService<TService>(service, true);
+                return OwnedObject.Create(service);
             }
         }
 

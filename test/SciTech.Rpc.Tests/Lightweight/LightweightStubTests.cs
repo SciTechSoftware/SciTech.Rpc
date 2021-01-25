@@ -1,6 +1,7 @@
 ﻿using Moq;
 using NUnit.Framework;
 using SciTech.Collections.Immutable;
+using SciTech.ComponentModel;
 using SciTech.IO;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
@@ -234,7 +235,7 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var servicePublisherMock = new Mock<IRpcServicePublisher>(MockBehavior.Strict);
             var serviceImplProviderMock = new Mock<IRpcServiceActivator>(MockBehavior.Strict);
-            serviceImplProviderMock.Setup(p => p.GetActivatedService<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(new ActivatedService<TService>( serviceImpl,false));
+            serviceImplProviderMock.Setup(p => p.GetActivatedService<TService>(It.IsAny<IServiceProvider>(), It.IsAny<RpcObjectId>())).Returns(OwnedObject.CreateUnowned(serviceImpl));
 
             hostMock.Setup(h => h.ServicePublisher).Returns(servicePublisherMock.Object);
             hostMock.Setup(h => h.ServiceActivator).Returns(serviceImplProviderMock.Object);

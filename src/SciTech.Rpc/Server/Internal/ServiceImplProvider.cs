@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.ComponentModel;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -22,22 +23,8 @@ namespace SciTech.Rpc.Server.Internal
 
         IImmutableList<Type> GetPublishedSingletons();
 
-        ActivatedService<TService>? GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
+        IOwned<TService>? GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
 
         bool CanGetActivatedService<TService>(RpcObjectId id) where TService : class;
-    }
-
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "Internal")]
-    public readonly struct ActivatedService<TService> where TService : class
-    {
-        public ActivatedService(TService service, bool shouldDispose)
-        {
-            this.Service = service;
-            this.ShouldDispose = shouldDispose;
-        }
-
-        public TService Service { get; }
-
-        public bool ShouldDispose { get; }
     }
 }

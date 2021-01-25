@@ -57,6 +57,12 @@ namespace SciTech.Rpc.Server.Internal
 
         IServiceProvider? ServiceProvider { get; }
 
+        /// <summary>
+        /// Can be used by the server implementation to convert the exception to a suitable type
+        /// to be "returned" to client.
+        /// </summary>
+        /// <param name="exception"></param>
+        /// <param name="serializer"></param>
         void HandleCallException(Exception exception, IRpcSerializer? serializer);
     }
 }

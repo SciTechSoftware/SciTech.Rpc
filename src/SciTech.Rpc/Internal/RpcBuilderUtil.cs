@@ -233,8 +233,8 @@ namespace SciTech.Rpc.Internal
 
             foreach (var inheritedInterfaceType in interfaces)
             {
-                if (inheritedInterfaceType.Equals(typeof(IRpcService))
-                    || inheritedInterfaceType.Equals(typeof(IEquatable<IRpcService>))
+                if (inheritedInterfaceType.Equals(typeof(IRpcProxy))
+                    || inheritedInterfaceType.Equals(typeof(IEquatable<IRpcProxy>))
                     || inheritedInterfaceType.Equals(typeof(IDisposable)))
                 {
                     continue;

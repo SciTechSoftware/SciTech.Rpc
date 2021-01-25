@@ -125,7 +125,7 @@ namespace SciTech.Rpc.Client.Internal
     /// instead.
     /// </summary>
     /// <typeparam name="TMethodDef"></typeparam>
-    public abstract class RpcProxyBase<TMethodDef> : RpcProxyBase, IRpcService where TMethodDef : RpcProxyMethod
+    public abstract class RpcProxyBase<TMethodDef> : RpcProxyBase, IRpcProxy where TMethodDef : RpcProxyMethod
     {
 
         internal const string AddEventHandlerAsyncName = nameof(AddEventHandlerAsync);
@@ -182,14 +182,14 @@ namespace SciTech.Rpc.Client.Internal
             this.Dispose(true);
         }
 
-        public bool Equals([AllowNull]IRpcService other)
+        public bool Equals([AllowNull]IRpcProxy other)
         {
             return other != null && other.ObjectId == this.objectId;
         }
 
         public override bool Equals(object? obj)
         {
-            return obj is IRpcService other && this.Equals(other);
+            return obj is IRpcProxy other && this.Equals(other);
         }
 
         public override int GetHashCode()
@@ -340,7 +340,7 @@ namespace SciTech.Rpc.Client.Internal
         protected async IAsyncEnumerable<TReturn> CallAsyncEnumerableMethod<TRequest, TResponseReturn, TReturn>(
             TMethodDef method,
             TRequest request,
-            Func<IRpcService, object?, object?> responseConverter,
+            Func<IRpcProxy, object?, object?> responseConverter,
             [EnumeratorCancellation]CancellationToken cancellationToken)
             where TRequest : class
             where TResponseReturn : class
@@ -382,7 +382,7 @@ namespace SciTech.Rpc.Client.Internal
         protected TReturnType CallUnaryMethod<TRequest, TResponseType, TReturnType>(
             TMethodDef methodDef,
             TRequest request,
-            Func<IRpcService, object?, object?> responseConverter,
+            Func<IRpcProxy, object?, object?> responseConverter,
             CancellationToken cancellationToken)
             where TRequest : class
         {
@@ -405,7 +405,7 @@ namespace SciTech.Rpc.Client.Internal
         protected async Task<TReturnType> CallUnaryMethodAsync<TRequest, TResponseType, TReturnType>(
             TMethodDef methodDef,
             TRequest request,
-            Func<IRpcService, object?, object?> responseConverter,
+            Func<IRpcProxy, object?, object?> responseConverter,
             CancellationToken cancellationToken)
             where TRequest : class
         {
@@ -570,7 +570,7 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        private TReturnType ConvertResult<TResponseType, TReturnType>(Func<IRpcService, object?, object?>? responseConverter, TResponseType result)
+        private TReturnType ConvertResult<TResponseType, TReturnType>(Func<IRpcProxy, object?, object?>? responseConverter, TResponseType result)
         {
             if (responseConverter != null)
             {
@@ -912,7 +912,7 @@ namespace SciTech.Rpc.Client.Internal
 
     public static class ServiceConverter<TService> where TService : class
     {
-        public static readonly Func<IRpcService, object?, object?> Default = (proxy, input) =>
+        public static readonly Func<IRpcProxy, object?, object?> Default = (proxy, input) =>
         {
             if (input is RpcObjectRef serviceRef)
             {
@@ -927,7 +927,7 @@ namespace SciTech.Rpc.Client.Internal
             return null;
         };
 
-        public static readonly Func<IRpcService, object?, object?> DefaultArray = (proxy, input) =>
+        public static readonly Func<IRpcProxy, object?, object?> DefaultArray = (proxy, input) =>
         {
             if (input is RpcObjectRef[] serviceRefs)
             {
@@ -954,10 +954,10 @@ namespace SciTech.Rpc.Client.Internal
 
     public static class ServiceRefConverter<TService> where TService : class
     {
-        public static readonly Func<IRpcService, object?, object?> Default = (proxy, input) =>
+        public static readonly Func<IRpcProxy, object?, object?> Default = (proxy, input) =>
             ((RpcObjectRef?)input)?.Cast<TService>();
 
-        public static readonly Func<IRpcService, object?, object?> DefaultArray = (proxy, input) =>
+        public static readonly Func<IRpcProxy, object?, object?> DefaultArray = (proxy, input) =>
         {
             if (input is RpcObjectRef[] serviceRefs)
             {

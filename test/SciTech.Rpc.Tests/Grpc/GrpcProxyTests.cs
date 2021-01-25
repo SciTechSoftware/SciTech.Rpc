@@ -64,7 +64,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
             var (serviceInstance, callInvokerMock) = CreateServiceInstance<IBlockingService>();
 
-            RpcObjectId objectId = ((IRpcService)serviceInstance).ObjectId;
+            RpcObjectId objectId = ((IRpcProxy)serviceInstance).ObjectId;
 
             callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponse<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
                 .Returns((string op, RpcObjectRequest<int, int> r) =>
@@ -103,7 +103,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
             var (serviceInstance, callInvokerMock) = CreateServiceInstance<IEmptyDerivedService>();
 
-            RpcObjectId objectId = ((IRpcService)serviceInstance).ObjectId;
+            RpcObjectId objectId = ((IRpcProxy)serviceInstance).ObjectId;
 
             // Test Add and Sub, defined on different interfaces
             callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponse<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
@@ -132,7 +132,7 @@ namespace SciTech.Rpc.Tests.Grpc
         {
             var (serviceInstance, callInvokerMock) = CreateServiceInstance<ISimpleServiceWithEvents>();
 
-            RpcObjectId objectId = ((IRpcService)serviceInstance).ObjectId;
+            RpcObjectId objectId = ((IRpcProxy)serviceInstance).ObjectId;
 
             callInvokerMock.Setup(p => p.ServerStreamingFunc<RpcObjectRequest, EventArgs>(It.IsAny<string>(), It.IsAny<RpcObjectRequest>(), It.IsAny<CancellationToken>()))
                 .Returns((string op, RpcObjectRequest r, CancellationToken ct) =>
@@ -179,7 +179,7 @@ namespace SciTech.Rpc.Tests.Grpc
             };
 
             serviceInstance.ValueChanged += eventHandler;
-            await ((IRpcService)serviceInstance).WaitForPendingEventHandlersAsync();
+            await ((IRpcProxy)serviceInstance).WaitForPendingEventHandlersAsync();
 
             serviceInstance.DetailedValueChanged += detailedEventHandler;
 
@@ -200,7 +200,7 @@ namespace SciTech.Rpc.Tests.Grpc
 
             var (serviceInstance, callInvokerMock) = CreateServiceInstance<ISimpleService>();
 
-            RpcObjectId objectId = ((IRpcService)serviceInstance).ObjectId;
+            RpcObjectId objectId = ((IRpcProxy)serviceInstance).ObjectId;
 
             callInvokerMock.Setup(p => p.UnaryFunc<RpcObjectRequest<int, int>, RpcResponse<int>>("Add", It.IsAny<RpcObjectRequest<int, int>>()))
                 .Returns((string op, RpcObjectRequest<int, int> r) =>
@@ -288,7 +288,7 @@ namespace SciTech.Rpc.Tests.Grpc
             // ValidateProxyType is pretty meaningless. 
             // The runtime will make sure that the proxyType is valid when an instance
             // of the type is created.
-            Assert.IsTrue(typeof(IRpcService).IsAssignableFrom(proxyType));
+            Assert.IsTrue(typeof(IRpcProxy).IsAssignableFrom(proxyType));
             Assert.IsTrue(typeof(TService).IsAssignableFrom(proxyType));
         }
     }

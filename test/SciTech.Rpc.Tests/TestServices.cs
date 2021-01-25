@@ -21,7 +21,7 @@ namespace SciTech.Rpc.Tests
     }
 
     [RpcService(Name = "BlockingService")]
-    public interface IBlockingServiceClient : IBlockingService, IRpcService
+    public interface IBlockingServiceClient : IBlockingService, IRpcProxy
     {
         Task<int> AddAsync(int a, int b);
 
@@ -79,7 +79,7 @@ namespace SciTech.Rpc.Tests
     }
 
     [RpcService(Name = "DeviceService")]
-    public interface IDeviceServiceClient : IDeviceService, IRpcService
+    public interface IDeviceServiceClient : IDeviceService, IRpcProxy
     {
         Task<Guid> GetDeviceAcoIdAsync();
     }
@@ -227,7 +227,7 @@ namespace SciTech.Rpc.Tests
     }
 
     [RpcService(Name = "ServiceProviderService")]
-    public interface IServiceProviderServiceClient : IServiceProviderService, IRpcService
+    public interface IServiceProviderServiceClient : IServiceProviderService, IRpcProxy
     {
         Task<RpcObjectRef<ISimpleService>> GetSimpleServiceAsync();
     }
@@ -282,7 +282,7 @@ namespace SciTech.Rpc.Tests
     }
 
     [RpcService(Name = "ThermostatService")]
-    public interface IThermostatServiceClient : IThermostatService, IDeviceServiceClient, IRpcService
+    public interface IThermostatServiceClient : IThermostatService, IDeviceServiceClient, IRpcProxy
     {
         Task ScanToAsync(double temp);
     }

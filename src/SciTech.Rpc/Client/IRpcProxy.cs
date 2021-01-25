@@ -21,7 +21,7 @@ namespace SciTech.Rpc.Client
     /// <summary>
     /// 
     /// </summary>
-    public interface IRpcService : IEquatable<IRpcService>, IDisposable
+    public interface IRpcProxy : IEquatable<IRpcProxy>, IDisposable
     {
         /// <summary>
         /// Invoked when the communication has failed for a remote <c>EventHandler</c>. 
@@ -45,7 +45,7 @@ namespace SciTech.Rpc.Client
 
     public static class RpcServiceExtensions
     {
-        public static TService Cast<TService>(this IRpcService rpcService) where TService : class
+        public static TService Cast<TService>(this IRpcProxy rpcService) where TService : class
         {
             var service = rpcService?.TryCastAsync<TService>().Result;
             if (service != null)
@@ -56,7 +56,7 @@ namespace SciTech.Rpc.Client
             throw new InvalidCastException($"Cannot cast RPC service to {typeof(TService)}.");
         }
 
-        public static async Task<TService> CastAsync<TService>(this IRpcService rpcService) where TService : class
+        public static async Task<TService> CastAsync<TService>(this IRpcProxy rpcService) where TService : class
         {
             var service = rpcService != null ? await rpcService.TryCastAsync<TService>().ConfigureAwait(false) : null;
             if (service != null)
@@ -67,7 +67,7 @@ namespace SciTech.Rpc.Client
             throw new InvalidCastException($"Cannot cast RPC service to {typeof(TService)}.");
         }
 
-        public static TService SetSyncContext<TService>(this TService rpcService, SynchronizationContext? syncContext) where TService : class, IRpcService
+        public static TService SetSyncContext<TService>(this TService rpcService, SynchronizationContext? syncContext) where TService : class, IRpcProxy
         {
             if (rpcService is RpcProxyBase proxyBase)
             {
@@ -77,12 +77,12 @@ namespace SciTech.Rpc.Client
             throw new ArgumentException("Can only set synchronization context on services retrieved using IRpcConnection.");
         }
 
-        public static TService? TryCast<TService>(this IRpcService rpcService) where TService : class
+        public static TService? TryCast<TService>(this IRpcProxy rpcService) where TService : class
         {
             return rpcService?.TryCastAsync<TService>()?.AwaiterResult();
         }
 
-        public static bool TryCast<TService>(this IRpcService rpcService, out TService? service) where TService : class
+        public static bool TryCast<TService>(this IRpcProxy rpcService, out TService? service) where TService : class
         {
             service = rpcService?.TryCastAsync<TService>()?.AwaiterResult();
             return service != null;

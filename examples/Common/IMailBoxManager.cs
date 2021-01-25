@@ -45,7 +45,7 @@ namespace Mailer
     }
 
     [RpcService(ServerDefinitionType = typeof(IMailBoxManagerService))]
-    public interface IMailBoxManagerServiceClient : IMailBoxManagerService, IRpcService
+    public interface IMailBoxManagerServiceClient : IMailBoxManagerService, IRpcProxy
     {
         Task<IMailboxServiceClient> GetMailboxAsync(string mailboxName);
     }
@@ -62,7 +62,7 @@ namespace Mailer
     }
 
     [RpcService(ServerDefinitionType =typeof(IMailboxService))]
-    public interface IMailboxServiceClient : IMailboxService, IRpcService, IDisposable
+    public interface IMailboxServiceClient : IMailboxService, IRpcProxy, IDisposable
     {
         Task ForwardMailAsync();
 

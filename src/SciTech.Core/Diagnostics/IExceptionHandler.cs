@@ -34,7 +34,7 @@ namespace SciTech.Diagnostics
         /// </summary>
         /// <param name="e">The exception to handle.</param>
         /// <param name="unexpectedExceptionAction">Specifies the action to perform for an unexpected exception. For more information, see <see cref="UnexpectedExceptionAction"/>.</param>
-        /// <returns><c>true</c> if the exception was handled or propageted to <see cref="UnhandledException(Exception)"/>. If <c>false</c>
+        /// <returns><c>true</c> if the exception was handled or propagated to <see cref="UnhandledException(Exception)"/>. If <c>false</c>
         /// is returned, the caller needs to handle the exception, e.g. by re-throwing.</returns>
         bool HandleException(Exception e, UnexpectedExceptionAction unexpectedExceptionAction = UnexpectedExceptionAction.None);
 

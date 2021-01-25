@@ -169,16 +169,16 @@ namespace SciTech.Rpc.Tests
 
                     //var delayTask = Task.Delay(5000);
 
-                    //Task t = await Task.WhenAny( ((IRpcService)clientService1).WaitForPendingEventHandlers(), delayTask);
+                    //Task t = await Task.WhenAny( ((IRpcProxy)clientService1).WaitForPendingEventHandlers(), delayTask);
                     //if (t == delayTask)
 
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync().DefaultTimeout();
+                    await ((IRpcProxy)clientService1).WaitForPendingEventHandlersAsync().DefaultTimeout();
                     //var delayTask2 = Task.Delay(5000);
 
-                    //Task t2 = await Task.WhenAny(((IRpcService)clientService2).WaitForPendingEventHandlers(), delayTask);
+                    //Task t2 = await Task.WhenAny(((IRpcProxy)clientService2).WaitForPendingEventHandlers(), delayTask);
                     //if (t2 == delayTask)
 
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync().DefaultTimeout();
+                    await ((IRpcProxy)clientService2).WaitForPendingEventHandlersAsync().DefaultTimeout();
 
                     clientService1.SetValueAsync(12).Forget();
                     clientService2.SetValueAsync(24).Forget();
@@ -187,7 +187,7 @@ namespace SciTech.Rpc.Tests
                     var detailedArgs2 = await detailedTcs2.Task.DefaultTimeout();
 
                     clientService1.DetailedValueChanged -= detailedHandler1;
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync().DefaultTimeout();
+                    await ((IRpcProxy)clientService1).WaitForPendingEventHandlersAsync().DefaultTimeout();
                     await clientService1.SetValueAsync(13).DefaultTimeout();
 
                     // Verify 1
@@ -200,7 +200,7 @@ namespace SciTech.Rpc.Tests
                     Assert.IsFalse(serviceImpl1.HasValueChangedHandler);
 
                     clientService2.DetailedValueChanged -= detailedHandler2;
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync().DefaultTimeout();
+                    await ((IRpcProxy)clientService2).WaitForPendingEventHandlersAsync().DefaultTimeout();
                     await clientService1.SetValueAsync(25).DefaultTimeout();
 
                     // Verify 2
@@ -334,8 +334,8 @@ namespace SciTech.Rpc.Tests
                     clientService1.ValueChanged += valueChangedHandler1;
                     clientService2.ValueChanged += valueChangedHandler2;
 
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync();
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync();
+                    await ((IRpcProxy)clientService1).WaitForPendingEventHandlersAsync();
+                    await ((IRpcProxy)clientService2).WaitForPendingEventHandlersAsync();
 
                     clientService1.SetValueAsync(12).Forget();
                     clientService2.SetValueAsync(24).Forget();
@@ -352,7 +352,7 @@ namespace SciTech.Rpc.Tests
                     Assert.IsTrue(valueChangedTcs2.Task.IsCompletedSuccessfully());
 
                     clientService1.ValueChanged -= valueChangedHandler1;
-                    await ((IRpcService)clientService1).WaitForPendingEventHandlersAsync();
+                    await ((IRpcProxy)clientService1).WaitForPendingEventHandlersAsync();
                     clientService1.SetValueAsync(13).Forget();
 
                     // Wait a little to make sure that the event handler has been removed on the server side as well.
@@ -361,7 +361,7 @@ namespace SciTech.Rpc.Tests
                     Assert.IsFalse(serviceImpl1.HasValueChangedHandler);
 
                     clientService2.ValueChanged -= valueChangedHandler2;
-                    await ((IRpcService)clientService2).WaitForPendingEventHandlersAsync();
+                    await ((IRpcProxy)clientService2).WaitForPendingEventHandlersAsync();
                     clientService2.SetValueAsync(25).Forget();
 
                     // Wait a little to make sure that the event handler has been removed on the server side as well.
@@ -471,7 +471,7 @@ namespace SciTech.Rpc.Tests
 
                     clientService.UnserializableValueChanged += detailedHandler;
 
-                    Assert.ThrowsAsync<RpcFailureException>(((IRpcService)clientService).WaitForPendingEventHandlersAsync);
+                    Assert.ThrowsAsync<RpcFailureException>(((IRpcProxy)clientService).WaitForPendingEventHandlersAsync);
                 }
             }
             finally
@@ -500,7 +500,7 @@ namespace SciTech.Rpc.Tests
 
             clientService.ValueChanged += valueChangedHandler;
 
-            await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
+            await ((IRpcProxy)clientService).WaitForPendingEventHandlersAsync();
 
             clientService.SetValueAsync(12).Forget();
 
@@ -513,7 +513,7 @@ namespace SciTech.Rpc.Tests
 
             clientService.DetailedValueChanged -= detailedHandler;
             clientService.ValueChanged -= valueChangedHandler;
-            await ((IRpcService)clientService).WaitForPendingEventHandlersAsync();
+            await ((IRpcProxy)clientService).WaitForPendingEventHandlersAsync();
 
             clientService.SetValueAsync(15).Forget();
             await Task.Delay(200);  // Give some time to allow any incorrect events to be deliverd.

@@ -39,7 +39,7 @@ namespace Ticketer
     }
 
     [RpcService(ServerDefinitionType =typeof(ITicketerService))]
-    public interface ITicketerServiceClient : ITicketerService, IRpcService
+    public interface ITicketerServiceClient : ITicketerService, IRpcProxy
     {
         Task<int> GetAvailableTicketsAsync();
 

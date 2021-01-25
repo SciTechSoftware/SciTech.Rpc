@@ -2,10 +2,12 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net472;netcoreapp2.0;netcoreapp2.1;netcoreapp3.0</TargetFrameworks>
+    <TargetFrameworks>net472;net5.0</TargetFrameworks>
     <AssemblyName>SciTech.Rpc.Benchmark</AssemblyName>
     <RootNamespace>SciTech.Rpc.Benchmark</RootNamespace>
   </PropertyGroup>
+
+  <Import Project="..\Platform.props" />
 
   <ItemGroup>
     <None Remove="SimpleService.proto" />
@@ -41,8 +43,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.11.5" />
-    <PackageReference Include="BenchmarkDotNet.Diagnostics.Windows" Version="0.11.5" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
     <PackageReference Include="Google.Protobuf" Version="3.10.0" />
     <PackageReference Include="Grpc.Core" Version="2.24.0" />
     <PackageReference Include="Grpc.Tools" Version="2.24.0">
@@ -57,7 +58,7 @@
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="$(TargetFramework) == 'netcoreapp3.0'">
+  <ItemGroup Condition="$(TargetFramework) == 'net5.0'">
     <ProjectReference Include="..\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
     <ProjectReference Include="..\SciTech.Rpc.NetGrpc\SciTech.Rpc.NetGrpc.csproj" />
 

@@ -1,6 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Diagnostics.Windows.Configs;
+//using BenchmarkDotNet.Diagnostics.Windows.Configs;
 using BenchmarkDotNet.Environments;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
@@ -24,8 +24,9 @@ using System.IO;
 using System.Security.Cryptography;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using SciTech.Collections.Immutable;
 
-#if NETCOREAPP3_0
+#if COREFX
 using GrpcNet = Grpc.Net;
 using Grpc.Net.Client;
 using SciTech.Rpc.NetGrpc.Client;
@@ -59,7 +60,7 @@ namespace SciTech.Rpc.Benchmark
         }
     }
 
-    [RpcService(IsSingleton = true,AllowFault =false)]
+    [RpcService(IsSingleton = true)]
     // [ServiceContract]
     public interface ISimpleService
     {
@@ -71,7 +72,7 @@ namespace SciTech.Rpc.Benchmark
         int Add(int a, int b);
     }
 
-    [RpcService(ServerDefinitionType = typeof(ISimpleService),IsSingleton =true,AllowFault =false)]
+    [RpcService(ServerDefinitionType = typeof(ISimpleService),IsSingleton =true)]
     public interface ISimpleServiceClient : ISimpleService
     {
         Task<int> AddAsync(int a, int b);
@@ -95,7 +96,7 @@ namespace SciTech.Rpc.Benchmark
     {
         public MultipleRuntimes()
         {
-            Add(Job.Default.With(CsProjCoreToolchain.NetCoreApp30)/*.WithIterationCount(3)*/);//.WithAffinity((IntPtr)7));; // .NET Core 3.0
+            AddJob(Job.Default.WithToolchain(CsProjCoreToolchain.NetCoreApp50)/*.WithIterationCount(3)*/);//.WithAffinity((IntPtr)7));; // .NET Core 3.0
             //Add(Job.Default.With(CsProjClassicNetToolchain.Net472).WithIterationCount(3));//.WithAffinity((IntPtr)7)); // NET 4.7.2
             //Add(Job.Default.With(CsProjClassicNetToolchain.Net472).With(Platform.X86).WithIterationCount(3));//.WithAffinity((IntPtr)7)); // NET 4.7.2
 
@@ -124,7 +125,7 @@ namespace SciTech.Rpc.Benchmark
 
     //[ClrJob, CoreJob, LegacyJitX86Job, ShortRunJob]
     //[ShortRunJob]
-    [MemoryDiagnoser]
+    //[MemoryDiagnoser]
     //[EtwProfiler]
     [Config(typeof(MultipleRuntimes))]
     public class RawGrpcBenchmark
@@ -135,7 +136,7 @@ namespace SciTech.Rpc.Benchmark
         private GrpcCore.ChannelBase channel;
         private SimpleService.SimpleServiceClient clientService;
         private GrpcCore.Server server;
-#if NETCOREAPP3_0
+#if COREFX
         private IWebHost host;
 #endif
 
@@ -157,19 +158,32 @@ namespace SciTech.Rpc.Benchmark
                     this.channel = new GrpcCore.Channel("127.0.0.1:50051", GrpcCore.ChannelCredentials.Insecure);
                     this.clientService = new SimpleService.SimpleServiceClient(this.channel);
                     break;
-#if NETCOREAPP3_0
+#if COREFX
                 case RpcConnectionType.NetGrpc:
                     this.host = CreateNetGrpcHost();
                     host.Start();
 
-                    this.channel = GrpcChannel.ForAddress("https://localhost:50051");
+
+                    var handler = new System.Net.Http.HttpClientHandler();
+                    handler.ServerCertificateCustomValidationCallback =
+                        (httpRequestMessage, cert, cetChain, policyErrors) =>
+                        {
+                            return true;
+                        };
+                    var channelOptions = new GrpcNet.Client.GrpcChannelOptions()
+                    {
+                        HttpClient = new System.Net.Http.HttpClient(handler),
+                        DisposeHttpClient = true
+                    };
+
+                    this.channel = GrpcChannel.ForAddress("https://localhost:50051", channelOptions);
                     this.clientService = new SimpleService.SimpleServiceClient(channel);
                     break;
 #endif      
             }
         }
 
-#if NETCOREAPP3_0
+#if COREFX
         private static IWebHost CreateNetGrpcHost()
         {
             var hostBuilder = new WebHostBuilder()
@@ -214,7 +228,7 @@ namespace SciTech.Rpc.Benchmark
         [GlobalCleanup]
         public void GlobalCleanup()
         {
-#if NETCOREAPP3_0
+#if COREFX
             if (this.ConnectionType == RpcConnectionType.NetGrpc)
             {
                 this.host.StopAsync().Wait();
@@ -227,10 +241,11 @@ namespace SciTech.Rpc.Benchmark
             }
         }
 
+        Task<AddResponse>[] tasks = new Task<AddResponse>[8];
+
         [Benchmark(OperationsPerInvoke = 8)]
         public AddResponse[] ParallelCalls()
         {
-            Task<AddResponse>[] tasks = new Task<AddResponse>[8];
             for (int i = 0; i < tasks.Length; i++)
             {
                 tasks[i] = this.clientService.AddAsync(new AddRequest { A = 5 + i, B = 6 * i }).ResponseAsync;
@@ -247,28 +262,127 @@ namespace SciTech.Rpc.Benchmark
 
     }
 
+    [SimpleJob()]
+    public class ConnectionBenchMark
+    {
+        LightweightRpcServer server;
+        ImmutableRpcClientOptions clientOptions;
+        RpcConnectionInfo connectionInfo;
+
+        [Params(RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightNamedPipe)]
+        public RpcConnectionType ConnectionType;
+
+        [GlobalSetup]
+        public void GlobalSetup()
+        {
+            var serverId = RpcServerId.NewId();
+            var definitionsProvider = new RpcServiceDefinitionsBuilder();
+            // var serializer = new JsonRpcSerializer();
+            var serializer = new ProtobufRpcSerializer(RuntimeTypeModel.Create());
+            var serverOptions = new RpcServerOptions { Serializer = serializer };
+            this.clientOptions = new RpcClientOptions { Serializer = serializer }.AsImmutable();
+
+            switch (this.ConnectionType)
+            {
+                //case RpcConnectionType.LightweightInproc:
+                //    {
+                //        var connector = new InprocRpcConnector(clientOptions);
+                //        this.server = new LightweightRpcServer(serverId, definitionsProvider, null, serverOptions);
+                //        this.server.AddEndPoint(connector.EndPoint);
+                //        this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
+                //        this.server.Start();
+
+                //        //this.clientConnection = connector.Connection;
+                //        //clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
+                //        break;
+                //    }
+                case RpcConnectionType.LightweightTcp:
+                    {
+                        this.server = new LightweightRpcServer(serverId, definitionsProvider, null, serverOptions);
+                        this.server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50051, false));
+                        this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
+                        this.server.Start();
+
+                        this.connectionInfo = new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50051"));
+                        break;
+                    }
+                case RpcConnectionType.LightweightNamedPipe:
+                    {
+                        this.server = new LightweightRpcServer(serverId, definitionsProvider, null, serverOptions);
+                        this.server.AddEndPoint(new NamedPipeRpcEndPoint("RpcBenchmark"));
+                        this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
+                        this.server.Start();
+
+                        this.connectionInfo = new RpcConnectionInfo(new Uri($"{WellKnownRpcSchemes.LightweightPipe}://./RpcBenchmark"));
+                        break;
+                    }
+            }
+        }
+
+        [GlobalCleanup]
+        public void GlobalCleanup()
+        {
+            this.server.ShutdownAsync().Wait();
+            this.server.Dispose();
+        }
+
+        [Benchmark]
+        public void ConnectDisconnect()
+        {
+            IRpcConnection connection;
+            switch (this.ConnectionType)
+            {
+                case RpcConnectionType.LightweightTcp:
+                    connection = new TcpRpcConnection(this.connectionInfo, options: this.clientOptions);
+                    break;
+                case RpcConnectionType.LightweightNamedPipe:
+                    connection = new NamedPipeRpcConnection(this.connectionInfo, this.clientOptions);
+                    break;
+                default:
+                    throw new InvalidOperationException();
+
+            }
+            
+            connection.ConnectAsync(default).Wait();
+
+            var service = connection.GetServiceSingleton<ISimpleService>(false);
+            service.AddInline(1, 2);
+
+            connection.ShutdownAsync().Wait();
+        }
+
+
+
+    }
+
     //[ClrJob, CoreJob, LegacyJitX86Job, ShortRunJob]
     //[ShortRunJob]
-    [MemoryDiagnoser]
+    //[MemoryDiagnoser]
     //[EtwProfiler]
-    [Config(typeof(MultipleRuntimes))]
-    public class SimpleServiceCall
+    //[Config(typeof(MultipleRuntimes))]
+    [SimpleJob()]
+    [MarkdownExporterAttribute.GitHub]
+    public class SimpleServiceCallBenchmark
     {
         public static readonly RuntimeTypeModel DefaultTypeModel = RuntimeTypeModel.Create().AddRpcTypes();
 
         IRpcServerHost server;
 
         IRpcChannel clientConnection;
+        IRpcChannel[] clientConnections;
         ISimpleServiceClient clientService;
+        ISimpleServiceClient[] clientServices;
 
-        public SimpleServiceCall()
+        public SimpleServiceCallBenchmark()
         {
 
         }
 
+        const int MaxClientConnections = 8;
 
-#if NETCOREAPP3_0
-        [Params(RpcConnectionType.Grpc, RpcConnectionType.NetGrpc , RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightInproc, RpcConnectionType.LightweightNamedPipe)]
+#if COREFX
+        //[Params(RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightNamedPipe)]
+        [Params(RpcConnectionType.Grpc, RpcConnectionType.NetGrpc, RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightInproc, RpcConnectionType.LightweightNamedPipe)]
 #else
         [Params(/*RpcConnectionType.Grpc,*/ /*, RpcConnectionType.LightweightTcp*/)]
 #endif
@@ -284,11 +398,15 @@ namespace SciTech.Rpc.Benchmark
             responseReadStream = new MemoryStream(responseReadBuffer);
 
 
+            var serverId = RpcServerId.NewId();
             var definitionsProvider = new RpcServiceDefinitionsBuilder();
             // var serializer = new JsonRpcSerializer();
             var serializer = new ProtobufRpcSerializer(RuntimeTypeModel.Create());
             var serverOptions = new RpcServerOptions { Serializer = serializer };
             var clientOptions = new RpcClientOptions { Serializer = serializer };
+
+            this.clientConnections = new IRpcChannel[MaxClientConnections];
+
             switch (this.ConnectionType)
             {
                 case RpcConnectionType.Grpc:
@@ -297,48 +415,58 @@ namespace SciTech.Rpc.Benchmark
                     this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
                     this.server.Start();
 
-                    this.clientConnection = new GrpcServerConnection(new RpcServerConnectionInfo(new Uri("grpc://localhost:50051")), clientOptions);
+                    for( int i=0; i < MaxClientConnections;i++ )
+                    {
+                        this.clientConnections[i] = new GrpcConnection(new RpcConnectionInfo(new Uri("grpc://localhost:50051")), clientOptions);
+                    }
+
                     break;
                 case RpcConnectionType.LightweightInproc:
                     {
                         var connector = new InprocRpcConnector(clientOptions);
-                        this.server = new LightweightRpcServer(definitionsProvider, null, serverOptions );
+                        this.server = new LightweightRpcServer(serverId, definitionsProvider, null, serverOptions );
                         this.server.AddEndPoint(connector.EndPoint);
                         this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
                         this.server.Start();
 
-                        this.clientConnection = connector.Connection;
-                        clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
+                        for (int i = 0; i < MaxClientConnections; i++)
+                        {
+                            this.clientConnections[i] = connector.Connection;
+                        }
                         break;
                     }
                 case RpcConnectionType.LightweightTcp:
                     {
-                        this.server = new LightweightRpcServer(definitionsProvider, null, serverOptions);
+                        this.server = new LightweightRpcServer(serverId, definitionsProvider, null, serverOptions);
                         this.server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50051, false));
                         this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
                         this.server.Start();
 
-                        this.clientConnection = new TcpRpcConnection(new RpcServerConnectionInfo(new Uri("lightweight.tcp://localhost:50051")), 
+                        for (int i = 0; i < MaxClientConnections; i++)
+                        {
+                            this.clientConnections[i] = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50051")),
                             null,
                             clientOptions);
-                        clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
+                        }
+
                         break;
                     }
                 case RpcConnectionType.LightweightNamedPipe:
                     {
-                        this.server = new LightweightRpcServer(definitionsProvider, null, serverOptions);
+                        this.server = new LightweightRpcServer(serverId, definitionsProvider, null, serverOptions);
                         this.server.AddEndPoint(new NamedPipeRpcEndPoint("RpcBenchmark"));
                         this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
                         this.server.Start();
 
-                        this.clientConnection = new NamedPipeRpcConnection("RpcBenchmark", clientOptions);
-                        clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
+                        for (int i = 0; i < MaxClientConnections; i++)
+                        {
+                            this.clientConnections[i] = new NamedPipeRpcConnection("RpcBenchmark", clientOptions);
+                        }
                         break;
                     }
-#if NETCOREAPP3_0
+#if COREFX
                 case RpcConnectionType.NetGrpc:
                     {
-                        var serverId = RpcServerId.NewId();
                         this.server = CreateNetGrpcServer(definitionsProvider, serverId, serverOptions);
                         this.server.ServicePublisher.PublishSingleton<ISimpleService>(new SimpleServiceImpl());
                         this.server.Start();
@@ -358,20 +486,30 @@ namespace SciTech.Rpc.Benchmark
                         };
 
 
-                        this.clientConnection = new NetGrpcServerConnection(
-                            new RpcServerConnectionInfo("net-grpc", new Uri($"grpc://localhost:{50051}"), serverId),
-                            clientOptions.AsImmutable(), null, channelOptions);
+                        for (int i = 0; i < MaxClientConnections; i++)
+                        {
+                            this.clientConnections[i] = new NetGrpcConnection(
+                            new RpcConnectionInfo("net-grpc", new Uri($"grpc://localhost:{50051}"), serverId),
+                            clientOptions.AsImmutable(),
+                            channelOptions);
+                        }
                         break;
                     }
 #endif
             }
 
-            this.clientService = this.clientConnection.GetServiceSingleton<ISimpleServiceClient>();
+            this.clientServices = new ISimpleServiceClient[MaxClientConnections];
+            for (int i = 0; i < MaxClientConnections; i++)
+            {
+                this.clientServices[i] = this.clientConnections[i].GetServiceSingleton<ISimpleServiceClient>();
+            }
 
+            this.clientConnection = clientConnections[0];
+            this.clientService = clientServices[0];
         }
 
 
-#if NETCOREAPP3_0
+#if COREFX
         private static IRpcServerHost CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
         {
             var hostBuilder = new WebHostBuilder()
@@ -421,7 +559,7 @@ namespace SciTech.Rpc.Benchmark
         }
 #endif
 
-#if NETCOREAPP3_0
+#if COREFX
         internal class NetGrpcTestServer : IRpcServerHost
         {
             private IWebHost webHost;
@@ -435,9 +573,11 @@ namespace SciTech.Rpc.Benchmark
             }
             public bool AllowAutoPublish => this.server.AllowAutoPublish;
 
-            public ImmutableArray<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
+            public ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
 
             public IRpcServicePublisher ServicePublisher => this.server.ServicePublisher;
+
+            public RpcServerId ServerId => server.ServerId;
 
             public void AddEndPoint(IRpcServerEndPoint endPoint)
             {
@@ -448,6 +588,11 @@ namespace SciTech.Rpc.Benchmark
             {
                 this.server.Dispose();
                 this.webHost.Dispose();
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                return new ValueTask(this.webHost.StopAsync());
             }
 
             public async Task ShutdownAsync()
@@ -525,7 +670,7 @@ namespace SciTech.Rpc.Benchmark
         [Benchmark]
         public int SingleCallInline()
         {
-            return this.clientService.AddInline(5, 6 );
+            return this.clientService.AddInline(5, 6);
         }
 
         [Benchmark]
@@ -534,45 +679,75 @@ namespace SciTech.Rpc.Benchmark
             return this.clientService.Add(5, 6);
         }
 
+
+
+        Task<int>[] tasks = new Task<int>[8];
+
         [Benchmark(OperationsPerInvoke = 8)]
-        public int[] ParallelCalls()
+        public void ParallelCalls()
         {
-            Task<int>[] tasks = new Task<int>[8];
             for (int i = 0; i < tasks.Length; i++)
             {
                 tasks[i] = this.clientService.AddAsync(5 + i, 6 * i);
             }
 
+            Task.WhenAll(tasks).Wait();
+        }
+
+        [Benchmark(OperationsPerInvoke = 8)]
+        public int[] ParallelCalls2()
+        {
+            for (int i = 0; i < tasks.Length; i++)
+            {
+                tasks[i] = this.clientServices[i].AddAsync(5 + i, 6 * i);
+            }
+
             return Task.WhenAll(tasks).Result;
         }
 
+        [Benchmark(OperationsPerInvoke = 8)]
+        public int[] ParallelCallsInline2()
+        {
+            for (int i = 0; i < tasks.Length; i++)
+            {
+                tasks[i] = this.clientServices[i].AddInlineAsync(5 + i, 6 * i);
+            }
+
+            return Task.WhenAll(tasks).Result;
+        }
     }
 
     public class Program
     {
         public static void Main(string[] args)
         {
-            var b = new SimpleServiceCall();
+            var b = new SimpleServiceCallBenchmark();
             b.ConnectionType = RpcConnectionType.NetGrpc;
             b.GlobalSetup();
+            int[] res2 = b.ParallelCalls2();
+            int[] res3 = b.ParallelCallsInline2();
+            //b.ConnectDisconnect();
+            //b.ConnectDisconnect();
+            b.GlobalCleanup();
             //int pres = b.Protobuf();
 
-            int res = b.SingleCall();
-            res = b.SingleCall();
-            int[] res2 = b.ParallelCalls();
-            res2 = b.ParallelCalls();
+            //int res = b.SingleCall();
+            //res = b.SingleCall();
+            //int[] res2 = b.ParallelCalls2();
+            //res2 = b.ParallelCalls();
 
-            b.GlobalCleanup();
+            //b.GlobalCleanup();
 
             var grpcBenchmark = new RawGrpcBenchmark();
-            grpcBenchmark.ConnectionType = RpcConnectionType.Grpc;
+            grpcBenchmark.ConnectionType = RpcConnectionType.NetGrpc;
             grpcBenchmark.GlobalSetup();
             AddResponse[] grpcRes = grpcBenchmark.ParallelCalls();
             grpcBenchmark.GlobalCleanup();
 
 
-            var summary = BenchmarkRunner.Run<SimpleServiceCall>();
-            var summary2 = BenchmarkRunner.Run<RawGrpcBenchmark>();
+            var summary = BenchmarkRunner.Run<ConnectionBenchMark>();
+            var summary2 = BenchmarkRunner.Run<SimpleServiceCallBenchmark>();
+            var summary3 = BenchmarkRunner.Run<RawGrpcBenchmark>();
 
             //BenchmarkRunner.Run<SimpleServiceCall>(
             //    DefaultConfig.Instance

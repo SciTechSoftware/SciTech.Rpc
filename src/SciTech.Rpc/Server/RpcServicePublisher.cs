@@ -456,7 +456,7 @@ namespace SciTech.Rpc.Server
         }
 
         [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Not owner")]
-        IOwned<TService>? IRpcServiceActivator.GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
+        ActivatedService<TService> IRpcServiceActivator.GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class
         {
             var key = new ServiceImplKey(id, typeof(TService));
             lock (this.syncRoot)
@@ -470,35 +470,43 @@ namespace SciTech.Rpc.Server
                             GC.Collect();
                         }
 
-                        if (serviceImpl.GetUnownedInstance<TService>() is IOwned<TService> service)
+                        if (serviceImpl.GetInstance() is TService service)
                         {
-                            return service;
+                            return new ActivatedService<TService>(service, null);
                         }
 
-                        return null;
+                        return default;
                     }
 
                     if (this.idToServiceFactory.TryGetValue(key, out var serviceFactory))
                     {
-                        return ((Func<IServiceProvider?, RpcObjectId, IOwned<TService>>)serviceFactory)(serviceProvider, id);
+                        var ownedInstance = ((Func<IServiceProvider?, RpcObjectId, IOwned<TService>>)serviceFactory)(serviceProvider, id);
+                        if( ownedInstance != null )
+                        {
+                            return new ActivatedService<TService>(ownedInstance.Value, ownedInstance.CanDispose ? ownedInstance : null);
+                        }
                     }
                 }
                 else
                 {
                     if (this.singletonServiceTypeToServiceImpl.TryGetValue(typeof(TService), out var serviceImpl) 
-                        && serviceImpl.GetUnownedInstance<TService>() is IOwned<TService> service)
+                        && serviceImpl.GetInstance() is TService service)
                     {
-                        return service;
+                        return new ActivatedService<TService>(service, null);
                     }
 
                     if (this.singletonServiceTypeToFactory.TryGetValue(typeof(TService), out var singletonfactory))
                     {
-                        return ((Func<IServiceProvider?, IOwned<TService>>)singletonfactory)(serviceProvider);
+                        var ownedInstance = ((Func<IServiceProvider?, IOwned<TService>>)singletonfactory)(serviceProvider);
+                        if (ownedInstance != null)
+                        {
+                            return new ActivatedService<TService>(ownedInstance.Value, ownedInstance.CanDispose ? ownedInstance : null);
+                        }
                     }
                 }
             }
 
-            return null;
+            return default;
         }
 
         bool IRpcServiceActivator.CanGetActivatedService<TService>(RpcObjectId id) where TService : class
@@ -707,43 +715,14 @@ namespace SciTech.Rpc.Server
             /// </summary>
             private readonly object instance;
 
-            /// <summary>
-            /// Reference to "unowned" IOwned instance. Only used for 
-            /// strong references, since it will keep instance alive
-            /// 
-            /// </summary>
-            private readonly IOwned<object>? unownedInstance;
-
             internal PublishedInstance(IOwned<object> instance)
             {
                 this.instance = instance;
-                this.unownedInstance = instance.ToUnowned();
             }
 
             internal PublishedInstance(WeakReference wrInstance)
             {
                 this.instance = wrInstance;
-                this.unownedInstance = null;
-            }
-
-            internal IOwned<TService>? GetUnownedInstance<TService>() where TService : class
-            {
-                if (this.instance is WeakReference wrInstance )
-                {
-                    // Unfortunately, a new unowned instance must be allocated for 
-                    // each access to a weak published instance. The whole idea with GetUnownedInstance is to 
-                    // avoid allocations, so it would be good if this could be improved.
-                    // Considered using a ConditionalWeakTable, but I suspect the overhead of that
-                    // may be worse than an allocation of a short-lived two-fields object.
-                    if ( wrInstance.Target is TService target )
-                    {
-                        return OwnedObject.CreateUnowned(target);
-                    }
-
-                    return null;
-                }
-
-                return this.unownedInstance as IOwned<TService>;
             }
 
             internal IOwned<object>? GetOwnedInstance()
@@ -762,8 +741,6 @@ namespace SciTech.Rpc.Server
             }
 
             internal bool IsWeak => this.instance is WeakReference;
-
-
         }
 
         private readonly struct PublishedServices

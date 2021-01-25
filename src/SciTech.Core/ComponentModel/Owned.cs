@@ -19,8 +19,6 @@ namespace SciTech.ComponentModel
         T Value { get; }
         
         bool CanDispose { get; }
-
-        IOwned<T> ToUnowned();
     }
 
     public static class OwnedObject
@@ -91,16 +89,6 @@ namespace SciTech.ComponentModel
         public T Value { get; }
 
         public bool CanDispose => this.disposeActionOrDisposable != null;
-
-        public IOwned<T> ToUnowned()
-        {
-            if( this.disposeActionOrDisposable != null )
-            {
-                return new OwnedObject<T>(this.Value, (Action?)null);
-            }
-
-            return this;
-        }
 
         public void Dispose()
         {

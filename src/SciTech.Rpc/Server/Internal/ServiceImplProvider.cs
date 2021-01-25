@@ -10,10 +10,13 @@
 #endregion
 
 using SciTech.ComponentModel;
+using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server.Internal
 {
@@ -23,8 +26,28 @@ namespace SciTech.Rpc.Server.Internal
 
         IImmutableList<Type> GetPublishedSingletons();
 
-        IOwned<TService>? GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
+        ActivatedService<TService> GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
 
         bool CanGetActivatedService<TService>(RpcObjectId id) where TService : class;
+    }
+
+    public struct ActivatedService<T> : IAsyncDisposable where T : class
+    {
+        private IAsyncDisposable? disposable;
+
+        internal ActivatedService(T value, IAsyncDisposable? disposable)
+        {
+            this.Value = value;
+            this.disposable = disposable;
+        }
+
+        public T Value { get; }
+
+        public bool CanDispose => this.disposable != null;
+
+        public ValueTask DisposeAsync()
+        {
+            return this.disposable?.DisposeAsync() ?? default;
+        }
     }
 }

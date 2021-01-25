@@ -177,6 +177,10 @@ namespace SciTech.Rpc.Server.Internal
             }
             finally
             {
+                if( service.CanDispose)
+                {
+                    await service.DisposeAsync().ContextFree();
+                }
             }
         }
 
@@ -383,27 +387,6 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        //public async ValueTask<RpcResponse> CallVoidAsyncMethod<TRequest>(
-        //    TRequest request,
-        //    IServiceProvider? serviceProvider,
-        //    IRpcServerContextBuilder context,
-        //    Func<TService, TRequest, CancellationToken, Task> implCaller) where TRequest : IObjectRequest
-        //{
-        //    var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
-
-        //    try
-        //    {
-        //        // Call the actual implementation method.
-        //        await implCaller(activatedService.Value, request, context.CancellationToken).ContextFree();
-        //        context.CancellationToken.ThrowIfCancellationRequested();
-
-        //        return new RpcResponse();
-        //    }
-        //    finally
-        //    {
-        //        await this.EndCallAsync(activatedService, interceptDisposables).ContextFree();
-        //    }
-        //}
 
         public async ValueTask<RpcResponse> CallVoidAsyncMethod<TRequest>(
             TRequest request,
@@ -436,29 +419,6 @@ namespace SciTech.Rpc.Server.Internal
                 throw;
             }
         }
-
-        //public async ValueTask<RpcResponse> CallVoidBlockingMethod<TRequest>(
-        //    TRequest request,
-        //    IServiceProvider? serviceProvider,
-        //    IRpcServerContextBuilder context,
-        //    Action<TService, TRequest, CancellationToken> implCaller)
-        //    where TRequest : IObjectRequest
-        //{
-        //    var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
-
-        //    try
-        //    {
-        //        // Call the actual implementation method.
-        //        implCaller(activatedService.Value, request, context.CancellationToken);
-        //        context.CancellationToken.ThrowIfCancellationRequested();
-
-        //        return new RpcResponse();
-        //    }
-        //    finally
-        //    {
-        //        await this.EndCallAsync(activatedService, interceptDisposables).ContextFree();
-        //    }
-        //}
 
         public async ValueTask<RpcResponse> CallVoidBlockingMethod<TRequest>(
             TRequest request,
@@ -524,9 +484,9 @@ namespace SciTech.Rpc.Server.Internal
         }
 
 
-        private ValueTask EndCallAsync(IOwned<TService>? activatedService, CompactList<IDisposable?> interceptDisposables)
+        private ValueTask EndCallAsync(in ActivatedService<TService> activatedService, CompactList<IDisposable?> interceptDisposables)
         {
-            ValueTask disposeTask = activatedService?.DisposeAsync() ?? default;
+            ValueTask disposeTask = activatedService.DisposeAsync();
             if( disposeTask.IsCompletedSuccessfully)
             {
                 if (this.hasContextAccessor)
@@ -572,7 +532,7 @@ namespace SciTech.Rpc.Server.Internal
         /// <summary>
         /// <para>
         /// Prepares a call to the RPC implementation method. Must be combined with a corresponding call to
-        /// <see cref="EndCallAsync(in IOwned{TService}, CompactList{IDisposable?})"/>.
+        /// <see cref="EndCallAsync(in ActivatedService{TService}, CompactList{IDisposable?})"/>.
         /// </para>
         /// <para>IMPORTANT! This method must not be an async method, since it's likely that an interceptor will update
         /// an AsyncLocal (e.g. session or security token). Changes to AsyncLocals will not propagate out of an async
@@ -583,7 +543,7 @@ namespace SciTech.Rpc.Server.Internal
         /// <param name="context"></param>
         /// <returns>A tuple containing the service implementation instance, and an array of disposables that must
         /// be disposed when the call is finished.</returns>
-        private ValueTask<ValueTuple<IOwned<TService>, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcServerContextBuilder context)
+        private ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> BeginCall(IServiceProvider? serviceProvider, RpcObjectId objectId, IRpcServerContextBuilder context)
         {
             var interceptors = this.Server.CallInterceptors;
 
@@ -622,7 +582,7 @@ namespace SciTech.Rpc.Server.Internal
 
                     var service = this.GetServiceImpl(serviceProvider, objectId);
 
-                    return new ValueTask<(IOwned<TService>, CompactList<IDisposable?>)>((service, interceptDisposables));
+                    return new ValueTask<(ActivatedService<TService>, CompactList<IDisposable?>)>((service, interceptDisposables));
                 }
 
                 return AwaitPendingInterceptors(pendingInterceptors, interceptDisposables,
@@ -641,7 +601,7 @@ namespace SciTech.Rpc.Server.Internal
                 throw;
             }
 
-            async ValueTask<ValueTuple<IOwned<TService>, CompactList<IDisposable?>>> AwaitPendingInterceptors(
+            async ValueTask<ValueTuple<ActivatedService<TService>, CompactList<IDisposable?>>> AwaitPendingInterceptors(
                 CompactList<Task<IDisposable>> pendingInterceptors,
                 CompactList<IDisposable?> interceptDisposables,
                 IServiceProvider? serviceProvider, RpcObjectId objectId,
@@ -661,47 +621,11 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private ValueTask<RpcResponse<TResponse>> CallCoreAsync<TRequest, TResult, TResponse>(
-            TRequest request,
-            IRpcServerContext context,
-            Func<TService, TRequest, CancellationToken, TResult> implCaller,
-            Func<TResult, TResponse>? responseConverter,
-            RpcServerFaultHandler? faultHandler,
-            IRpcSerializer serializer,
-            in IOwned<TService> activatedService,
-            CompactList<IDisposable?> interceptDisposables) where TRequest : IObjectRequest
+
+        private ActivatedService<TService> GetServiceImpl(IServiceProvider? serviceProvider, RpcObjectId objectId)
         {
-            try
-            {
-                try
-                {
-                    // Call the actual implementation method.
-                    var result = implCaller(activatedService.Value, request, context.CancellationToken);
-                    context.CancellationToken.ThrowIfCancellationRequested();
-
-                    return new ValueTask<RpcResponse<TResponse>>(
-                        CreateResponse(responseConverter, result));
-                }
-                finally
-                {
-                    ValueTask disposeTask = this.EndCallAsync(activatedService, interceptDisposables);
-                    if( !disposeTask.IsCompletedSuccessfully)
-                    {
-
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                this.HandleRpcError(e, faultHandler, serializer);
-                throw;
-            }
-        }
-
-        private IOwned<TService> GetServiceImpl(IServiceProvider? serviceProvider, RpcObjectId objectId)
-        {            
-            var activatedService = this.serviceActivator.GetActivatedService<TService>(serviceProvider, objectId);
-            if (activatedService != null)
+            ActivatedService<TService> activatedService = this.serviceActivator.GetActivatedService<TService>(serviceProvider, objectId);
+            if (activatedService.Value != null)
             {
                 return activatedService;
             }

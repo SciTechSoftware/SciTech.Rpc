@@ -132,6 +132,10 @@ namespace SciTech.Rpc.Client.Internal
 
         internal const string CallAsyncEnumerableMethodName = nameof(CallAsyncEnumerableMethod);
 
+        internal const string CallCallbackMethodAsyncName = nameof(CallCallbackMethodAsync);
+
+        internal const string CallCallbackMethodName = nameof(CallCallbackMethod);
+
         internal const string CallUnaryMethodAsyncName = nameof(CallUnaryMethodAsync);
 
         internal const string CallUnaryMethodName = nameof(CallUnaryMethod);
@@ -374,6 +378,59 @@ namespace SciTech.Rpc.Client.Internal
                 }
             }
         }
+
+        protected void CallCallbackMethod<TRequest, TResponseReturn, TReturn>(
+            TMethodDef method,
+            TRequest request,
+            Action<TReturn> callback,
+            Func<IRpcProxy, object?, object?> responseConverter,
+            CancellationToken cancellationToken)
+            where TRequest : class
+            where TResponseReturn : class
+        {
+            CallCallbackMethodAsync<TRequest, TResponseReturn, TReturn>(method, request, callback, responseConverter, cancellationToken).AwaiterResult();
+        }
+
+
+        protected async Task CallCallbackMethodAsync<TRequest, TResponseReturn, TReturn>(
+            TMethodDef method,
+            TRequest request,
+            Action<TReturn> callback,
+            Func<IRpcProxy, object?, object?> responseConverter,
+            CancellationToken cancellationToken)
+                where TRequest : class
+                where TResponseReturn : class
+        {
+            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
+            await using (streamingCall.ContextFree())
+            {
+                var sequence = streamingCall.ResponseStream;
+                while (true)
+                {
+                    TReturn retVal;
+
+                    try
+                    {
+                        if (await sequence.MoveNextAsync().ContextFree())
+                        {
+                            retVal = this.ConvertResult<TResponseReturn, TReturn>(responseConverter, sequence.Current);
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        this.HandleCallException(method, e);
+                        throw;
+                    }
+
+                    callback?.Invoke(retVal);
+                }
+            }
+        }
+
 
         protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken cancellationToken)
             where TRequest : class

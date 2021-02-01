@@ -11,6 +11,8 @@
 
 #endregion Copyright notice and license
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SciTech.Collections;
 using SciTech.ComponentModel;
 using SciTech.Rpc.Internal;
@@ -19,6 +21,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server.Internal
@@ -214,7 +217,7 @@ namespace SciTech.Rpc.Server.Internal
 
                     context.CancellationToken.ThrowIfCancellationRequested();
 
-                    return CreateResponse(responseConverter, result);
+                    return new RpcResponse<TResponse>(CreateResponse(responseConverter, result));
                 }
                 finally
                 {
@@ -248,7 +251,120 @@ namespace SciTech.Rpc.Server.Internal
                     var result = implCaller(activatedService.Value, request, context.CancellationToken);
                     context.CancellationToken.ThrowIfCancellationRequested();
 
-                    return CreateResponse(responseConverter, result);
+                    return new RpcResponse<TResponse>(CreateResponse(responseConverter, result));
+                }
+                finally
+                {
+                    await this.EndCallAsync(activatedService, interceptDisposables).ContextFree();
+                }
+            }
+            catch (Exception e)
+            {
+                this.HandleRpcError(e, faultHandler, serializer);
+                throw;
+            }
+        }
+
+        private readonly ILogger logger = NullLogger<RpcStub>.Instance;
+
+        public async ValueTask CallCallbackMethod<TRequest, TReturn,TResponse>(
+            TRequest request,
+            IServiceProvider? serviceProvider,
+            IRpcServerContextBuilder context,
+            IRpcAsyncStreamWriter<TResponse> responseWriter,
+            Func<TService, TRequest, Action<TReturn>, CancellationToken, Task> implCaller,
+            Func<TReturn, TResponse>? responseConverter,
+            RpcServerFaultHandler? faultHandler,
+            IRpcSerializer serializer) where TRequest : IObjectRequest
+        {
+            try
+            {
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+
+                try
+                {
+                    var enumCts = new CancellationTokenSource();
+                    var combinedCts = context.CancellationToken.CanBeCanceled
+                        ? CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, enumCts.Token)
+                        : enumCts;
+
+                    object responseSyncRoot = new object();
+                    // Maybe the channel shouldn't be unbounded?
+                    Channel<TResponse> responseChannel = Channel.CreateUnbounded<TResponse>(new UnboundedChannelOptions()
+                    {
+                        SingleReader = true,
+                        SingleWriter = false
+                    });
+
+                    try
+                    {
+                        Action<TReturn> callback = r =>
+                        {                            
+                            responseChannel.Writer.TryWrite(CreateResponse(responseConverter, r));
+                        };
+
+                        Task consumerTask = Task.Run(async () =>
+                        {
+                            var reader = responseChannel.Reader;
+
+                            try
+                            {
+                                while (true)
+                                {
+                                    bool hasMoreData = await reader.WaitToReadAsync().ContextFree();
+                                    if (hasMoreData)
+                                    {
+                                        if (reader.TryRead(out var r))
+                                        {
+                                            await responseWriter.WriteAsync(r).ContextFree();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                            catch (Exception x)
+                            {
+
+                            }
+                        });
+
+                        // Call the actual implementation method.
+                        var result = implCaller(activatedService.Value, request, callback, combinedCts.Token);
+                        if (!activatedService.CanDispose)
+                        {
+                            // Avoid keeping a reference to the activated service unless it needs to be disposed.
+                            // This will allow auto-published services to be GCed while running a long-running
+                            // streaming call.
+                            activatedService = default;
+                        }
+
+                        await result.ContextFree();
+
+                        responseChannel.Writer.Complete();
+
+                        try
+                        {
+                            await consumerTask.ContextFree();
+                        }
+                        catch (OperationCanceledException) { }
+                        catch (Exception x)
+                        {
+                            this.logger.LogWarning(x, "Callback consumer ended with an error.");
+                        }
+
+                    }
+                    finally
+                    {
+                        if (combinedCts != enumCts)
+                        {
+                            combinedCts.Dispose();
+                        }
+
+                        enumCts.Dispose();
+                    }
                 }
                 finally
                 {
@@ -336,7 +452,7 @@ namespace SciTech.Rpc.Server.Internal
                                     }
 
                                     var response = CreateResponse(responseConverter, asyncEnum.Current);
-                                    await responseWriter.WriteAsync(response.Result).ContextFree();
+                                    await responseWriter.WriteAsync(response).ContextFree();
                                 }
                             }
                         }
@@ -453,21 +569,20 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private static RpcResponse<TResponse> CreateResponse<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
+        private static TResponse CreateResponse<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
         {
-            RpcResponse<TResponse> rpcResponse;
             if (responseConverter == null)
             {
                 if (typeof(TResponse) == typeof(TResult))
                 {
                     if (result is TResponse response)
                     {
-                        rpcResponse = new RpcResponse<TResponse>(response);
+                        return response;
                     }
                     else
                     {
                         // This should only happen if result is null
-                        rpcResponse = new RpcResponse<TResponse>(default(TResponse)!);
+                        return default!;
                     }
                 }
                 else
@@ -477,10 +592,8 @@ namespace SciTech.Rpc.Server.Internal
             }
             else
             {
-                rpcResponse = new RpcResponse<TResponse>(responseConverter(result));
+                return responseConverter(result);
             }
-
-            return rpcResponse;
         }
 
 

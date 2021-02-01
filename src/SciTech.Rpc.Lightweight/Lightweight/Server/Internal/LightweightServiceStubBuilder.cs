@@ -82,7 +82,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             var beginEventProducerName = $"{eventInfo.FullServiceName}.Begin{eventInfo.Name}";
 
-            var methodStub = new LightweightMethodStub<RpcObjectRequest, TEventArgs>(beginEventProducerName, beginEventProducer, serviceStub.Serializer, null);
+            var methodStub = new LightweightStreamingMethodStub<RpcObjectRequest, TEventArgs>(beginEventProducerName, beginEventProducer, serviceStub.Serializer, null);
 
             binder.AddMethod(methodStub);
         }
@@ -171,9 +171,25 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             ValueTask HandleRequest(TRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TResponseReturn> responseWriter, LightweightCallContext context)
                 => serviceStub.CallServerStreamingMethod(request, serviceProvider, context, responseWriter, serviceCaller, responseConverter, faultHandler, serializer);
             
-            var methodStub = new LightweightMethodStub<TRequest, TResponseReturn>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            var methodStub = new LightweightStreamingMethodStub<TRequest, TResponseReturn>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
             binder.AddMethod(methodStub);
         }
+
+        protected override void AddCallbackMethodCore<TRequest, TReturn,TResponse>(
+            Func<TService, TRequest, Action<TReturn>, CancellationToken, Task> serviceCaller,
+            Func<TReturn, TResponse>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub, RpcOperationInfo operationInfo, ILightweightMethodBinder binder)
+        {
+            var serializer = serviceStub.Serializer;
+
+            ValueTask HandleRequest(TRequest request, IServiceProvider? serviceProvider, IRpcAsyncStreamWriter<TResponse> responseWriter, LightweightCallContext context)
+                => serviceStub.CallCallbackMethod(request, serviceProvider, context, responseWriter, serviceCaller, responseConverter, faultHandler, serializer);
+
+            var methodStub = new LightweightStreamingMethodStub<TRequest, TResponse>(operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            binder.AddMethod(methodStub);
+        }
+
 
 
         private class Binder : ILightweightMethodBinder

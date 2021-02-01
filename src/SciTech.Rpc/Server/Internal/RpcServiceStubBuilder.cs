@@ -88,7 +88,15 @@ namespace SciTech.Rpc.Server.Internal
 
                         case RpcMethodType.ServerStreaming:
                             this.CheckMethod(opInfo);
-                            this.AddServerStreamingMethod(this.serviceStub, opInfo, methodBinder);
+                            if (opInfo.CallbackParameterIndex == null)
+                            {
+                                // No callback. Implement using IAsyncEnumerable
+                                this.AddServerStreamingMethod(this.serviceStub, opInfo, methodBinder);
+                            } else
+                            {
+                                // Implement using callback
+                                this.AddCallbackMethod(this.serviceStub, opInfo, methodBinder);
+                            }
                             break;
 
                         default:
@@ -186,6 +194,57 @@ namespace SciTech.Rpc.Server.Internal
             return func;
         }
 
+        protected static Func<TService, TRequest, Action<TReturn>, CancellationToken, Task> GenerateCallbackMethodHandler<TRequest, TReturn>(RpcOperationInfo operationInfo)
+            where TRequest : class
+        {
+            if (operationInfo is null) throw new ArgumentNullException(nameof(operationInfo));
+
+            var requestParameter = Expression.Parameter(typeof(TRequest));
+            var callbackParameter = Expression.Parameter(typeof(Action<TReturn>));
+            var cancellationTokenParameter = Expression.Parameter(typeof(CancellationToken));
+
+            List<Expression> parameterExpressions = GetParameterExpressions<TRequest>(operationInfo, requestParameter, callbackParameter, cancellationTokenParameter);
+
+            var serviceParameter = Expression.Parameter(typeof(TService));
+
+            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameterExpressions);
+            var expression = Expression.Lambda<Func<TService, TRequest, Action<TReturn>, CancellationToken, Task>>(
+                invocation, false, serviceParameter, requestParameter, callbackParameter, cancellationTokenParameter);
+
+            var func = expression.Compile();
+            return func;
+        }
+
+        protected static Func<TService, TRequest, Action<TReturn>, CancellationToken,Task> GenerateBlockingCallbackMethodHandler<TRequest, TReturn>(RpcOperationInfo operationInfo)
+            where TRequest : class
+        {
+            if (operationInfo is null) throw new ArgumentNullException(nameof(operationInfo));
+
+            var requestParameter = Expression.Parameter(typeof(TRequest));
+            var callbackParameter = Expression.Parameter(typeof(Action<TReturn>));
+            var cancellationTokenParameter = Expression.Parameter(typeof(CancellationToken));
+
+            List<Expression> parameterExpressions = GetParameterExpressions<TRequest>(operationInfo, requestParameter, callbackParameter, cancellationTokenParameter);
+
+            var serviceParameter = Expression.Parameter(typeof(TService));
+
+            var invocation = Expression.Call(serviceParameter, operationInfo.Method, parameterExpressions);
+
+            var expression = Expression.Lambda<Action<TService, TRequest, Action<TReturn>, CancellationToken>>(
+                invocation, false, serviceParameter, requestParameter, callbackParameter, cancellationTokenParameter);
+
+            var func = expression.Compile();
+
+            Task callFunc(TService service, TRequest request, Action<TReturn> callback, CancellationToken cancellation)
+            {
+                func(service, request, callback, cancellation);
+                return Task.CompletedTask;
+            }
+
+            return callFunc;
+        }
+
+
         protected static Func<TService, TRequest, CancellationToken, Task<TResponse>> GenerateUnaryMethodHandler<TRequest, TResponse>(RpcOperationInfo operationInfo)
                     where TRequest : class
         {
@@ -253,7 +312,7 @@ namespace SciTech.Rpc.Server.Internal
 
         protected void AddGenericServerStreamingMethod<TRequest, TReturn, TResponseReturn>(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
             where TRequest : class, IObjectRequest
-            where TResponseReturn : class
+            where TResponseReturn : class  // Needs to be class due to gRPC constraint
         {
             if (opInfo is null) throw new ArgumentNullException(nameof(opInfo));
 
@@ -262,6 +321,27 @@ namespace SciTech.Rpc.Server.Internal
 
             var serviceCaller = GenerateServerStreamingMethodHandler<TRequest, TReturn>(opInfo);
             this.AddServerStreamingMethodCore(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
+        }
+
+        protected void AddGenericCallbackMethod<TRequest, TReturn, TResponseReturn>(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
+            where TRequest : class, IObjectRequest
+            where TResponseReturn : class  // Needs to be class due to gRPC constraint
+        {
+            if (opInfo is null) throw new ArgumentNullException(nameof(opInfo));
+
+            Func<TReturn, TResponseReturn>? responseCreator = GetResponseCreator<TReturn, TResponseReturn>(opInfo);
+            RpcServerFaultHandler faultHandler = this.CreateFaultHandler(opInfo);
+
+            if (opInfo.IsAsync)
+            {
+                var serviceCaller = GenerateCallbackMethodHandler<TRequest, TReturn>(opInfo);
+                this.AddCallbackMethodCore(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
+            } else
+            {
+                var serviceCaller = GenerateBlockingCallbackMethodHandler<TRequest, TReturn>(opInfo);
+                this.AddCallbackMethodCore(serviceCaller, responseCreator, faultHandler, serviceStub, opInfo, binder);
+
+            }
         }
 
         protected abstract void AddGenericVoidAsyncMethodCore<TRequest>(
@@ -288,7 +368,18 @@ namespace SciTech.Rpc.Server.Internal
             RpcOperationInfo operationInfo,
             TMethodBinder binder)
             where TRequest : class, IObjectRequest
-            where TResponseReturn : class;
+            where TResponseReturn : class;  // Needs to be class due to gRPC restriction
+
+        protected abstract void AddCallbackMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, Action<TReturn>, CancellationToken, Task> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            TMethodBinder binder)
+            where TRequest : class, IObjectRequest
+            where TResponseReturn : class;  // Needs to be class due to gRPC constraint
+
 
         protected virtual ImmutableRpcServerOptions CreateStubOptions(IRpcServerCore server)
         {
@@ -378,8 +469,7 @@ namespace SciTech.Rpc.Server.Internal
 
             return mappings;
         }
-
-        private static List<Expression> GetParameterExpressions<TRequest>(RpcOperationInfo operationInfo, ParameterExpression requestParameter, ParameterExpression cancellationTokenParameter)
+        private static List<Expression> GetParameterExpressions<TRequest>(RpcOperationInfo operationInfo, ParameterExpression requestParameter, ParameterExpression callbackParameter, ParameterExpression cancellationTokenParameter)
         {
             var parameterExpressions = new List<Expression>();
             var parameters = operationInfo.Method.GetParameters();
@@ -390,7 +480,11 @@ namespace SciTech.Rpc.Server.Internal
                 {
                     parameterExpressions.Add(cancellationTokenParameter);
                 }
-                else
+                else if (paramIndex == operationInfo.CallbackParameterIndex)
+                {
+                    parameterExpressions.Add(callbackParameter);
+                }
+                else 
                 {
                     int valueIndex = GetRequestValueIndex(operationInfo.RequestParameters, paramIndex);
                     if (valueIndex < 0)
@@ -404,6 +498,11 @@ namespace SciTech.Rpc.Server.Internal
             }
 
             return parameterExpressions;
+        }
+
+        private static List<Expression> GetParameterExpressions<TRequest>(RpcOperationInfo operationInfo, ParameterExpression requestParameter, ParameterExpression cancellationTokenParameter)
+        {
+            return GetParameterExpressions<TRequest>(operationInfo, requestParameter, null, cancellationTokenParameter);
         }
 
         private static int GetRequestValueIndex(ImmutableArray<RpcRequestParameter> requestParameters, int paramIndex)
@@ -490,6 +589,19 @@ namespace SciTech.Rpc.Server.Internal
                 .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
 
             addUnaryMethodDelegate(serviceStub, opInfo, binder);
+        }
+        private void AddCallbackMethod(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
+        {
+            // TODO: Cache.
+            var addCallbackMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                GetBuilderMethod(nameof(this.AddGenericCallbackMethod))
+                .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
+                .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+            var addCallbackMethodDelegate2 = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                GetBuilderMethod(nameof(this.AddGenericCallbackMethod))
+                .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
+                .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+            addCallbackMethodDelegate(serviceStub, opInfo, binder);
         }
 
         private void AddUnaryMethod(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)

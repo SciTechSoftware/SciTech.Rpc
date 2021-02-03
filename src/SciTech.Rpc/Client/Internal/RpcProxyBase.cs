@@ -405,6 +405,13 @@ namespace SciTech.Rpc.Client.Internal
             await using (streamingCall.ContextFree())
             {
                 var sequence = streamingCall.ResponseStream;
+                SendOrPostCallback? postCallback = null;
+
+                if (callback != null && this.SyncContext != null)
+                {
+                    postCallback = s => callback((TReturn)s!);
+                } 
+
                 while (true)
                 {
                     TReturn retVal;
@@ -426,8 +433,16 @@ namespace SciTech.Rpc.Client.Internal
                         throw;
                     }
 
-                    callback?.Invoke(retVal);
+                    if (postCallback != null)
+                    {
+                        this.SyncContext!.Post(postCallback, retVal);
+                    }
+                    else 
+                    {
+                        callback?.Invoke(retVal);
+                    }
                 }
+
             }
         }
 

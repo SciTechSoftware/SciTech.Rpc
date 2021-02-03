@@ -271,7 +271,7 @@ namespace SciTech.Rpc.Tests
                 var first = sequenceEnum.Current;
 
                 // Unpublish the server side service after the first data has been received
-                providerImpl.ReleaseSequenceService();
+                providerImpl.ReleaseServices();
                 // Make sure that the auto-published instance is GCed (and thus unpublished).
                 GC.Collect();
                 GC.WaitForPendingFinalizers();
@@ -300,23 +300,31 @@ namespace SciTech.Rpc.Tests
     public interface ISequenceServiceProvider
     {
         ISequenceService SequenceService { get; }
+        
+        ICallbackService CallbackService { get; }
     }
 
     public class SequenceServiceProviderImpl : ISequenceServiceProvider
     {
-        internal WeakReference wrService;
+        internal WeakReference wrSequenceService;
+        internal WeakReference wrCallbackService;
+
         public SequenceServiceProviderImpl()
         {
             this.SequenceService = new SequenceServiceImpl();
-            wrService = new WeakReference(this.SequenceService);
+            this.CallbackService = new CallbackServiceImpl();
+            wrSequenceService = new WeakReference(this.SequenceService);
+            wrCallbackService = new WeakReference(this.CallbackService);
         }
 
         public ISequenceService SequenceService { get; private set; }
+        
+        public ICallbackService CallbackService { get; private set; }
 
-        internal void ReleaseSequenceService()
+        internal void ReleaseServices()
         {
             this.SequenceService = null;
-
+            this.CallbackService = null;
         }
     }
 
@@ -363,7 +371,9 @@ namespace SciTech.Rpc.Tests
             return StaticGetSequence(count, delay, delayFrequency, initialDelay);
         }
 
-        static async IAsyncEnumerable<SequenceData> StaticGetSequenceAsCancellableEnumerable(int count, TimeSpan delay, int delayFrequency, bool initialDelay, TaskCompletionSource<bool> cancelledTcs,  [EnumeratorCancellation]CancellationToken cancellationToken)
+        static async IAsyncEnumerable<SequenceData> StaticGetSequenceAsCancellableEnumerable(
+            int count, TimeSpan delay, int delayFrequency, bool initialDelay, TaskCompletionSource<bool> cancelledTcs,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
         {
 
             for (int i = 0; i < count; i++)

@@ -121,7 +121,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         public override Type ResponseType => typeof(RpcResponse);
 
         /// <summary>
-        /// Gets the handler for a streaming request. Only one of <see cref="Handler"/> and <see cref="StreamHandler"/> will be non-<c>null</c>.
+        /// Gets the handler for a streaming request. 
         /// </summary>
         internal Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TStreamResponse>, LightweightCallContext, ValueTask> StreamHandler { get; }
 
@@ -212,22 +212,12 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         internal bool AllowInlineExecution { get; }
 
         /// <summary>
-        /// Gets the handler for a unary request. Only one of <see cref="Handler"/> and <see cref="StreamHandler"/> will be non-<c>null</c>.
+        /// Gets the handler for a unary request.
         /// </summary>
-        internal Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>>? Handler { get; }
-
-        ///// <summary>
-        ///// Gets the handler for a streaming request. Only one of <see cref="Handler"/> and <see cref="StreamHandler"/> will be non-<c>null</c>.
-        ///// </summary>
-        //internal Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TResponse>, LightweightCallContext, ValueTask>? StreamHandler { get; }
+        internal Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>> Handler { get; }
 
         public override Task HandleMessage(ILightweightRpcFrameWriter frameWriter, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
-            if (this.Handler == null)
-            {
-                throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Unary request handler is not initialized for '{frame.RpcOperation}'.");
-            }
-
             TRequest? request = this.requestSerializer.Deserialize(frame.Payload, null);
             if (request == null) throw new RpcFailureException(RpcFailure.InvalidData);
 
@@ -248,7 +238,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 ILightweightRpcFrameWriter frameWriter, TRequest request, int messageNumber, string operation,
                 IServiceProvider? serviceProvider, LightweightCallContext context)
             {
-                var responseTask = stub.Handler!(request, serviceProvider, context);
+                var responseTask = stub.Handler(request, serviceProvider, context);
 
                 return stub.HandleResponse(messageNumber, operation, frameWriter, responseTask);
             }
@@ -275,12 +265,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Server streaming request handler is not initialized for '{frame.RpcOperation}'.");
         }
-
-        private static async Task AwaitValueTaskAsTask(ValueTask valueTask)
-        {
-            await valueTask.ContextFree();
-        }
-        
 
         private Task HandleResponse(int messageNumber, string operation, ILightweightRpcFrameWriter frameWriter, ValueTask<TResponse> responseTask)
         {
@@ -340,24 +324,5 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 return AwaitAndWriteResponse(messageNumber, operation);
             }
         }
-
-        private static async Task HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TResponse> responseWriter)
-        {
-            //try
-            //{
-            await responseTask.ContextFree();
-            await responseWriter.EndAsync().ContextFree();
-            //            }
-            //#pragma warning disable CA1031 // Do not catch general exception types
-            //            catch (Exception x)
-            //            {
-            //                HandleResponse
-            //                throw new NotImplementedException();
-
-            //            }
-            //#pragma warning restore CA1031 // Do not catch general exception types
-
-        }
     }
-
 }

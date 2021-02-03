@@ -11,6 +11,11 @@ using System.Threading;
 using System.Runtime.CompilerServices;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Lightweight.Client.Internal;
+using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Tests.Lightweight;
+using SciTech.Rpc.Lightweight.Server;
 
 namespace SciTech.Rpc.Tests
 {
@@ -22,8 +27,38 @@ namespace SciTech.Rpc.Tests
         
         void PerformSyncActionCallbacks(int value, int count, Action<CallbackData> callback);
 
+        Task PerformDelayedCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback);
+
+        Task PerformCancellableCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback, CancellationToken cancellationToken );
+
+
         // Task PerformSimpleDelegateCallbacksAsync(int value, int count, SimpleDelegate callback);
     }
+
+    [RpcService]
+    public interface ICallbackWithReturnService
+    {
+        Task<int> PerformActionCallbacksAsync(int value, int count, Action<CallbackData> callback);
+    }
+
+    [RpcService]
+    public interface IUnsupportCallbackService1
+    {
+        Task PerformActionCallbacksAsync(int value, int count, SimpleDelegate callback);
+    }
+
+    [RpcService]
+    public interface IUnsupportCallbackService2
+    {
+        Task PerformActionCallbacksAsync(int value, int count, Action<int,int> callback);
+    }
+
+    [RpcService]
+    public interface IValueTypeCallbackService
+    {
+        Task PerformActionCallbacksAsync(int value, int count, Action<int> callback);
+    }
+
 
     public delegate void SimpleDelegate(CallbackData data);
 
@@ -48,9 +83,8 @@ namespace SciTech.Rpc.Tests
 
         public bool RoundTripCancellation { get; }
 
-
         [Test]
-        public async Task CallbackMethod_Should_HandleAction()
+        public async Task CallbackMethod_Should_InvokeAction()
         {
             var builder = new RpcServiceDefinitionsBuilder();
             builder.RegisterService<ICallbackService>();
@@ -84,7 +118,7 @@ namespace SciTech.Rpc.Tests
         }
 
         [Test]
-        public async Task SyncCallbackMethod_Should_HandleAction()
+        public async Task SyncCallbackMethod_Should_InvokeAction()
         {
             var builder = new RpcServiceDefinitionsBuilder();
             builder.RegisterService<ICallbackService>();
@@ -151,233 +185,239 @@ namespace SciTech.Rpc.Tests
         //}
 
 
-        //        [Test]
-        //        public async Task SequenceEnumerableTimeoutTest()
-        //        {
-        //            var builder = new RpcServiceDefinitionsBuilder();
-        //            builder.RegisterService<ISequenceService>();
+        [Test]
+        public async Task CallbackTimeoutTest()
+        {
+            var builder = new RpcServiceDefinitionsBuilder();
+            builder.RegisterService<ICallbackService>();
 
-        //            var (server, connection) = this.CreateServerAndConnection(builder,
-        //                null,
-        //                o=> {
-        //                    o.StreamingCallTimeout = TimeSpan.FromSeconds(1);
-        //                });
+            var (server, connection) = this.CreateServerAndConnection(builder,
+                null,
+                o =>
+                {
+                    o.StreamingCallTimeout = TimeSpan.FromSeconds(1);
+                });
 
-        //            var sequenceServiceImpl = new SequenceServiceImpl();
-        //            using var publishedService = server.ServicePublisher.PublishSingleton<ISequenceService>(sequenceServiceImpl);
-        //            try
-        //            {
-        //                server.Start();
+            var callbackServiceImpl = new CallbackServiceImpl();
+            using var publishedService = server.ServicePublisher.PublishSingleton<ICallbackService>(callbackServiceImpl);
+            try
+            {
+                server.Start();
 
-        //                var sequenceService = connection.GetServiceSingleton<ISequenceService>();
+                var callbackService = connection.GetServiceSingleton<ICallbackService>();
 
 
-        //                var exceptionExpression = Is.InstanceOf<TimeoutException>();
-        //                if( this.ConnectionType == RpcConnectionType.NetGrpc)
-        //                {
-        //                    // It seems like NetGrpc throws OperationCancelledException instead of DeadlineExceeded RpcException (but
-        //                    // it also seems a bit timing dependent). Let's allow both exceptions.
-        //                    exceptionExpression = exceptionExpression.Or.InstanceOf<OperationCanceledException>();
-        //                }
+                var exceptionExpression = Is.InstanceOf<TimeoutException>();
+                if (this.ConnectionType == RpcConnectionType.NetGrpc)
+                {
+                    // It seems like NetGrpc throws OperationCancelledException instead of DeadlineExceeded RpcException (but
+                    // it also seems a bit timing dependent). Let's allow both exceptions.
+                    exceptionExpression = exceptionExpression.Or.InstanceOf<OperationCanceledException>();
+                }
 
-        //                DateTime connectStart = DateTime.UtcNow;
-        //                // Force connection
-        ////                sequenceService.SimpleCall();
+                DateTime connectStart = DateTime.UtcNow;
+                // Force connection
+                //                sequenceService.SimpleCall();
 
-        //                var connectDuration = DateTime.UtcNow - connectStart;
-        //                Console.WriteLine("Connect duration: " + connectDuration);
+                var connectDuration = DateTime.UtcNow - connectStart;
+                Console.WriteLine("Connect duration: " + connectDuration);
 
-        //                DateTime start = DateTime.UtcNow;
-        //                int lastNo = 0;
+                DateTime start = DateTime.UtcNow;
+                int lastNo = 0;
 
-        //                Assert.ThrowsAsync(exceptionExpression, async () =>
-        //                {
-        //                    async Task GetSequence()
-        //                    {
-        //                        await foreach (var sequenceData in sequenceService.GetSequenceAsEnumerable(2000, TimeSpan.FromMilliseconds(1), 1))
-        //                        {
-        //                            Assert.AreEqual(lastNo + 1, sequenceData.SequenceNo);
-        //                            lastNo = sequenceData.SequenceNo;
-        //                        }
-        //                    }
+                Assert.ThrowsAsync(exceptionExpression, async () =>
+                {
+                    await callbackService.PerformDelayedCallbacksAsync(2000, TimeSpan.FromMilliseconds(1), 1, true,
+                        callbackData =>
+                        {
+                            Assert.AreEqual(lastNo + 1, callbackData.Value);
+                            lastNo = callbackData.Value;
+                        }).DefaultTimeout();
+                });
 
-        //                    await GetSequence().DefaultTimeout();
-        //                });
+                TimeSpan duration = DateTime.UtcNow - start;
+                Assert.GreaterOrEqual(duration, TimeSpan.FromSeconds(1));
+                Assert.Less(duration, TimeSpan.FromSeconds(2));
+                Assert.Greater(lastNo, 10);
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
 
-        //                TimeSpan duration = DateTime.UtcNow - start;
-        //                Assert.GreaterOrEqual(duration, TimeSpan.FromSeconds(1));
-        //                Assert.Less(duration, TimeSpan.FromSeconds(2));
-        //                Assert.Greater(lastNo, 10);
-        //            }
-        //            finally
-        //            {
-        //                await server.ShutdownAsync();
-        //            }
-        //        }
+        [Test]
+        public async Task CallbackWithCancellationTest()
+        {
+            var builder = new RpcServiceDefinitionsBuilder();
+            builder.RegisterService<ICallbackService>();
 
-        //        [Test]
-        //        public async Task SequenceEnumerableWithCancellationTest()
-        //        {
-        //            var builder = new RpcServiceDefinitionsBuilder();
-        //            builder.RegisterService<ISequenceService>();
+            var (server, connection) = this.CreateServerAndConnection(builder);
+            var callbackServiceImpl = new CallbackServiceImpl();
+            using (var publishedService = server.ServicePublisher.PublishSingleton<ICallbackService>(callbackServiceImpl))
+            {
+                try
+                {
+                    server.Start();
 
-        //            var (server, connection) = this.CreateServerAndConnection(builder);
-        //            var sequenceServiceImpl = new SequenceServiceImpl();
-        //            using (var publishedService = server.ServicePublisher.PublishSingleton<ISequenceService>(sequenceServiceImpl))
-        //            {
-        //                try
-        //                {
-        //                    server.Start();
+                    var callbackService = connection.GetServiceSingleton<ICallbackService>();
 
-        //                    var sequenceService = connection.GetServiceSingleton<ISequenceService>();
+                    int lastNo = 0;
+                    CancellationTokenSource cts = new CancellationTokenSource();
 
-        //                    int lastNo = 0;
-        //                    CancellationTokenSource cts = new CancellationTokenSource();
+                    Assert.CatchAsync<OperationCanceledException>(async () =>
+                   {
+                       await callbackService.PerformCancellableCallbacksAsync(1000, TimeSpan.FromMilliseconds(20), 10, true,
+                           callbackData =>
+                           {
+                               Assert.AreEqual(lastNo + 1, callbackData.Value);
+                               lastNo = callbackData.Value;
+                               if (lastNo == 3)
+                               {
+                                   cts.Cancel();
+                               }
+                           }, cts.Token);
+                   });
 
-        //                    Assert.CatchAsync<OperationCanceledException>( async ()=>
-        //                    {
-        //                        await foreach (var sequenceData in sequenceService.GetSequenceAsCancellableEnumerable(1000,  TimeSpan.FromMilliseconds(20), 10, true, cts.Token))
-        //                        {
-        //                            Assert.AreEqual(lastNo + 1, sequenceData.SequenceNo);
-        //                            lastNo = sequenceData.SequenceNo;
-        //                            if (lastNo == 3)
-        //                            {
-        //                                cts.Cancel();
-        //                            }
-        //                        }
-        //                    });
+                    if (this.RoundTripCancellation)
+                    {
+                        Assert.Less(lastNo, 100);
+                        Assert.GreaterOrEqual(lastNo, 3);
+                    }
+                    else
+                    {
+                        Assert.AreEqual(3, lastNo);
+                    }
 
-        //                    if (this.RoundTripCancellation)
-        //                    {
-        //                        Assert.Less(lastNo, 100);
-        //                        Assert.GreaterOrEqual(lastNo, 3);
-        //                    }
-        //                    else
-        //                    {
-        //                        Assert.AreEqual(3, lastNo);
-        //                    }
+                    //
+                    // Assert.IsTrue(await sequenceServiceImpl.GetIsCancelledAsync().DefaultTimeout());
+                }
+                finally
+                {
+                    await server.ShutdownAsync();
+                }
+            }
+        }
 
-        //                    //
-        //                    // Assert.IsTrue(await sequenceServiceImpl.GetIsCancelledAsync().DefaultTimeout());
-        //                }
-        //                finally
-        //                {
-        //                    await server.ShutdownAsync();
-        //                }
-        //            }
-        //        }
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task CallbackCall_UnpublishedInstance_ShouldThrow(bool cancellable)
+        {
+            var (server, connection) = this.CreateServerAndConnection();
 
-        //        [TestCase(false)]
-        //        [TestCase(true)]
-        //        public async Task StreamingCall_UnpublishedInstance_ShouldThrow(bool cancellable)
-        //        {
-        //            var (server, connection) = this.CreateServerAndConnection();
+            var serviceImpl = new CallbackServiceImpl();
+            var isCancelledTask = serviceImpl.GetIsCancelledAsync();
 
-        //            var serviceImpl = new SequenceServiceImpl();
-        //            var isCancelledTask = serviceImpl.GetIsCancelledAsync();
+            var publishedInstance = server.PublishInstance<ICallbackService>(serviceImpl, true);
+            server.Start();
+            try
+            {
+                var client = connection.GetServiceInstance(publishedInstance.Value);
 
-        //            var publishedInstance = server.PublishInstance<ISequenceService>(serviceImpl, true);
-        //            server.Start();
-        //            try
-        //            {
-        //                var client = connection.GetServiceInstance(publishedInstance.Value);
+                TaskCompletionSource<int> firstTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+                Task callbackTask;
+                if (cancellable)
+                {
+                    callbackTask = client.PerformCancellableCallbacksAsync(2, TimeSpan.FromSeconds(10), 1, false, Callback, CancellationToken.None);
+                }
+                else
+                {
+                    callbackTask = client.PerformDelayedCallbacksAsync(2, TimeSpan.FromSeconds(10), 1, false, Callback);
+                }
 
-        //                IAsyncEnumerable<SequenceData> sequence;
-        //                if (cancellable)
-        //                {
-        //                    sequence = client.GetSequenceAsCancellableEnumerable(2, TimeSpan.FromSeconds(10), 1, false, CancellationToken.None);
-        //                }
-        //                else
-        //                {
-        //                    sequence = client.GetSequenceAsEnumerable(2, TimeSpan.FromSeconds(10), 1, false);
-        //                }
+                await firstTcs.Task.DefaultTimeout();
 
-        //                var sequenceEnum = sequence.GetAsyncEnumerator();
-        //                await sequenceEnum.MoveNextAsync();
-        //                var first = sequenceEnum.Current;
+                // Unpublish the server side service after the first data has been received
+                publishedInstance.Dispose();
 
-        //                // Unpublish the server side service after the first data has been received
-        //                publishedInstance.Dispose();
+                Assert.ThrowsAsync<RpcServiceUnavailableException>(async () =>
+                {
+                    await callbackTask.TimeoutAfter(TimeSpan.FromSeconds(2));
+                }
+                );
 
-        //                Assert.NotNull(first);
-        //                Assert.ThrowsAsync<RpcServiceUnavailableException>(async () =>
-        //                {
-        //                    await sequenceEnum.MoveNextAsync().AsTask().TimeoutAfter(TimeSpan.FromSeconds(2));
-        //                }
-        //                );
+                if (cancellable)
+                {
+                    Assert.IsTrue(await isCancelledTask.DefaultTimeout());
+                }
 
-        //                if (cancellable)
-        //                {
-        //                    Assert.IsTrue(await isCancelledTask.DefaultTimeout());
-        //                }
-        //            }
-        //            finally
-        //            {
-        //                await server.ShutdownAsync();
-        //            }
-        //        }
+                void Callback(CallbackData callbackData)
+                {
+                    firstTcs.TrySetResult(callbackData.Value);
+                }
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
 
-        //        [TestCase(false)]
-        //        [TestCase(true)]
-        //        public async Task StreamingCall_UnpublishedAutoInstance_ShouldThrow(bool cancellable)
-        //        {
-        //            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
-        //            definitionsBuilder.RegisterService<ISequenceService>();
-        //            var (server, connection) = this.CreateServerAndConnection(
-        //                definitionsBuilder,
-        //                configServerOptions: o=>
-        //                {
-        //                    o.AllowAutoPublish = true;
-        //                });
+        [TestCase(false)]
+        [TestCase(true)]
+        public async Task StreamingCall_UnpublishedAutoInstance_ShouldThrow(bool cancellable)
+        {
+            var definitionsBuilder = new RpcServiceDefinitionsBuilder();
+            definitionsBuilder.RegisterService<ICallbackService>();
+            var (server, connection) = this.CreateServerAndConnection(
+                definitionsBuilder,
+                configServerOptions: o =>
+                {
+                    o.AllowAutoPublish = true;
+                });
 
-        //            var providerImpl = new SequenceServiceProviderImpl();
-        //            var isCancelledTask = ((SequenceServiceImpl)providerImpl.SequenceService).GetIsCancelledAsync();
+            var providerImpl = new SequenceServiceProviderImpl();
+            var isCancelledTask = ((CallbackServiceImpl)providerImpl.CallbackService).GetIsCancelledAsync();
 
-        //            var publishedProvider = server.PublishInstance((ISequenceServiceProvider)providerImpl, true);
-        //            server.Start();
-        //            try
-        //            {
-        //                var providerClient = connection.GetServiceInstance(publishedProvider.Value);
-        //                var sequenceClient = providerClient.SequenceService;
+            var publishedProvider = server.PublishInstance((ISequenceServiceProvider)providerImpl, true);
+            server.Start();
+            try
+            {
+                var providerClient = connection.GetServiceInstance(publishedProvider.Value);
+                var callbackClient = providerClient.CallbackService;
 
-        //                IAsyncEnumerable<SequenceData> sequence;
-        //                if (cancellable)
-        //                {
-        //                    sequence = sequenceClient.GetSequenceAsCancellableEnumerable(2, TimeSpan.FromSeconds(10), 1, false, CancellationToken.None);
-        //                }
-        //                else
-        //                {
-        //                    sequence = sequenceClient.GetSequenceAsEnumerable(2, TimeSpan.FromSeconds(10), 1, false);
-        //                }
+                TaskCompletionSource<int> firstTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+                Task callbackTask;
+                if (cancellable)
+                {
+                    callbackTask = callbackClient.PerformCancellableCallbacksAsync(2, TimeSpan.FromSeconds(10), 1, false, Callback, CancellationToken.None);
+                }
+                else
+                {
+                    callbackTask = callbackClient.PerformDelayedCallbacksAsync(2, TimeSpan.FromSeconds(10), 1, false, Callback);
+                }
 
-        //                var sequenceEnum = sequence.GetAsyncEnumerator();
-        //                await sequenceEnum.MoveNextAsync();
-        //                var first = sequenceEnum.Current;
+                await firstTcs.Task.DefaultTimeout();
 
-        //                // Unpublish the server side service after the first data has been received
-        //                providerImpl.ReleaseSequenceService();
-        //                // Make sure that the auto-published instance is GCed (and thus unpublished).
-        //                GC.Collect();
-        //                GC.WaitForPendingFinalizers();
-        //                GC.Collect();
+                // Release server side references to callback service implementation.
+                providerImpl.ReleaseServices();
 
-        //                Assert.NotNull(first);
+                // Make sure that the auto-published instance is GCed (and thus unpublished).
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
 
-        //                Assert.ThrowsAsync<RpcServiceUnavailableException>(async () =>
-        //                {
-        //                    await sequenceEnum.MoveNextAsync().AsTask().DefaultTimeout();
-        //                });
+                Assert.ThrowsAsync<RpcServiceUnavailableException>(async () =>
+                {
+                    await callbackTask.TimeoutAfter(TimeSpan.FromSeconds(2));
+                });
 
-        //                if ( cancellable )
-        //                {
-        //                    Assert.IsTrue(await isCancelledTask.DefaultTimeout());
-        //                }                
-        //            }
-        //            finally
-        //            {
-        //                await server.ShutdownAsync();
-        //            }
-        //        }
+                if (cancellable)
+                {
+                    Assert.IsTrue(await isCancelledTask.DefaultTimeout());
+                }
+
+                void Callback(CallbackData callbackData)
+                {
+                    firstTcs.TrySetResult(callbackData.Value);
+                }
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+
     }
 
     public class CallbackServiceImpl : ICallbackService
@@ -409,6 +449,65 @@ namespace SciTech.Rpc.Tests
             }
         }
 
+        public Task PerformDelayedCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback)
+        {
+            static async Task PerformDelayedCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    if ((i > 0 || initialDelay) && delayFrequency != 0 && i % delayFrequency == 0)
+                    {
+                        await Task.Delay(delay);
+                    }
+                    else
+                    {
+                        await Task.Yield();
+                    }
+
+                    callback(new CallbackData { Value = i + 1 });
+                }
+            }
+
+            return PerformDelayedCallbacksAsync(count, delay, delayFrequency, initialDelay, callback);
+        }
+
+
+        public Task PerformCancellableCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback, CancellationToken cancellationToken)
+        {
+            return StaticPerformCancellableCallbacksAsync(count, delay, delayFrequency, initialDelay, this.cancelledTcs, callback, cancellationToken);
+            
+            static async Task StaticPerformCancellableCallbacksAsync(
+                int count, TimeSpan delay, int delayFrequency, bool initialDelay, TaskCompletionSource<bool> cancelledTcs,
+                Action<CallbackData> callback, CancellationToken cancellationToken)
+            {
+
+                for (int i = 0; i < count; i++)
+                {
+                    try
+                    {
+                        if ((i > 0 || initialDelay) && delayFrequency != 0 && i % delayFrequency == 0)
+                        {
+                            await Task.Delay(delay, cancellationToken);
+                        }
+                        else
+                        {
+                            await Task.Yield();
+                        }
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        cancelledTcs.TrySetResult(cancellationToken.IsCancellationRequested);
+                        throw;
+                    }
+
+                    callback(new CallbackData { Value = i + 1 });
+                }
+
+                cancelledTcs.TrySetResult(cancellationToken.IsCancellationRequested);
+            }
+        }
+
 
         //public async Task PerformSimpleDelegateCallbacksAsync(int initialValue, int count, SimpleDelegate callback)
         //{
@@ -422,11 +521,11 @@ namespace SciTech.Rpc.Tests
 
     // TODO: Handle non Action callbacks, and callbacks with multiple arguments with some kind of 
     // wrapper class (e.g. like below)
-    //public class ActionWrapper
+    //public class ActionWrapperCallbackData
     //{
     //    private Action<CallbackData> callback;
 
-    //    public ActionWrapper(Action<CallbackData> callback)
+    //    public ActionWrapperCallbackData(Action<CallbackData> callback)
     //    {
     //        this.callback = callback;
     //    }

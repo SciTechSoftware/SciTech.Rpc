@@ -469,7 +469,8 @@ namespace SciTech.Rpc.Server.Internal
 
             return mappings;
         }
-        private static List<Expression> GetParameterExpressions<TRequest>(RpcOperationInfo operationInfo, ParameterExpression requestParameter, ParameterExpression callbackParameter, ParameterExpression cancellationTokenParameter)
+
+        private static List<Expression> GetParameterExpressions<TRequest>(RpcOperationInfo operationInfo, ParameterExpression requestParameter, ParameterExpression? callbackParameter, ParameterExpression cancellationTokenParameter)
         {
             var parameterExpressions = new List<Expression>();
             var parameters = operationInfo.Method.GetParameters();
@@ -482,7 +483,7 @@ namespace SciTech.Rpc.Server.Internal
                 }
                 else if (paramIndex == operationInfo.CallbackParameterIndex)
                 {
-                    parameterExpressions.Add(callbackParameter);
+                    parameterExpressions.Add(callbackParameter ?? throw new InvalidOperationException("A callback expression must be provided if CallbackParameterIndex is defined."));
                 }
                 else 
                 {

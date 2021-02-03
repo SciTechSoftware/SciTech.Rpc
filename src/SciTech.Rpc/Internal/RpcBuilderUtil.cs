@@ -447,10 +447,19 @@ namespace SciTech.Rpc.Internal
 
                     if( callbackRequestTypeInfo.Parameters.Length != 1 )
                     {
-                        throw new RpcDefinitionException("TODO: Handle multiple parameters.");
+                        throw new RpcDefinitionException("Callbacks can currently only use a single parameter.");
+                    }
+
+                    if( !parameterInfo.ParameterType.IsGenericType || !typeof(Action<>).Equals(parameterInfo.ParameterType.GetGenericTypeDefinition()))
+                    {
+                        throw new RpcDefinitionException("Callback currently only support Action<>.");
                     }
 
                     callbackRequestType = callbackRequestTypeInfo.Parameters[0].Type;
+                    if( callbackRequestType.IsValueType)
+                    {
+                        throw new RpcDefinitionException("Callback currently does not support value types.");
+                    }
 
                     callbackParameterIndex = parameterIndex;
                 } else

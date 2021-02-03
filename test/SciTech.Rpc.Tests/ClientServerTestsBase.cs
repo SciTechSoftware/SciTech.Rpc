@@ -118,8 +118,8 @@ namespace SciTech.Rpc.Tests
                 case RpcConnectionType.LightweightTcp:
                 case RpcConnectionType.LightweightSslTcp:
                     {
-                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions, 
-                            logger: services.GetService<ILogger<LightweightRpcServer>>());
+                        var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions,
+                            loggerFactory: services.GetService<ILoggerFactory>());
 
                         SslServerOptions sslServerOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)
@@ -146,7 +146,7 @@ namespace SciTech.Rpc.Tests
                 case RpcConnectionType.LightweightNamedPipe:
                     {
                         var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions,
-                            logger: services.GetService<ILogger<LightweightRpcServer>>() );
+                            loggerFactory: services.GetService<ILoggerFactory>() );
                         server.AddEndPoint(new NamedPipeRpcEndPoint("testpipe"));
 
                         var connection = new NamedPipeRpcConnection(
@@ -162,7 +162,7 @@ namespace SciTech.Rpc.Tests
                         Pipe responsePipe = new Pipe(new PipeOptions(readerScheduler: PipeScheduler.Inline));
 
                         var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions,
-                            logger: services.GetService<ILogger<LightweightRpcServer>>());
+                            loggerFactory: services.GetService<ILoggerFactory>());
                         host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
 
                         var connection = new InprocRpcConnection(new RpcConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),

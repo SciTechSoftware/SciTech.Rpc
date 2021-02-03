@@ -953,6 +953,12 @@ namespace SciTech.Rpc.Client.Internal
             {
                 throw new InvalidOperationException();
             }
+            
+            if( operationInfo.CallbackParameterIndex != null)
+            {
+                CreateCallbackMethodImpl(operationInfo, serviceFaultHandler, serverSideMemberInfo);
+                return;
+            }
 
             var implMethodBuilder = this.typeBuilder.DefineMethod($"{operationInfo.Service.Name}.{operationInfo.Method.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
                 returnType: operationInfo.Method.ReturnType,
@@ -1009,6 +1015,114 @@ namespace SciTech.Rpc.Client.Internal
             else
             {
                 // Load CancellationToken.None
+                var ctLocal = il.DeclareLocal(typeof(CancellationToken));
+                il.Emit(OpCodes.Ldloca_S, ctLocal);
+                il.Emit(OpCodes.Initobj, typeof(CancellationToken));
+                Debug.Assert(ctLocal.LocalIndex == 0);
+                il.Emit(OpCodes.Ldloc_0);//, ctLocal.LocalIndex);
+            }
+
+            il.Emit(OpCodes.Call, callUnaryMethodInfo);
+            il.Emit(OpCodes.Ret); //return
+        }
+
+        /// <summary>
+        /// Creates a
+        /// </summary>
+        /// <remarks>
+        /// Assuming the service interface:
+        /// <code><![CDATA[
+        /// [RpcService]
+        /// namespace TestServices
+        /// {
+        ///     public interface ICallbackService
+        ///     {
+        ///         Task PerformCallbacksAsync(int count, Action<CallbackData> callback, CancellationToken cancellationToken);
+        ///     }
+        /// }
+        /// ]]></code>
+        /// This method will generate the method for the PerformCallbacksAsync operation (explicitly implemented):
+        /// <code><![CDATA[
+        /// Task ICallbackService.PerformCallbacksAsync(int count, Action<CallbackData> callback, CancellationToken cancellationToken )
+        /// {
+        ///     TMethodDef methodDef = this.proxyMethods[<Index_ICallbackService.PerformCallbacksAsync>];
+        ///
+        ///     return CallCallbackMethod<RpcObjectRequest<int>,SequenceData,SequenceData>(
+        ///         methodDef,
+        ///         new RpcObjectRequest<int>( this.objectId, count ),
+        ///         callback,
+        ///         null,   // response converter
+        ///         default // cancellation token
+        ///         );
+        /// }
+        /// ]]></code>
+        /// </remarks>
+        /// <returns></returns>        
+        private void CreateCallbackMethodImpl(RpcOperationInfo operationInfo, RpcClientFaultHandler serviceFaultHandler, RpcMemberInfo? serverSideMemberInfo)
+        {
+            if (this.typeBuilder == null || operationInfo.CallbackParameterIndex == null)
+            {
+                throw new InvalidOperationException();
+            }
+
+            var implMethodBuilder = this.typeBuilder.DefineMethod($"{operationInfo.Service.Name}.{operationInfo.Method.Name}", MethodAttributes.Private | MethodAttributes.Virtual,
+                returnType: operationInfo.Method.ReturnType,
+                parameterTypes: operationInfo.Method.GetParameters().Select(p => p.ParameterType).ToArray());
+
+            this.typeBuilder.DefineMethodOverride(implMethodBuilder, operationInfo.Method);
+
+            var il = implMethodBuilder.GetILGenerator();
+
+            var objectIdField = GetProxyField(RpcProxyBase<TMethodDef>.ObjectIdFieldName);
+            var proxyMethodsField = GetProxyField(RpcProxyBase<TMethodDef>.ProxyMethodsFieldName);
+            int methodDefIndex = this.CreateMethodDefinitionField(operationInfo, serviceFaultHandler, serverSideMemberInfo);
+
+            il.Emit(OpCodes.Ldarg_0);// Load this
+            il.Emit(OpCodes.Ldarg_0);// Load this (for proxyMethods field )
+            il.Emit(OpCodes.Ldfld, proxyMethodsField); //Load method def field
+            il.Emit(OpCodes.Ldc_I4, methodDefIndex);
+            il.Emit(OpCodes.Ldelem, typeof(TMethodDef)); // load method def (this.proxyMethods[methodDefIndex])
+
+            bool isSingleton = operationInfo.Service.IsSingleton;
+
+            Type[] reqestTypeCtorArgs = new Type[operationInfo.RequestParameters.Length + (isSingleton ? 0 : 1)];
+            int argIndex = 0;
+
+            if (!isSingleton)
+            {
+                il.Emit(OpCodes.Ldarg_0);// Load this (for objectId field)
+                il.Emit(OpCodes.Ldfld, objectIdField); //Load objectId field
+                reqestTypeCtorArgs[argIndex++] = typeof(RpcObjectId);
+            }
+
+            // Load parameters
+            foreach (var requestParameter in operationInfo.RequestParameters)
+            {
+                RpcIlHelper.EmitLdArg(il, requestParameter.Index + 1);
+                reqestTypeCtorArgs[argIndex++] = requestParameter.Type;
+            }
+
+            var ctorInfo = operationInfo.RequestType.GetConstructor(reqestTypeCtorArgs)
+                ?? throw new NotImplementedException($"Request type constructor not found");
+            il.Emit(OpCodes.Newobj, ctorInfo);  // new RpcRequestType<>( objectId, ...)
+
+            // Load callback
+            RpcIlHelper.EmitLdArg(il, operationInfo.CallbackParameterIndex.Value + 1);
+
+            MethodInfo callUnaryMethodInfo;
+            string callerMethodName = operationInfo.IsAsync ? RpcProxyBase<TMethodDef>.CallCallbackMethodAsyncName : RpcProxyBase<TMethodDef>.CallCallbackMethodName; 
+            var callUnaryMethodDefInfo = GetProxyMethod(callerMethodName);
+            callUnaryMethodInfo = callUnaryMethodDefInfo.MakeGenericMethod(operationInfo.RequestType, operationInfo.ResponseReturnType, operationInfo.ReturnType);
+
+            EmitResponseConverter(il, operationInfo);
+
+            if (operationInfo.CancellationTokenIndex != null)
+            {
+                RpcIlHelper.EmitLdArg(il, operationInfo.CancellationTokenIndex.Value + 1);
+            }
+            else
+            {
+                // Load CancellationToken.None (TODO: Just load default)
                 var ctLocal = il.DeclareLocal(typeof(CancellationToken));
                 il.Emit(OpCodes.Ldloca_S, ctLocal);
                 il.Emit(OpCodes.Initobj, typeof(CancellationToken));

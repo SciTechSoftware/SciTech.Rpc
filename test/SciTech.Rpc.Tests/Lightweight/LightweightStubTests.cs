@@ -1,4 +1,6 @@
-﻿using Moq;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using NUnit.Framework;
 using SciTech.Collections.Immutable;
 using SciTech.ComponentModel;
@@ -245,6 +247,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
             hostMock.Setup(p => p.HasContextAccessor).Returns(false);
+            hostMock.Setup(p => p.LoggerFactory).Returns(NullLoggerFactory.Instance);
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }
@@ -263,6 +266,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             hostMock.Setup(h => h.HandleCallException(It.IsAny<Exception>(), It.IsAny<IRpcSerializer>()));
             hostMock.Setup(p => p.CallInterceptors).Returns(ImmutableArrayList<RpcServerCallInterceptor>.Empty);
             hostMock.Setup(p => p.HasContextAccessor).Returns(false);
+            hostMock.Setup(p => p.LoggerFactory).Returns(NullLoggerFactory.Instance);
 
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);

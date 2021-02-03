@@ -57,7 +57,8 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+    <PackageReference Include="System.Threading.Channels" Version="4.6.0" />
   </ItemGroup>
 
 

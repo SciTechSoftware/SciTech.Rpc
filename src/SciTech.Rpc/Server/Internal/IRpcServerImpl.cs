@@ -9,6 +9,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.Logging;
 using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
@@ -42,6 +43,8 @@ namespace SciTech.Rpc.Server.Internal
         ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
         bool HasContextAccessor { get; }
+        
+        ILoggerFactory? LoggerFactory { get; }
 
         IRpcSerializer Serializer { get; }
 

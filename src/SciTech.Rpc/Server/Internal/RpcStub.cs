@@ -11,14 +11,18 @@
 
 #endregion Copyright notice and license
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using SciTech.Collections;
 using SciTech.ComponentModel;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server.Internal
@@ -38,6 +42,7 @@ namespace SciTech.Rpc.Server.Internal
     {
         protected RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options)
         {
+
             this.Server = server;
             this.ServicePublisher = this.Server.ServicePublisher;
 
@@ -137,12 +142,16 @@ namespace SciTech.Rpc.Server.Internal
 
     public sealed class RpcStub<TService> : RpcStub where TService : class
     {
+        private readonly ILogger logger;
+
         private readonly IRpcServiceActivator serviceActivator;
 
         private readonly bool hasContextAccessor;
 
         public RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options) : base(server, options)
         {
+            this.logger = server.LoggerFactory?.CreateLogger<RpcStub<TService>>() ?? RpcLogger.CreateLogger<RpcStub<TService>>();
+
             this.serviceActivator = server.ServiceActivator;
             this.hasContextAccessor = server.HasContextAccessor;
         }
@@ -163,16 +172,16 @@ namespace SciTech.Rpc.Server.Internal
             try
             {
                 await eventProducer.Run(service.Value!).ContextFree();
-                // TODO: Logger.Trace("EventProducer.Run returned successfully.");
+                this.logger.LogTrace("EventProducer.Run returned successfully.");
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException oce)
             {
-                // TODO: Logger.Trace("EventProducer.Run cancelled.", oce);
+                this.logger.LogTrace(oce,"EventProducer.Run cancelled.");
                 throw;
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // TODO: Logger.Trace("EventProducer.Run error.", e);
+                this.logger.LogTrace(e, "EventProducer.Run error.");
                 throw;
             }
             finally
@@ -214,7 +223,7 @@ namespace SciTech.Rpc.Server.Internal
 
                     context.CancellationToken.ThrowIfCancellationRequested();
 
-                    return CreateResponse(responseConverter, result);
+                    return new RpcResponse<TResponse>(CreateResponse(responseConverter, result));
                 }
                 finally
                 {
@@ -248,7 +257,7 @@ namespace SciTech.Rpc.Server.Internal
                     var result = implCaller(activatedService.Value, request, context.CancellationToken);
                     context.CancellationToken.ThrowIfCancellationRequested();
 
-                    return CreateResponse(responseConverter, result);
+                    return new RpcResponse<TResponse>(CreateResponse(responseConverter, result));
                 }
                 finally
                 {
@@ -260,6 +269,161 @@ namespace SciTech.Rpc.Server.Internal
                 this.HandleRpcError(e, faultHandler, serializer);
                 throw;
             }
+        }
+
+        public async ValueTask CallCallbackMethod<TRequest, TReturn,TResponse>(
+            TRequest request,
+            IServiceProvider? serviceProvider,
+            IRpcServerContextBuilder context,
+            IRpcAsyncStreamWriter<TResponse> responseWriter,
+            Func<TService, TRequest, Action<TReturn>, CancellationToken, Task> implCaller,
+            Func<TReturn, TResponse>? responseConverter,
+            RpcServerFaultHandler? faultHandler,
+            IRpcSerializer serializer) where TRequest : IObjectRequest
+        {
+            try
+            {
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+
+                try
+                {
+#pragma warning disable CA2000 // Dispose objects before losing scope
+                    var enumCts = new CancellationTokenSource();
+                    var combinedCts = context.CancellationToken.CanBeCanceled
+                        ? CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, enumCts.Token)
+                        : enumCts;
+#pragma warning restore CA2000 // Dispose objects before losing scope
+                    object responseSyncRoot = new object();
+                    // Maybe the channel shouldn't be unbounded?
+                    Channel<TResponse> responseChannel = Channel.CreateUnbounded<TResponse>(new UnboundedChannelOptions()
+                    {
+                        SingleReader = true,
+                        SingleWriter = false
+                    });
+
+                    Task? resultTask = null;
+                    try
+                    {
+                        Action<TReturn> callback = r =>
+                        {                            
+                            responseChannel.Writer.TryWrite(CreateResponse(responseConverter, r));
+                        };
+
+                        Task consumerTask = Task.Run(RunConsumer);
+
+                        Task? finishedTask = null;
+                        try
+                        {
+                            // Call the actual implementation method.
+                            resultTask = implCaller(activatedService.Value, request, callback, combinedCts.Token);
+
+                            if (!activatedService.CanDispose)
+                            {
+                                // Avoid keeping a reference to the activated service unless it needs to be disposed.
+                                // This will allow auto-published services to be GCed while running a long-running
+                                // streaming call.
+                                activatedService = default;
+                            }
+
+                            finishedTask = await Task.WhenAny(resultTask, consumerTask).ContextFree();
+                            finishedTask.AwaiterResult();
+                        }
+                        finally
+                        {
+                            responseChannel.Writer.Complete();
+
+                            if (finishedTask != consumerTask)
+                            {
+                                await consumerTask.ContextFree();
+                            } else
+                            {
+                                // Consumer was finished, by exception or cancellation (otherwise resultTask would have finished first). 
+                                // Let's cancel the called method (if possible), but let's not wait for method to exit.
+                                enumCts.Cancel();
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        if (resultTask == null || resultTask.Status == TaskStatus.RanToCompletion)
+                        {
+                            CleanupCancellation(enumCts, combinedCts);
+
+                        }
+                        else
+                        {
+                            resultTask.ContinueWith(t => CleanupCancellation(enumCts, combinedCts), TaskScheduler.Default).Forget();
+                        }
+                    }
+
+                    async Task RunConsumer()
+                    {
+                        var reader = responseChannel.Reader;
+
+                        Task<bool>? readTask = null;
+                        while (true)
+                        {
+                            if (readTask == null)
+                            {
+                                readTask = reader.WaitToReadAsync().AsTask();
+                            }
+
+                            using (var readCts = new CancellationTokenSource())
+                            {
+                                var taskTimeOut = Task.Delay(RpcStubOptions.StreamingResponseWaitTime, readCts.Token);
+                                var finishedTask = await Task.WhenAny(readTask, taskTimeOut).ContextFree();
+
+                                context.CancellationToken.ThrowIfCancellationRequested();
+                                this.CheckPublished(request.Id);
+
+                                if (finishedTask == readTask)
+                                {
+                                    // We don't wan't any lingering delay timers.
+                                    readCts.Cancel();
+
+                                    bool hasMoreData = readTask.AwaiterResult();
+                                    readTask = null;
+                                    if (hasMoreData)
+                                    {
+                                        if (reader.TryRead(out var r))
+                                        {
+                                            await responseWriter.WriteAsync(r).ContextFree();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+
+                    static void CleanupCancellation(CancellationTokenSource enumCts, CancellationTokenSource combinedCts)
+                    {
+                        if (combinedCts != enumCts)
+                        {
+                            combinedCts.Dispose();
+                        }
+
+                        enumCts.Dispose();
+                    }
+                }
+                finally
+                {
+                    await this.EndCallAsync(activatedService, interceptDisposables).ContextFree();
+                }
+
+
+            }
+            catch (Exception e)
+            {
+                this.HandleRpcError(e, faultHandler, serializer);
+                throw;
+            }
+
+
         }
 
         public async ValueTask CallServerStreamingMethod<TRequest, TResult, TResponse>(
@@ -336,7 +500,7 @@ namespace SciTech.Rpc.Server.Internal
                                     }
 
                                     var response = CreateResponse(responseConverter, asyncEnum.Current);
-                                    await responseWriter.WriteAsync(response.Result).ContextFree();
+                                    await responseWriter.WriteAsync(response).ContextFree();
                                 }
                             }
                         }
@@ -453,21 +617,20 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        private static RpcResponse<TResponse> CreateResponse<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
+        private static TResponse CreateResponse<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
         {
-            RpcResponse<TResponse> rpcResponse;
             if (responseConverter == null)
             {
                 if (typeof(TResponse) == typeof(TResult))
                 {
                     if (result is TResponse response)
                     {
-                        rpcResponse = new RpcResponse<TResponse>(response);
+                        return response;
                     }
                     else
                     {
                         // This should only happen if result is null
-                        rpcResponse = new RpcResponse<TResponse>(default(TResponse)!);
+                        return default!;
                     }
                 }
                 else
@@ -477,10 +640,8 @@ namespace SciTech.Rpc.Server.Internal
             }
             else
             {
-                rpcResponse = new RpcResponse<TResponse>(responseConverter(result));
+                return responseConverter(result);
             }
-
-            return rpcResponse;
         }
 
 
@@ -550,14 +711,15 @@ namespace SciTech.Rpc.Server.Internal
             CompactList<IDisposable?> interceptDisposables = default;
             CompactList<Task<IDisposable>> pendingInterceptors = default;
 
-            if (interceptors.Count > 0)
+            int nInterceptors = interceptors.Count;
+            if(nInterceptors > 0 )
             {
                 interceptDisposables.Reset(interceptors.Count);
             }
 
             try
             {
-                for (int index = 0; index < interceptors.Count; index++)
+                for (int index = 0; index < nInterceptors; index++)
                 {
                     var interceptor = interceptors[index];
                     var interceptTask = interceptor(context);
@@ -735,6 +897,10 @@ namespace SciTech.Rpc.Server.Internal
         /// </summary>
         internal static bool TestDelayEventHandlers = false;
 
+        /// <summary>
+        /// The time to wait for the next streaming response (or callback), before
+        /// checking for unpublished (or GCed) service.
+        /// </summary>
         internal static TimeSpan StreamingResponseWaitTime = TimeSpan.FromSeconds(1);
 
         /// <summary>

@@ -212,6 +212,33 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddServerStreamingMethod(methodStub, operationInfo.Metadata, handler);
         }
 
+        protected override void AddCallbackMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, Action<TReturn>, CancellationToken, Task> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter, RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub, RpcOperationInfo operationInfo, INetGrpcBinder<TService> binder)
+        {
+            var serializer = serviceStub.Serializer;
+            ServerStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponseReturn> handler = (activator, request, responseStream, context) =>
+            {
+                return serviceStub.CallCallbackMethod(
+                    request,
+                    activator.ServiceProvider,
+                    new GrpcCallContext(context),
+                    new GrpcAsyncStreamWriter<TResponseReturn>(responseStream),
+                    serviceCaller,
+                    responseConverter,
+                    faultHandler,
+                    serializer).AsTask();
+            };
+
+            var methodStub = GrpcMethodDefinition.Create<TRequest, TResponseReturn>(
+                MethodType.ServerStreaming,
+                operationInfo.FullServiceName, operationInfo.Name,
+                serializer);
+
+            binder.AddServerStreamingMethod(methodStub, operationInfo.Metadata, handler);
+        }
+
         protected override ImmutableRpcServerOptions CreateStubOptions(IRpcServerCore server)
         {
             var o = this.Options;

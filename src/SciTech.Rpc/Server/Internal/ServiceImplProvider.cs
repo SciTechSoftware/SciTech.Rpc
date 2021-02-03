@@ -31,6 +31,7 @@ namespace SciTech.Rpc.Server.Internal
         bool CanGetActivatedService<TService>(RpcObjectId id) where TService : class;
     }
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
     public struct ActivatedService<T> : IAsyncDisposable where T : class
     {
         private IAsyncDisposable? disposable;

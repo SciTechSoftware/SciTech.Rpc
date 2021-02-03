@@ -92,8 +92,10 @@ namespace SciTech.Rpc.Client
         }
 
         /// <inheritdoc/>
-        public TService GetServiceInstance<TService>(RpcObjectId objectId,
-            IReadOnlyCollection<string>? implementedServices, SynchronizationContext? syncContext) where TService : class
+        public TService GetServiceInstance<TService>(
+            RpcObjectId objectId,
+            IReadOnlyCollection<string>? implementedServices, 
+            SynchronizationContext? syncContext) where TService : class
         {
             if (objectId == RpcObjectId.Empty)
             {
@@ -105,7 +107,7 @@ namespace SciTech.Rpc.Client
 
         public TService GetServiceSingleton<TService>(SynchronizationContext? syncContext) where TService : class
         {
-            return GetServiceInstanceCore<TService>(RpcObjectId.Empty, syncContext);
+            return GetServiceInstanceCore<TService>(RpcObjectId.Empty, null, syncContext);
         }
 
         /// <inheritdoc/>
@@ -126,11 +128,6 @@ namespace SciTech.Rpc.Client
         protected async virtual ValueTask DisposeAsyncCore()
         {
             await this.ShutdownAsync().ContextFree();
-        }
-
-        private TService GetServiceInstanceCore<TService>(RpcObjectId refObjectId, SynchronizationContext? syncContext) where TService : class
-        {
-            return GetServiceInstanceCore<TService>(refObjectId, default, syncContext);
         }
 
         private TService GetServiceInstanceCore<TService>(

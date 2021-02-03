@@ -186,6 +186,7 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
+            where TResponseReturn : class
         {
             var serializer = serviceStub.Serializer;
 
@@ -193,7 +194,40 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             {
                 using (var serviceScope = CreateServiceScope(serviceStub))
                 {
-                    return serviceStub.CallServerStreamingMethod(
+                    return serviceStub.CallServerStreamingMethod<TRequest, TReturn, TResponseReturn>(
+                        request,
+                        serviceScope?.ServiceProvider,
+                        new GrpcCallContext(context),
+                        new GrpcAsyncStreamWriter<TResponseReturn>(responseStream),
+                        serviceCaller,
+                        responseConverter,
+                        faultHandler,
+                        serializer).AsTask();
+                }
+            };
+
+            binder.AddMethod(
+                GrpcMethodDefinition.Create<TRequest, TResponseReturn>(
+                    GrpcCore.MethodType.ServerStreaming,
+                    operationInfo.FullServiceName,
+                     operationInfo.Name,
+                    serviceStub.Serializer),
+                handler);
+        }
+
+        protected override void AddCallbackMethodCore<TRequest, TReturn, TResponseReturn>(
+            Func<TService, TRequest, Action<TReturn>, CancellationToken, Task> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter, RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub, RpcOperationInfo operationInfo, IGrpcMethodBinder binder)
+            where TResponseReturn : class
+        {
+            var serializer = serviceStub.Serializer;
+
+            GrpcCore.ServerStreamingServerMethod<TRequest, TResponseReturn> handler = (request, responseStream, context) =>
+            {
+                using (var serviceScope = CreateServiceScope(serviceStub))
+                {
+                    return serviceStub.CallCallbackMethod(
                         request,
                         serviceScope?.ServiceProvider,
                         new GrpcCallContext(context),

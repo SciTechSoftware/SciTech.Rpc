@@ -5,9 +5,58 @@ using System.Collections.Immutable;
 
 namespace SciTech.Collections.Immutable
 {
+    public static class ImmutableArrayList
+    {
+        public static ImmutableArrayList<T> Create<T>()
+        {
+            return ImmutableArrayList<T>.Empty;
+        }
+
+        public static ImmutableArrayList<T> Create<T>(T item)
+        {
+            return new ImmutableArrayList<T>(ImmutableArray.Create(item));
+        }
+
+        public static ImmutableArrayList<T> Create<T>(params T[] items)
+        {
+            return new ImmutableArrayList<T>(ImmutableArray.Create(items));
+        }
+
+        public static ImmutableArrayList<T> CreateRange<T>(IEnumerable<T> items)
+        {
+            if (items is null) throw new ArgumentNullException(nameof(items));
+
+            if (items is ImmutableArrayList<T> arrayList) return arrayList;
+
+            return new ImmutableArrayList<T>(ImmutableArray.CreateRange(items));
+        }
+
+        public static ImmutableArray<T> ToImmutableArray<T>(this IEnumerable<T> enumerable)
+        {
+            if (enumerable is ImmutableArrayList<T> immutableArrayList)
+            {
+                return immutableArrayList.ToImmutableArray();
+            }
+
+            return ImmutableArray.ToImmutableArray(enumerable);
+        }
+
+        public static ImmutableArrayList<T> ToImmutableArrayList<T>(this ImmutableArray<T> immutableArray)
+        {
+            return new ImmutableArrayList<T>(immutableArray);
+        }
+
+        public static ImmutableArrayList<T> ToImmutableArrayList<T>(this ImmutableArray<T>.Builder immutableArrayBuilder)
+        {
+            if (immutableArrayBuilder is null) throw new System.ArgumentNullException(nameof(immutableArrayBuilder));
+
+            return new ImmutableArrayList<T>(immutableArrayBuilder.ToImmutable());
+        }
+    }
+
     /// <summary>
     /// Implementation of <see cref="IImmutableList{T}"/> that uses
-    /// an array as the underlying storage. This is similar to the <see cref="ImmutableArray{T}"/> 
+    /// an array as the underlying storage. This is similar to the <see cref="ImmutableArray{T}"/>
     /// implementation, but this type is a class rather than a struct.
     /// <para>This type is intended to be used when the list data changes infrequently but
     /// it is not suitable to use a struct, e.g. when the list should be passed around as an <see cref="IImmutableList{T}"/>.
@@ -29,23 +78,20 @@ namespace SciTech.Collections.Immutable
             this.data = data;
         }
 
-        public T this[int index] => data [index];
-
         public int Count => this.data.Length;
+
+        public T this[int index] => data[index];
 
         public IImmutableList<T> Add(T value) => new ImmutableArrayList<T>(this.data.Add(value));
 
         public IImmutableList<T> AddRange(IEnumerable<T> items) => new ImmutableArrayList<T>(this.data.AddRange(items));
-        
+
         public IImmutableList<T> Clear() => new ImmutableArrayList<T>(this.data.Clear());
 
         public Enumerator GetEnumerator() => new Enumerator(this.data);
 
-        IEnumerator<T> IEnumerable<T>.GetEnumerator() => ((IImmutableList<T>)this.data).GetEnumerator();
-
         public int IndexOf(T item, int index, int count, IEqualityComparer<T>? equalityComparer)
             => this.data.IndexOf(item, index, count, equalityComparer);
-
 
         public IImmutableList<T> Insert(int index, T element) => new ImmutableArrayList<T>(this.data.Insert(index, element));
 
@@ -56,7 +102,6 @@ namespace SciTech.Collections.Immutable
 
         public IImmutableList<T> Remove(T value, IEqualityComparer<T>? equalityComparer)
             => new ImmutableArrayList<T>(this.data.Remove(value, equalityComparer));
-
 
         public IImmutableList<T> RemoveAll(Predicate<T> match)
             => new ImmutableArrayList<T>(this.data.RemoveAll(match));
@@ -76,11 +121,16 @@ namespace SciTech.Collections.Immutable
         public IImmutableList<T> SetItem(int index, T value)
             => new ImmutableArrayList<T>(this.data.SetItem(index, value));
 
+        public ImmutableArray<T> ToImmutableArray()
+        {
+            return this.data;
+        }
+
+        IEnumerator<T> IEnumerable<T>.GetEnumerator() => ((IImmutableList<T>)this.data).GetEnumerator();
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1033:Interface methods should be callable by child types")]
         IEnumerator IEnumerable.GetEnumerator()
             => ((IEnumerable)this.data).GetEnumerator();
-
 
         /// <summary>
         /// An array enumerator.
@@ -94,7 +144,7 @@ namespace SciTech.Collections.Immutable
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible")]
         public struct Enumerator
         {
-            /// <summary> 
+            /// <summary>
             /// The array being enumerated.
             /// </summary>
             private readonly ImmutableArray<T> _array;
@@ -139,33 +189,4 @@ namespace SciTech.Collections.Immutable
             }
         }
     }
-
-    public static class ImmutableArrayList
-    {
-        public static ImmutableArrayList<T> Create<T>()
-        {
-            return ImmutableArrayList<T>.Empty;
-        }
-
-        public static ImmutableArrayList<T> Create<T>(T item)
-        {
-            return new ImmutableArrayList<T>(ImmutableArray.Create(item));
-        }
-
-        public static ImmutableArrayList<T> Create<T>(params T[] items)
-        {
-            return new ImmutableArrayList<T>(ImmutableArray.Create(items));
-        }
-
-        public static ImmutableArrayList<T> CreateRange<T>(IEnumerable<T> items)
-        {
-            if (items is null) throw new ArgumentNullException(nameof(items));
-
-            if (items is ImmutableArrayList<T> arrayList) return arrayList;
-
-            return new ImmutableArrayList<T>(ImmutableArray.CreateRange(items));
-        }
-
-    }
-
 }

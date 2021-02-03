@@ -58,21 +58,29 @@ namespace SciTech.Rpc.Internal
     }
 
 #pragma warning disable CA1815 // Override equals and operator equals on value types
-    public struct RpcRequestTypeInfo
+    public class RpcRequestTypeInfo
 #pragma warning restore CA1815 // Override equals and operator equals on value types
     {
-        public RpcRequestTypeInfo(Type type, ImmutableArray<RpcRequestParameter> parameters, int? cancellationTokenIndex)
+        public RpcRequestTypeInfo(Type type, ImmutableArray<RpcRequestParameter> parameters, Type? callbackRequestType, int? callbackParameterIndex, int? cancellationTokenIndex)
         {
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.Parameters = parameters;
+            this.CallbackRequestType = callbackRequestType;
+            this.CallbackParameterIndex = callbackParameterIndex;
             this.CancellationTokenIndex = cancellationTokenIndex;
         }
+
+        public int? CallbackParameterIndex { get; }
+
+        public Type? CallbackRequestType { get; }
 
         public int? CancellationTokenIndex { get; }
 
         public ImmutableArray<RpcRequestParameter> Parameters { get; }
 
         public Type Type { get; }
+
+        public bool HasSpecialParameter => this.CallbackParameterIndex != null || this.CancellationTokenIndex != null;
     }
 
 #pragma warning disable CA1062 // Validate arguments of public methods
@@ -132,6 +140,7 @@ namespace SciTech.Rpc.Internal
                             method: propertyInfo.GetMethod,
                             requestType: typeof(RpcObjectRequest),
                             requestParameters: ImmutableArray<RpcRequestParameter>.Empty,
+                            callbackParameterIndex: null,
                             cancellationTokenIndex: null,
                             methodType: RpcMethodType.Unary,
                             isAsync: false,
@@ -163,6 +172,7 @@ namespace SciTech.Rpc.Internal
                             requestType: typeof(RpcObjectRequest<>).MakeGenericType(propertyInfo.PropertyType),
                             requestParameters: ImmutableArray.Create(
                                 new RpcRequestParameter(propertyInfo.PropertyType, 0)),
+                            callbackParameterIndex: null,
                             cancellationTokenIndex: null,
                             methodType: RpcMethodType.Unary,
                             isAsync: false,
@@ -302,6 +312,10 @@ namespace SciTech.Rpc.Internal
                 var genericTypeDef = method.ReturnType.GetGenericTypeDefinition();
                 if (genericTypeDef.Equals(typeof(IAsyncEnumerable<>)))// || genericTypeDef.Equals(typeof(IAsyncEnumerator<>)))
                 {
+                    if( requestTypeInfo.CallbackParameterIndex != null )
+                    {
+                        throw new RpcDefinitionException($"A streaming server method '{method.Name}' cannot have a callback parameter.");
+                    }
                     actualReturnType = method.ReturnType.GenericTypeArguments[0];
                     methodType = RpcMethodType.ServerStreaming;
                     isAsync = true;
@@ -322,6 +336,16 @@ namespace SciTech.Rpc.Internal
                 actualReturnType = method.ReturnType;
             }
 
+            if( requestTypeInfo.CallbackParameterIndex !=null )
+            {
+                if (!typeof(void).Equals(actualReturnType))
+                {
+                    throw new RpcDefinitionException($"Method '{method.Name}' has a callback parameter and must return void.");
+                }
+
+                actualReturnType = requestTypeInfo.CallbackRequestType ?? throw new InvalidOperationException("CallbackRequestType must be initialized when CallbackParameterIndex is not null");
+                methodType = RpcMethodType.ServerStreaming;
+            }
 
             string? operationName = null;
 
@@ -354,6 +378,7 @@ namespace SciTech.Rpc.Internal
                 isAsync: isAsync,
                 name: operationName!,
                 requestParameters: requestTypeInfo.Parameters,
+                callbackParameterIndex: requestTypeInfo.CallbackParameterIndex,
                 cancellationTokenIndex: requestTypeInfo.CancellationTokenIndex,
                 requestType: requestTypeInfo.Type,
                 returnType: actualReturnType,
@@ -383,6 +408,9 @@ namespace SciTech.Rpc.Internal
         public static RpcRequestTypeInfo GetRequestType(IReadOnlyList<ParameterInfo> parameters, bool isSingleton)
         {
             int? cancellationTokenIndex = null;
+            Type? callbackRequestType = null;
+            int? callbackParameterIndex = null;
+
             var parametersBuilder = ImmutableArray.CreateBuilder<RpcRequestParameter>(parameters.Count);
             var parameterTypesList = new List<Type>(parameters.Count);
             for (int parameterIndex = 0; parameterIndex < parameters.Count; parameterIndex++)
@@ -397,7 +425,44 @@ namespace SciTech.Rpc.Internal
                     }
                     cancellationTokenIndex = parameterIndex;
                 }
-                else
+                else if( typeof(Delegate).IsAssignableFrom(parameterInfo.ParameterType) )
+                {
+                    if (callbackParameterIndex != null)
+                    {
+                        throw new RpcDefinitionException("RPC operation can only include a single callback.");
+                    }
+
+                    var invokeMethod = parameterInfo.ParameterType.GetMethod("Invoke") ?? throw new RpcDefinitionException("Missing invoke method on callback."); 
+
+                    if(!typeof(void).Equals(invokeMethod.ReturnType))
+                    {
+                        throw new RpcDefinitionException("Callback must return void.");
+                    }
+
+                    var callbackRequestTypeInfo = GetRequestType(invokeMethod.GetParameters(), true);
+                    if( callbackRequestTypeInfo.HasSpecialParameter)
+                    {
+                        throw new RpcDefinitionException("Callback must not have an special parameters (e.g. CancellationToken, call contexts, or callback.");
+                    }
+
+                    if( callbackRequestTypeInfo.Parameters.Length != 1 )
+                    {
+                        throw new RpcDefinitionException("Callbacks can currently only use a single parameter.");
+                    }
+
+                    if( !parameterInfo.ParameterType.IsGenericType || !typeof(Action<>).Equals(parameterInfo.ParameterType.GetGenericTypeDefinition()))
+                    {
+                        throw new RpcDefinitionException("Callback currently only support Action<>.");
+                    }
+
+                    callbackRequestType = callbackRequestTypeInfo.Parameters[0].Type;
+                    if( callbackRequestType.IsValueType)
+                    {
+                        throw new RpcDefinitionException("Callback currently does not support value types.");
+                    }
+
+                    callbackParameterIndex = parameterIndex;
+                } else
                 {
                     parametersBuilder.Add(new RpcRequestParameter(parameterInfo.ParameterType, parameterIndex));
                     parameterTypesList.Add(parameterInfo.ParameterType);
@@ -486,7 +551,7 @@ namespace SciTech.Rpc.Internal
                 }
             }
 
-            return new RpcRequestTypeInfo(requestType, requestParameters, cancellationTokenIndex);
+            return new RpcRequestTypeInfo(requestType, requestParameters, callbackRequestType, callbackParameterIndex, cancellationTokenIndex);
 
         }
 
@@ -972,6 +1037,7 @@ namespace SciTech.Rpc.Internal
             RpcMethodType methodType,
             bool isAsync,
             ImmutableArray<RpcRequestParameter> requestParameters,
+            int? callbackParameterIndex,
             int? cancellationTokenIndex,
             Type returnType,
             Type responseReturnType,
@@ -986,6 +1052,7 @@ namespace SciTech.Rpc.Internal
             this.MethodType = methodType;
             this.IsAsync = isAsync;
             this.RequestParameters = !requestParameters.IsDefault ? requestParameters : throw new ArgumentNullException(nameof(requestParameters));
+            this.CallbackParameterIndex = callbackParameterIndex;
             this.CancellationTokenIndex = cancellationTokenIndex;
             this.ReturnType = returnType ?? throw new ArgumentNullException(nameof(returnType));
             this.ResponseReturnType = responseReturnType ?? throw new ArgumentNullException(nameof(responseReturnType));
@@ -998,6 +1065,8 @@ namespace SciTech.Rpc.Internal
         public bool AllowInlineExecution { get; }
 
         public int? CancellationTokenIndex { get; }
+
+        public int? CallbackParameterIndex { get; }
 
         public bool IsAsync { get; }
 

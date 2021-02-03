@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SciTech.Collections;
 using SciTech.ComponentModel;
 using SciTech.Rpc.Internal;
+using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
@@ -41,6 +42,7 @@ namespace SciTech.Rpc.Server.Internal
     {
         protected RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options)
         {
+
             this.Server = server;
             this.ServicePublisher = this.Server.ServicePublisher;
 
@@ -140,12 +142,16 @@ namespace SciTech.Rpc.Server.Internal
 
     public sealed class RpcStub<TService> : RpcStub where TService : class
     {
+        private readonly ILogger logger;
+
         private readonly IRpcServiceActivator serviceActivator;
 
         private readonly bool hasContextAccessor;
 
         public RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options) : base(server, options)
         {
+            this.logger = server.LoggerFactory?.CreateLogger<RpcStub<TService>>() ?? RpcLogger.CreateLogger<RpcStub<TService>>();
+
             this.serviceActivator = server.ServiceActivator;
             this.hasContextAccessor = server.HasContextAccessor;
         }
@@ -166,16 +172,16 @@ namespace SciTech.Rpc.Server.Internal
             try
             {
                 await eventProducer.Run(service.Value!).ContextFree();
-                // TODO: Logger.Trace("EventProducer.Run returned successfully.");
+                this.logger.LogTrace("EventProducer.Run returned successfully.");
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException oce)
             {
-                // TODO: Logger.Trace("EventProducer.Run cancelled.", oce);
+                this.logger.LogTrace(oce,"EventProducer.Run cancelled.");
                 throw;
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                // TODO: Logger.Trace("EventProducer.Run error.", e);
+                this.logger.LogTrace(e, "EventProducer.Run error.");
                 throw;
             }
             finally
@@ -264,8 +270,6 @@ namespace SciTech.Rpc.Server.Internal
                 throw;
             }
         }
-
-        private readonly ILogger logger = NullLogger<RpcStub>.Instance;
 
         public async ValueTask CallCallbackMethod<TRequest, TReturn,TResponse>(
             TRequest request,

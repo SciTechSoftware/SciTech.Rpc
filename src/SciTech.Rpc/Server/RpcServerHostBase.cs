@@ -21,16 +21,16 @@ namespace SciTech.Rpc.Server
     public abstract class RpcServerHostBase : RpcServerBase, IRpcServerHost
     {
         protected RpcServerHostBase(RpcServicePublisher servicePublisher, 
-            IRpcServerOptions? options, ILogger<RpcServerHostBase>? logger=null) :
+            IRpcServerOptions? options, ILoggerFactory? loggerFactory=null) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,
-                options, logger )
+                options, loggerFactory )
         {
         }
 
-        protected RpcServerHostBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options, ILogger<RpcServerHostBase>? logger = null) :
-            this(new RpcServicePublisher(definitionsProvider, serverId), options, logger)
+        protected RpcServerHostBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options, ILoggerFactory? loggerFactory = null) :
+            this(new RpcServicePublisher(definitionsProvider, serverId), options, loggerFactory)
         {
         }
 
@@ -43,8 +43,8 @@ namespace SciTech.Rpc.Server
         protected RpcServerHostBase(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options,
-            ILogger<RpcServerHostBase>? logger = null )
-            : base(servicePublisher, serviceImplProvider, definitionsProvider, options, logger)
+            ILoggerFactory? loggerFactory = null )
+            : base(servicePublisher, serviceImplProvider, definitionsProvider, options, loggerFactory)
         {
 
         }

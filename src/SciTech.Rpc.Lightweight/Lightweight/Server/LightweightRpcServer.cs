@@ -61,8 +61,8 @@ namespace SciTech.Rpc.Lightweight.Server
             IServiceProvider? serviceProvider = null,
             IRpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null,
-            ILogger<LightweightRpcServer>? logger=null)
-            : this(RpcServerId.NewId(), null, serviceProvider, options, lightweightOptions, logger)
+            ILoggerFactory? loggerFactory = null)
+            : this(RpcServerId.NewId(), null, serviceProvider, options, lightweightOptions, loggerFactory)
         {
         }
 
@@ -75,10 +75,10 @@ namespace SciTech.Rpc.Lightweight.Server
             IServiceProvider? serviceProvider = null,
             IRpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null,
-            ILogger<LightweightRpcServer>? logger = null)
+            ILoggerFactory? loggerFactory = null)
             : this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                   servicePublisher,
-                  servicePublisher.DefinitionsProvider, serviceProvider, options, lightweightOptions, logger)
+                  servicePublisher.DefinitionsProvider, serviceProvider, options, lightweightOptions, loggerFactory)
         {
         }
 
@@ -88,9 +88,9 @@ namespace SciTech.Rpc.Lightweight.Server
             IServiceProvider? serviceProvider = null,
             IRpcServerOptions? options = null,
             LightweightOptions? lightweightOptions = null,
-            ILogger<LightweightRpcServer>? logger = null)
+            ILoggerFactory? loggerFactory = null)
             : this(new RpcServicePublisher(definitionsProvider ?? new RpcServiceDefinitionsBuilder(), serverId),
-                  serviceProvider, options, lightweightOptions, logger)
+                  serviceProvider, options, lightweightOptions, loggerFactory)
         {
         }
 
@@ -104,10 +104,10 @@ namespace SciTech.Rpc.Lightweight.Server
             IServiceProvider? serviceProvider,
             IRpcServerOptions? options,
             LightweightOptions? lightweightOptions = null,
-            ILogger<LightweightRpcServer>? logger=null)
+            ILoggerFactory? loggerFactory=null)
             : base(servicePublisher, serviceImplProvider, definitionsProvider, 
                   options, 
-                  logger ?? RpcLogger.CreateLogger<LightweightRpcServer>())
+                  loggerFactory)
         {
             this.ServiceProvider = serviceProvider;
             this.MaxRequestSize = options?.ReceiveMaxMessageSize ?? DefaultMaxRequestMessageSize;

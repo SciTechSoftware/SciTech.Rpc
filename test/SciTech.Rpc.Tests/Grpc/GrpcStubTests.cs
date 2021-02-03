@@ -1,5 +1,6 @@
 ﻿using Grpc.Core;
 using Grpc.Core.Testing;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using NUnit.Framework;
 using SciTech.Collections.Immutable;
@@ -302,6 +303,7 @@ namespace SciTech.Rpc.Tests.Grpc
             hostMock.Setup(h => h.Serializer).Returns(DefaultSerializer);
             hostMock.Setup(h => h.CustomFaultHandler).Returns((RpcServerFaultHandler)null);
             hostMock.Setup(p => p.HasContextAccessor).Returns(false);
+            hostMock.Setup(p => p.LoggerFactory).Returns(NullLoggerFactory.Instance);
 
             builder.GenerateOperationHandlers(hostMock.Object, methodBinder);
         }

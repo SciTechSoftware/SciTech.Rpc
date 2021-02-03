@@ -28,8 +28,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// </summary>
     internal sealed class NetGrpcServer : RpcServerBase
     {
-        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServerOptions> options, ILogger<NetGrpcServer>? logger)
-            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value, logger)
+        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServerOptions> options, ILoggerFactory? loggerFactory)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value, loggerFactory)
         {
         }
 
@@ -39,8 +39,8 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             //ServiceMethodProviderContext<NetGrpcServiceActivator>? context,
             RpcServerOptions? options,
-            ILogger<NetGrpcServer>? logger)
-            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options, logger)
+            ILoggerFactory? loggerFactory)
+            : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options, loggerFactory)
         {
         }
 

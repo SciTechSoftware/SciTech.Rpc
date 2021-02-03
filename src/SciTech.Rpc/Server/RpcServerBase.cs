@@ -31,17 +31,17 @@ namespace SciTech.Rpc.Server
         private bool? hasContextAccessor;
         private volatile IRpcSerializer? serializer;
 
-        protected RpcServerBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options, ILogger<RpcServerBase>? logger) :
+        protected RpcServerBase(RpcServicePublisher servicePublisher, IRpcServerOptions? options, ILoggerFactory? loggerFactory) :
             this(servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher)),
                 servicePublisher,
                 servicePublisher.DefinitionsProvider,
                 options,
-                logger)
+                loggerFactory)
         {
         }
 
-        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options, ILogger<RpcServerBase>? logger) :
-            this(new RpcServicePublisher(definitionsProvider, serverId), options, logger)
+        protected RpcServerBase(RpcServerId serverId, IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options, ILoggerFactory? loggerFactory) :
+            this(new RpcServicePublisher(definitionsProvider, serverId), options, loggerFactory)
         {
         }
 
@@ -55,12 +55,13 @@ namespace SciTech.Rpc.Server
         protected RpcServerBase(
             IRpcServicePublisher servicePublisher, IRpcServiceActivator serviceActivator,
             IRpcServiceDefinitionsProvider definitionsProvider, IRpcServerOptions? options,
-            ILogger<RpcServerBase>? logger)
+            ILoggerFactory? loggerFactory)
         {
             this.ServicePublisher = servicePublisher ?? throw new ArgumentNullException(nameof(servicePublisher));
             this.ServiceActivator = serviceActivator ?? throw new ArgumentNullException(nameof(serviceActivator));
             this.ServiceDefinitionsProvider = definitionsProvider ?? throw new ArgumentNullException(nameof(definitionsProvider));
-            this.Logger = logger ?? RpcLogger.CreateLogger<RpcServerBase>();
+            this.LoggerFactory = loggerFactory;
+            this.Logger = loggerFactory?.CreateLogger(this.GetType()) ?? RpcLogger.CreateLogger(this.GetType());
 
             if (options != null)
             {
@@ -115,6 +116,8 @@ namespace SciTech.Rpc.Server
 
         bool IRpcServerCore.HasContextAccessor => this.HasContextAccessor;
 
+        ILoggerFactory? IRpcServerCore.LoggerFactory => this.LoggerFactory;
+
         /// <inheritdoc/>
         public RpcServerId ServerId => this.ServicePublisher.ServerId;
 
@@ -133,7 +136,10 @@ namespace SciTech.Rpc.Server
             }
         }
 
-        protected ILogger<RpcServerBase> Logger { get; }
+        protected ILogger Logger { get; }
+
+        protected ILoggerFactory? LoggerFactory { get; }
+
         protected virtual IServiceProvider? ServiceProvider => null;
 
         protected object SyncRoot { get; } = new object();

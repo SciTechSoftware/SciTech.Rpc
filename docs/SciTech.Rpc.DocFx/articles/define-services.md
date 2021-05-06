@@ -1,31 +1,4 @@
-# SciTech.Rpc
-
-SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From  internet deployed services over HTTP/2 (based on [gRPC](https://grpc.io/)), to in-process proxy communication. Similar to WCF, you define service interfaces with the help of attributes in code, and not using external definition files.
-
-Currently there are three communication layer implementations for the RPC framework:
-* **gRPC**, based on the [native/.NET implementation of gRPC](https://github.com/grpc/grpc)
-* **.NET gRPC**, based on the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet)
-
-  The gRPC layers can be used to publish services that can be accessed over HTTP/2, by SciTech.RPC clients or by other gRPC clients (e.g. Java, Go, or C++ clients). The RpcCodeGen tool can be used to generate '.proto' files which can be consumed by other gRPC implementations.
-* **Lightweight**, a very efficient RPC implementation based on [System.IO.Pipelines](https://devblogs.microsoft.com/dotnet/system-io-pipelines-high-performance-io-in-net/).
-
-  The lightweight implementation provides RPC communication over a range of different protocols: TCP (with SSL), named pipes, and even direct in-process communication.
-
-## Runtime installation
-
-SciTech.Rpc is available as the following NuGet packages:
-
-* [SciTech.Rpc](https://www.nuget.org/packages/SciTech.Rpc/): This is the core SciTech.Rpc package, used by the other packages. Should normally not be added separately.
-* [SciTech.Rpc.Grpc](https://www.nuget.org/packages/SciTech.Rpc.Grpc/): Includes the gRPC implementation for the  [native/.NET implementation of gRPC](https://github.com/grpc/grpc) implementation of gRPC.
-* [SciTech.Rpc.Lightweight](https://www.nuget.org/packages/SciTech.Rpc.Lightweight/): Includes the Lightweight implementation of SciTech.Rpc.
-* [SciTech.Rpc.NetGrpc](https://www.nuget.org/packages/SciTech.Rpc.NetGrpc/): Includes the server side gRPC implementation for the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet) implementation of gRPC.
-* [SciTech.Rpc.NetGrpc.Client](https://www.nuget.org/packages/SciTech.Rpc.NetGrpc.Client/): Includes the client side gRPC implementation for the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet) implementation of gRPC.
-* [SciTech.Rpc.DataContract](https://www.nuget.org/packages/SciTech.Rpc.DataContract/): Includes the [DataControlRpcSerializer](xref:SciTech.Rpc.Serialization.DataContractRpcSerializer) that implements an RPC serializer based on `DataControlSerializer`  
-* [SciTech.Rpc.Protobuf](https://www.nuget.org/packages/SciTech.Rpc.Protobuf/): Includes the [ProtobufRpcSerializer](xref:SciTech.Rpc.Serialization.ProtobufRpcSerializer) that serializes RPC requests and responses using the `Protobuf` protocol. This is the default serializer for the gRPC implementations and allow RPC services to be accessed by other gRPC compatible implementations.
-  
-A copy of the examples provided in this repository is available at [SciTech.Rpc.Examples](https://github.com/SciTechSoftware/SciTech.Rpc.Examples). The examples repository uses the NuGet packages instead of project references.
-
-## Defining RPC interfaces
+## Defining RPC Services
 
 An interface is marked as an RPC interface by applying the [`[RpcService]`](xref:SciTech.Rpc.RpcServiceAttribute) attribute, e.g.:
 
@@ -63,7 +36,7 @@ public interface IMailboxManagerService
 [RpcService(ServerDefinitionType = typeof(IMailboxManagerService))]
 public interface IMailboxManagerServiceClient : IRpcService
 {
-    Task<RpcObjectRef<IMailboxServiceClient>> GetMailboxAsync(string name);
+    Task<RpcObjectRef<RpcObjectRef<IMailboxServiceClient>> GetMailboxAsync(string name);
 }
 ```
 
@@ -75,7 +48,7 @@ It is allowed to define multiple variants of the same operation on the client si
 
 Remote services can be published as singleton services, similar to WCF and gRPC. A singleton service can be directly accessible using an URL like: grpc://services.company.com/SomeService. SciTech.RPC also offers a more object oriented approach, where specific service instances can be published, and a reference to the published instance can be returned to a connected client.
 
-A service is normally published using an RPC server implementation (implementing `IRpcServer`), e.g. [GrpcServer](xref:SciTech.Rpc.Grpc.Server.GrpcServer) or [LightweightRpcServer](xref:SciTech.Rpc.Lightweight.Server.LightweightServer).
+A service is normally published using an RPC server implementations (implementing `IRpcServer`), e.g. [GrpcServer](xref:SciTech.Rpc.Grpc.Server.GrpcServer) or [LightweightRpcServer](xref:SciTech.Rpc.Lightweight.Server.LightweightServer).
 
 
 The services interfaces of all services that should be hosted by the server must be registered before starting the server. The interfaces are registered by using the `Register` methods on `IRpcServiceDefinitionsBuilder`.
@@ -209,7 +182,7 @@ The [GreeterClient example](examples/Clients/GreeterClient/Program.cs) shows how
 
 ## EventHandlers and Delegates
 
-It is also allowed to include events in the service definition. The events must currently be declared using `EventHandler`, or `EventHandler<TEventArgs>`, but support for any delegate (returning void) type will be implemented. The event handler implementation is completely transparent, you can use the events as you would with a local interface. However, the RPC proxy is associated with a SynchronizationContext, which allows event callbacks to be properly marshalled to the correct synchronization context, e.g. the main user interface thread. 
+It is also allowed to include events in the service definition. The events must currently be declared using EventHandler, or EventHandler<TEventArgs>, but support for any delegate (returning void) type will be implemented. The event handler implementation is completely transparent, you can use the events as you would with a local interface. However, the RPC proxy is associated with a SynchronizationContext, which allows event callbacks to be properly marshalled to the correct synchronization context, e.g. the main user interface thread. 
   
 The SynchronizationContext can be specified when retrieving the service proxy using GetRpcServiceInstance,for example:
 
@@ -224,7 +197,7 @@ By default, any exception thrown by the service operation will be propagated to 
 
 To allow an operation to provide more detailed error information, it is possible to tag the operation with an `[RpcFault]` attribute. This is similar to the `[OperationFault]` attribute in WCF. Unlike WCF, it is also possible to apply the fault attribute at the service definition level, in which case the attribute will apply to all operations in the service.
 
-The `RpcFault` attribute can be applied with just a fault code, or it can accept a serializable fault details type that can be used to provide additional details about the fault. If an operation is tagged with the RpcFault attribute, the service implementation can throw an `RpcFaultException` to propagate error information back to the client.
+The `RpcFault` attribute can be applied with just a fault code, or it can accept a serializable fault details type that can be used to provide additional details about the fault. If an operation is tagged with the RpcFault attribute, the service implementation can throw an `RpcFaultException`to propagate error information back to the client.
 
 _**NOTE!** The exception handling design is not fully finished yet. More details and examples about exception handling will be added soon._
 
@@ -242,7 +215,7 @@ To make RPC exception handling more streamlined and easier to use, it is also po
 
 Exceptions converts are implemented using the `IRpcServerExceptionConverter` and `IRpcClientExceptionConverter` interfaces. A default implementation is provided by the `RpcExceptionConverter<TException>` class. 
 
-Exception converters are applied to RPC operations by using the `[RpcExceptionConverter]` attribute (not implemented yet), or by registering it using the `IRpcServiceDefinitionBuilder` on the server side, or using the `IRpcProxyDefinitionsBuilder` on the client side.
+Exception converters are applied to RPC operations by using the `[RpcExceptionConverter]`attribute (not implemented yet), or by registering it using the `IRpcServiceDefinitionBuilder` on the server side, or using the `IRpcProxyDefinitionsBuilder` on the client side.
 
 _**NOTE!** The exception handling design is not fully finished yet. More details and examples about exception handling will be added soon._
 

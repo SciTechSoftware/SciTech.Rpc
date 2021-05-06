@@ -629,9 +629,9 @@ namespace SciTech.Rpc.Server
         {
             if (this.DefinitionsProvider is IRpcServiceDefinitionsBuilder builder)
             {
-                if (!builder.IsFrozen)
+                if (!this.DefinitionsProvider.IsFrozen)
                 {
-                    if (!builder.IsServiceRegistered(serviceType))
+                    if (!this.DefinitionsProvider.IsServiceRegistered(serviceType))
                     {
                         builder.RegisterService(serviceType, null);
                     }
@@ -649,11 +649,11 @@ namespace SciTech.Rpc.Server
         {
             if (this.DefinitionsProvider is IRpcServiceDefinitionsBuilder builder)
             {
-                if (!builder.IsFrozen)
+                if (!this.DefinitionsProvider.IsFrozen)
                 {
                     foreach (var service in allServices)
                     {
-                        if (!builder.IsServiceRegistered(service.Type))
+                        if (!this.DefinitionsProvider.IsServiceRegistered(service.Type))
                         {
                             builder.RegisterService(service.Type, implementationType);
                         }

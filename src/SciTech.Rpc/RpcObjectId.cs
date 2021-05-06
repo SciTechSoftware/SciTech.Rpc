@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc
 {
 #pragma warning disable CA2235 // Mark all non-serializable fields
+    /// <summary>
+    /// Identifies a published RPC object.
+    /// </summary>
     [DataContract]
     [Serializable]  
     [JsonConverter(typeof(Serialization.RpcObjectIdJsonConverter))]

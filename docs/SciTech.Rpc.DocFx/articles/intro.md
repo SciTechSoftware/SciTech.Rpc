@@ -7,9 +7,9 @@ Currently there are three communication layer implementations for the RPC framew
 * **.NET gRPC**, based on the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet)
 
   The gRPC layers can be used to publish services that can be accessed over HTTP/2, by SciTech.RPC clients or by other gRPC clients (e.g. Java, Go, or C++ clients). The RpcCodeGen tool can be used to generate '.proto' files which can be consumed by other gRPC implementations.
-* **Lightweight**, a very efficient RPC implementation based on [System.IO.Pipelines](https://devblogs.microsoft.com/dotnet/system-io-pipelines-high-performance-io-in-net/).
+* **Lightweight**, a very efficient lightweigth RPC implementation.
 
-  The lightweight implementation provides RPC communication over a range of different protocols: TCP (with SSL), named pipes, and even direct in-process communication.
+  The lightweight implementation provides RPC communication over a range of different protocols: TCP (with SSL), named pipes, and even direct in-process communication. It is mainly suitable for intranet and interprocess communication.
 
 ## Runtime installation
 
@@ -22,9 +22,81 @@ SciTech.Rpc is available as the following NuGet packages:
   
 A copy of the examples provided in this repository is available at [SciTech.Rpc.Examples](https://github.com/SciTechSoftware/SciTech.Rpc.Examples). The examples repository uses the NuGet packages instead of project references.
 
-## Defining RPC interfaces
+## Quick start
 
+### Defining RPC interfaces
 An interface is marked as an RPC interface by applying the [`[RpcService]`](xref:SciTech.Rpc.RpcServiceAttribute) attribute, e.g.:
+
+```csharp
+[RpcService]
+public interface IGreeterService
+{
+    string SayHello(string name);
+}
+```
+
+
+### Publish server side service 
+
+#### Lightweight
+
+To publish a service on the server side, a server needs to be created, a connection end point registered, and the service published, e.g.:
+
+```csharp
+var server = new LightweightRpcServer();
+server.AddEndPoint(new NamedPipeRpcEndPoint("RpcQuickStart"));
+server.PublishSingleton<IGreeterService>(new GreeterServiceImpl());
+server.Start();
+```
+
+#### gRPC .NET
+
+To publish a service on the server side, a server needs to be created, a connection end point registered, and the service published, e.g.:
+
+```csharp
+public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+{
+    app.PublishRpcSingleton<IGreeterService, GreeterServiceImpl>();
+
+    app.UseEndpoints(endpoints =>
+    {
+        endpoints.MapNetGrpcServices();
+    });
+
+    // Other ASP.NET configuration
+
+}
+
+public void ConfigureServices(IServiceCollection services)
+{
+    services.AddNetGrpc();
+
+    // Other ASP.NET services configuration
+}
+```
+
+### Client side
+
+#### Lightweight
+On the client side, the a proxy to the service can be received from an RpcConection, e.g. a named pipe connection:
+
+```csharp
+var connection = new NamedPipeRpcConnection("RpcQuickStart");
+var greeterService = connection.GetServiceSingleton<IGreeterService>();
+var greeting = greeterService.SayHello("User");
+```
+
+
+### Client side - gpRPC .NET
+
+On the client side, the a proxy to the service can be received from an RpcConection, e.g. a named pipe connection:
+
+```csharp
+var connection = new NamedPipeRpcConnection("RpcQuickStart");
+var greeterService = connection.GetServiceSingleton<IGreeterService>();
+var greeting = greeterService.SayHello("User");
+```
+
 
 ```csharp
 [RpcService]

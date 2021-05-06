@@ -18,7 +18,7 @@ using System.Reflection;
 
 namespace SciTech.Rpc.Server
 {
-    public interface IRpcServiceDefinitionsBuilder : IRpcServiceDefinitionsProvider
+    public interface IRpcServiceDefinitionsBuilder // : IRpcServiceDefinitionsProvider
     {
         IRpcServiceDefinitionsBuilder RegisterAssemblyServices(params Assembly[] assemblies);
 
@@ -43,7 +43,7 @@ namespace SciTech.Rpc.Server
 
         /// <summary>
         /// Freezes the provider to prevent additional services from being registered. Normally
-        /// called by <see cref="IRpcServer"/> implmentations that do not support additional
+        /// called by <see cref="IRpcServer"/> implementations that do not support additional
         /// services after the server has been started.
         /// </summary>
         void Freeze();

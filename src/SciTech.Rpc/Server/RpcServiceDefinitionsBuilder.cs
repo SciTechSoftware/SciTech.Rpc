@@ -21,7 +21,7 @@ namespace SciTech.Rpc.Server
     /// <summary>
     /// Default implementation of <see cref="IRpcServiceDefinitionsBuilder"/> (and <see cref="IRpcServiceDefinitionsProvider"/>). 
     /// </summary>
-    public class RpcServiceDefinitionsBuilder : IRpcServiceDefinitionsBuilder
+    public class RpcServiceDefinitionsBuilder : IRpcServiceDefinitionsBuilder, IRpcServiceDefinitionsProvider
     {
         private readonly Dictionary<string, Type> registeredServices = new Dictionary<string, Type>();
 

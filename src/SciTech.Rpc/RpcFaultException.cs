@@ -33,7 +33,9 @@ namespace SciTech.Rpc
     }
 
     /// <summary>
-    /// Thrown when an undeclared exception occurs within an  operation handler.
+    /// Exception that can be thrown to return fault information from an RPC operation handler.
+    /// <para>If thrown from an operation handler, the exception <see cref="Exception.Message"/> and <see cref="FaultCode"/> will be propagated to the client and 
+    /// a client side <see cref="RpcFaultException"/> will be created and rethrown.</para>
     /// </summary>
     public class RpcFaultException : RpcBaseException
     {
@@ -56,6 +58,11 @@ namespace SciTech.Rpc
         public string FaultCode { get; }
     }
 
+    /// <summary>
+    /// Extends <see cref="RpcFault"/> with additional fault details. To allow the fault details to be propagated to 
+    /// the client, the operation must include the details type using <see cref="RpcFaultAttribute"/>.
+    /// </summary>
+    /// <typeparam name="TFault">The type of the fault details.</typeparam>
     public class RpcFaultException<TFault> : RpcFaultException where TFault : class
     {
         public RpcFaultException(string? faultCode, string? message, TFault fault)

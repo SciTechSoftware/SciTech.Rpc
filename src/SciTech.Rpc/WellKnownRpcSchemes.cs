@@ -12,6 +12,9 @@
 
 namespace SciTech.Rpc
 {
+    /// <summary>
+    /// Defines well known names for schemes implemented by SciTech RPC.
+    /// </summary>
     public static class WellKnownRpcSchemes
     {
         public const string Grpc = "grpc";

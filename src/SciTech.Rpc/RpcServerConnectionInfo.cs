@@ -31,6 +31,10 @@ namespace SciTech.Rpc
         [DataMember(Order = 1)]
         internal Guid Id { get; set; }
 
+        /// <summary>
+        /// Initializes a new <see cref="RpcServerId"/> from a string. The string should have created using <see cref="RpcServerId.ToString"/>.
+        /// </summary>
+        /// <param name="idString"></param>
         public RpcServerId(string idString)
         {
             this.Id = new Guid(idString);
@@ -196,6 +200,7 @@ namespace SciTech.Rpc
         /// <summary>
         /// Gets the display name of this server connection.
         /// </summary>
+        /// <value>The display name of this server connection.</value>
         [DataMember(Order = 1)]
         public string DisplayName
         {
@@ -203,6 +208,9 @@ namespace SciTech.Rpc
             private set;
         }
 
+        /// <summary>
+        /// Gets the URL of the host.
+        /// </summary>
         public Uri? HostUrl
         {
             get
@@ -260,7 +268,9 @@ namespace SciTech.Rpc
         }
 
         /// <summary>
-        /// 
+        /// Gets a boolean value indicating whether this connection info matches the other <paramref name="other"/>
+        /// connection info. The matching is used to determine whether a connection can be used to reach an RPC instance and 
+        /// relies on the associated server id. If no server id is available, the match will also succeed.
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>

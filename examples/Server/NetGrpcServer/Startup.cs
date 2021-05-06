@@ -135,6 +135,26 @@ namespace NetGrpcServer
             });
         }
 
+        public void Configure2(IApplicationBuilder app, IWebHostEnvironment env)
+        {
+            app.PublishRpcSingleton<IGreeterService, GreeterServiceImpl>();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapNetGrpcServices();
+            });
+
+            // Other ASP.NET configuration
+
+        }
+
+        public void ConfigureServices2(IServiceCollection services)
+        {
+            services.AddNetGrpc();
+
+            // Other ASP.NET services configuration
+        }
+
         private string GenerateJwtToken(string name)
         {
             if (string.IsNullOrEmpty(name))

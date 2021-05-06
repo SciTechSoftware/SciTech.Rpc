@@ -15,6 +15,10 @@ using System.Runtime.Serialization;
 
 namespace SciTech.Rpc
 {
+    /// <summary>
+    /// Provides information about how to access a published RPC object for the service defined by <typeparamref name="TService"/>.
+    /// </summary>
+    /// <typeparam name="TService">Type of the service definition interface</typeparam>
     [DataContract]
     [Serializable]
     public class RpcObjectRef<TService> : RpcObjectRef where TService : class
@@ -37,6 +41,9 @@ namespace SciTech.Rpc
         public new RpcConnectionInfo? ServerConnection { get => base.ServerConnection; protected set => base.ServerConnection = value; }
     }
 
+    /// <summary>
+    /// Provides information about how to access a published RPC object.
+    /// </summary>
     [DataContract]
     [Serializable]
     public class RpcObjectRef : IEquatable<RpcObjectRef>

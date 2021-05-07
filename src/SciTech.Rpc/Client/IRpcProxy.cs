@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 namespace SciTech.Rpc.Client
 {
     /// <summary>
-    /// 
+    /// Represents a proxy to an RPC service. Will be implemented by all service proxies retrieved from an <see cref="IRpcChannel"/>.
     /// </summary>
     public interface IRpcProxy : IEquatable<IRpcProxy>, IDisposable
     {
@@ -36,10 +36,30 @@ namespace SciTech.Rpc.Client
 
         SynchronizationContext? SyncContext { get; }
 
+        /// <summary>
+        /// Tries to cast this service proxy to a <typeparamref name="TService"/> proxy. If knowledge about implemented service
+        /// interfaces is not available in this proxy, this method can cause a round-trip to the server to retrieve this information.
+        /// <para><note type="note">To avoid the round-trip, the <see cref="UnsafeCast{TService}"/> method can be used</note></para>
+        /// </summary>
+        /// <typeparam name="TService">The type of the service interface.</typeparam>
+        /// <returns>A service proxy for the requested <typeparamref name="TService"/> interface.</returns>
         Task<TService?> TryCastAsync<TService>() where TService : class;
 
+        /// <summary>
+        /// Casts this service proxy to a <typeparamref name="TService"/> proxy, without verifying that the remote service
+        /// implements the <typeparamref name="TService"/> interface.
+        /// <para><note type="note">This can save a round-trip to the server, but this method should only be used 
+        /// if it is known that the service is implemented on the server.</note></para>
+        /// </summary>
+        /// <typeparam name="TService">The type of the service interface.</typeparam>
+        /// <returns>A service proxy for the requested <typeparamref name="TService"/> interface.</returns>
         TService UnsafeCast<TService>() where TService : class;
 
+        /// <summary>
+        /// Wait for all added eventh handlers to be acknowledged.
+        /// <para>When adding </para>
+        /// </summary>
+        /// <returns></returns>
         Task WaitForPendingEventHandlersAsync();
     }
 
@@ -73,6 +93,7 @@ namespace SciTech.Rpc.Client
             {
                 return proxyBase.Channel.GetServiceInstance<TService>(proxyBase.ObjectId, proxyBase.ImplementedServices, syncContext);
             }
+
 
             throw new ArgumentException("Can only set synchronization context on services retrieved using IRpcConnection.");
         }

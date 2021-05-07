@@ -15,6 +15,11 @@ using System.Threading;
 
 namespace SciTech.Rpc.Client
 {
+    /// <summary>
+    /// Represents a RPC connection provider that can be used to retrieve an <see cref="IRpcChannel"/> (or <see cref="IRpcConnection"/>)
+    /// from an <see cref="RpcConnectionInfo"/>. Implementation of this interface are normally registered with <see cref="IRpcConnectionManager"/>
+    /// implementation, e.g. <see cref="RpcConnectionManager"/>.
+    /// </summary>
     public interface IRpcConnectionProvider
     {
         bool CanCreateChannel(RpcConnectionInfo connectionInfo);
@@ -22,6 +27,9 @@ namespace SciTech.Rpc.Client
         IRpcChannel CreateChannel(RpcConnectionInfo connectionInfo, IRpcClientOptions? options);
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public interface IRpcConnectionManager
     {
         void AddKnownChannel(IRpcChannel channel);
@@ -30,6 +38,15 @@ namespace SciTech.Rpc.Client
 
         TService GetServiceSingleton<TService>(RpcConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class;
 
+        /// <summary>
+        /// Gets a connection to 
+        /// <para><note type="note">Do not call <see cref="IRpcChannel.ShutdownAsync"/> on the returned connection. The connection will
+        /// be closed when it is garbage collected. To control the lifetime of connections, manually create the connection (TODO: or use CreateServerConnection).</note></para>
+        /// </summary>
+        /// <param name="connectionInfo"></param>
+        /// <exception cref="NotSupportedException">Thrown if there is no connection provider registered that can 
+        /// handle the provided <paramref name="connectionInfo"/></exception>
+        /// <returns>A connection to the server defined by <paramref name="connectionInfo"/>.</returns>
         IRpcChannel GetServerConnection(RpcConnectionInfo connectionInfo);
         
         bool RemoveKnownChannel(IRpcChannel channel);

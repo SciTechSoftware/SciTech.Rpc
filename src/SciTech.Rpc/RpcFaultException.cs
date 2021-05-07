@@ -59,7 +59,7 @@ namespace SciTech.Rpc
     }
 
     /// <summary>
-    /// Extends <see cref="RpcFault"/> with additional fault details. To allow the fault details to be propagated to 
+    /// Extends <see cref="RpcFaultException"/> with additional fault details. To allow the fault details to be propagated to 
     /// the client, the operation must include the details type using <see cref="RpcFaultAttribute"/>.
     /// </summary>
     /// <typeparam name="TFault">The type of the fault details.</typeparam>

@@ -1,13 +1,15 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019-2021, SciTech Software AB
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
+
+#endregion Copyright notice and license
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
@@ -27,10 +29,10 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     /// <summary>
     /// <para>
-    /// Represents a connection to a <see cref="LightweightRpcServer"/>. 
+    /// Represents a connection to a <see cref="LightweightRpcServer"/>.
     /// </para>
     /// <para>To create a connection, use one of the derived classes,
-    /// e.g. <see cref="TcpRpcConnection"/>, <see cref="NamedPipeRpcConnection"/>, or <see cref="InprocRpcConnection"/>. 
+    /// e.g. <see cref="TcpRpcConnection"/>, <see cref="NamedPipeRpcConnection"/>, or <see cref="InprocRpcConnection"/>.
     /// Alternatively, a <see cref="LightweightConnectionProvider"/> can be registered with an <see cref="RpcConnectionManager"/>
     /// and then connections can be retrieved using <see cref="RpcConnectionManager.CreateServerConnection(RpcConnectionInfo)"/>.
     /// </para>
@@ -45,9 +47,11 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private TaskCompletionSource<RpcPipelineClient>? connectionTcs;
 
+        private WeakListener listener;
+
         protected LightweightRpcConnection(
             RpcConnectionInfo connectionInfo,
-            IRpcClientOptions? options,           
+            IRpcClientOptions? options,
             LightweightOptions? lightweightOptions)
             : this(connectionInfo, options, LightweightProxyGenerator.Default, lightweightOptions)
         {
@@ -62,24 +66,52 @@ namespace SciTech.Rpc.Lightweight.Client
         {
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
             this.AllowReconnect = lightweightOptions?.AllowReconnect ?? false;
+            this.listener = new WeakListener(this);
         }
 
-        /// <inheritdoc/>
-        public override bool IsConnected => this.connectedClient != null;
+        ~LightweightRpcConnection()
+        {
+            TaskCompletionSource<RpcPipelineClient>? connectionTcs;
+            RpcPipelineClient? connectedClient;
+            lock (this.SyncRoot)
+            {
+                if (this.ConnectionState == RpcConnectionState.Disconnected)
+                {
+                    // Already disconnected, why wasn't finalizer suppressed?
+                    Debug.Assert(this.connectedClient == null);
+                    return;
+                }
 
+                connectedClient = this.connectedClient;
+                this.connectedClient = null;
 
-        /// <summary>
-        /// Gets a value indicating if the connection should be kept alive even if the size of a message
-        /// exceeds the limits specified by <see cref="RpcClientOptions"/> and <see cref="RpcServerOptions"/>. 
-        /// </summary>
-        public bool KeepSizeLimitedConnectionAlive { get; }
+                connectionTcs = this.connectionTcs;
+                this.connectionTcs = null;
 
+                this.OnConnectionResetSynchronized();
+            }
+
+            connectionTcs?.TrySetCanceled();
+
+            if (connectedClient != null)
+            {
+                connectedClient.CloseAsync().Forget();
+            }
+        }
 
         /// <summary>
         /// Gets a value indicating if the connection should try to reconnect after it has been lost.
         /// </summary>
         public bool AllowReconnect { get; }
 
+        /// <inheritdoc/>
+        public override bool IsConnected => this.connectedClient != null;
+
+        /// <summary>
+        /// Gets a value indicating if the connection should be kept alive even if the size of a message
+        /// exceeds the limits specified by <see cref="RpcClientOptions"/> and <see cref="RpcServerOptions"/>.
+        /// </summary>
+        public bool KeepSizeLimitedConnectionAlive { get; }
 
         /// <inheritdoc/>
         public override Task ConnectAsync(CancellationToken cancellationToken)
@@ -97,7 +129,6 @@ namespace SciTech.Rpc.Lightweight.Client
 
             this.NotifyDisconnected();
         }
-
 
         internal ValueTask<RpcPipelineClient> ConnectClientAsync(CancellationToken cancellationToken)
         {
@@ -120,7 +151,6 @@ namespace SciTech.Rpc.Lightweight.Client
                         throw new RpcCommunicationException(this.ConnectionState == RpcConnectionState.ConnectionLost
                             ? RpcCommunicationStatus.ConnectionLost : RpcCommunicationStatus.Unavailable);
                     }
-
                 }
 
                 if (this.connectionTcs != null)
@@ -154,7 +184,8 @@ namespace SciTech.Rpc.Lightweight.Client
 
                     var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
 
-                    connectedClient.ReceiveLoopFaulted += this.ConnectedClient_ReceiveLoopFaulted;
+                    connectedClient.ReceiveLoopFaulted += this.listener.ReceiveLoopFaulted;
+
                     connectedClient.RunAsyncCore().Forget();
 
                     TaskCompletionSource<RpcPipelineClient>? connectionTcs;
@@ -217,19 +248,19 @@ namespace SciTech.Rpc.Lightweight.Client
         {
         }
 
-        private void ConnectedClient_ReceiveLoopFaulted(object? sender, ExceptionEventArgs e)
+        private static Exception? TranslateConnectionException(Exception? ex, RpcConnectionState newState)
         {
-            // ResetConnectionAsync will call CloseAsync which will wait for the receive loop to exit.
-            // Since ReceiveLoopFaulted is invoked from the receive loop, it's important that this 
-            // method does not block.
-
-            ResetAndNotifyAsync().Forget();
-
-            async Task ResetAndNotifyAsync()
+            if (ex != null)
             {
-                await this.ResetConnectionAsync(RpcConnectionState.ConnectionLost, e.Exception).ContextFree();
-                this.NotifyConnectionLost();
+                return newState switch
+                {
+                    RpcConnectionState.ConnectionLost => new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, "Lightweight connection lost.", ex),
+                    RpcConnectionState.ConnectionFailed => new RpcCommunicationException(RpcCommunicationStatus.Unavailable, "Failed to connect.", ex),
+                    _ => new RpcCommunicationException(RpcCommunicationStatus.Unknown, "Lightweight connection lost.", ex)
+                };
             }
+
+            return null;
         }
 
         private async Task<RpcPipelineClient?> ResetConnectionAsync(RpcConnectionState state, Exception? ex)
@@ -248,13 +279,18 @@ namespace SciTech.Rpc.Lightweight.Client
                 connectedClient = this.connectedClient;
                 this.connectedClient = null;
 
-
                 connectionTcs = this.connectionTcs;
                 this.connectionTcs = null;
 
                 this.OnConnectionResetSynchronized();
 
                 this.SetConnectionState(state);
+
+                if (state == RpcConnectionState.Disconnected)
+                {
+                    // No need to finalize
+                    GC.SuppressFinalize(this);
+                }
             }
 
             connectionTcs?.TrySetCanceled();
@@ -262,26 +298,39 @@ namespace SciTech.Rpc.Lightweight.Client
             // TODO: wait for unfinished frames?
             if (connectedClient != null)
             {
-                connectedClient.ReceiveLoopFaulted -= this.ConnectedClient_ReceiveLoopFaulted;
+                connectedClient.ReceiveLoopFaulted -= this.listener.ReceiveLoopFaulted;
                 await connectedClient.CloseAsync(TranslateConnectionException(ex, state)).ContextFree();
             }
 
             return connectedClient;
         }
 
-        private static Exception? TranslateConnectionException(Exception? ex, RpcConnectionState newState)
+        private sealed class WeakListener
         {
-            if (ex != null)
+            private readonly WeakReference<LightweightRpcConnection> wrConnection;
+
+            public WeakListener(LightweightRpcConnection self)
             {
-                return newState switch
-                {
-                    RpcConnectionState.ConnectionLost => new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost, "Lightweight connection lost.", ex),
-                    RpcConnectionState.ConnectionFailed => new RpcCommunicationException(RpcCommunicationStatus.Unavailable, "Failed to connect.", ex),
-                    _ => new RpcCommunicationException(RpcCommunicationStatus.Unknown, "Lightweight connection lost.", ex)
-                };
+                this.wrConnection = new WeakReference<LightweightRpcConnection>(self);
             }
 
-            return null;
+            internal void ReceiveLoopFaulted(object? sender, ExceptionEventArgs e)
+            {
+                if (this.wrConnection.TryGetTarget(out var self))
+                {
+                    // ResetConnectionAsync will call CloseAsync which will wait for the receive loop to exit.
+                    // Since ReceiveLoopFaulted is invoked from the receive loop, it's important that this
+                    // method does not block.
+
+                    ResetAndNotifyAsync().Forget();
+
+                    async Task ResetAndNotifyAsync()
+                    {
+                        await self.ResetConnectionAsync(RpcConnectionState.ConnectionLost, e.Exception).ContextFree();
+                        self.NotifyConnectionLost();
+                    }
+                }
+            }
         }
     }
 }

@@ -48,6 +48,7 @@ namespace SciTech.Rpc.Lightweight.Client
         {
         }
 
+
         public override bool IsEncrypted => false;
 
         public override bool IsMutuallyAuthenticated => false;
@@ -75,14 +76,14 @@ namespace SciTech.Rpc.Lightweight.Client
                 {
                     await pipeClientStream.ConnectAsync(cancellationToken).ContextFree();
 
-                    var sendOptions = new System.IO.Pipelines.PipeOptions(
-                        pauseWriterThreshold: sendMaxMessageSize * 2, resumeWriterThreshold: sendMaxMessageSize,
-                        readerScheduler: System.IO.Pipelines.PipeScheduler.Inline,
-                        useSynchronizationContext: false);
-                    var receiveOptions = new System.IO.Pipelines.PipeOptions(
-                        pauseWriterThreshold: receiveMaxMessageSize * 2, resumeWriterThreshold: receiveMaxMessageSize,
-                        readerScheduler: System.IO.Pipelines.PipeScheduler.Inline,
-                        useSynchronizationContext: false);
+                    //var sendOptions = new System.IO.Pipelines.PipeOptions(
+                    //    pauseWriterThreshold: sendMaxMessageSize * 2, resumeWriterThreshold: sendMaxMessageSize,
+                    //    readerScheduler: System.IO.Pipelines.PipeScheduler.Inline,
+                    //    useSynchronizationContext: false);
+                    //var receiveOptions = new System.IO.Pipelines.PipeOptions(
+                    //    pauseWriterThreshold: receiveMaxMessageSize * 2, resumeWriterThreshold: receiveMaxMessageSize,
+                    //    readerScheduler: System.IO.Pipelines.PipeScheduler.Inline,
+                    //    useSynchronizationContext: false);
 
                     var connection = new StreamDuplexPipe(pipeClientStream);//, sendOptions, receiveOptions);
 

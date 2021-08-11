@@ -108,7 +108,7 @@ namespace SciTech.Rpc.Server.Internal
             return null;
         }
 
-        public RpcObjectRef? ConvertServiceResponse<TReturnService>(TReturnService? service) where TReturnService : class
+        public RpcObjectRef<TReturnService>? ConvertServiceResponse<TReturnService>(TReturnService? service) where TReturnService : class
         {
             if (service != null)
             {

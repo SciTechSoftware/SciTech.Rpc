@@ -25,7 +25,6 @@ namespace GrpcGreeter
             var connection = new NamedPipeRpcConnection("Test");
             connection.GetServiceSingleton<IGreeterServiceClient>();
 
-
             RpcConnectionInfo connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
 
             var greeter = connectionManager.GetServiceSingleton<IGreeterServiceClient>(connectionInfo);

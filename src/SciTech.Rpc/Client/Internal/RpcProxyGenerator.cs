@@ -26,8 +26,7 @@ namespace SciTech.Rpc.Client.Internal
     /// <typeparam name="TRpcProxy"></typeparam>
     /// <typeparam name="TProxyArgs"></typeparam>
     /// <typeparam name="TMethodDef"></typeparam>
-    public abstract class RpcProxyGenerator<TRpcProxy, TProxyArgs, TMethodDef> : IRpcProxyGenerator
-        where TRpcProxy : RpcProxyBase<TMethodDef>
+    public abstract class RpcProxyGenerator<TProxyArgs, TMethodDef> : IRpcProxyGenerator
         where TMethodDef : RpcProxyMethod
         where TProxyArgs : RpcProxyArgs
     {
@@ -66,7 +65,7 @@ namespace SciTech.Rpc.Client.Internal
 
                 var (moduleBuilder, definedProxyTypes) = CreateModuleBuilder();
 
-                var proxyTypeBuilder = new RpcServiceProxyBuilder<TRpcProxy, TMethodDef>(
+                var proxyTypeBuilder = new RpcServiceProxyBuilder<RpcProxyBase, TMethodDef>(
                     serviceInterfaces,
                     moduleBuilder, definedProxyTypes);
                 (Func<TProxyArgs, TMethodDef[], RpcProxyBase> proxyCreator, TMethodDef[] proxyMethodDefs) 

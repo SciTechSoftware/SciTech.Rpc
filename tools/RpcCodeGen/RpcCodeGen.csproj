@@ -17,8 +17,4 @@
     <PackageReference Include="Google.Protobuf" Version="3.10.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
-  </ItemGroup>
-
 </Project>

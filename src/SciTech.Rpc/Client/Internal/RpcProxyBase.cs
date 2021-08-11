@@ -24,6 +24,25 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client.Internal
 {
+    public interface IProxyCallDispatcher
+    {
+        ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, RpcProxyMethod method, CancellationToken cancellationToken)
+            where TRequest : class
+            where TResponse : class;
+
+        TResponse CallUnaryMethodCore<TRequest, TResponse>(RpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
+            where TRequest : class
+            where TResponse : class;
+
+        Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(RpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
+            where TRequest : class
+            where TResponse : class;
+
+        void HandleCallException(RpcProxyMethod methodDef, Exception e);
+
+        RpcProxyMethod CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName);
+    }
+
     /// <summary>
     /// 
     /// </summary>
@@ -56,12 +75,22 @@ namespace SciTech.Rpc.Client.Internal
         public SynchronizationContext? SyncContext { get; }
     }
 
+    /// <summary>
+    /// Base implementation of an RPC proxy. Derived classes must, in addition to implementing the abstract methods, also 
+    /// include a static method named "CreateMethodDef", with the signature 
+    /// RpcProxyMethod CreateMethodDef{TRequest, TResponse}(RpcMethodType,string,string,IRpcSerializer?,RpcClientFaultHandler?).
+    /// TODO: Try to implement the "CreateMethodDef" functionality using a virtual method in <see cref="RpcProxyGenerator{TRpcProxy, TProxyArgs, RpcProxyMethod}"/>
+    /// instead.
+    /// </summary>
+    /// <typeparam name="RpcProxyMethod"></typeparam>
     [SuppressMessage("Naming", "CA1708: Identifiers should differ by more than case", Justification = "Accessed by generated code")]
-    public abstract class RpcProxyBase
+    public abstract class RpcProxyBase : IRpcProxy
     {
-        protected RpcProxyBase(RpcProxyArgs proxyArgs)
+        protected RpcProxyBase(RpcProxyArgs proxyArgs, RpcProxyMethod[] proxyMethods)
         {
             if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
+
+            this.proxyMethods = proxyMethods;
 
             this.objectId = proxyArgs.ObjectId;
             this.Channel = proxyArgs.Channel;
@@ -113,20 +142,8 @@ namespace SciTech.Rpc.Client.Internal
         [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
         protected readonly IRpcSerializer serializer;
 
-        private HashSet<string>? implementedServices;
 
-    }
-
-    /// <summary>
-    /// Base implementation of an RPC proxy. Derived classes must, in addition to implementing the abstract methods, also 
-    /// include a static method named "CreateMethodDef", with the signature 
-    /// TMethodDef CreateMethodDef{TRequest, TResponse}(RpcMethodType,string,string,IRpcSerializer?,RpcClientFaultHandler?).
-    /// TODO: Try to implement the "CreateMethodDef" functionality using a virtual method in <see cref="RpcProxyGenerator{TRpcProxy, TProxyArgs, TMethodDef}"/>
-    /// instead.
-    /// </summary>
-    /// <typeparam name="TMethodDef"></typeparam>
-    public abstract class RpcProxyBase<TMethodDef> : RpcProxyBase, IRpcProxy where TMethodDef : RpcProxyMethod
-    {
+        private readonly IProxyCallDispatcher dispatcher;
 
         internal const string AddEventHandlerAsyncName = nameof(AddEventHandlerAsync);
 
@@ -155,9 +172,9 @@ namespace SciTech.Rpc.Client.Internal
         internal const string RemoveEventHandlerAsyncName = nameof(RemoveEventHandlerAsync);
 
         [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
-        protected internal readonly TMethodDef[] proxyMethods;
+        protected internal readonly RpcProxyMethod[] proxyMethods;
 
-        // private static readonly ILog Logger = LogProvider.For<RpcProxyBase<TMethodDef>>();
+        // private static readonly ILog Logger = LogProvider.For<RpcProxyBase<RpcProxyMethod>>();
 
         private readonly List<Task> pendingEventTasks = new List<Task>();
 
@@ -165,19 +182,11 @@ namespace SciTech.Rpc.Client.Internal
 
         private HashSet<string>? implementedServices;
 
-        private TMethodDef? queryServicesMethodDef;
+        private RpcProxyMethod? queryServicesMethodDef;
 
         private TaskCompletionSource<HashSet<string>>? servicesTcs;
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="proxyArgs"></param>
-        /// <param name="proxyMethods"></param>
-        protected RpcProxyBase(RpcProxyArgs proxyArgs, TMethodDef[] proxyMethods) : base(proxyArgs)
-        {
-            this.proxyMethods = proxyMethods;
-        }
+
 
         public event EventHandler? EventHandlerFailed;
 
@@ -232,11 +241,11 @@ namespace SciTech.Rpc.Client.Internal
             if (this.queryServicesMethodDef == null)
             {
                 // Don't care if it's created multiple times, it's just a small data class
-                this.queryServicesMethodDef = this.CreateDynamicMethodDef<RpcObjectRequest, RpcServicesQueryResponse>(
+                this.queryServicesMethodDef = this.dispatcher.CreateDynamicMethodDef<RpcObjectRequest, RpcServicesQueryResponse>(
                     "SciTech.Rpc.RpcService", "QueryServices");
             }
 
-            var servicesResponse = await this.CallUnaryMethodCoreAsync<RpcObjectRequest, RpcServicesQueryResponse>(
+            var servicesResponse = await this.dispatcher.CallUnaryMethodCoreAsync<RpcObjectRequest, RpcServicesQueryResponse>(
                 this.queryServicesMethodDef,
                 new RpcObjectRequest(this.objectId),
                 CancellationToken.None).ContextFree();
@@ -342,14 +351,14 @@ namespace SciTech.Rpc.Client.Internal
         }
 
         protected async IAsyncEnumerable<TReturn> CallAsyncEnumerableMethod<TRequest, TResponseReturn, TReturn>(
-            TMethodDef method,
+            RpcProxyMethod method,
             TRequest request,
             Func<IRpcProxy, object?, object?> responseConverter,
             [EnumeratorCancellation]CancellationToken cancellationToken)
             where TRequest : class
             where TResponseReturn : class
         {
-            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
+            var streamingCall = await this.dispatcher.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
             await using (streamingCall.ContextFree())
             {
                 var sequence = streamingCall.ResponseStream;
@@ -370,7 +379,7 @@ namespace SciTech.Rpc.Client.Internal
                     }
                     catch (Exception e)
                     {
-                        this.HandleCallException(method, e);
+                        this.dispatcher.HandleCallException(method, e);
                         throw;
                     }
 
@@ -380,7 +389,7 @@ namespace SciTech.Rpc.Client.Internal
         }
 
         protected void CallCallbackMethod<TRequest, TResponseReturn, TReturn>(
-            TMethodDef method,
+            RpcProxyMethod method,
             TRequest request,
             Action<TReturn> callback,
             Func<IRpcProxy, object?, object?> responseConverter,
@@ -393,7 +402,7 @@ namespace SciTech.Rpc.Client.Internal
 
 
         protected async Task CallCallbackMethodAsync<TRequest, TResponseReturn, TReturn>(
-            TMethodDef method,
+            RpcProxyMethod method,
             TRequest request,
             Action<TReturn> callback,
             Func<IRpcProxy, object?, object?> responseConverter,
@@ -401,7 +410,7 @@ namespace SciTech.Rpc.Client.Internal
                 where TRequest : class
                 where TResponseReturn : class
         {
-            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
+            var streamingCall = await this.dispatcher.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
             await using (streamingCall.ContextFree())
             {
                 var sequence = streamingCall.ResponseStream;
@@ -429,7 +438,7 @@ namespace SciTech.Rpc.Client.Internal
                     }
                     catch (Exception e)
                     {
-                        this.HandleCallException(method, e);
+                        this.dispatcher.HandleCallException(method, e);
                         throw;
                     }
 
@@ -447,12 +456,8 @@ namespace SciTech.Rpc.Client.Internal
         }
 
 
-        protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken cancellationToken)
-            where TRequest : class
-            where TResponse : class;
-
         protected TReturnType CallUnaryMethod<TRequest, TResponseType, TReturnType>(
-            TMethodDef methodDef,
+            RpcProxyMethod methodDef,
             TRequest request,
             Func<IRpcProxy, object?, object?> responseConverter,
             CancellationToken cancellationToken)
@@ -463,11 +468,11 @@ namespace SciTech.Rpc.Client.Internal
             RpcResponse<TResponseType> response;
             try
             {
-                response = this.CallUnaryMethodCore<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken);
+                response = this.dispatcher.CallUnaryMethodCore<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
-                this.HandleCallException(methodDef, e);
+                this.dispatcher.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -475,7 +480,7 @@ namespace SciTech.Rpc.Client.Internal
         }
 
         protected async Task<TReturnType> CallUnaryMethodAsync<TRequest, TResponseType, TReturnType>(
-            TMethodDef methodDef,
+            RpcProxyMethod methodDef,
             TRequest request,
             Func<IRpcProxy, object?, object?> responseConverter,
             CancellationToken cancellationToken)
@@ -486,11 +491,11 @@ namespace SciTech.Rpc.Client.Internal
             RpcResponse<TResponseType> response;
             try
             {
-                response = await this.CallUnaryMethodCoreAsync<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken).ContextFree();
+                response = await this.dispatcher.CallUnaryMethodCoreAsync<TRequest, RpcResponse<TResponseType>>(methodDef, request, cancellationToken).ContextFree();
             }
             catch (Exception e)
             {
-                this.HandleCallException(methodDef, e);
+                this.dispatcher.HandleCallException(methodDef, e);
                 throw;
             }
 
@@ -498,52 +503,38 @@ namespace SciTech.Rpc.Client.Internal
         }
 
 
-        protected abstract TResponse CallUnaryMethodCore<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
-            where TRequest : class
-            where TResponse : class;
-
-        protected abstract Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
-            where TRequest : class
-            where TResponse : class;
-
-
-
-        protected void CallUnaryVoidMethod<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
+        protected void CallUnaryVoidMethod<TRequest>(RpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
         {
             if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
 
             try
             {
-                this.CallUnaryMethodCore<TRequest, RpcResponse>(methodDef, request, cancellationToken);
+                this.dispatcher.CallUnaryMethodCore<TRequest, RpcResponse>(methodDef, request, cancellationToken);
             }
             catch (Exception e)
             {
-                this.HandleCallException(methodDef, e);
+                this.dispatcher.HandleCallException(methodDef, e);
                 throw;
             }
         }
 
-        protected async Task CallUnaryVoidMethodAsync<TRequest>(TMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
+        protected async Task CallUnaryVoidMethodAsync<TRequest>(RpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
             where TRequest : class
         {
             if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
 
             try
             {
-                await this.CallUnaryMethodCoreAsync<TRequest, RpcResponse>(methodDef, request, cancellationToken).ContextFree();
+                await this.dispatcher.CallUnaryMethodCoreAsync<TRequest, RpcResponse>(methodDef, request, cancellationToken).ContextFree();
             }
             catch (Exception e)
             {
-                this.HandleCallException(methodDef, e);
+                this.dispatcher.HandleCallException(methodDef, e);
                 throw;
             }
         }
 
-
-        protected abstract TMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)
-            where TRequest : class
-            where TResponse : class;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -552,8 +543,6 @@ namespace SciTech.Rpc.Client.Internal
             this.WaitForPendingEventHandlersAsync().AwaiterResult();
             // TODO: Dispose (and end) owning RPC call.
         }
-
-        protected abstract void HandleCallException(TMethodDef methodDef, Exception e);
 
         protected virtual bool IsCancellationException(Exception exception)
         {
@@ -564,7 +553,7 @@ namespace SciTech.Rpc.Client.Internal
             where TEventArgs : class
             where TEventHandler : Delegate
         {
-            RpcProxyBase<TMethodDef>.EventData<TEventHandler>? removedEventData = this.RemoveEventHandler(value, eventMethodIndex);
+            EventData<TEventHandler>? removedEventData = this.RemoveEventHandler(value, eventMethodIndex);
 
             if (removedEventData != null)
             {
@@ -684,7 +673,7 @@ namespace SciTech.Rpc.Client.Internal
             return null;
         }
 
-        protected void HandleRpcError(TMethodDef methodDef, RpcError error)
+        protected void HandleRpcError(RpcProxyMethod methodDef, RpcError error)
         {
             if (methodDef is null) throw new ArgumentNullException(nameof(methodDef));
             if (error is null) throw new ArgumentNullException(nameof(error));
@@ -754,7 +743,7 @@ namespace SciTech.Rpc.Client.Internal
         {
             if (this.SyncContext != null)
             {
-                this.SyncContext.Post(self => ((RpcProxyBase<TMethodDef>)self!).EventHandlerFailed?.Invoke(self, EventArgs.Empty), this);
+                this.SyncContext.Post(self => ((RpcProxyBase)self!).EventHandlerFailed?.Invoke(self, EventArgs.Empty), this);
             }
             else
             {
@@ -772,7 +761,7 @@ namespace SciTech.Rpc.Client.Internal
             }
         }
 
-        private RpcProxyBase<TMethodDef>.EventData<TEventHandler>? RemoveEventHandler<TEventHandler>(TEventHandler value, int eventMethodIndex) where TEventHandler : Delegate
+        private RpcProxyBase.EventData<TEventHandler>? RemoveEventHandler<TEventHandler>(TEventHandler value, int eventMethodIndex) where TEventHandler : Delegate
         {
             EventData<TEventHandler>? removedEventData = null;
             lock (this.SyncRoot)
@@ -801,7 +790,7 @@ namespace SciTech.Rpc.Client.Internal
             try
             {
                 var beginMethod = this.proxyMethods[eventData.eventMethodIndex];
-                var streamingCallTask = this.CallStreamingMethodAsync<RpcObjectRequest, TEventArgs>(
+                var streamingCallTask = this.dispatcher.CallStreamingMethodAsync<RpcObjectRequest, TEventArgs>(
                     request, beginMethod, eventData.cancellationSource.Token);
 
                 var streamingCall = await streamingCallTask.ContextFree();
@@ -939,20 +928,20 @@ namespace SciTech.Rpc.Client.Internal
     //#pragma warning restore CA1051 // Do not declare visible instance fields
     //#pragma warning restore CA1062 // Validate arguments of public methods
 
-    public class RpcProxyMethodsCache<TMethodDef>
+    public class RpcProxyMethodsCache<RpcProxyMethod>
     {
-        private readonly Func<IRpcSerializer, TMethodDef[]> proxyMethodsCreator;
+        private readonly Func<IRpcSerializer, RpcProxyMethod[]> proxyMethodsCreator;
 
-        private readonly ConditionalWeakTable<IRpcSerializer, TMethodDef[]> SerializerToProxyMethods = new ConditionalWeakTable<IRpcSerializer, TMethodDef[]>();
+        private readonly ConditionalWeakTable<IRpcSerializer, RpcProxyMethod[]> SerializerToProxyMethods = new ConditionalWeakTable<IRpcSerializer, RpcProxyMethod[]>();
 
         private readonly object syncRoot = new object();
 
-        public RpcProxyMethodsCache(Func<IRpcSerializer, TMethodDef[]> proxyMethodsCreator)
+        public RpcProxyMethodsCache(Func<IRpcSerializer, RpcProxyMethod[]> proxyMethodsCreator)
         {
             this.proxyMethodsCreator = proxyMethodsCreator;
         }
 
-        public TMethodDef[] GetProxyMethods(IRpcSerializer serializer)
+        public RpcProxyMethod[] GetProxyMethods(IRpcSerializer serializer)
         {
             lock (this.syncRoot)
             {

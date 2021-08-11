@@ -9,7 +9,6 @@
 //
 #endregion
 
-using SciTech.Rpc.Client;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Serialization;
@@ -214,7 +213,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <summary>
         /// Gets the handler for a unary request.
         /// </summary>
-        internal Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>> Handler { get; }
+        internal Func<TRequest, IServiceProvider?, LightweightCallContext, ValueTask<TResponse>> Handler { get; set; }
 
         public override Task HandleMessage(ILightweightRpcFrameWriter frameWriter, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
@@ -324,5 +323,116 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 return AwaitAndWriteResponse(messageNumber, operation);
             }
         }
+    }
+    [RpcService]
+    public interface ISimpleService
+    {
+        int Add(int a, int b);
+
+        Task<int> AddAsync(int a, int b, CancellationToken cancellationToken);
+
+        IOtherService GetOtherService();
+    }
+
+    [RpcService]
+    public interface IOtherService
+    {
+        int SomethingElse();
+    }
+
+
+
+    internal class LightweightBlockingMethodStub<TService,TRequest, TResult,TResponse> : LightweightMethodStub<TRequest, RpcResponse<TResponse>>
+        where TService : class
+        where TRequest : class, IObjectRequest
+    {
+        RpcStub<TService> serviceStub;
+        Func<TService,TRequest, CancellationToken, TResult> implCaller;
+        private Func<TResult, TResponse>? responseConverter;
+
+        public LightweightBlockingMethodStub(
+            RpcStub<TService> serviceStub,
+            string fullName,
+            Func<TService, TRequest, CancellationToken, TResult> implCaller,
+            IRpcSerializer serializer,
+            Func<RpcStub<TService>, TResult, TResponse>? responseConverter,
+            RpcServerFaultHandler? faultHandler,
+            bool allowInlineExecution)
+            : base(fullName,
+                  null,
+                  serializer, faultHandler, allowInlineExecution)
+        {
+            this.serviceStub = serviceStub;
+            this.implCaller = implCaller;
+            this.responseConverter = responseConverter;
+            this.Handler = Call;
+        }
+        //public LightweightBlockingMethodStub(
+        //    RpcStub<TService> serviceStub,
+        //    string fullName,
+        //    Func<TService, TRequest, CancellationToken, Task<TResult>> implCaller,
+        //    IRpcSerializer serializer,
+        //    Func<TResult, TResponse>? responseConverter,
+        //    RpcServerFaultHandler? faultHandler,
+        //    bool allowInlineExecution)
+        //    : base(fullName,
+        //          null,
+        //          serializer, faultHandler, allowInlineExecution)
+        //{
+        //    this.serviceStub = serviceStub;
+        //    this.implCaller = implCaller;
+        //    this.responseConverter = responseConverter;
+        //    this.Handler = Call;
+        //}
+
+        private ValueTask<RpcResponse<TResponse>> Call(TRequest request, IServiceProvider? serviceProvider, LightweightCallContext context)
+        {
+            return this.serviceStub.CallBlockingMethod<TRequest, TResult, TResponse>(
+                request, context,
+                implCaller,
+                null,
+                this.FaultHandler,
+                this.Serializer,
+                serviceProvider);
+
+        }
+    }
+
+    class SimpleServiceStub
+    {
+
+        public static void CreateServiceStub(IRpcServerCore server, ImmutableRpcServerOptions options, ILightweightMethodBinder binder)
+        {
+            var serviceStub = new RpcStub<ISimpleService>(server, options);
+
+            binder.AddMethod(
+                new LightweightBlockingMethodStub<ISimpleService, RpcObjectRequest<int, int>, int, int>(
+                    serviceStub,
+                    "SciTech.Rpc.SimpleService.Add",
+                    (service, request, cancellationToken) => service.Add(request.Value1, request.Value2),
+                    serviceStub.Serializer,
+                    null,
+                    null,
+                    false));
+            binder.AddMethod(
+                new LightweightBlockingMethodStub<ISimpleService, RpcObjectRequest<int, int>, int, int>(
+                    serviceStub,
+                    "SciTech.Rpc.SimpleService.Add",
+                    (service, request, cancellationToken) => service.Add(request.Value1, request.Value2),
+                    serviceStub.Serializer,
+                    null,
+                    null,
+                    false));
+            binder.AddMethod(
+                new LightweightBlockingMethodStub<ISimpleService, RpcObjectRequest, IOtherService, RpcObjectRef<IOtherService>>(
+                    serviceStub,
+                    "SciTech.Rpc.SimpleService.GetOtherService",
+                    (service, request, cancellationToken) => service.GetOtherService(),
+                    serviceStub.Serializer,
+                    (stub, s)=>stub.ConvertServiceResponse(s),
+                    null,
+                    false));
+        }
+
     }
 }

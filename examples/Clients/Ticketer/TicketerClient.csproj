@@ -23,9 +23,4 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\src\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
-    <ProjectReference Include="..\..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
-  </ItemGroup>
-
 </Project>

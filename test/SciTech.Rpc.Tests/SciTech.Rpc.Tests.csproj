@@ -73,10 +73,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
-    <ProjectReference Include="..\..\src\SciTech.Rpc.DataContract\SciTech.Rpc.DataContract.csproj" />
-    <ProjectReference Include="..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
-    <ProjectReference Include="..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
-    <ProjectReference Include="..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(HasNetGrpc)' == 'true'">

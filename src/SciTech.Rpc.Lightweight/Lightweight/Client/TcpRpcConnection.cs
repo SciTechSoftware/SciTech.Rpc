@@ -1,13 +1,15 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019-2021, SciTech Software AB
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
+
+#endregion Copyright notice and license
 
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Internal;
@@ -18,7 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel;
-using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Pipelines;
 using System.Net;
@@ -31,16 +33,16 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
-    public class TcpRpcConnection : LightweightRpcConnection
+    public partial class TcpRpcConnection : LightweightRpcConnection
     {
         private const int MaxConnectionFrameSize = 65536;
 
         // TODO: Add logging.
         //private static readonly ILog Logger = LogProvider.For<TcpLightweightRpcConnection>();
 
-        private AuthenticationClientOptions authenticationOptions;
-
         private volatile AuthenticatedStream? authenticatedStream;
+        private AuthenticationClientOptions authenticationOptions;
+        private EndPoint? remoteEndPoint;
 
         public TcpRpcConnection(
             RpcConnectionInfo connectionInfo,
@@ -53,8 +55,6 @@ namespace SciTech.Rpc.Lightweight.Client
         {
         }
 
-
-
         internal TcpRpcConnection(
             RpcConnectionInfo connectionInfo,
             AuthenticationClientOptions? authenticationOptions,
@@ -66,29 +66,47 @@ namespace SciTech.Rpc.Lightweight.Client
                   lightweightOptions)
         {
             var scheme = this.ConnectionInfo.HostUrl?.Scheme;
-            switch( scheme )
+            switch (scheme)
             {
                 case WellKnownRpcSchemes.LightweightTcp:
                     break;
+
                 default:
                     throw new ArgumentException("Invalid connectionInfo scheme.", nameof(connectionInfo));
             }
 
-            if( authenticationOptions != null )
+            if (authenticationOptions != null)
             {
-                if( authenticationOptions is SslClientOptions || authenticationOptions is NegotiateClientOptions || authenticationOptions is AnonymousAuthenticationClientOptions)
+                if (authenticationOptions is SslClientOptions || authenticationOptions is NegotiateClientOptions || authenticationOptions is AnonymousAuthenticationClientOptions)
                 {
                     this.authenticationOptions = authenticationOptions;
-                } else
+                }
+                else
                 {
                     throw new ArgumentException("Authentication options not supported.", nameof(authenticationOptions));
                 }
-            } else
+            }
+            else
             {
                 this.authenticationOptions = AnonymousAuthenticationClientOptions.Instance;
             }
         }
 
+        public override EndPoint? RemoteEndPoint
+        {
+            get
+            {
+                lock (this.SyncRoot)
+                {
+                    if (this.ConnectionState == RpcConnectionState.Connected)
+                    {
+                        return this.remoteEndPoint;
+                    }
+                }
+
+                return null;
+            }
+        }
 
         public override bool IsEncrypted => this.authenticatedStream?.IsEncrypted ?? false;
 
@@ -97,6 +115,7 @@ namespace SciTech.Rpc.Lightweight.Client
         public override bool IsSigned => this.authenticatedStream?.IsSigned ?? false;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Transferred ownership")]
         protected override async Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken)
         {
             // TODO: Implement cancellationToken somehow, but how?. ConnectAsync and AuthenticateAsClientAsync don't accept a CancellationToken.
@@ -117,42 +136,33 @@ namespace SciTech.Rpc.Lightweight.Client
 
             try
             {
-                Socket? socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                Socket? socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+                EndPoint? connectedEndPoint = null;
                 try
                 {
                     SetRecommendedClientOptions(socket);
 
-                    string sslHost;
-                    switch (endPoint)
-                    {
-                        case IPEndPoint ipEndPoint:
 #if PLAT_CONNECT_CANCELLATION
-                            await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port, cancellationToken).ContextFree();
+                    await socket.ConnectAsync(endPoint, cancellationToken).ContextFree();
 #else
-                                await socket.ConnectAsync(ipEndPoint.Address, ipEndPoint.Port).ContextFree();
+                    await socket.ConnectAsync(endPoint).ContextFree();
 #endif
-                            sslHost = ipEndPoint.Address.ToString();
-                            break;
-                        case DnsEndPoint dnsEndPoint:
-#if PLAT_CONNECT_CANCELLATION
-                            await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port, cancellationToken).ContextFree();
-#else
-                                await socket.ConnectAsync(dnsEndPoint.Host, dnsEndPoint.Port).ContextFree();
-#endif
-
-                            sslHost = dnsEndPoint.Host;
-                            break;
-                        default:
-                            throw new NotSupportedException($"Unsupported end point '{endPoint}',");
-                    }
-
+                    connectedEndPoint = socket.RemoteEndPoint;
                     workStream = new NetworkStream(socket, true);
                     socket = null;  // Prevent closing, NetworkStream has taken ownership
 
                     var selectedAuthentication = await this.GetAuthenticationOptionsAsync(workStream, cancellationToken).ContextFree();
 
                     if (selectedAuthentication is SslClientOptions sslOptions)
+
                     {
+                        string sslHost = endPoint switch
+                        {
+                            IPEndPoint ipEndPoint => ipEndPoint.Address.ToString(),
+                            DnsEndPoint dnsEndPoint => dnsEndPoint.Host,
+                            _ => throw new NotSupportedException($"Unsupported end point '{endPoint}'."),
+                        };
+
                         var sslStream = new SslStream(workStream, false,
                             sslOptions.RemoteCertificateValidationCallback,
                             sslOptions.LocalCertificateSelectionCallback,
@@ -201,6 +211,7 @@ namespace SciTech.Rpc.Lightweight.Client
                 }
 
                 this.authenticatedStream = authenticatedStream as AuthenticatedStream;
+                this.remoteEndPoint = connectedEndPoint;
                 workStream = null;
 
                 return connection;
@@ -249,7 +260,8 @@ namespace SciTech.Rpc.Lightweight.Client
                 }
 
                 return this.authenticationOptions;
-            } else
+            }
+            else
             {
                 throw new InvalidDataException($"Unexpected connection frame type {connectionFrame.FrameType}");
             }
@@ -286,15 +298,14 @@ namespace SciTech.Rpc.Lightweight.Client
         /// Set recommended socket options for client sockets
         /// </summary>
         /// <param name="socket">The socket to set options against</param>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Silent.")]
         private static void SetRecommendedClientOptions(Socket socket)
         {
-#pragma warning disable CA1031 // Do not catch general exception types
             if (socket.AddressFamily == AddressFamily.Unix) return;
 
             try { socket.NoDelay = true; } catch { }
 
             try { SetFastLoopbackOption(socket); } catch { }
-#pragma warning restore CA1031 // Do not catch general exception types
         }
 
         private EndPoint CreateNetEndPoint()
@@ -313,7 +324,7 @@ namespace SciTech.Rpc.Lightweight.Client
                     }
                     else
                     {
-                        endPoint = new DnsEndPoint(uri.DnsSafeHost, uri.Port);
+                        endPoint = new DnsEndPoint(uri.DnsSafeHost, uri.Port, AddressFamily.InterNetwork);
                     }
 
                     return endPoint;
@@ -330,4 +341,3 @@ namespace SciTech.Rpc.Lightweight.Client
         }
     }
 }
-

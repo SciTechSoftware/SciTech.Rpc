@@ -56,6 +56,7 @@ namespace SciTech.Rpc.Lightweight.Server
             private Task? listenerTask;
 
             private UdpClient? udpClient;
+            private UdpClient? udpClientV6;
 
             public DiscoveryRpcListener(LightweightDiscoveryEndPoint endPoint, IRpcConnectionHandler connectionHandler, ILogger? logger)
             {
@@ -82,6 +83,18 @@ namespace SciTech.Rpc.Lightweight.Server
                 socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
                 udpClient.JoinMulticastGroup(DefaultMulticastAddress);
 
+                UdpClient? udpClientV6 = null;
+                if (Socket.OSSupportsIPv6)
+                {
+                    // I have not been able to enable DualMode for multicast, so let's create a second IPv6 client.
+                    udpClientV6 = this.udpClientV6 = new UdpClient(AddressFamily.InterNetworkV6);
+                    
+                    socket = udpClientV6.Client;
+                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
+                    socket.Bind(new IPEndPoint(IPAddress.IPv6Any, DefaultDiscoveryPort));
+                    udpClientV6.JoinMulticastGroup(DefaultMulticastAddressV6);
+                }
+
                 //var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
                 //foreach( var networkInterface in networkInterfaces)
                 //{
@@ -106,10 +119,10 @@ namespace SciTech.Rpc.Lightweight.Server
                 //    }
                 //}
 
-                
+
 
                 this.listenerCts = new CancellationTokenSource();
-                this.listenerTask = Task.Run(() => this.RunListener(udpClient, this.listenerCts.Token));
+                this.listenerTask = Task.Run(() => this.RunListener(udpClient, udpClientV6, this.listenerCts.Token));
             }
 
             public async Task StopAsync()
@@ -117,6 +130,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.listenerCts?.Cancel();
 
                 this.udpClient?.Close();
+                this.udpClientV6?.Close();
 
                 var listenerTask = this.listenerTask;
                 this.listenerTask = null;
@@ -130,34 +144,56 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.listenerCts = null;
 
                 this.udpClient = null;
+                this.udpClientV6 = null;
 
             }
 
             [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "RunListener should be silent.")]
-            private async Task RunListener(UdpClient udpClient, CancellationToken cancellationToken)
+            private async Task RunListener(UdpClient udpClient, UdpClient? udpClientV6, CancellationToken cancellationToken)
             {
                 using (this.logger?.BeginScope("DiscoveryRpcListener.RunListener begin at {EndPoint}.", udpClient.Client.LocalEndPoint))
                 {
                     try
                     {
+                        Task<UdpReceiveResult>?[] receiveTasks = new Task<UdpReceiveResult>[udpClientV6 != null ? 2 : 1];
+
                         while (!cancellationToken.IsCancellationRequested)
                         {
                             try
                             {
-                                var res = await udpClient.ReceiveAsync().ContextFree();
+                                if (receiveTasks[0] == null) receiveTasks[0] = udpClient.ReceiveAsync();
+                                if (udpClientV6 != null && receiveTasks[1] == null) receiveTasks[1] = udpClientV6.ReceiveAsync();
+
+                                var receiveTask = await Task.WhenAny(receiveTasks!).ContextFree();
+                                UdpClient currentClient;
+                                if (receiveTask == receiveTasks[0])
+                                {
+                                    receiveTasks[0] = null;
+                                    currentClient = udpClient;
+                                }
+                                else
+                                {
+                                    receiveTasks[1] = null;
+                                    currentClient = udpClientV6!;
+                                }
+
                                 if (!cancellationToken.IsCancellationRequested)
                                 {
+                                    var res = receiveTask.AwaiterResult();
                                     var responseData = await this.connectionHandler.HandleDatagramAsync(this.endPoint, res.Buffer, cancellationToken).ContextFree();
                                     if (responseData != null)
                                     {
-                                        await udpClient.SendAsync(responseData, responseData.Length, res.RemoteEndPoint).ContextFree();
+                                        await currentClient.SendAsync(responseData, responseData.Length, res.RemoteEndPoint).ContextFree();
                                     }
                                 }
                             }
-                            catch (Exception)
+                            catch (SocketException x)
                             {
-                                // TODO: Should SocketException be handled and optionally retried?
-                                throw;
+                                if (!cancellationToken.IsCancellationRequested)
+                                {
+                                    // TODO: Check ErrorCode and maybe add a delay, to avoid tight retry loop. And maybe it is necessary to recreate UdpCient?
+                                    this.logger?.LogInformation(x, "Failed to send or receive from discovery UDP client. Retrying.");
+                                }
                             }
                         }
                     }

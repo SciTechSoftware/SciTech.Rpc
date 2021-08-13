@@ -19,7 +19,7 @@ namespace SciTech.Rpc
     /// in an interface tagged with <see cref="RpcServiceAttribute"/>. Can be used to override default values, like the name of
     /// the operation.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Event | AttributeTargets.Property)]
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Event | AttributeTargets.Property, AllowMultiple = false)]
     public sealed class RpcOperationAttribute : Attribute
     {
         /// <summary>

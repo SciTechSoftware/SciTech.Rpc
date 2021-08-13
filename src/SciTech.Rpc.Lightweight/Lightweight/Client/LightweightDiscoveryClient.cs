@@ -138,16 +138,26 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 Task receiverTask;
 
-                using (var udpClient = new UdpClient())
-                {
-                    udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
-                    udpClient.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress);
+                using var udpClient = new UdpClient(AddressFamily.InterNetwork);
+                udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+                udpClient.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress);
 
-                    receiverTask = this.RunReceiver(udpClient, cancellationToken);
+                UdpClient? udpClientV6 = null;
+                try
+                {
+                    if ( Socket.OSSupportsIPv6)
+                    {
+                        udpClientV6 = new UdpClient(AddressFamily.InterNetworkV6);
+                        udpClientV6.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
+                        udpClientV6.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddressV6);
+                    }
+
+                    receiverTask = this.RunReceiver(udpClient, udpClientV6, cancellationToken);
 
                     using var frameWriter = new LightweightRpcFrameWriter(MaxDiscoveryFrameSize);
 
                     IPEndPoint discoveryEp = new IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddress, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
+                    IPEndPoint discoveryEpV6 = new IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddressV6, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
                     int nextRequestNo = 1;
                     while (!cancellationToken.IsCancellationRequested)
                     {
@@ -156,11 +166,15 @@ namespace SciTech.Rpc.Lightweight.Client
                             ServiceDiscoveryOperations.GetPublishedSingletons, null);
 
                         var requestData = frameWriter.WriteFrame(requestHeader, new RpcDiscoveryRequest(clientId), ServiceDiscoveryOperations.DiscoverySerializer);
-                        int nBytesSent = await udpClient.SendAsync(requestData, requestData.Length, discoveryEp).ContextFree();
-                        if (nBytesSent < requestData.Length)
+
+                        // Prefer IPv4 by sending the IPv4 request first. Discovered servers are usually on the local subnet,
+                        // so it makes sense to keep it simple(r) and use IPv4.
+                        // TODO: Maybe add a delay between requests to make it more likely that IPv4 is selected?
+                        await SendRequestAsync(udpClient, discoveryEp, requestData).ContextFree();
+
+                        if (udpClientV6 != null)
                         {
-                            // 
-                            this.logger?.LogWarning("Failed to send full discovery request (request size: {RequestSize}, bytes sent: {BytesSent}", requestData.Length, nBytesSent);
+                            await SendRequestAsync(udpClientV6, discoveryEpV6, requestData).ContextFree();
                         }
 
                         Task finishedTask = await Task.WhenAny(Task.Delay(1000, cancellationToken), receiverTask).ContextFree();
@@ -173,6 +187,11 @@ namespace SciTech.Rpc.Lightweight.Client
                         // TODO: Cleanup lost servers (e.g. with no response the last 10 requests).
                     }
                 }
+                finally
+                {
+                    udpClientV6?.Close();
+                }
+
 
                 // Will throw in case of receiver error.
                 await receiverTask.ContextFree();
@@ -185,9 +204,21 @@ namespace SciTech.Rpc.Lightweight.Client
                 this.syncContext = null;
                 this.clientId = Guid.Empty;
             }
+
+            async Task SendRequestAsync(UdpClient udpClient, IPEndPoint discoveryEp, byte[] requestData)
+            {
+                int nBytesSent = await udpClient.SendAsync(requestData, requestData.Length, discoveryEp).ContextFree();
+                if (nBytesSent < requestData.Length)
+                {
+                    // 
+                    this.logger?.LogWarning("Failed to send full discovery request (request size: {RequestSize}, bytes sent: {BytesSent}", requestData.Length, nBytesSent);
+                }
+            }
+
         }
 
-        private void HandlePublishedSingletons(LightweightRpcFrame responseFrame)
+
+        private void HandlePublishedSingletons(LightweightRpcFrame responseFrame, IPEndPoint remoteEndPoint)
         {
             var response = ServiceDiscoveryOperations.DiscoverySerializer.Deserialize<RpcPublishedSingletonsResponse>(responseFrame.Payload);
             if (response != null && response.ClientId == this.clientId && response.ConnectionInfo != null)
@@ -201,8 +232,18 @@ namespace SciTech.Rpc.Lightweight.Client
                 {
                     if (!this.discoveredServers.TryGetValue(response.ConnectionInfo.ServerId, out discoveredServer))
                     {
-                        discoveredServer = new DiscoveredServer(response.ConnectionInfo);
-                        this.discoveredServers.Add(response.ConnectionInfo.ServerId, discoveredServer);
+                        // Let's create a new connection URI. The one received from the server
+                        // includes the host or IP that the server has suggested, but the remoteEndPoint
+                        // contains the actual IP used to reach the server.
+
+                        RpcConnectionInfo connectionInfo = response.ConnectionInfo;
+                        if (response.ConnectionInfo.HostUrl is Uri uri )
+                        {
+                            connectionInfo = TcpRpcConnection.CreateConnectionInfo(new IPEndPoint(remoteEndPoint.Address, uri.Port), connectionInfo.ServerId);
+                        }
+
+                        discoveredServer = new DiscoveredServer(connectionInfo);
+                        this.discoveredServers.Add(connectionInfo.ServerId, discoveredServer);
                         changed = isNewServer = true;
                     }
 
@@ -294,25 +335,36 @@ namespace SciTech.Rpc.Lightweight.Client
             }
         }
 
-        private async Task RunReceiver(UdpClient udpClient, CancellationToken cancellationToken)
+        private async Task RunReceiver(UdpClient udpClient, UdpClient? udpClientV6, CancellationToken cancellationToken)
         {
             using (this.logger?.BeginScope("LightweightDiscoveryClient.RunReceiver"))
             {
+                Task<UdpReceiveResult>?[] receiveTasks = new Task<UdpReceiveResult>[udpClientV6 != null ? 2 : 1];
+
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try
                     {
-                        var receiveResult = await udpClient.ReceiveAsync().ContextFree();
-                        if( LightweightRpcFrame.TryRead( receiveResult.Buffer, MaxDiscoveryFrameSize, out var responseFrame) == RpcFrameState.Full )
+                        if (receiveTasks[0] == null) receiveTasks[0] = udpClient.ReceiveAsync();
+                        if (udpClientV6 != null && receiveTasks[1] == null) receiveTasks[1] = udpClientV6.ReceiveAsync();
+
+                        var receiveTask = await Task.WhenAny(receiveTasks!).ContextFree();
+                        if (receiveTask == receiveTasks[0]) receiveTasks[0] = null; else receiveTasks[1] = null;
+
+                        if (!cancellationToken.IsCancellationRequested)
                         {
-                            switch( responseFrame.RpcOperation)
+                            var receiveResult = receiveTask.AwaiterResult();
+                            if (LightweightRpcFrame.TryRead(receiveResult.Buffer, MaxDiscoveryFrameSize, out var responseFrame) == RpcFrameState.Full)
                             {
-                                case ServiceDiscoveryOperations.GetPublishedSingletons:
-                                    HandlePublishedSingletons(responseFrame);
-                                    break;
-                                case ServiceDiscoveryOperations.GetConnectionInfo:
-                                    // TODO: HandleConnections(clientId, syncContext, responseFrame);
-                                    break;
+                                switch (responseFrame.RpcOperation)
+                                {
+                                    case ServiceDiscoveryOperations.GetPublishedSingletons:
+                                        HandlePublishedSingletons(responseFrame, receiveResult.RemoteEndPoint);
+                                        break;
+                                    case ServiceDiscoveryOperations.GetConnectionInfo:
+                                        // TODO: HandleConnections(clientId, syncContext, responseFrame);
+                                        break;
+                                }
                             }
                         }
                     }

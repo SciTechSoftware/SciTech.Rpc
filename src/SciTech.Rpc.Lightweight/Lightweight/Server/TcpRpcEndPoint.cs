@@ -26,6 +26,7 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
@@ -125,7 +126,7 @@ namespace SciTech.Rpc.Lightweight.Server
         {
             if (bindToAllInterfaces)
             {
-                return new IPEndPoint(IPAddress.Any, port);
+                return new IPEndPoint(Socket.OSSupportsIPv6 ? IPAddress.IPv6Any : IPAddress.Any, port);
             }
             else if (IPAddress.TryParse(serverAddress, out var ipAddress))
             {

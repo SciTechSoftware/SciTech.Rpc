@@ -45,8 +45,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         }
 
 
-        internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request,
-            GrpcCore.ServerCallContext callContext)
+        internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request, GrpcCore.ServerCallContext _)
         {
             return Task.FromResult(server.QueryServices(request.Id));
         }

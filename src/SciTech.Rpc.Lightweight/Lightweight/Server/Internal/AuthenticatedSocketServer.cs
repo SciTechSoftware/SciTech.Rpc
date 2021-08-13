@@ -87,7 +87,13 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             int listenBacklog = 20)
         {
             if (this.listener != null) throw new InvalidOperationException("Server is already running");
-            Socket listener = new Socket(addressFamily ?? endPoint.AddressFamily, socketType, protocolType);
+
+            var actualAddressFamily = addressFamily ?? endPoint.AddressFamily;
+            Socket listener = new Socket(actualAddressFamily, socketType, protocolType);
+            if (actualAddressFamily == AddressFamily.InterNetworkV6)
+            {
+                listener.DualMode = true;
+            }
             listener.Bind(endPoint);
             listener.Listen(listenBacklog);
 

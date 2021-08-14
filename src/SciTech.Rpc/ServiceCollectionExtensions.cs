@@ -154,6 +154,9 @@ namespace SciTech.Rpc
         }
     }
 
+    /// <summary>
+    /// Provides information for the <see cref="ServiceCollectionExtensions.ServiceRegistered"/> event.
+    /// </summary>
     public sealed class ServiceRegistrationEventArgs : EventArgs
     {
         public ServiceRegistrationEventArgs(IServiceCollection services, Type serviceType)

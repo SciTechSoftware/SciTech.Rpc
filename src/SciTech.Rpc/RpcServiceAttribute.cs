@@ -14,13 +14,31 @@ using System.Linq;
 
 namespace SciTech.Rpc
 {
+    /// <summary>
+    /// Defines the client and/or server side use of an RPC service definition.
+    /// </summary>
     public enum RpcServiceDefinitionSide
     {
+        /// <summary>
+        /// Indicates that the service definition applies to both the server and client side.
+        /// </summary>
         Both,
+        /// <summary>
+        /// Indicates that the service definition applies to client side.
+        /// </summary>
         Client,
+        /// <summary>
+        /// Indicates that the service definition applies to server side.
+        /// </summary>
         Server
     }
 
+    /// <summary>
+    /// Indicates that an interface defines a service contract for an RPC service. All methods, properties, and events will become operations
+    /// related to the service contract. <see cref="RpcOperationAttribute"/> can be use to specify settings for an operation, but is not needed 
+    /// if default settings are desired.
+    /// </summary>
+    /// <remarks>Use the <see cref="RpcServiceAttribute"/> attribute on an interface to define an RPC service contract.</remarks>
     [AttributeUsage(AttributeTargets.Interface)]
     public sealed class RpcServiceAttribute : Attribute
     {

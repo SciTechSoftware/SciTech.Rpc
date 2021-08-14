@@ -10,7 +10,7 @@
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.0.0-beta.18</Version>
+    <Version>1.0.0-beta.20</Version>
     <Description>Contains utility/helper classes used by the SciTech.Rpc project. This package is currently not intended for other use.</Description>
   </PropertyGroup>
 

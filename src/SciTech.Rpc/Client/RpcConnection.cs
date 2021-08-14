@@ -1,17 +1,19 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019-2021, SciTech Software AB and TA Instrument Inc.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
+
+#endregion Copyright notice and license
 
 using SciTech.Rpc.Client.Internal;
-using SciTech.Rpc.Logging;
 using System;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -43,7 +45,6 @@ namespace SciTech.Rpc.Client
 
         public event EventHandler? Disconnected;
 
-
         public RpcConnectionState ConnectionState
         {
             get
@@ -60,8 +61,10 @@ namespace SciTech.Rpc.Client
 
         public abstract bool IsSigned { get; }
 
+        public virtual EndPoint? RemoteEndPoint => null;
+
         /// <summary>
-        /// Establishes a connection with the configured RPC server. It is usually not necessary to call this method 
+        /// Establishes a connection with the configured RPC server. It is usually not necessary to call this method
         /// explicitly, since a connection will be established on the first RPC operation.
         /// </summary>
         /// <returns></returns>
@@ -76,7 +79,6 @@ namespace SciTech.Rpc.Client
 
             base.Dispose(disposing);
         }
-
 
         protected void NotifyConnected()
         {
@@ -120,7 +122,6 @@ namespace SciTech.Rpc.Client
                 this.hasPendingStateChange = true;
             }
         }
-
 
         private void RaiseStateChangdIfNecessary()
         {

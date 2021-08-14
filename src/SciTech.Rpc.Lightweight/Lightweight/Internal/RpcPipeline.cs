@@ -51,7 +51,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         private readonly object syncRoot = new object();
 
-        private Task? receiveLoopTask;
+        private volatile Task? receiveLoopTask;
         private CancellationTokenSource? receiveLoopCts = new CancellationTokenSource();
         //private LightweightRpcFrame.WriteState currentWriteState;
 
@@ -126,7 +126,6 @@ namespace SciTech.Rpc.Lightweight.Internal
                 {
                     try { d.Dispose(); } catch { }
                 }
-
 
                 receiveLoopCts?.Cancel();
 
@@ -344,7 +343,6 @@ namespace SciTech.Rpc.Lightweight.Internal
                                 // On the client side it indicates that connection to the server has been lost.
                                 throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost);
                             }
-
                             break;
                         }
                     }

@@ -18,12 +18,15 @@ namespace SciTech.Rpc.Server
 {
     public static class RpcServerExtensions
     {
+        /// <inheritdoc cref="RpcServicePublisherExtensions.PublishSingleton{TService, TServiceImpl}(IRpcServicePublisher)"/>
         public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService, TServiceImpl>(this IRpcServer server) where TService : class where TServiceImpl : class, TService
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
 
             return server.ServicePublisher.PublishSingleton<TService, TServiceImpl>();
         }
+
+        /// <inheritdoc cref="RpcServicePublisherExtensions.PublishSingleton{TService}(IRpcServicePublisher)"/>
         public static IOwned<RpcSingletonRef<TService>> PublishSingleton<TService>(this IRpcServer server) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
@@ -31,6 +34,7 @@ namespace SciTech.Rpc.Server
             return server.ServicePublisher.PublishSingleton<TService>();
         }
 
+        /// <inheritdoc cref="IRpcServicePublisher.GetPublishedInstance{TService}(TService)"/>
         public static RpcObjectRef<TService>? GetPublishedServiceInstance<TService>(this IRpcServer server, TService serviceInstance) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));
@@ -38,6 +42,7 @@ namespace SciTech.Rpc.Server
             return server.ServicePublisher.GetPublishedInstance(serviceInstance);
         }
 
+        /// <inheritdoc cref="IRpcServicePublisher.PublishInstance{TService}(Func{IServiceProvider?, RpcObjectId, IOwned{TService}})"/>
         [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Ownership transferred")]
         public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServer server, TService serviceInstance, bool takeOwnership = false) where TService : class
         {
@@ -45,6 +50,7 @@ namespace SciTech.Rpc.Server
             return server.ServicePublisher.PublishInstance(takeOwnership ? OwnedObject.Create(serviceInstance) : OwnedObject.CreateUnowned(serviceInstance));
         }
 
+        /// <inheritdoc cref="IRpcServicePublisher.PublishInstance{TService}(Func{IServiceProvider?, RpcObjectId, IOwned{TService}})"/>
         public static IOwned<RpcObjectRef<TService>> PublishInstance<TService>(this IRpcServer server, IOwned<TService> serviceInstance) where TService : class
         {
             if (server is null) throw new ArgumentNullException(nameof(server));

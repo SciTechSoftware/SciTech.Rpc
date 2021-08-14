@@ -11,8 +11,20 @@ namespace GrpcGreeter
 {
     internal class Program
     {
+        static void QuickLightWeight()
+        {
+            var connection = new NamedPipeRpcConnection("RpcQuickStart");
+            var greeterService = connection.GetServiceSingleton<IGreeterService>();
+            Console.WriteLine(greeterService.SayHello("User"));
+        }
+
         private static async Task Main(string[] args)
         {
+            var connection = new NamedPipeRpcConnection("RpcQuickStart");
+            var greeterService = connection.GetServiceSingleton<IGreeterService>();
+            var greeting = greeterService.SayHello("User");
+            Console.WriteLine(greeting);
+
             var credentials = TestCertificates.GrpcSslCredentials;
             var sslOptions = TestCertificates.SslClientOptions;
 
@@ -22,7 +34,7 @@ namespace GrpcGreeter
                     new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)
                 });
 
-            var connection = new NamedPipeRpcConnection("Test");
+            /*var */connection = new NamedPipeRpcConnection("Test");
             connection.GetServiceSingleton<IGreeterServiceClient>();
 
             RpcConnectionInfo connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();

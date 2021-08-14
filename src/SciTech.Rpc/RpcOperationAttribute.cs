@@ -14,7 +14,12 @@ using System.Linq;
 
 namespace SciTech.Rpc
 {
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Event | AttributeTargets.Property)]
+    /// <summary>
+    /// Defines settings for an RPC operation in an RPC service. Can be applied to methods, properties, and events 
+    /// in an interface tagged with <see cref="RpcServiceAttribute"/>. Can be used to override default values, like the name of
+    /// the operation.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Event | AttributeTargets.Property, AllowMultiple = false)]
     public sealed class RpcOperationAttribute : Attribute
     {
         /// <summary>
@@ -25,6 +30,9 @@ namespace SciTech.Rpc
         /// methods and properties.</remarks>
         public bool AllowInlineExecution { get; set; }
 
+        /// <summary>
+        /// Gets or sets the name of the operation.
+        /// </summary>
         public string Name { get; set; } = "";
     }
 }

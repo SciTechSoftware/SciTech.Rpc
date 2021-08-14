@@ -21,10 +21,10 @@ namespace SciTech.Rpc
     /// which converts exceptions based on the <typeparamref name="TException"/> type argument, the specified faultCode,
     /// and the message provided to <see cref="CreateException(string)"/>.
     /// </para>
-    /// <para>
-    /// <b>NOTE! </b>The <see cref="IRpcServerExceptionConverter.TryCreateFault(Exception)"/> implementation will use
+    /// <note type="note">
+    /// The <see cref="IRpcServerExceptionConverter.TryCreateFault(Exception)"/> implementation will use
     /// the message from the exception. Make sure that this message doesn't include any sensitive information.
-    /// </para>
+    /// </note>
     /// </summary>
     /// <remarks>
     /// If <see cref="Exception.Message"/> may contain sensitive information, don't use this class as the server side

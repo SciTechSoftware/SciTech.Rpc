@@ -5,6 +5,10 @@ using System.Text;
 
 namespace SciTech.Rpc
 {
+    /// <summary>
+    /// Provides information about how to access a published RPC service.
+    /// </summary>
+    /// <typeparam name="TService"></typeparam>
     [DataContract]
     //[ProtoContract(SkipConstructor = true)]
     public class RpcSingletonRef<TService> where TService : class

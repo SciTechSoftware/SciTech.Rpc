@@ -18,6 +18,15 @@ namespace GrpcAndLightweightServer
     {
         public static async Task Main(string[] args)
         {
+            var server = new LightweightRpcServer();
+            server.AddEndPoint(new NamedPipeRpcEndPoint("RpcQuickStart"));
+            server.PublishSingleton<IGreeterService>(new GreeterServiceImpl());
+            server.Start();
+
+            Console.Read();
+
+            await server.ShutdownAsync().ConfigureAwait(false);
+
             // This example shows how to explicitly setup a gRPC RPC server and a lightweight RPC server
             // with a common service publisher.
             // 

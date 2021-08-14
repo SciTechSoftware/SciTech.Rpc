@@ -80,12 +80,10 @@ namespace SciTech.Buffers
             foreach (var segment in this.readOnlySequence)
             {
 #if PLAT_SPAN_OVERLOADS
-                await destination.WriteAsync(segment, cancellationToken).ConfigureAwait(false);
+                await destination.WriteAsync(segment, cancellationToken).ContextFree();
 #else
-                using (var blob = OwnedArraySegment.Create(segment))
-                {
-                    await destination.WriteAsync(blob.Array, blob.Offset, blob.Count).ContextFree();
-                }
+                using var blob = OwnedArraySegment.Create(segment);
+                await destination.WriteAsync(blob.Array, blob.Offset, blob.Count, cancellationToken).ContextFree();
 #endif
             }
         }

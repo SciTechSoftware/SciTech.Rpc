@@ -3,9 +3,19 @@ using System;
 
 namespace SciTech.Rpc
 {
+    /// <summary>
+    /// Associates an exception converter with an interface, method, or property.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Interface | AttributeTargets.Method | AttributeTargets.Property, AllowMultiple = true)]
     public sealed class RpcFaultConverterAttribute : Attribute
     {
+
+        /// <summary>
+        /// Initializes the converter attribute with a custom converter. For more information, <see cref="ConverterType"/>.
+        /// </summary>
+        /// <param name="converterType">Custom converter type that must implement
+        /// <see cref="IRpcClientExceptionConverter"/> and have a default constructor or include a public static field or property
+        /// named "Default" with the type <see cref="IRpcClientExceptionConverter"/>.</param>
         public RpcFaultConverterAttribute(Type converterType)
         {
             this.ConverterType = converterType;
@@ -38,6 +48,9 @@ namespace SciTech.Rpc
         /// named "Default" with the type <see cref="IRpcClientExceptionConverter"/>.
         /// </para>
         /// </summary>
+        /// <value>Custom converter type that must implement
+        /// <see cref="IRpcClientExceptionConverter"/> and have a default constructor or include a public static field or property
+        /// named "Default" with the type <see cref="IRpcClientExceptionConverter"/>.</value>
         public Type? ConverterType { get; }
 
         public Type? ExceptionType { get; }

@@ -8,12 +8,12 @@ namespace SciTech.Rpc.Server
 
     public class SslServerOptions : AuthenticationServerOptions
     {
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5397:Do not use deprecated SslProtocols values", Justification = "Not available")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5398:Avoid hardcoded SslProtocols values", Justification = "Not available")]
         public SslServerOptions() : base( "ssl" )
         {
 #if !PLAT_SYSTEM_SSL_PROTOCOLS
-#pragma warning disable CA5397 // Transport Layer Security protocol version 'Tls11' is deprecated.  Use 'None' to let the Operating System choose a version.
             this.EnabledSslProtocols = SslProtocols.Tls11 | SslProtocols.Tls12;
-#pragma warning restore CA5397 // Transport Layer Security protocol version 'Tls11' is deprecated.  Use 'None' to let the Operating System choose a version.
 #endif
         }
 

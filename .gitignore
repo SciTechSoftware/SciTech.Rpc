@@ -329,3 +329,4 @@ ASALocalRun/
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
 /test/SciTech.Rpc.Tests/security.runsettings
+/docs/SciTech.Rpc.DocFx/log.txt

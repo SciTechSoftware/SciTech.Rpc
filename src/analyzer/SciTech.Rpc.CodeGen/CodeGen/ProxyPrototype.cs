@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
-    public static class GeneratedRpcProxies
+    public static class __GeneratedRpcProxies
     {
         private static ImmutableArray<RpcProxyMethod> SciTech_Rpc_CodeGen_ISimpleService_Methods = ImmutableArray.Create<RpcProxyMethod>(
             new LightweightMethodDef<RpcObjectRequest<int, int>, RpcResponse<int>>(RpcMethodType.Unary, "SciTech.Rpc.CodeGen.SimpleService.Add", null, null),

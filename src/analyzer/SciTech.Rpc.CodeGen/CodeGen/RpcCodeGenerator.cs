@@ -95,7 +95,7 @@ namespace SciTech.Rpc.CodeGen
 
                 if (node is InterfaceDeclarationSyntax interfaceSyntax && interfaceSyntax.AttributeLists.Count > 0 )
                 {
-                    ISymbol symbol = context.SemanticModel.GetDeclaredSymbol(node);
+                    ISymbol? symbol = context.SemanticModel.GetDeclaredSymbol(node);
                     if (symbol is ITypeSymbol typeSymbol && typeSymbol.TypeKind == TypeKind.Interface)
                     {
                         var typeAttributes = typeSymbol.GetAttributes();

@@ -805,7 +805,7 @@ namespace SciTech.Rpc.CodeGen.Client
             }
 
             this.AppendLine("),");
-            this.AppendLine($"{serviceFaultHandler}");
+            this.AppendLine($"{serviceFaultHandler},");
             this.AppendLine($"{operationInfo.CancellationTokenName}");
             this.DecreaseIndent();
             this.AppendLine(");");

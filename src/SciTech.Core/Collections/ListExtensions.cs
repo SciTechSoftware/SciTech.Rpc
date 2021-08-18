@@ -20,14 +20,6 @@ namespace SciTech.Collections
                 ?? new ReadOnlyWrapper<T>(collection);
         }
 
-        public static ImmutableArrayList<T> ToImmutableArrayList<T>(this IEnumerable<T> list)
-        {
-            if (list == null) throw new ArgumentNullException(nameof(list));
-
-            return ImmutableArrayList.CreateRange(list);
-        }
-
-
         public static int IndexOf<T>( this IReadOnlyList<T> list, T item)
         {
             if (list is null) throw new ArgumentNullException(nameof(list));
@@ -56,33 +48,6 @@ namespace SciTech.Collections
             return -1;
         }
 
-        public static int IndexOf<T>(this IList<T> list, T item)
-        {
-            if (list is null) throw new ArgumentNullException(nameof(list));
-
-            if (list is List<T> concreteList)
-            {
-                return concreteList.IndexOf(item);
-            }
-
-            if (list is T[] array)
-            {
-                return Array.IndexOf(array, item);
-            }
-
-            int nItems = list.Count;
-            var comparer = EqualityComparer<T>.Default;
-
-            for (int i = 0; i < nItems; i++)
-            {
-                if (comparer.Equals(list[i], item))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
 
         public static int FindIndex<T>(this ImmutableArray<T> list, Predicate<T> predicate)
         {
@@ -120,35 +85,6 @@ namespace SciTech.Collections
             for (int i = 0; i < nItems; i++)
             {
                 if (predicate( list[i] ))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
-
-        public static int FindIndex<T>(this IList<T> list, Predicate<T> predicate)
-        {
-            if (list is null) throw new ArgumentNullException(nameof(list));
-            if (predicate is null) throw new ArgumentNullException(nameof(predicate));
-
-            if (list is List<T> concreteList)
-            {
-                return concreteList.FindIndex(predicate);
-            }
-
-            if (list is T[] array)
-            {
-                return Array.FindIndex(array, predicate);
-            }
-
-            int nItems = list.Count;
-            var comparer = EqualityComparer<T>.Default;
-
-            for (int i = 0; i < nItems; i++)
-            {
-                if (predicate(list[i]))
                 {
                     return i;
                 }

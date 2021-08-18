@@ -1,15 +1,17 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019-2021, SciTech Software AB and TA Instrument Inc.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
-#endregion
 
-using SciTech.Collections;
+#endregion Copyright notice and license
+
+using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
@@ -19,7 +21,7 @@ using System.Reflection;
 namespace SciTech.Rpc.Server
 {
     /// <summary>
-    /// Default implementation of <see cref="IRpcServiceDefinitionsBuilder"/> (and <see cref="IRpcServiceDefinitionsProvider"/>). 
+    /// Default implementation of <see cref="IRpcServiceDefinitionsBuilder"/> (and <see cref="IRpcServiceDefinitionsProvider"/>).
     /// </summary>
     public class RpcServiceDefinitionsBuilder : IRpcServiceDefinitionsBuilder, IRpcServiceDefinitionsProvider
     {
@@ -32,18 +34,6 @@ namespace SciTech.Rpc.Server
         private bool isFrozen;
 
         private IImmutableList<Type>? registeredServicesList;
-
-        private struct RegisteredServiceType
-        {
-            internal Type? ImplementationType;
-            internal IRpcServerOptions? Options;
-
-            internal RegisteredServiceType(Type? implementationType, IRpcServerOptions? options)
-            {
-                this.ImplementationType = implementationType;
-                this.Options = options;
-            }
-        }
 
         public RpcServiceDefinitionsBuilder(
             IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null)
@@ -71,7 +61,7 @@ namespace SciTech.Rpc.Server
 
         public RpcServiceInfo? GetRegisteredServiceInfo(Type serviceType)
         {
-            if( this.registeredServiceTypes.TryGetValue( serviceType, out var registration ))
+            if (this.registeredServiceTypes.TryGetValue(serviceType, out var registration))
             {
                 return RpcBuilderUtil.GetServiceInfoFromType(serviceType, registration.ImplementationType);
             }
@@ -153,7 +143,6 @@ namespace SciTech.Rpc.Server
                 throw new ArgumentException("Implementation type must implement service type.", nameof(implementationType));
             }
 
-
             this.CheckFrozen();
 
             List<RpcServiceInfo> allServices = RpcBuilderUtil.GetAllServices(serviceType, implementationType, RpcServiceDefinitionSide.Server, false);
@@ -164,9 +153,9 @@ namespace SciTech.Rpc.Server
             {
                 foreach (var service in allServices)
                 {
-                    if (!this.registeredServiceTypes.TryGetValue(service.Type, out var currRegistration ))
+                    if (!this.registeredServiceTypes.TryGetValue(service.Type, out var currRegistration))
                     {
-                        this.registeredServiceTypes.Add(service.Type, new RegisteredServiceType( implementationType, options ));
+                        this.registeredServiceTypes.Add(service.Type, new RegisteredServiceType(implementationType, options));
 
                         if (this.registeredServices.TryGetValue(service.FullName, out var existingServiceType))
                         {
@@ -186,7 +175,7 @@ namespace SciTech.Rpc.Server
                     }
                     else
                     {
-                        if( currRegistration.ImplementationType != implementationType)
+                        if (currRegistration.ImplementationType != implementationType)
                         {
                             throw new RpcDefinitionException($"Service '{serviceType}' already registered with a different implementation type.");
                         }
@@ -226,6 +215,18 @@ namespace SciTech.Rpc.Server
             if (this.isFrozen)
             {
                 throw new InvalidOperationException("Cannot register services to a frozen service registrator.");
+            }
+        }
+
+        private struct RegisteredServiceType
+        {
+            internal Type? ImplementationType;
+            internal IRpcServerOptions? Options;
+
+            internal RegisteredServiceType(Type? implementationType, IRpcServerOptions? options)
+            {
+                this.ImplementationType = implementationType;
+                this.Options = options;
             }
         }
     }

@@ -169,15 +169,23 @@ namespace SciTech.Rpc.Lightweight.Client
 
                         // Prefer IPv4 by sending the IPv4 request first. Discovered servers are usually on the local subnet,
                         // so it makes sense to keep it simple(r) and use IPv4.
-                        // TODO: Maybe add a delay between requests to make it more likely that IPv4 is selected?
                         await SendRequestAsync(udpClient, discoveryEp, requestData).ContextFree();
 
+                        Task finishedTask;
                         if (udpClientV6 != null)
                         {
+                            // Add a delay between requests to make it more likely that IPv4 is selected.
+                            finishedTask = await Task.WhenAny(Task.Delay(100, cancellationToken), receiverTask).ContextFree();
+                            if( finishedTask == receiverTask)
+                            {
+                                // Probably an error in the receiver. Stop Find.
+                                break;
+                            }
+
                             await SendRequestAsync(udpClientV6, discoveryEpV6, requestData).ContextFree();
                         }
 
-                        Task finishedTask = await Task.WhenAny(Task.Delay(1000, cancellationToken), receiverTask).ContextFree();
+                        finishedTask = await Task.WhenAny(Task.Delay(1000, cancellationToken), receiverTask).ContextFree();
                         if (finishedTask == receiverTask)
                         {
                             // Probably an error in the receiver. Stop Find.

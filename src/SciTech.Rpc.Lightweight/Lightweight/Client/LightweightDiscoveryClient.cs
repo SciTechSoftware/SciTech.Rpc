@@ -255,10 +255,10 @@ namespace SciTech.Rpc.Lightweight.Client
                         changed = isNewServer = true;
                     }
 
+                    oldServices = discoveredServer.Services;
 
                     if (responseFrame.MessageNumber > discoveredServer.RequestNoLastFound)
                     {
-                        oldServices = discoveredServer.Services;
                         if (discoveredServer.UpdateServicesLocked(response.Services, responseFrame.MessageNumber))
                         {
                             changed = true;

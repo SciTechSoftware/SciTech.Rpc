@@ -118,7 +118,7 @@ namespace SciTech.Rpc.Serialization
         [return: MaybeNull]
         public T Deserialize(ReadOnlySequence<byte> input, [AllowNull]T value)
         {
-            return (T)DataContractRpcSerializer.Deserialize(input, this.dataContractSerializer);
+            return (T)DataContractRpcSerializer.Deserialize(input, this.dataContractSerializer)!;
         }
 
         public void Serialize(BufferWriterStream bufferWriter, [AllowNull]T input)

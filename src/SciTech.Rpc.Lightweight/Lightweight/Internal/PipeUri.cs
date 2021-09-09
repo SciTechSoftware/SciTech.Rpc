@@ -25,6 +25,12 @@ using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
+#if COREFX
+    using Microsoft.Win32.SafeHandles;
+    #if NET5_0_OR_GREATER
+        using System.Runtime.Versioning;
+    #endif
+#endif
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
@@ -73,20 +79,15 @@ namespace SciTech.Rpc.Lightweight.Internal
                     try
                     {
 #if COREFX
-                        // TODO: Must implement security for .NET Core/Standard as well, otherwise the mapped file
-                        // will not be accessible to other accounts on the machine, e.g a user process will 
-                        // not be able to access a named pipe in a service process.
                         mappedFile = MemoryMappedFile.CreateNew(sharedMemoryName, Marshal.SizeOf<PipeNameData>(), MemoryMappedFileAccess.ReadWrite);
+                        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                        {
+                            CreateDefaultSecurity().PersistHandle(mappedFile.SafeMemoryMappedFileHandle);
+                        }
 #else
-                        mappedFile = MemoryMappedFile.CreateNew(sharedMemoryName, Marshal.SizeOf<PipeNameData>(), MemoryMappedFileAccess.ReadWrite);
-                        var accessControl = mappedFile.GetAccessControl();
-                        var rules = accessControl.GetAccessRules(true, true, typeof(NTAccount));
-
-                        mappedFile.Dispose();
-
                         mappedFile = MemoryMappedFile.CreateNew(
                             sharedMemoryName, Marshal.SizeOf<PipeNameData>(), MemoryMappedFileAccess.ReadWrite,
-                            MemoryMappedFileOptions.None, DefaultSecurity, HandleInheritability.None);
+                            MemoryMappedFileOptions.None, CreateDefaultSecurity(), HandleInheritability.None);
 #endif
 
                         break;
@@ -124,7 +125,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                 hash = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes(absolutePath));
             }
 
-            var scheme = LightweightConnectionProvider.LightweightPipeScheme;
+            var scheme = WellKnownRpcSchemes.LightweightPipe;
             // Cannot use Convert.ToBase64String, since it may include invalid file name chars.
             string sharedMemoryName = $"{scheme}.{Base32Encoder.Default.Encode(hash)}";
 
@@ -253,9 +254,33 @@ namespace SciTech.Rpc.Lightweight.Internal
             public Guid pipeGuid;
         }
 
-#if !COREFX
-        private static readonly MemoryMappedFileSecurity DefaultSecurity = CreateDefaultSecurity();
 
+#if COREFX
+#if NET5_0_OR_GREATER
+        [SupportedOSPlatform("windows")]
+#endif
+        private class MemoryMappedFileSecurity : ObjectSecurity<MemoryMappedFileRights>
+        {
+            public MemoryMappedFileSecurity()
+                : base(false, ResourceType.KernelObject)
+            { }
+
+            [System.Security.SecuritySafeCritical]
+            internal MemoryMappedFileSecurity(SafeMemoryMappedFileHandle safeHandle, AccessControlSections includeSections)
+                : base(false, ResourceType.KernelObject, safeHandle, includeSections)
+            { }
+
+            [System.Security.SecuritySafeCritical]
+            internal void PersistHandle(SafeHandle handle)
+            {
+                Persist(handle);
+            }
+        }
+#endif
+
+#if NET5_0_OR_GREATER
+        [SupportedOSPlatform("windows")]
+#endif
         private static MemoryMappedFileSecurity CreateDefaultSecurity()
         {
             var sec = new MemoryMappedFileSecurity();
@@ -263,12 +288,13 @@ namespace SciTech.Rpc.Lightweight.Internal
             sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(new SecurityIdentifier(WellKnownSidType.NetworkSid, null), MemoryMappedFileRights.FullControl, AccessControlType.Deny));
             // Allow everyone on the machine to connect
             sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(new SecurityIdentifier(WellKnownSidType.WorldSid, null), MemoryMappedFileRights.Read, AccessControlType.Allow));
-            // Allow the current user should have full control.
-            sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(WindowsIdentity.GetCurrent().User, MemoryMappedFileRights.FullControl, AccessControlType.Allow));
+            // The current user should have full control.
+            if (WindowsIdentity.GetCurrent().User is SecurityIdentifier userId)
+            {
+                sec.AddAccessRule(new AccessRule<MemoryMappedFileRights>(userId, MemoryMappedFileRights.FullControl, AccessControlType.Allow));
+            }
             return sec;
         }
-#endif
-
     }
 
 }

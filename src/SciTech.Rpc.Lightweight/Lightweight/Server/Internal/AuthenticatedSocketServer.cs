@@ -26,6 +26,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
@@ -282,10 +283,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private static IPrincipal? CreatePrincipal(IIdentity? identity)
         {
+            if( RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && identity is WindowsIdentity windowsIdentity)
+            {
+                return new WindowsPrincipal(windowsIdentity);
+            }
+
             return identity switch
             {
                 null => null,
-                WindowsIdentity windowsIdentity => new WindowsPrincipal(windowsIdentity),
                 ClaimsIdentity claimsIdentity => new ClaimsPrincipal(claimsIdentity),
                 _ => new GenericPrincipal(identity, null),
             };

@@ -18,10 +18,6 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     public class LightweightConnectionProvider : IRpcConnectionProvider
     {
-        public const string LightweightTcpScheme = "lightweight.tcp";
-
-        public const string LightweightPipeScheme = "lightweight.pipe";
-
         private readonly LightweightOptions? lightweightOpions = null;
 
         private readonly ImmutableRpcClientOptions? options;
@@ -56,7 +52,7 @@ namespace SciTech.Rpc.Lightweight.Client
         public IRpcChannel CreateChannel(RpcConnectionInfo connectionInfo, IRpcClientOptions? options)
         {
             var scheme = connectionInfo?.HostUrl?.Scheme;
-            if (scheme == LightweightTcpScheme)
+            if (scheme == WellKnownRpcSchemes.LightweightTcp)
             {
                 var proxyGenerator = LightweightProxyGenerator.Default;
 

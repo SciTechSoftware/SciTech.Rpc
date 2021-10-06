@@ -3,7 +3,9 @@ using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Threading;
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Net;
+using System.Linq;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
@@ -55,8 +57,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
             private Task? listenerTask;
 
-            private UdpClient? udpClient;
-            private UdpClient? udpClientV6;
+            private List<UdpClient>? udpClients;
+            //private UdpClient? udpClientV6;
 
             public DiscoveryRpcListener(LightweightDiscoveryEndPoint endPoint, IRpcConnectionHandler connectionHandler, ILogger? logger)
             {
@@ -72,65 +74,69 @@ namespace SciTech.Rpc.Lightweight.Server
 
             public void Listen()
             {
-                if (this.udpClient != null)
+                if (this.udpClients != null)
                 {
                     throw new InvalidOperationException($"{nameof(DiscoveryRpcListener)} is already listening.");
                 }
 
-                var udpClient = this.udpClient = new UdpClient(AddressFamily.InterNetwork);
-                var socket = udpClient.Client;
-                socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
-                socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
-                udpClient.JoinMulticastGroup(DefaultMulticastAddress);
-
-                UdpClient? udpClientV6 = null;
-                if (Socket.OSSupportsIPv6)
+                List<UdpClient> udpClients = new();
+                var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+                foreach (var networkInterface in networkInterfaces)
                 {
-                    // I have not been able to enable DualMode for multicast, so let's create a second IPv6 client.
-                    udpClientV6 = this.udpClientV6 = new UdpClient(AddressFamily.InterNetworkV6);
-                    
-                    socket = udpClientV6.Client;
-                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
-                    socket.Bind(new IPEndPoint(IPAddress.IPv6Any, DefaultDiscoveryPort));
-                    udpClientV6.JoinMulticastGroup(DefaultMulticastAddressV6);
+                    if (networkInterface.OperationalStatus == OperationalStatus.Up
+                        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                        && networkInterface.SupportsMulticast)
+                    {
+                        var ipProperties = networkInterface.GetIPProperties();
+                        if( ipProperties != null && ipProperties.MulticastAddresses.Count > 0 && ipProperties.UnicastAddresses.Count > 0 )
+                        {
+                            var ipAddress =
+                                (ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
+                                ?? ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6) )?.Address;
+
+                            if ( ipAddress != null )
+                            {
+                                if( ipAddress.AddressFamily == AddressFamily.InterNetwork || ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                                {
+                                    var udpClient = new UdpClient(ipAddress.AddressFamily);// ;
+                                    var socket = udpClient.Client;
+                                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
+                                    if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
+                                    {
+                                        socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
+                                        udpClient.JoinMulticastGroup(DefaultMulticastAddress, ipAddress);
+                                    } else
+                                    {
+                                        socket.Bind(new IPEndPoint(IPAddress.IPv6Any, DefaultDiscoveryPort));
+                                        udpClient.JoinMulticastGroup(DefaultMulticastAddressV6, ipAddress);
+                                    }
+
+                                    udpClients.Add(udpClient);
+                                }
+                            }
+                        }
+                    }
                 }
 
-                //var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-                //foreach( var networkInterface in networkInterfaces)
-                //{
-                //    if( networkInterface.OperationalStatus == OperationalStatus.Up 
-                //        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                //        && networkInterface.SupportsMulticast )
-                //    {
-                //        int ifIndex = networkInterface.GetIPProperties().GetIPv4Properties().Index;
-                //        this.udpClient.JoinMulticastGroup(DefaultMulticastAddress);
-
-                //        //don't set this socket option if the socket is bound to the 
-                //        //loopback adapter because it will throw an argument exception.
-                //        //if (!isLoopbackAdapter)
-                //        //{
-                //        //    socket.SetSocketOption(ipOptionLevel, SocketOptionName.MulticastLoopback, allowMulticastLoopback);
-                //        //}
-
-                //        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
-                //        //this.udpClient.JoinMulticastGroup(DefaultMulticastAddressV6);
-                //        //this.udpClient.JoinMulticastGroup(DefaultMulticastAddressV6_2);
-                //        break;
-                //    }
-                //}
-
-
-
-                this.listenerCts = new CancellationTokenSource();
-                this.listenerTask = Task.Run(() => this.RunListener(udpClient, udpClientV6, this.listenerCts.Token));
+                if (udpClients.Count > 0)
+                {
+                    this.udpClients = udpClients;
+                    this.listenerCts = new CancellationTokenSource();
+                    this.listenerTask = Task.Run(() => this.RunListener(udpClients, this.listenerCts.Token));
+                }
             }
 
             public async Task StopAsync()
             {
                 this.listenerCts?.Cancel();
 
-                this.udpClient?.Close();
-                this.udpClientV6?.Close();
+                if( this.udpClients != null )
+                {
+                    foreach( var udpClient in this.udpClients)
+                    {
+                        udpClient?.Close();
+                    }
+                }
 
                 var listenerTask = this.listenerTask;
                 this.listenerTask = null;
@@ -143,39 +149,37 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.listenerCts?.Dispose();
                 this.listenerCts = null;
 
-                this.udpClient = null;
-                this.udpClientV6 = null;
-
+                this.udpClients = null;
             }
 
             [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "RunListener should be silent.")]
-            private async Task RunListener(UdpClient udpClient, UdpClient? udpClientV6, CancellationToken cancellationToken)
+            private async Task RunListener(IReadOnlyList<UdpClient> udpClients, CancellationToken cancellationToken)
             {
-                using (this.logger?.BeginScope("DiscoveryRpcListener.RunListener begin at {EndPoint}.", udpClient.Client.LocalEndPoint))
+                using (this.logger?.BeginScope("DiscoveryRpcListener.RunListener begin at"))// {EndPoint}.", udpClient.Client.LocalEndPoint))
                 {
                     try
                     {
-                        Task<UdpReceiveResult>?[] receiveTasks = new Task<UdpReceiveResult>[udpClientV6 != null ? 2 : 1];
+                        Task<UdpReceiveResult>?[] receiveTasks = new Task<UdpReceiveResult>[udpClients.Count];
 
                         while (!cancellationToken.IsCancellationRequested)
                         {
                             try
                             {
-                                if (receiveTasks[0] == null) receiveTasks[0] = udpClient.ReceiveAsync();
-                                if (udpClientV6 != null && receiveTasks[1] == null) receiveTasks[1] = udpClientV6.ReceiveAsync();
+                                for (int index = 0; index < receiveTasks.Length; index++)
+                                {
+                                    if( receiveTasks[index] == null )
+                                    {
+                                        receiveTasks[index] = udpClients[index].ReceiveAsync();
+                                    }
+                                }
 
                                 var receiveTask = await Task.WhenAny(receiveTasks!).ContextFree();
-                                UdpClient currentClient;
-                                if (receiveTask == receiveTasks[0])
-                                {
-                                    receiveTasks[0] = null;
-                                    currentClient = udpClient;
-                                }
-                                else
-                                {
-                                    receiveTasks[1] = null;
-                                    currentClient = udpClientV6!;
-                                }
+                                
+                                int receiveIndex = Array.IndexOf(receiveTasks, receiveTask);
+                                if (receiveIndex < 0) throw new InvalidOperationException("Unexpected receive task finished");
+
+                                var currentClient = udpClients[receiveIndex];
+                                receiveTasks[receiveIndex] = null;
 
                                 if (!cancellationToken.IsCancellationRequested)
                                 {

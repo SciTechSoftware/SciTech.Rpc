@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -138,21 +139,44 @@ namespace SciTech.Rpc.Lightweight.Client
             {
                 Task receiverTask;
 
-                using var udpClient = new UdpClient(AddressFamily.InterNetwork);
-                udpClient.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
-                udpClient.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress);
+                List<UdpClient> udpClients = new List<UdpClient>();
+                var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+                foreach (var networkInterface in networkInterfaces)
+                {
+                    if (networkInterface.OperationalStatus == OperationalStatus.Up
+                        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                        && networkInterface.SupportsMulticast)
+                    {
+                        var ipProperties = networkInterface.GetIPProperties();
+                        if (ipProperties != null && ipProperties.MulticastAddresses.Count > 0 && ipProperties.UnicastAddresses.Count > 0)
+                        {
+                            var ipAddress =
+                                (ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
+                                ?? ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6))?.Address;
 
-                UdpClient? udpClientV6 = null;
+                            if (ipAddress != null)
+                            {
+                                var udpClient = new UdpClient(ipAddress.AddressFamily);// ;
+                                var socket = udpClient.Client;
+                                socket.Bind(new IPEndPoint(ipAddress, 0));
+                                if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
+                                {
+                                    udpClient.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress, ipAddress);
+                                }
+                                else
+                                {
+                                    udpClient.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddressV6, ipAddress);
+                                }
+                                
+                                udpClients.Add(udpClient);
+                            }
+                        }
+                    }
+                }
+
                 try
                 {
-                    if ( Socket.OSSupportsIPv6)
-                    {
-                        udpClientV6 = new UdpClient(AddressFamily.InterNetworkV6);
-                        udpClientV6.Client.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
-                        udpClientV6.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddressV6);
-                    }
-
-                    receiverTask = this.RunReceiver(udpClient, udpClientV6, cancellationToken);
+                    receiverTask = this.RunReceiver(udpClients, cancellationToken);
 
                     using var frameWriter = new LightweightRpcFrameWriter(MaxDiscoveryFrameSize);
 
@@ -167,25 +191,13 @@ namespace SciTech.Rpc.Lightweight.Client
 
                         var requestData = frameWriter.WriteFrame(requestHeader, new RpcDiscoveryRequest(clientId), ServiceDiscoveryOperations.DiscoverySerializer);
 
-                        // Prefer IPv4 by sending the IPv4 request first. Discovered servers are usually on the local subnet,
-                        // so it makes sense to keep it simple(r) and use IPv4.
-                        await SendRequestAsync(udpClient, discoveryEp, requestData).ContextFree();
-
-                        Task finishedTask;
-                        if (udpClientV6 != null)
+                        foreach( var udpClient in udpClients)
                         {
-                            // Add a delay between requests to make it more likely that IPv4 is selected.
-                            finishedTask = await Task.WhenAny(Task.Delay(100, cancellationToken), receiverTask).ContextFree();
-                            if( finishedTask == receiverTask)
-                            {
-                                // Probably an error in the receiver. Stop Find.
-                                break;
-                            }
-
-                            await SendRequestAsync(udpClientV6, discoveryEpV6, requestData).ContextFree();
+                            await SendRequestAsync(udpClient, discoveryEp, requestData).ContextFree();
+                            if (cancellationToken.IsCancellationRequested) break;
                         }
 
-                        finishedTask = await Task.WhenAny(Task.Delay(1000, cancellationToken), receiverTask).ContextFree();
+                        var finishedTask = await Task.WhenAny(Task.Delay(1000, cancellationToken), receiverTask).ContextFree();
                         if (finishedTask == receiverTask)
                         {
                             // Probably an error in the receiver. Stop Find.
@@ -197,7 +209,10 @@ namespace SciTech.Rpc.Lightweight.Client
                 }
                 finally
                 {
-                    udpClientV6?.Close();
+                    foreach( var udpClient in udpClients )
+                    {
+                        udpClient?.Close();
+                    }
                 }
 
 
@@ -343,22 +358,31 @@ namespace SciTech.Rpc.Lightweight.Client
             }
         }
 
-        private async Task RunReceiver(UdpClient udpClient, UdpClient? udpClientV6, CancellationToken cancellationToken)
+        private async Task RunReceiver(IReadOnlyList<UdpClient> udpClients, CancellationToken cancellationToken)
         {
             using (this.logger?.BeginScope("LightweightDiscoveryClient.RunReceiver"))
             {
-                Task<UdpReceiveResult>?[] receiveTasks = new Task<UdpReceiveResult>[udpClientV6 != null ? 2 : 1];
+                Task<UdpReceiveResult>?[] receiveTasks = new Task<UdpReceiveResult>[udpClients.Count];
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try
                     {
-                        if (receiveTasks[0] == null) receiveTasks[0] = udpClient.ReceiveAsync();
-                        if (udpClientV6 != null && receiveTasks[1] == null) receiveTasks[1] = udpClientV6.ReceiveAsync();
+                        
+                        for (int index = 0; index < receiveTasks.Length; index++)
+                        {
+                            if (receiveTasks[index] == null)
+                            {
+                                receiveTasks[index] = udpClients[index].ReceiveAsync();
+                            }
+                        }
 
                         var receiveTask = await Task.WhenAny(receiveTasks!).ContextFree();
-                        if (receiveTask == receiveTasks[0]) receiveTasks[0] = null; else receiveTasks[1] = null;
+                        int receiveIndex = Array.IndexOf(receiveTasks, receiveTask);
+                        if (receiveIndex < 0) throw new InvalidOperationException("Unexpected receive task finished");
 
+                        receiveTasks[receiveIndex] = null;
+                        
                         if (!cancellationToken.IsCancellationRequested)
                         {
                             var receiveResult = receiveTask.AwaiterResult();

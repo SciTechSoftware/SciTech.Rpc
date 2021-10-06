@@ -537,8 +537,7 @@ namespace SciTech.Collections
             return this;
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1034:Nested types should not be visible")]
-        public struct Enumerator
+        public struct Enumerator : IEnumerator<T>
         {
             private readonly int length;
             private int index;
@@ -554,7 +553,16 @@ namespace SciTech.Collections
             }
             public T Current => this.list[index];
 
+            object? IEnumerator.Current => this.Current;
+
             public bool MoveNext() => ++this.index < this.length;
+
+            void IEnumerator.Reset()
+            {
+                throw new NotImplementedException();
+            }
+
+            void IDisposable.Dispose() { }
         }
     }
 }

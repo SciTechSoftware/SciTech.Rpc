@@ -2,10 +2,9 @@
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Threading;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
-using System.Net;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
@@ -15,11 +14,12 @@ namespace SciTech.Rpc.Lightweight.Server
 {
     public class LightweightDiscoveryEndPoint : LightweightRpcEndPoint
     {
+        public const int DefaultDiscoveryPort = 39159;
         public static readonly IPAddress DefaultMulticastAddress = IPAddress.Parse("239.255.250.129");
         public static readonly IPAddress DefaultMulticastAddressV6 = IPAddress.Parse("ff18::0732");
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores")]
         public static readonly IPAddress DefaultMulticastAddressV6_2 = IPAddress.Parse("ff18::9832");
-        public const int DefaultDiscoveryPort = 39159;
 
         private readonly RpcConnectionInfo connectionInfo;
 
@@ -31,9 +31,9 @@ namespace SciTech.Rpc.Lightweight.Server
             this.logger = logger;
         }
 
-        public override string DisplayName => this.connectionInfo.DisplayName;
-
         public override string HostName => this.connectionInfo.HostUrl?.Host ?? "";
+
+        public override string DisplayName => this.connectionInfo.DisplayName;
 
         public override RpcConnectionInfo GetConnectionInfo(RpcServerId serverId)
             => this.connectionInfo.SetServerId(serverId);
@@ -47,18 +47,19 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private protected class DiscoveryRpcListener : ILightweightRpcListener
         {
-            private readonly LightweightDiscoveryEndPoint endPoint;
-
             private readonly IRpcConnectionHandler connectionHandler;
-            
+            private readonly LightweightDiscoveryEndPoint endPoint;
             private readonly ILogger? logger;
 
+            private readonly object syncRoot = new object();
+            private bool hasPendingListenerUpdate;
+            private bool isListening;
             private CancellationTokenSource? listenerCts;
 
             private Task? listenerTask;
 
             private List<UdpClient>? udpClients;
-            //private UdpClient? udpClientV6;
+            private bool updatingListener;
 
             public DiscoveryRpcListener(LightweightDiscoveryEndPoint endPoint, IRpcConnectionHandler connectionHandler, ILogger? logger)
             {
@@ -74,65 +75,38 @@ namespace SciTech.Rpc.Lightweight.Server
 
             public void Listen()
             {
-                if (this.udpClients != null)
+                lock (this.syncRoot)
                 {
-                    throw new InvalidOperationException($"{nameof(DiscoveryRpcListener)} is already listening.");
-                }
-
-                List<UdpClient> udpClients = new();
-                var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-                foreach (var networkInterface in networkInterfaces)
-                {
-                    if (networkInterface.OperationalStatus == OperationalStatus.Up
-                        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                        && networkInterface.SupportsMulticast)
+                    if (this.isListening)
                     {
-                        var ipProperties = networkInterface.GetIPProperties();
-                        if( ipProperties != null && ipProperties.MulticastAddresses.Count > 0 && ipProperties.UnicastAddresses.Count > 0 )
-                        {
-                            var ipAddress =
-                                (ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
-                                ?? ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6) )?.Address;
-
-                            if ( ipAddress != null )
-                            {
-                                if( ipAddress.AddressFamily == AddressFamily.InterNetwork || ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
-                                {
-                                    var udpClient = new UdpClient(ipAddress.AddressFamily);// ;
-                                    var socket = udpClient.Client;
-                                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
-                                    if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
-                                    {
-                                        socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
-                                        udpClient.JoinMulticastGroup(DefaultMulticastAddress, ipAddress);
-                                    } else
-                                    {
-                                        socket.Bind(new IPEndPoint(IPAddress.IPv6Any, DefaultDiscoveryPort));
-                                        udpClient.JoinMulticastGroup(DefaultMulticastAddressV6, ipAddress);
-                                    }
-
-                                    udpClients.Add(udpClient);
-                                }
-                            }
-                        }
+                        throw new InvalidOperationException($"{nameof(DiscoveryRpcListener)} is already listening.");
                     }
+
+                    this.isListening = true;
                 }
 
-                if (udpClients.Count > 0)
-                {
-                    this.udpClients = udpClients;
-                    this.listenerCts = new CancellationTokenSource();
-                    this.listenerTask = Task.Run(() => this.RunListener(udpClients, this.listenerCts.Token));
-                }
+                NetworkChange.NetworkAvailabilityChanged += this.NetworkChange_NetworkAvailabilityChanged;
+                NetworkChange.NetworkAddressChanged += this.NetworkChange_NetworkAddressChanged;
+                this.UpdateListenerAsync().Forget();
             }
 
             public async Task StopAsync()
             {
+                lock (this.syncRoot)
+                {
+                    if (!this.isListening) return;
+                }
+
+                NetworkChange.NetworkAvailabilityChanged -= this.NetworkChange_NetworkAvailabilityChanged;
+                NetworkChange.NetworkAddressChanged -= this.NetworkChange_NetworkAddressChanged;
+
+                await this.StopListenerAsync().ContextFree();
+
                 this.listenerCts?.Cancel();
 
-                if( this.udpClients != null )
+                if (this.udpClients != null)
                 {
-                    foreach( var udpClient in this.udpClients)
+                    foreach (var udpClient in this.udpClients)
                     {
                         udpClient?.Close();
                     }
@@ -152,6 +126,61 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.udpClients = null;
             }
 
+            private static List<UdpClient> RetrieveUdpClients()
+            {
+                List<UdpClient> udpClients = new();
+                var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
+                foreach (var networkInterface in networkInterfaces)
+                {
+                    if (networkInterface.OperationalStatus == OperationalStatus.Up
+                        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                        && networkInterface.SupportsMulticast)
+                    {
+                        var ipProperties = networkInterface.GetIPProperties();
+                        if (ipProperties != null && ipProperties.MulticastAddresses.Count > 0 && ipProperties.UnicastAddresses.Count > 0)
+                        {
+                            var ipAddress =
+                                (ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
+                                ?? ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6))?.Address;
+
+                            if (ipAddress != null)
+                            {
+                                if (ipAddress.AddressFamily == AddressFamily.InterNetwork || ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                                {
+                                    var udpClient = new UdpClient(ipAddress.AddressFamily);// ;
+                                    var socket = udpClient.Client;
+                                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
+                                    if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
+                                    {
+                                        socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
+                                        udpClient.JoinMulticastGroup(DefaultMulticastAddress, ipAddress);
+                                    }
+                                    else
+                                    {
+                                        socket.Bind(new IPEndPoint(IPAddress.IPv6Any, DefaultDiscoveryPort));
+                                        udpClient.JoinMulticastGroup(DefaultMulticastAddressV6, ipAddress);
+                                    }
+
+                                    udpClients.Add(udpClient);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return udpClients;
+            }
+
+            private void NetworkChange_NetworkAddressChanged(object sender, EventArgs e)
+            {
+                this.UpdateListenerAsync().Forget();
+            }
+
+            private void NetworkChange_NetworkAvailabilityChanged(object sender, NetworkAvailabilityEventArgs e)
+            {
+                this.UpdateListenerAsync().Forget();
+            }
+
             [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "RunListener should be silent.")]
             private async Task RunListener(IReadOnlyList<UdpClient> udpClients, CancellationToken cancellationToken)
             {
@@ -167,14 +196,14 @@ namespace SciTech.Rpc.Lightweight.Server
                             {
                                 for (int index = 0; index < receiveTasks.Length; index++)
                                 {
-                                    if( receiveTasks[index] == null )
+                                    if (receiveTasks[index] == null)
                                     {
                                         receiveTasks[index] = udpClients[index].ReceiveAsync();
                                     }
                                 }
 
                                 var receiveTask = await Task.WhenAny(receiveTasks!).ContextFree();
-                                
+
                                 int receiveIndex = Array.IndexOf(receiveTasks, receiveTask);
                                 if (receiveIndex < 0) throw new InvalidOperationException("Unexpected receive task finished");
 
@@ -210,6 +239,96 @@ namespace SciTech.Rpc.Lightweight.Server
                     }
 
                     this.logger?.LogInformation("DiscoveryRpcListener.RunListener end.");
+                }
+            }
+
+            private async Task StopListenerAsync()
+            {
+                CancellationTokenSource? listenerCts;
+                Task? listenerTask;
+                List<UdpClient>? udpClients;
+
+                lock (this.syncRoot)
+                {
+                    listenerCts = this.listenerCts;
+                    listenerTask = this.listenerTask;
+                    udpClients = this.udpClients;
+
+                    this.listenerTask = null;
+                    this.listenerCts = null;
+                    this.udpClients = null;
+                }
+
+                if (udpClients != null)
+                {
+                    foreach (var udpClient in udpClients)
+                    {
+                        udpClient?.Close();
+                    }
+                }
+
+                if (listenerCts != null && listenerTask != null)
+                {
+                    listenerCts.Cancel();
+                    try
+                    {
+                        await listenerTask.ContextFree();
+                    }
+                    finally
+                    {
+                        listenerCts.Dispose();
+                    }
+                }
+            }
+
+            private async Task UpdateListenerAsync()
+            {
+                lock (this.syncRoot)
+                {
+                    if (!this.isListening) return;
+
+                    this.hasPendingListenerUpdate = true;
+                    if (this.updatingListener) return;
+
+                    this.updatingListener = true;
+                }
+
+                while (true)
+                {
+                    lock (this.syncRoot)
+                    {
+                        if (!this.hasPendingListenerUpdate)
+                        {
+                            this.updatingListener = false;
+                            return;
+                        }
+
+                        this.hasPendingListenerUpdate = false;
+                    }
+
+                    await this.StopListenerAsync().ContextFree();
+
+                    List<UdpClient> udpClients = RetrieveUdpClients();
+
+                    if (udpClients.Count > 0)
+                    {
+                        lock (this.syncRoot)
+                        {
+                            if (this.isListening)
+                            {
+                                this.udpClients = udpClients;
+                                this.listenerCts = new CancellationTokenSource();
+                                this.listenerTask = Task.Run(() => this.RunListener(udpClients, this.listenerCts.Token));
+                            }
+                            else
+                            {
+                                foreach (var udpClient in udpClients)
+                                {
+                                    udpClient.Dispose();
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -257,6 +376,4 @@ namespace SciTech.Rpc.Lightweight.Server
             //}
         }
     }
-
-
 }

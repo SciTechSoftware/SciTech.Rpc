@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server;
@@ -172,6 +173,13 @@ namespace SciTech.Rpc.Lightweight.Client
                             }
                         }
                     }
+                }
+
+                if( udpClients.Count == 0)
+                {
+                    // TODO: Use NetworkChange.NetworkAvailabilityChanged to update uppClients
+                    // until cancelled.
+                    return ImmutableArrayList<DiscoveredService>.Empty;
                 }
 
                 try

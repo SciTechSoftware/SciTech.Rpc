@@ -9,6 +9,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.Logging;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
@@ -59,6 +60,8 @@ namespace SciTech.Rpc.Client.Internal
     [SuppressMessage("Naming", "CA1708: Identifiers should differ by more than case", Justification = "Accessed by generated code")]
     public abstract class RpcProxyBase
     {
+        private protected readonly ILogger? logger;
+
         protected RpcProxyBase(RpcProxyArgs proxyArgs)
         {
             if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
@@ -78,6 +81,8 @@ namespace SciTech.Rpc.Client.Internal
                     this.implementedServices = new HashSet<string>(proxyArgs.ImplementedServices);
                 }
             }
+
+            this.logger = /*proxyArgs.Logger ?? */ RpcLogger.TryCreateLogger(this.GetType());
         }
 
         public IRpcChannel Channel { get; }
@@ -437,7 +442,7 @@ namespace SciTech.Rpc.Client.Internal
                     {
                         this.SyncContext!.Post(postCallback, retVal);
                     }
-                    else 
+                    else
                     {
                         callback?.Invoke(retVal);
                     }
@@ -750,17 +755,46 @@ namespace SciTech.Rpc.Client.Internal
                 && activeEventData == eventData;
         }
 
+
+        /// <summary>
+        /// Invokes the <see cref="EventHandlerFailed"/> event and swallows any exception (with logging if available).
+        /// </summary>
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Silent notification")]
         private void NotifyEventHandlerFailed()
         {
             if (this.SyncContext != null)
             {
-                this.SyncContext.Post(self => ((RpcProxyBase<TMethodDef>)self!).EventHandlerFailed?.Invoke(self, EventArgs.Empty), this);
+                try
+                {
+                    this.SyncContext.Post(self =>
+                    {
+                        try
+                        {
+                            ((RpcProxyBase<TMethodDef>)self!).EventHandlerFailed?.Invoke(self, EventArgs.Empty);
+                        }
+                        catch (Exception x)
+                        {
+                            this.logger?.LogError(x, "Failed to notify about failed event handler.");
+                        }
+                    }, this);
+                }
+                catch (Exception x)
+                {
+                    this.logger?.LogError(x, "Failed to post notification about failed event handler.");
+
+                }
             }
             else
             {
-                this.EventHandlerFailed?.Invoke(this, EventArgs.Empty);
+                try
+                {
+                    this.EventHandlerFailed?.Invoke(this, EventArgs.Empty);
+                }
+                catch (Exception x)
+                {
+                    this.logger?.LogError(x, "Failed to notify about failed event handler.");
+                }
             }
-
         }
 
         private void RemoveEventDataSynchronized(EventData eventData)

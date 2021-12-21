@@ -230,19 +230,14 @@ namespace SciTech.Rpc.Lightweight.Server
             var client = new ClientPipeline(pipe, this, endPoint, user, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive);
             try
             {
-                try
-                {
-                    this.AddClient(client);
+                this.AddClient(client);
 
-                    await client.RunAsync().ContextFree();
-                }
-                finally
-                {
-                    await client.DisposeAsync().ContextFree();
-                }
+                await client.RunAsync().ContextFree();
             }
             finally
             {
+                await client.DisposeAsync().ContextFree();
+
                 // Late removal of client (after dispose and wait) to avoid that shut down returns
                 // before all clients have ended. Make sure that a client is not accidentally used
                 // after dispose.

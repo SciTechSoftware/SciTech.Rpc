@@ -318,7 +318,8 @@ namespace SciTech.Rpc.Lightweight.Server
                             {
                                 this.udpClients = udpClients;
                                 this.listenerCts = new CancellationTokenSource();
-                                this.listenerTask = Task.Run(() => this.RunListener(udpClients, this.listenerCts.Token));
+                                var ct = this.listenerCts.Token;
+                                this.listenerTask = Task.Run(() => this.RunListener(udpClients, ct));
                             }
                             else
                             {

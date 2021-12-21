@@ -16,6 +16,7 @@
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using SciTech.Diagnostics;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
@@ -195,7 +196,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                             catch( Exception x )
                             {
                                 this.logger.LogInformation(x, "GetAuthenticationOptionsAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
-                                socketStream.Dispose();
+                                await socketStream.DisposeAsync().ContextFree();
                                 socketStream = null;
                             }
 
@@ -221,7 +222,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                         {
                                             this.logger.LogInformation(x, "SslStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
 
-                                            try { sslStream.Dispose(); } catch { }
+                                            try { await sslStream.DisposeAsync().ContextFree(); } catch { }
                                             socketStream = null;
                                         }
 
@@ -241,7 +242,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                     catch (Exception x)
                                     {
                                         this.logger.LogInformation(x, "NegotiateStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
-                                        try { negotiateStream.Dispose(); } catch { }
+                                        try { await negotiateStream.DisposeAsync().ContextFree(); } catch { }
                                         socketStream = null;
                                     }
                                 }
@@ -268,7 +269,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         }
                         finally
                         {
-                            socketStream?.Dispose();
+                            if (socketStream != null)
+                            {
+                                await socketStream.DisposeAsync().ContextFree();
+                            }
                         }
                     }
                 }

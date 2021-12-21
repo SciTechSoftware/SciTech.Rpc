@@ -14,6 +14,7 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 #endregion
 
+using SciTech.Diagnostics;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
 using System;
@@ -182,7 +183,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         }
 
         [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
-        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Transferred owneship")]
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Transferred ownership")]
         private async Task ListenForConnectionsAsync(int listenBacklog, CancellationToken cancellationToken)
         {
             try
@@ -209,7 +210,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     }
                     finally
                     {
-                        try { pipeServerStream?.Dispose(); } catch { }
+                        if (pipeServerStream != null)
+                        {
+                            try { await pipeServerStream.DisposeAsync().ContextFree(); } catch { }
+                        }
                     }
                 }
             }

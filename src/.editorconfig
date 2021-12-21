@@ -29,3 +29,6 @@ dotnet_diagnostic.CA1508.severity = none
 
 dotnet_diagnostic.CA1002.severity = none
 
+# CA1848: Use the LoggerMessage delegates
+dotnet_diagnostic.CA1848.severity = silent
+

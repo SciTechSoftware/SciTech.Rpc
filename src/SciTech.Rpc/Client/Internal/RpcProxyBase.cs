@@ -756,47 +756,6 @@ namespace SciTech.Rpc.Client.Internal
         }
 
 
-        /// <summary>
-        /// Invokes the <see cref="EventHandlerFailed"/> event and swallows any exception (with logging if available).
-        /// </summary>
-        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Silent notification")]
-        private void NotifyEventHandlerFailed()
-        {
-            if (this.SyncContext != null)
-            {
-                try
-                {
-                    this.SyncContext.Post(self =>
-                    {
-                        try
-                        {
-                            ((RpcProxyBase<TMethodDef>)self!).EventHandlerFailed?.Invoke(self, EventArgs.Empty);
-                        }
-                        catch (Exception x)
-                        {
-                            this.logger?.LogError(x, "Failed to notify about failed event handler.");
-                        }
-                    }, this);
-                }
-                catch (Exception x)
-                {
-                    this.logger?.LogError(x, "Failed to post notification about failed event handler.");
-
-                }
-            }
-            else
-            {
-                try
-                {
-                    this.EventHandlerFailed?.Invoke(this, EventArgs.Empty);
-                }
-                catch (Exception x)
-                {
-                    this.logger?.LogError(x, "Failed to notify about failed event handler.");
-                }
-            }
-        }
-
         private void RemoveEventDataSynchronized(EventData eventData)
         {
             if (!eventData.isRemoved)
@@ -826,6 +785,7 @@ namespace SciTech.Rpc.Client.Internal
             return removedEventData;
         }
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Exceptions reported using EventHandlerFailed")]
         private async void StartEventRetrieverAsync<TEventHandler, TEventArgs>(EventData<TEventHandler> eventData)
             where TEventArgs : class
             where TEventHandler : Delegate
@@ -873,7 +833,18 @@ namespace SciTech.Rpc.Client.Internal
                             var eventArgs = responseStream.Current;
                             if (this.SyncContext != null)
                             {
-                                this.SyncContext.Post(s => this.InvokeDelegate(eventHandler, eventArgs), null);
+                                this.SyncContext.Post(s =>
+                                {
+                                    try
+                                    {
+                                        this.InvokeDelegate(eventHandler, eventArgs);
+                                    }
+                                    catch( Exception x )
+                                    {
+                                        NotifyEventListenerFailed(x);
+                                        eventData.cancellationSource.Cancel();
+                                    }
+                                }, null);
                             }
                             else
                             {
@@ -883,7 +854,7 @@ namespace SciTech.Rpc.Client.Internal
                     }
                 }
 
-                eventData.eventListenerFinishedTcs.SetResult(true);
+                eventData.eventListenerFinishedTcs.TrySetResult(true);
             }
             catch (Exception ce) when (this.IsCancellationException(ce))
             {
@@ -902,28 +873,29 @@ namespace SciTech.Rpc.Client.Internal
                     // retrieve loop should only be cancelled through
                     // eventData.cancellationSource (e.g. NetGrpc returns cancelled
                     // when streaming call fails due to authorization error).
-                    // Should maybe SetException instead of SetCanceled.
-                    // Try to set exception on started task as well, in case
-                    // the exception occurred while starting.
-                    eventData.eventListenerStartedTcs.TrySetCanceled();
 
-                    eventData.eventListenerFinishedTcs.TrySetCanceled();
-                    this.NotifyEventHandlerFailed();
+                    NotifyEventListenerFailed(ce);
                 }
             }
-#pragma warning disable CA1031 // Do not catch general exception types
             catch (Exception e)
+            {
+                NotifyEventListenerFailed(e);
+            }
+
+            void NotifyEventListenerFailed(Exception e) 
             {
                 // Try to set exception on started task as well, in case 
                 // the exception occurred while starting.
                 eventData.eventListenerStartedTcs.TrySetException(e);
 
-                eventData.eventListenerFinishedTcs.SetException(e);
+                eventData.eventListenerFinishedTcs.TrySetException(e);
 
-                this.NotifyEventHandlerFailed();
+                this.EventHandlerFailed?.Invoke(this, new ExceptionEventArgs(e));
             }
-#pragma warning restore CA1031 // Do not catch general exception types
         }
+
+
+
         protected internal sealed class EventData<TEventHandler> : EventData where TEventHandler : class, Delegate
         {
             internal TEventHandler? eventHandler;

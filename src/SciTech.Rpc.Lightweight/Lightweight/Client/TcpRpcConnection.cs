@@ -218,7 +218,10 @@ namespace SciTech.Rpc.Lightweight.Client
             }
             finally
             {
-                workStream?.Dispose();
+                if (workStream != null)
+                {
+                    await workStream.DisposeAsync().ContextFree();
+                }
             }
         }
 

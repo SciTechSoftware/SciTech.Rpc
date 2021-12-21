@@ -171,12 +171,12 @@ namespace SciTech.Rpc.Lightweight.Server
                 return udpClients;
             }
 
-            private void NetworkChange_NetworkAddressChanged(object sender, EventArgs e)
+            private void NetworkChange_NetworkAddressChanged(object? sender, EventArgs e)
             {
                 this.UpdateListenerAsync().Forget();
             }
 
-            private void NetworkChange_NetworkAvailabilityChanged(object sender, NetworkAvailabilityEventArgs e)
+            private void NetworkChange_NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
             {
                 this.UpdateListenerAsync().Forget();
             }

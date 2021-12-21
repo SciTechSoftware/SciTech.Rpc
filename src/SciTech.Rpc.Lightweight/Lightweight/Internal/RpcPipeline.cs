@@ -25,16 +25,6 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
-    internal class ExceptionEventArgs : EventArgs
-    {
-        public ExceptionEventArgs(Exception exception)
-        {
-            this.Exception = exception;
-        }
-
-        public Exception Exception { get; }
-    }
-
     internal abstract class RpcPipeline : ILightweightRpcFrameWriter, IAsyncDisposable
     {
         /// <summary>
@@ -118,9 +108,9 @@ namespace SciTech.Rpc.Lightweight.Internal
             if (pipe != null)
             {
                 // burn the pipe to the ground
-                try { pipe.Input.Complete(ex); } catch { }
+                try { await pipe.Input.CompleteAsync(ex).ContextFree(); } catch { }
                 try { pipe.Input.CancelPendingRead(); } catch { }
-                try { pipe.Output.Complete(ex); } catch { }
+                try { await pipe.Output.CompleteAsync(ex).ContextFree(); } catch { }
                 try { pipe.Output.CancelPendingFlush(); } catch { }
                 if (pipe is IDisposable d)
                 {
@@ -346,11 +336,11 @@ namespace SciTech.Rpc.Lightweight.Internal
                             break;
                         }
                     }
-                    try { reader.Complete(); } catch { }
+                    try {await reader.CompleteAsync().ContextFree(); } catch { }
                 }
                 catch (Exception ex)
                 {                    
-                    try { reader.Complete(ex); } catch { }
+                    try { await reader.CompleteAsync(ex).ContextFree(); } catch { }
                     try { await this.OnReceiveLoopFaultedAsync(new ExceptionEventArgs(ex)).ContextFree(); } catch { }
                 }
                 finally

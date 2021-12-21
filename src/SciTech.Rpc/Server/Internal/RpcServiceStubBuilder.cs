@@ -133,7 +133,7 @@ namespace SciTech.Rpc.Server.Internal
         {
             if (eventInfo.Event.EventHandlerType == null || eventInfo.Event.AddMethod == null || eventInfo.Event.RemoveMethod == null)
             {
-                throw new NotSupportedException($"Service event handler for '{eventInfo.DeclaringMember.Name}' must be full defined.");
+                throw new NotSupportedException($"Service event handler for '{eventInfo.DeclaringMember.Name}' must be fully defined.");
             }
 
             var serviceParameter = Expression.Parameter(typeof(TService));

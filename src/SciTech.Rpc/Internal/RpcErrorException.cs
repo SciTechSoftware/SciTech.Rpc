@@ -15,13 +15,14 @@
 
 using System;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Rpc.Internal
 {
     /// <summary>
     /// Internal exception class that is used to propagate <see cref="RpcError"/>s to a suitable error handler.
     /// </summary>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Internal exception propagation")]
+    [SuppressMessage("Design", "CA1064:Exceptions should be public", Justification = "Internal exception propagation")]
     internal class RpcErrorException : Exception 
     {
         internal RpcErrorException(RpcError error)

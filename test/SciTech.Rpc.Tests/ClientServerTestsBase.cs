@@ -232,7 +232,7 @@ namespace SciTech.Rpc.Tests
 
         private static void ConfigureLogging(ILoggingBuilder loggingBuilder)
         {
-            loggingBuilder.AddDebug();
+            // loggingBuilder.AddDebug();
             loggingBuilder.AddSimpleConsole(o => o.SingleLine = true);
         }
 

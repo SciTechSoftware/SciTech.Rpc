@@ -32,3 +32,8 @@ dotnet_diagnostic.CA1002.severity = none
 # CA1848: Use the LoggerMessage delegates
 dotnet_diagnostic.CA1848.severity = silent
 
+# CA1002: Do not expose generic lists
+dotnet_diagnostic.CA1002.severity = silent
+
+# CA1032: 
+dotnet_diagnostic.CA1032.severity = silent

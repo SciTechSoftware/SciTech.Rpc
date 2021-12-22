@@ -40,7 +40,7 @@ namespace SciTech.Collections
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "<Pending>")]
     public struct CompactList<T> : IList<T>, IReadOnlyList<T>
     {
-        public static readonly CompactList<T> Empty = new CompactList<T>();
+        public static readonly CompactList<T> Empty;
 
         private static readonly T[] EmptyArray = Array.Empty<T>();
 

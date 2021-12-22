@@ -64,7 +64,7 @@ namespace SciTech.Rpc.Client
                 return null;
             }
 
-            if (connection != null && serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
+            if (serviceRef.ServerConnection?.Matches(connection.ConnectionInfo) == true)
             {
                 return connection.GetServiceInstance<TService>(serviceRef.ObjectId, serviceRef.ImplementedServices, useSyncContext ? SynchronizationContext.Current : null);
             }

@@ -56,15 +56,13 @@ namespace SciTech.Rpc.Client
 
         public void AddKnownChannel(IRpcChannel channel)
         {
-            if (channel == null || channel.ConnectionInfo == null)
-            {
-                throw new ArgumentNullException(nameof(channel));
-            }
+            if (channel == null) throw new ArgumentNullException(nameof(channel));
 
             var connectionInfo = channel.ConnectionInfo;
-            Uri? hostUrl = connectionInfo?.HostUrl;
-            if (connectionInfo == null
-                || (connectionInfo.ServerId == RpcServerId.Empty && hostUrl == null))
+            if (connectionInfo == null) throw new InvalidOperationException("Channel has no connection info");
+
+            Uri? hostUrl = connectionInfo.HostUrl;
+            if (connectionInfo.ServerId == RpcServerId.Empty && hostUrl == null)
             {
                 throw new ArgumentException("Known connection must include a ServerId or HostUrl.");
             }

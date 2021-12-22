@@ -8,7 +8,7 @@ namespace SciTech.Collections
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
     public readonly struct ImmutableCompactList<T> : IReadOnlyList<T>
     {
-        public static readonly ImmutableCompactList<T> Empty = new ImmutableCompactList<T>();
+        public static readonly ImmutableCompactList<T> Empty;
 
         private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
         private static readonly T[] EmptyArray = Array.Empty<T>();

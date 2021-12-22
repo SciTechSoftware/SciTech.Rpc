@@ -189,6 +189,7 @@ namespace SciTech.Rpc.Client.Internal
         public void Dispose()
         {
             this.Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         public bool Equals([AllowNull]IRpcProxy other)
@@ -985,7 +986,7 @@ namespace SciTech.Rpc.Client.Internal
         /// before being completed.
         /// Should only be set to true when running tests.
         /// </summary>
-        internal static bool RoundTripCancellationsAndTimeouts = false;
+        internal static bool RoundTripCancellationsAndTimeouts;
     }
 
     public static class ServiceConverter<TService> where TService : class

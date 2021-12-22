@@ -118,10 +118,6 @@ namespace SciTech.Rpc.Lightweight.Internal
                     try { pipe.Output.CancelPendingFlush(); } catch { }
                 }
 
-                receiveLoopCts?.Cancel();
-
-                await this.WaitFinishedAsync().ContextFree();
-
                 // TODO: There's a race here I think. After cancelling read/write above, the receive loop may
                 // complete with a cancellation, and "ex" will be ignored.
                 try { await pipe.Input.CompleteAsync(ex).ContextFree(); } catch { }
@@ -131,6 +127,13 @@ namespace SciTech.Rpc.Lightweight.Internal
                 {
                     try { d.Dispose(); } catch { }
                 }
+
+                receiveLoopCts?.Cancel();
+
+                await this.WaitFinishedAsync().ContextFree();
+
+
+
 
                 receiveLoopCts?.Dispose();
 
@@ -356,9 +359,12 @@ namespace SciTech.Rpc.Lightweight.Internal
                     try { await reader.CompleteAsync().ContextFree(); } catch { }
                 }
                 catch (Exception ex)
-                {                    
-                    try { await reader.CompleteAsync(ex).ContextFree(); } catch { }
-                    try { await this.OnReceiveLoopFaultedAsync(new ExceptionEventArgs(ex)).ContextFree(); } catch { }
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        try { await reader.CompleteAsync(ex).ContextFree(); } catch { }
+                        try { await this.OnReceiveLoopFaultedAsync(new ExceptionEventArgs(ex)).ContextFree(); } catch { }
+                    }
                 }
                 finally
                 {

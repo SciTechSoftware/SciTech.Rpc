@@ -49,7 +49,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
     }
 
 #pragma warning disable CA1062 // Validate arguments of public methods
-    public class LightweightProxyBase : RpcProxyBase<LightweightMethodDef>
+    public class LightweightProxyBase : RpcProxyBase
     {
         private readonly int callTimeout;
 
@@ -59,8 +59,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private readonly int streamingCallTimeout;
 
-        protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) : base(proxyArgs, proxyMethods)
-        {
+        protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) 
+            : base(proxyArgs, proxyMethods, new LightweightProxyCallDispatcher(proxyArgs))
+        {            
             this.connection = proxyArgs.Channel;
             this.callTimeout = ((int?)this.connection.Options.CallTimeout?.TotalMilliseconds) ?? 0;
             this.streamingCallTimeout = ((int?)this.connection.Options.StreamingCallTimeout?.TotalMilliseconds) ?? 0;
@@ -180,14 +181,14 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
     }
 
 
-    public class LightweightProxyCallDispatcher : IProxyCallDispatcher
+    internal class LightweightProxyCallDispatcher : IProxyCallDispatcher
     {
         private readonly LightweightSerializersCache methodSerializersCache;
         private LightweightRpcConnection connection;
         private int callTimeout;
         private readonly int streamingCallTimeout;
 
-        public LightweightProxyCallDispatcher(LightweightProxyArgs proxyArgs)
+        internal LightweightProxyCallDispatcher(LightweightProxyArgs proxyArgs)
         {
             this.connection = proxyArgs.Channel;
             this.callTimeout = ((int?)this.connection.Options.CallTimeout?.TotalMilliseconds) ?? 0;

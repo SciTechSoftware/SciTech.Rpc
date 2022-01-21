@@ -45,6 +45,20 @@ namespace SciTech.Rpc.Client.Internal
         {
         }
 
+        //public Func<RpcObjectProxyFactory, TService> GetObjectProxyFactory<TService>()
+        //{
+        //    var generatedProxiesType = typeof(TService).Assembly.GetType("SciTech.Rpc.Lightweight.Client.__GeneratedRpcProxies");
+        //    var proxyFactoriesField = generatedProxiesType?.GetField("ProxyFactories", BindingFlags.Public | BindingFlags.Static);
+        //    var proxyFactories = proxyFactoriesField?.GetValue(null) as IReadOnlyDictionary<Type, Func<RpcProxyArgs, object>>;
+
+        //    if(proxyFactories !=null && proxyFactories.TryGetValue(typeof(TService), out var proxyFactory))
+        //    {
+        //        return args=>(TService)proxyFactory(args);
+        //    }
+
+        //    throw new NotImplementedException("");
+        //}
+
         public RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
             IReadOnlyCollection<string>? implementedServices,
             IReadOnlyDictionary<string,ImmutableArray<Type>>? knownServiceTypes )

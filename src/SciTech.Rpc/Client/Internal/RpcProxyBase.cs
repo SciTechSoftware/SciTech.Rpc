@@ -86,10 +86,11 @@ namespace SciTech.Rpc.Client.Internal
     [SuppressMessage("Naming", "CA1708: Identifiers should differ by more than case", Justification = "Accessed by generated code")]
     public abstract class RpcProxyBase : IRpcProxy
     {
-        protected RpcProxyBase(RpcProxyArgs proxyArgs, RpcProxyMethod[] proxyMethods)
+        protected RpcProxyBase(RpcProxyArgs proxyArgs, RpcProxyMethod[] proxyMethods, IProxyCallDispatcher dispatcher)
         {
             if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
 
+            this.dispatcher = dispatcher;
             this.proxyMethods = proxyMethods;
 
             this.objectId = proxyArgs.ObjectId;

@@ -29,7 +29,7 @@ namespace SciTech.Rpc.Client.Internal
     /// Helper class for <see cref="RpcProxyGenerator{TRpcProxy, TProxyArgs, TMethodDef}"/> which is used to create the actual proxy factories.
     /// </summary>
     internal class RpcServiceProxyBuilder<TRpcProxyBase, TMethodDef>
-        where TRpcProxyBase : RpcProxyBase<TMethodDef>
+        where TRpcProxyBase : RpcProxyBase
         where TMethodDef : RpcProxyMethod
     {
         private readonly Dictionary<string, int> definedProxyTypes;

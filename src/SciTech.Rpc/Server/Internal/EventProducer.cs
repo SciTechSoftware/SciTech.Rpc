@@ -1,6 +1,7 @@
 ﻿using SciTech.Threading;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,6 +43,7 @@ namespace SciTech.Rpc.Server.Internal
             tcs?.SetResult(e);
         }
 
+        [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Already awaited")]
         protected async Task RunReceiveLoop()
         {
             try

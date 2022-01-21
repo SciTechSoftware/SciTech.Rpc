@@ -1,4 +1,5 @@
-﻿using SciTech.Rpc.Client;
+﻿using SciTech.Diagnostics;
+using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
@@ -93,7 +94,10 @@ namespace SciTech.Rpc.Lightweight.Client
                 }
                 finally
                 {
-                    pipeClientStream?.Dispose();
+                    if( pipeClientStream != null )
+                    {
+                        await pipeClientStream.DisposeAsync().ContextFree();
+                    }
                 }
 #pragma warning restore CA2000 // Dispose objects before losing scope
             } else

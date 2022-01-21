@@ -24,6 +24,11 @@ namespace SciTech.Rpc.Logging
         {
             return loggerFactory?.CreateLogger<TCategoryName>();
         }
+        
+        internal static ILogger? TryCreateLogger(Type categoryType)
+        {
+            return loggerFactory?.CreateLogger(categoryType);
+        }
 
         internal static ILogger<TCategoryName> CreateLogger<TCategoryName>()
         {

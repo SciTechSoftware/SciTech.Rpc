@@ -25,16 +25,6 @@ using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Internal
 {
-    internal class ExceptionEventArgs : EventArgs
-    {
-        public ExceptionEventArgs(Exception exception)
-        {
-            this.Exception = exception;
-        }
-
-        public Exception Exception { get; }
-    }
-
     internal abstract class RpcPipeline : ILightweightRpcFrameWriter, IAsyncDisposable
     {
         /// <summary>
@@ -117,11 +107,22 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             if (pipe != null)
             {
-                // burn the pipe to the ground
-                try { pipe.Input.Complete(ex); } catch { }
-                try { pipe.Input.CancelPendingRead(); } catch { }
-                try { pipe.Output.Complete(ex); } catch { }
-                try { pipe.Output.CancelPendingFlush(); } catch { }
+
+                // Pipe.Complete will wait for pending read/write, which we don't want,
+                // so start by cancelling read and write if running receive loop.
+                if (this.receiveLoopTask != null && !this.receiveLoopTask.IsCompleted)
+                {
+                    // There's a little risk that the pipe gets completed before cancel is called,
+                    // in which case cancel will throw an InvalidOperationException. Let's ignore that.
+                    try { pipe.Input.CancelPendingRead(); } catch { }
+                    try { pipe.Output.CancelPendingFlush(); } catch { }
+                }
+
+                // TODO: There's a race here I think. After cancelling read/write above, the receive loop may
+                // complete with a cancellation, and "ex" will be ignored.
+                try { await pipe.Input.CompleteAsync(ex).ContextFree(); } catch { }
+                try { await pipe.Output.CompleteAsync(ex).ContextFree(); } catch { }
+
                 if (pipe is IDisposable d)
                 {
                     try { d.Dispose(); } catch { }
@@ -130,6 +131,10 @@ namespace SciTech.Rpc.Lightweight.Internal
                 receiveLoopCts?.Cancel();
 
                 await this.WaitFinishedAsync().ContextFree();
+
+
+
+
                 receiveLoopCts?.Dispose();
 
                 this.OnClosed(ex);
@@ -194,7 +199,8 @@ namespace SciTech.Rpc.Lightweight.Internal
                     var pipeWriter = self.Pipe?.Output;
                     if (pipeWriter == null)
                     {
-                        throw new ObjectDisposedException(nameof(RpcPipeline));
+                        self.ReleaseWriteStream(frameWriter);
+                        return default;
                     }
 
                     frameWriter.CopyTo(pipeWriter);
@@ -341,17 +347,24 @@ namespace SciTech.Rpc.Lightweight.Internal
                                 // the connection has been lost.
                                 // On the the server side this is expected when a client disconnects.
                                 // On the client side it indicates that connection to the server has been lost.
+
+                                // Throwing an exception here will complete the reader with an exception and OnReceiveLoopFaultedAsync will be called.
                                 throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost);
                             }
                             break;
                         }
                     }
-                    try { reader.Complete(); } catch { }
+                    
+                    // Do a "clean" complete of the reader.
+                    try { await reader.CompleteAsync().ContextFree(); } catch { }
                 }
                 catch (Exception ex)
-                {                    
-                    try { reader.Complete(ex); } catch { }
-                    try { await this.OnReceiveLoopFaultedAsync(new ExceptionEventArgs(ex)).ContextFree(); } catch { }
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        try { await reader.CompleteAsync(ex).ContextFree(); } catch { }
+                        try { await this.OnReceiveLoopFaultedAsync(new ExceptionEventArgs(ex)).ContextFree(); } catch { }
+                    }
                 }
                 finally
                 {

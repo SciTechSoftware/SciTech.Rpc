@@ -49,7 +49,7 @@ namespace SciTech.ComponentModel
     /// Default <see cref="IOwned{T}"/> implementation.
     /// </summary>
     /// <typeparam name="T">Type of the owned instance.</typeparam>
-    public class OwnedObject<T> : IOwned<T>
+    public sealed class OwnedObject<T> : IOwned<T>
     {
         private object? disposeActionOrDisposable;
 

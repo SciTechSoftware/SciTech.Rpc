@@ -281,6 +281,7 @@ namespace SciTech.Rpc.Grpc.Client.Internal
 
                 public ValueTask DisposeAsync() => default;
 
+                [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "RanToCompletion")]
                 public ValueTask<bool> MoveNextAsync()
                 {
                     var task = this.reader.MoveNext(CancellationToken.None);

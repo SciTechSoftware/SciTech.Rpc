@@ -27,8 +27,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <summary>
         /// Should be called by listener when a connection to an pipeline has been established.
         /// This method will read requests and write responses to the pipeline, until the <paramref name="clientPipe"/> is closed.
+        /// <para><note type="note">The implementor may take ownership of the <paramref name="clientPipe"/>, e.g. Complete the in/out pipes and dispose 
+        /// the duplex pipe. However, caller will also complete and dispose the pipes on return. It is expected that multiple complete/dispose calls do not cause any errors.</note></para>
         /// </summary>
-        /// <param name="clientPipe"></param>
+        /// <param name="clientPipe">Duplex pipe to use for communication with the other party.</param>
         /// <param name="user">The connected user; <c>null</c> if not available.</param>
         /// <returns></returns>
         Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user);

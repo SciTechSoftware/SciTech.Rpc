@@ -1,11 +1,8 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using SciTech.Collections;
-using SciTech.Rpc.Client;
+﻿using Microsoft.Extensions.Options;
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Text;
 using MSOptions = Microsoft.Extensions.Options.Options;
 
 namespace SciTech.Rpc.Client.Options
@@ -23,7 +20,7 @@ namespace SciTech.Rpc.Client.Options
 
         public void Configure(RpcClientOptions options)
         {
-            Configure(MSOptions.DefaultName, options);
+            this.Configure(MSOptions.DefaultName, options);
         }
 
         public void Configure(string name, RpcClientOptions options)
@@ -36,5 +33,4 @@ namespace SciTech.Rpc.Client.Options
             }
         }
     }
-
 }

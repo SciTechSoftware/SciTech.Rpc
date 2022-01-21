@@ -60,7 +60,7 @@ namespace SciTech.Rpc.Lightweight.Server
         /// </summary>
         /// <param name="hostName"></param>
         /// <param name="endPoint"></param>
-        /// <param name="authenticationOptions">Supported authentication options. If <c>null</c> or empty, then anonymous authentication will be used.</param>
+        /// <param name="authenticationOptions">Supported authentication options. If <c>null</c>, then anonymous authentication will be used.</param>
         public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, AuthenticationServerOptions? authenticationOptions = null)
             : this(hostName, endPoint, CreateAuthenticationOptions(authenticationOptions))
         {

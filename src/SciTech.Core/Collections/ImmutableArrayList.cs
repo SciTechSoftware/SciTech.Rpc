@@ -30,15 +30,15 @@ namespace SciTech.Collections.Immutable
 
             return new ImmutableArrayList<T>(ImmutableArray.CreateRange(items));
         }
+    }
 
-        public static ImmutableArray<T> ToImmutableArray<T>(this IEnumerable<T> enumerable)
+    public static class ImmutableArrayExtensions
+    {
+        public static ImmutableArrayList<T> ToImmutableArrayList<T>(this IEnumerable<T> list)
         {
-            if (enumerable is ImmutableArrayList<T> immutableArrayList)
-            {
-                return immutableArrayList.ToImmutableArray();
-            }
+            if (list == null) throw new ArgumentNullException(nameof(list));
 
-            return ImmutableArray.ToImmutableArray(enumerable);
+            return ImmutableArrayList.CreateRange(list);
         }
 
         public static ImmutableArrayList<T> ToImmutableArrayList<T>(this ImmutableArray<T> immutableArray)
@@ -46,9 +46,41 @@ namespace SciTech.Collections.Immutable
             return new ImmutableArrayList<T>(immutableArray);
         }
 
+
         public static ImmutableArrayList<T> ToImmutableArrayList<T>(this ImmutableArray<T>.Builder immutableArrayBuilder)
         {
             if (immutableArrayBuilder is null) throw new System.ArgumentNullException(nameof(immutableArrayBuilder));
+
+            return new ImmutableArrayList<T>(immutableArrayBuilder.ToImmutable());
+        }
+
+        public static ImmutableArray<T> TryMoveToImmutable<T>(this ImmutableArray<T>.Builder immutableArrayBuilder)
+        {
+            if (immutableArrayBuilder is null) throw new ArgumentNullException(nameof(immutableArrayBuilder));
+
+            if (immutableArrayBuilder.Count == immutableArrayBuilder.Capacity)
+            {
+                return immutableArrayBuilder.MoveToImmutable();
+            }
+
+            return immutableArrayBuilder.ToImmutable();
+        }
+
+        public static ImmutableArrayList<T> MoveToImmutableArrayList<T>(this ImmutableArray<T>.Builder immutableArrayBuilder)
+        {
+            if (immutableArrayBuilder is null) throw new ArgumentNullException(nameof(immutableArrayBuilder));
+
+            if (immutableArrayBuilder.Count == immutableArrayBuilder.Capacity)
+            {
+                return new ImmutableArrayList<T>(immutableArrayBuilder.MoveToImmutable());
+            }
+
+            return new ImmutableArrayList<T>(immutableArrayBuilder.ToImmutable());
+        }
+
+        public static ImmutableArrayList<T> TryMoveToImmutableArrayList<T>(this ImmutableArray<T>.Builder immutableArrayBuilder)
+        {
+            if (immutableArrayBuilder is null) throw new ArgumentNullException(nameof(immutableArrayBuilder));
 
             return new ImmutableArrayList<T>(immutableArrayBuilder.ToImmutable());
         }

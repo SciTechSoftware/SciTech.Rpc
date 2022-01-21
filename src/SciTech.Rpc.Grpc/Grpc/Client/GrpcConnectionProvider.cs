@@ -1,4 +1,4 @@
-﻿using SciTech.Collections;
+﻿using SciTech.Collections.Immutable;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Grpc.Client.Internal;
 using System;
@@ -19,15 +19,15 @@ namespace SciTech.Rpc.Grpc.Client
         private readonly ImmutableRpcClientOptions? options;
 
         public GrpcConnectionProvider(
-            IRpcClientOptions? options = null, 
+            IRpcClientOptions? options = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
-            : this(GrpcCore.ChannelCredentials.Insecure, options, channelOptions )
+            : this(GrpcCore.ChannelCredentials.Insecure, options, channelOptions)
         {
         }
 
         public GrpcConnectionProvider(
             GrpcCore.ChannelCredentials credentials,
-            IRpcClientOptions? options = null,            
+            IRpcClientOptions? options = null,
             IEnumerable<GrpcCore.ChannelOption>? channelOptions = null)
         {
             this.credentials = credentials ?? throw new ArgumentNullException(nameof(credentials));

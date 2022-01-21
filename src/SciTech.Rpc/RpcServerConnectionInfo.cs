@@ -299,11 +299,6 @@ namespace SciTech.Rpc
         /// <returns></returns>
         public RpcConnectionInfo SetServerId(RpcServerId serverId)
         {
-            if (this.GetType() != typeof(RpcConnectionInfo))
-            {
-                throw new NotImplementedException("SetServerId must be implemented by derived class");
-            }
-
             return new RpcConnectionInfo(this.DisplayName, this.HostUrl, serverId);
         }
 

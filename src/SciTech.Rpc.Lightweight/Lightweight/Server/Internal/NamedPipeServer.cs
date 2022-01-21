@@ -14,6 +14,7 @@
 // Licensed under the MIT license. See LICENSE.txt file in the project root for full license information.
 #endregion
 
+using SciTech.Diagnostics;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Threading;
 using System;
@@ -21,6 +22,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Threading;
@@ -33,10 +35,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     /// </summary>
     internal abstract class NamedPipeServer : IAsyncDisposable
     {
-#if !COREFX
-        private static readonly PipeSecurity DefaultSecurity = CreateDefaultSecurity();
-#endif
-
         private readonly Action<object?> RunClientAsync;
 
 #pragma warning disable CA2213  // Disposable fields should be disposed
@@ -130,23 +128,38 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         private static NamedPipeServerStream CreatePipeServerStream(string pipeName, int listenBacklog)
         {
             NamedPipeServerStream? pipeServerStream;
-#if COREFX
-            pipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, listenBacklog, PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
-            var acl = pipeServerStream.GetAccessControl();
-
-            acl.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.NetworkSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
-            acl.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+#if NET5_0_OR_GREATER
+                var pipeSecurity = CreateDefaultSecurity();
+                pipeServerStream = NamedPipeServerStreamAcl.Create(pipeName, PipeDirection.InOut, listenBacklog, PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous,0,0,pipeSecurity);
+#elif NETFRAMEWORK
+                var pipeSecurity = CreateDefaultSecurity();
+                pipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, listenBacklog,
+                    PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous,
+                    0, 0,
+                    pipeSecurity);
 #else
+                pipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, listenBacklog, PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
 
-            pipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, listenBacklog,
-                PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous,
-                0, 0,
-                DefaultSecurity);
+                // Is there a race here? The pipe is created with default access before updating security. On the other hand, nobody's listening yet.
+                
+                // Previously pipeServerStream.SetAccessControl(pipeSecurity) was used, but that caused communication to hang (i.e. connection was allowed, but pipe communication failed).
+                // I have not investigated this further.
+                pipeServerStream.GetAccessControl().AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
 #endif
+            }
+            else
+            {
+                pipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, listenBacklog, PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+            }
+
             return pipeServerStream;
         }
 
-#if !COREFX
+#if NET5_0_OR_GREATER
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+#endif
         private static PipeSecurity CreateDefaultSecurity()
         {
             var sec = new PipeSecurity();
@@ -154,11 +167,13 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             sec.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.NetworkSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
             // Allow everyone on the machine to connect
             sec.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
-            // Allow the current user should have full control.
-            sec.AddAccessRule(new PipeAccessRule(WindowsIdentity.GetCurrent().User, PipeAccessRights.FullControl, AccessControlType.Allow));
+            // The current user should have full control.
+            if (WindowsIdentity.GetCurrent().User is SecurityIdentifier userId)
+            {
+                sec.AddAccessRule(new PipeAccessRule(userId, PipeAccessRights.FullControl, AccessControlType.Allow));
+            }
             return sec;
         }
-#endif
 
 
         ValueTask IAsyncDisposable.DisposeAsync()
@@ -167,11 +182,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             return default;
         }
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Transferred ownership")]
         private async Task ListenForConnectionsAsync(int listenBacklog, CancellationToken cancellationToken)
         {
-#pragma warning disable CA1031 // Do not catch general exception types
-#pragma warning disable CA2000 // Dispose objects before losing scope
-
             try
             {
                 while (true)
@@ -196,14 +210,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     }
                     finally
                     {
-                        try { pipeServerStream?.Dispose(); } catch { }
+                        if (pipeServerStream != null)
+                        {
+                            try { await pipeServerStream.DisposeAsync().ContextFree(); } catch { }
+                        }
                     }
                 }
             }
             catch (Exception ex) { this.OnServerFaulted(ex); }
-
-#pragma warning restore CA1031 // Do not catch general exception types
-#pragma warning restore CA2000 // Dispose objects before losing scope
         }
 
         /// <summary>

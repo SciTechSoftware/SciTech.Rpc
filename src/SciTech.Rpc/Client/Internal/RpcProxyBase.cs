@@ -9,6 +9,7 @@
 //
 #endregion
 
+using Microsoft.Extensions.Logging;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
@@ -86,6 +87,8 @@ namespace SciTech.Rpc.Client.Internal
     [SuppressMessage("Naming", "CA1708: Identifiers should differ by more than case", Justification = "Accessed by generated code")]
     public abstract class RpcProxyBase : IRpcProxy
     {
+        private protected readonly ILogger? logger;
+
         protected RpcProxyBase(RpcProxyArgs proxyArgs, RpcProxyMethod[] proxyMethods, IProxyCallDispatcher dispatcher)
         {
             if (proxyArgs is null) throw new ArgumentNullException(nameof(proxyArgs));
@@ -108,6 +111,8 @@ namespace SciTech.Rpc.Client.Internal
                     this.implementedServices = new HashSet<string>(proxyArgs.ImplementedServices);
                 }
             }
+
+            this.logger = /*proxyArgs.Logger ?? */ RpcLogger.TryCreateLogger(this.GetType());
         }
 
         public IRpcChannel Channel { get; }
@@ -194,6 +199,7 @@ namespace SciTech.Rpc.Client.Internal
         public void Dispose()
         {
             this.Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         public bool Equals([AllowNull]IRpcProxy other)
@@ -447,7 +453,7 @@ namespace SciTech.Rpc.Client.Internal
                     {
                         this.SyncContext!.Post(postCallback, retVal);
                     }
-                    else 
+                    else
                     {
                         callback?.Invoke(retVal);
                     }
@@ -740,18 +746,6 @@ namespace SciTech.Rpc.Client.Internal
                 && activeEventData == eventData;
         }
 
-        private void NotifyEventHandlerFailed()
-        {
-            if (this.SyncContext != null)
-            {
-                this.SyncContext.Post(self => ((RpcProxyBase)self!).EventHandlerFailed?.Invoke(self, EventArgs.Empty), this);
-            }
-            else
-            {
-                this.EventHandlerFailed?.Invoke(this, EventArgs.Empty);
-            }
-
-        }
 
         private void RemoveEventDataSynchronized(EventData eventData)
         {
@@ -782,6 +776,7 @@ namespace SciTech.Rpc.Client.Internal
             return removedEventData;
         }
 
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Exceptions reported using EventHandlerFailed")]
         private async void StartEventRetrieverAsync<TEventHandler, TEventArgs>(EventData<TEventHandler> eventData)
             where TEventArgs : class
             where TEventHandler : Delegate
@@ -829,7 +824,18 @@ namespace SciTech.Rpc.Client.Internal
                             var eventArgs = responseStream.Current;
                             if (this.SyncContext != null)
                             {
-                                this.SyncContext.Post(s => this.InvokeDelegate(eventHandler, eventArgs), null);
+                                this.SyncContext.Post(s =>
+                                {
+                                    try
+                                    {
+                                        this.InvokeDelegate(eventHandler, eventArgs);
+                                    }
+                                    catch( Exception x )
+                                    {
+                                        NotifyEventListenerFailed(x);
+                                        eventData.cancellationSource.Cancel();
+                                    }
+                                }, null);
                             }
                             else
                             {
@@ -839,7 +845,7 @@ namespace SciTech.Rpc.Client.Internal
                     }
                 }
 
-                eventData.eventListenerFinishedTcs.SetResult(true);
+                eventData.eventListenerFinishedTcs.TrySetResult(true);
             }
             catch (Exception ce) when (this.IsCancellationException(ce))
             {
@@ -858,28 +864,29 @@ namespace SciTech.Rpc.Client.Internal
                     // retrieve loop should only be cancelled through
                     // eventData.cancellationSource (e.g. NetGrpc returns cancelled
                     // when streaming call fails due to authorization error).
-                    // Should maybe SetException instead of SetCanceled.
-                    // Try to set exception on started task as well, in case
-                    // the exception occurred while starting.
-                    eventData.eventListenerStartedTcs.TrySetCanceled();
 
-                    eventData.eventListenerFinishedTcs.TrySetCanceled();
-                    this.NotifyEventHandlerFailed();
+                    NotifyEventListenerFailed(ce);
                 }
             }
-#pragma warning disable CA1031 // Do not catch general exception types
             catch (Exception e)
+            {
+                NotifyEventListenerFailed(e);
+            }
+
+            void NotifyEventListenerFailed(Exception e) 
             {
                 // Try to set exception on started task as well, in case 
                 // the exception occurred while starting.
                 eventData.eventListenerStartedTcs.TrySetException(e);
 
-                eventData.eventListenerFinishedTcs.SetException(e);
+                eventData.eventListenerFinishedTcs.TrySetException(e);
 
-                this.NotifyEventHandlerFailed();
+                this.EventHandlerFailed?.Invoke(this, new ExceptionEventArgs(e));
             }
-#pragma warning restore CA1031 // Do not catch general exception types
         }
+
+
+
         protected internal sealed class EventData<TEventHandler> : EventData where TEventHandler : class, Delegate
         {
             internal TEventHandler? eventHandler;
@@ -969,7 +976,7 @@ namespace SciTech.Rpc.Client.Internal
         /// before being completed.
         /// Should only be set to true when running tests.
         /// </summary>
-        internal static bool RoundTripCancellationsAndTimeouts = false;
+        internal static bool RoundTripCancellationsAndTimeouts;
     }
 
     public static class ServiceConverter<TService> where TService : class

@@ -25,6 +25,9 @@ namespace SciTech.Buffers
     using System.Threading;
     using System.Threading.Tasks;
 
+    /// <summary>
+    /// <see cref="Stream"/> wrapper around a <see cref="ReadOnlySequence{T}"/> (of byte).
+    /// </summary>
     internal class ReadOnlySequenceStream : Stream
     {
         private static readonly Task<int> TaskOfZero = Task.FromResult(0);
@@ -105,7 +108,9 @@ namespace SciTech.Buffers
             return (int)toCopy.Length;
         }
 
+
         /// <inheritdoc/>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Underlying sequence is synchronous.")]
         public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();

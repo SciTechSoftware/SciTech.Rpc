@@ -16,6 +16,7 @@
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using SciTech.Diagnostics;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
@@ -26,6 +27,7 @@ using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
@@ -194,7 +196,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                             catch( Exception x )
                             {
                                 this.logger.LogInformation(x, "GetAuthenticationOptionsAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
-                                socketStream.Dispose();
+                                await socketStream.DisposeAsync().ContextFree();
                                 socketStream = null;
                             }
 
@@ -220,7 +222,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                         {
                                             this.logger.LogInformation(x, "SslStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
 
-                                            try { sslStream.Dispose(); } catch { }
+                                            try { await sslStream.DisposeAsync().ContextFree(); } catch { }
                                             socketStream = null;
                                         }
 
@@ -240,7 +242,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                     catch (Exception x)
                                     {
                                         this.logger.LogInformation(x, "NegotiateStream.AuthenticateAsServerAsync failed. Local end point: {LocalEndPoint}, remote end point: {RemoteEndPoint}'.", clientSocket.LocalEndPoint, remoteEndPoint);
-                                        try { negotiateStream.Dispose(); } catch { }
+                                        try { await negotiateStream.DisposeAsync().ContextFree(); } catch { }
                                         socketStream = null;
                                     }
                                 }
@@ -267,7 +269,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                         }
                         finally
                         {
-                            socketStream?.Dispose();
+                            if (socketStream != null)
+                            {
+                                await socketStream.DisposeAsync().ContextFree();
+                            }
                         }
                     }
                 }
@@ -282,10 +287,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private static IPrincipal? CreatePrincipal(IIdentity? identity)
         {
+            if( RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && identity is WindowsIdentity windowsIdentity)
+            {
+                return new WindowsPrincipal(windowsIdentity);
+            }
+
             return identity switch
             {
                 null => null,
-                WindowsIdentity windowsIdentity => new WindowsPrincipal(windowsIdentity),
                 ClaimsIdentity claimsIdentity => new ClaimsPrincipal(claimsIdentity),
                 _ => new GenericPrincipal(identity, null),
             };

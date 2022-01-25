@@ -45,7 +45,7 @@ namespace SciTech.Rpc.Client.Internal
         {
         }
 
-        //public Func<RpcObjectProxyFactory, TService> GetObjectProxyFactory<TService>()
+        //public Func<RpcProxyArgs, TService> GetObjectProxyFactory<TService>()
         //{
         //    var generatedProxiesType = typeof(TService).Assembly.GetType("SciTech.Rpc.Lightweight.Client.__GeneratedRpcProxies");
         //    var proxyFactoriesField = generatedProxiesType?.GetField("ProxyFactories", BindingFlags.Public | BindingFlags.Static);

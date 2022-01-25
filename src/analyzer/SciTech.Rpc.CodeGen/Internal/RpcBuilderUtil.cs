@@ -708,6 +708,7 @@ namespace SciTech.Rpc.Internal
         {
             return GetAllServices(serviceType, RpcServiceDefinitionSide.Both, ignoreUnknownInterfaces);
         }
+
         static AttributeData? GetSingleAttribute(ISymbol symbol, string attributeName)
         {
             return symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToString() == attributeName /*&& assembly*/);

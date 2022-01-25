@@ -29,13 +29,13 @@ namespace SciTech.Rpc.CodeGen.Client
             this.definedProxyTypes = definedProxyTypes;
         }
 
-        internal string BuildProxy()
+        internal GeneratedProxyType BuildProxy()
         {
             var declaredService = allServices.Single(s => s.IsDeclaredService);
             this.builder = new RpcBuilderUtil(this.generatorContext.Compilation);
 
             CreateTypeBuilder(declaredService);
-            foreach( var service in allServices)
+            foreach (var service in allServices)
             {
                 AddServiceProxyMembers(service);
             }
@@ -47,12 +47,48 @@ namespace SciTech.Rpc.CodeGen.Client
             //this.DecreaseIndent();
             //this.AppendLine("}");
 
-            return typeBuilder.ToString();
+            string methodsArrayName = $"{GetFlatName(declaredService.Type)}_Methods";
+
+            SourceBuilder methodDefBuilder = new();
+            methodDefBuilder.Indent = MethodDefIndent;
+            methodDefBuilder.AppendLine($"private static ImmutableArray<RpcProxyMethod> {methodsArrayName} = ImmutableArray.Create<RpcProxyMethod>(");
+            methodDefBuilder.IncreaseIndent();
+            foreach (var methodDefExpression in createMethodDefExpressions)
+            {
+                methodDefBuilder.AppendLine(methodDefExpression);
+            }
+            methodDefBuilder.DecreaseIndent();
+            methodDefBuilder.AppendLine(");");
+
+            SourceBuilder typeDictionaryBuilder = new();
+            string proxyTypeName = GetProxyTypeName(declaredService);
+
+            methodDefBuilder.Indent = TypeDictionaryEntryIndent;
+            if (typeDictionaryBuilder.Length > 0)
+            {
+                typeDictionaryBuilder.AppendLine(",");
+            }
+            typeDictionaryBuilder.AppendLine("{");
+            typeDictionaryBuilder.IncreaseIndent();
+            typeDictionaryBuilder.AppendLine($"typeof({declaredService.Type.ToString() ?? ""}),");
+            typeDictionaryBuilder.AppendLine($"new Func<RpcProxyArgs, object>(");
+            typeDictionaryBuilder.AppendLine($"    args => new {proxyTypeName}(args, {methodsArrayName}, new LightweightProxyCallDispatcher(args)))");
+            typeDictionaryBuilder.DecreaseIndent();
+            typeDictionaryBuilder.Append("}");
+
+            return new GeneratedProxyType(this.typeBuilder.ToString(), methodDefBuilder.ToString(), typeDictionaryBuilder.ToString());
+        }
+
+        private string GetFlatName(ITypeSymbol type)
+        {
+            string typeName = type.ToString() ?? "";
+
+            return typeName.Replace('.', '_');
         }
 
         private StringBuilder CreateTypeBuilder(RpcServiceInfo serviceInfo)
         {
-            string proxyTypeName = $"__{serviceInfo.Name}_Proxy";
+            string proxyTypeName = GetProxyTypeName(serviceInfo);
             this.typeBuilder = new StringBuilder();// this.moduleBuilder.DefineType(proxyTypeName, TypeAttributes.Public | TypeAttributes.BeforeFieldInit, typeof(TRpcProxyBase));
 
             this.AppendLine($"namespace {serviceInfo.Namespace}");
@@ -62,13 +98,13 @@ namespace SciTech.Rpc.CodeGen.Client
 
             bool firstService = true;
 
-            foreach( var implementedService in this.allServices)
+            foreach (var implementedService in this.allServices)
             {
-                if( !firstService)
+                if (!firstService)
                 {
                     this.Append(", ");
                 }
-                if( implementedService.Namespace != serviceInfo.Namespace )
+                if (implementedService.Namespace != serviceInfo.Namespace)
                 {
                     this.Append(implementedService.Namespace + ".");
                 }
@@ -116,6 +152,11 @@ namespace SciTech.Rpc.CodeGen.Client
             ////createIL.Emit(OpCodes.Ret);
 
             //return (typeBuilder, staticCtorIL);
+        }
+
+        private static string GetProxyTypeName(RpcServiceInfo serviceInfo)
+        {
+            return $"__{serviceInfo.Name}_Proxy";
         }
 
         private static bool IsFaultAttribute(AttributeData attrbibute)
@@ -210,12 +251,15 @@ namespace SciTech.Rpc.CodeGen.Client
             if (serviceInfo.ServerType != null)
             {
                 var serverServiceInfo = RpcBuilderUtil.TryGetServiceInfoFromType(serviceInfo.ServerType);
-                if (serverServiceInfo == null)
+                if (serverServiceInfo != null)
                 {
-                    throw new RpcDefinitionException($"Server side type '{serviceInfo.ServerType}' is not an RpcService.");
+                    serverSideMembers = this.builder.EnumOperationHandlers(serverServiceInfo, true).ToList();
                 }
-
-                serverSideMembers = this.builder.EnumOperationHandlers(serverServiceInfo, true).ToList();
+                else 
+                {
+                    this.generatorContext.ReportDiagnostic(
+                        Diagnostic.Create(RpcDiagnostics.ServerSideTypeIsNotRpcServiceRule, serviceInfo.Type.Locations.FirstOrDefault(), serviceInfo.Type.ToString()));
+                }                
             }
 
             foreach (var memberInfo in this.builder.EnumOperationHandlers(serviceInfo, false))
@@ -814,6 +858,10 @@ namespace SciTech.Rpc.CodeGen.Client
         }
 
         private readonly Dictionary<string, MethodDefIndex> methodDefinitionIndices = new Dictionary<string, MethodDefIndex>();
+        private const string MethodDefIndent = "        ";
+        private const string TypeDictionaryEntryIndent = "            ";
+
+
         private class MethodDefIndex
         {
             internal readonly int Index;
@@ -882,10 +930,10 @@ namespace SciTech.Rpc.CodeGen.Client
             string? serializer,
             string faultHandler)
         {
-            if (this.createMethodDefExpressions == null)
-            {
-                throw new InvalidOperationException();
-            }
+            //if (this.createMethodDefExpressions == null)
+            //{
+            //    throw new InvalidOperationException();
+            //}
 
             int methodDefIndex = this.createMethodDefExpressions.Count;
 
@@ -895,7 +943,7 @@ namespace SciTech.Rpc.CodeGen.Client
             return methodDefIndex;
         }
 
-        private List<string>? createMethodDefExpressions = new List<string>();
+        private List<string> createMethodDefExpressions = new List<string>();
 
 
         private int AddMethodDef(
@@ -940,13 +988,169 @@ namespace SciTech.Rpc.CodeGen.Client
         // return new LightweightMethodDef<TRequest, TResponse>(methodType, $"{serviceName}.{methodName}", serializer, faultHandler);
     }
 
-    internal class RpcTypeBuilder
+    internal class SourceBuilder
     {
-        StringBuilder typeBuilder;
+        StringBuilder builder = new StringBuilder();
 
-        public RpcTypeBuilder()
+        public SourceBuilder()
         {
 
         }
+
+        private bool isStartOfLine;
+
+        public void AppendLine(string line = "")
+        {
+            if (isStartOfLine)
+            {
+                this.builder.Append(this.Indent);
+            }
+
+            this.builder.AppendLine(line);
+            isStartOfLine = true;
+        }
+
+        public void Append(FormattableString line)
+        {
+            if (isStartOfLine)
+            {
+                this.builder.Append(this.Indent);
+            }
+
+            this.builder.Append(Invariant(line));
+            isStartOfLine = false;
+
+
+        }
+
+        public void Append(string line)
+        {
+            if (isStartOfLine)
+            {
+                this.builder.Append(this.Indent);
+            }
+
+            this.builder.Append(line);
+            isStartOfLine = false;
+        }
+
+
+        public string Indent { get; set; } = "";
+        
+        public int Length => this.builder.Length;
+
+        public void IncreaseIndent()
+        {
+            this.Indent += "    ";
+        }
+
+        public void DecreaseIndent()
+        {
+            this.Indent = this.Indent.Substring(4);
+        }
+
+        public override string ToString()
+        {
+            return this.builder.ToString();
+        }
+
     }
+
+    public static class RpcDiagnostics
+    {
+        public const string RpcDuplicateOperationRuleId = "RPC1001";
+
+        public const string RpcMissingServerOperationRuleId = "RPC1002";
+
+        public const string RpcOperationMbrArgumentId = "RPC1003";
+
+        public const string RpcOperationMbrReturnId = "RPC1004";
+
+        public const string RpcOperationRefArgumentId = "RPC1005";
+
+        public const string RpcOperationServiceArgumentId = "RPC1006";
+
+        public const string ServerSideTypeIsNotRpcService = "RPC1007";
+
+
+        private const string Category = "RPC";
+
+        internal static DiagnosticDescriptor RpcDuplicateOperationRule = new DiagnosticDescriptor(
+            RpcDuplicateOperationRuleId,
+            "Operation has already been defined.",
+            "Operation '{0}' has been defined more than once in server side RPC definition.",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "Server side RPC operation must have a unique name.");
+
+        internal static DiagnosticDescriptor RpcMissingServerOperationRule = new DiagnosticDescriptor(
+            RpcMissingServerOperationRuleId,
+            "Operation does not exist in server side RPC definition.",
+            "Operation '{0}' does not exist in server side RPC definition.",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "Client side RPC operation must have a matching server side operation.");
+
+        internal static DiagnosticDescriptor RpcOperationMbrArgumentRule = new DiagnosticDescriptor(
+            RpcOperationMbrArgumentId,
+            "MarshalByRefObject cannot be used as parameter in RPC operation.",
+            "MarshalByRefObject '{0}' cannot be used as parameter in RPC operation.",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "MarshalByRefObjects cannot be used as parameter in RPC operation.");
+
+        internal static DiagnosticDescriptor RpcOperationMbrReturnRule = new DiagnosticDescriptor(
+            RpcOperationMbrReturnId,
+            "MarshalByRefObject cannot be returned from an RPC operation.",
+            "MarshalByRefObject '{0}' cannot be returned from RPC operation.",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "MarshalByRefObjects cannot be returned from RPC operation.");
+
+        internal static DiagnosticDescriptor RpcOperationRefArgumentRule = new DiagnosticDescriptor(
+            RpcOperationRefArgumentId,
+            "An RPC operation parameter cannot be passed as reference (ref/in/out).",
+            "RPC operation parameter '{0}' cannot be passed as reference.",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "An RPC operation parameter cannot be passed as reference (ref/in/out).");
+
+        internal static DiagnosticDescriptor RpcOperationServiceArgumentRule = new DiagnosticDescriptor(
+            RpcOperationServiceArgumentId,
+            "RPC service cannot be used as parameter in RPC operation.",
+            "Rpc service '{0}' cannot be used as parameter in RPC operation.",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "RPC services cannot be used as parameter in RPC operation.");
+
+        internal static DiagnosticDescriptor ServerSideTypeIsNotRpcServiceRule = new DiagnosticDescriptor(
+            ServerSideTypeIsNotRpcService,
+            "Server side type is not an RPC service.",
+            "Server side type  '{0}' s not an RPC service.",
+            Category,
+            DiagnosticSeverity.Error,
+            isEnabledByDefault: true,
+            description: "Server side types must be marked with the [RpcService] attribute.");
+    }
+
+    internal class GeneratedProxyType
+    {
+        internal readonly string TypeCode;
+        internal readonly string MethodsArrayCode;
+        internal readonly string DictionaryEntryCode;
+
+        internal GeneratedProxyType(string typeCode, string methodsArrayCode, string dictionaryEntryCode)
+        {
+            this.TypeCode = typeCode;
+            this.MethodsArrayCode = methodsArrayCode;
+            this.DictionaryEntryCode = dictionaryEntryCode;
+        }
+    }
+
 }

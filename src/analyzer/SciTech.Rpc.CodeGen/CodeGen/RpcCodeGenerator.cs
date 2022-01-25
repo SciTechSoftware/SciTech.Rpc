@@ -12,6 +12,14 @@ namespace SciTech.Rpc.CodeGen
     [Generator]
     public class RpcCodeGenerator : ISourceGenerator
     {
+        private class GeneratedProxyAssembly
+        {
+
+
+        }
+
+
+
         public void Execute(GeneratorExecutionContext context)
         {
             if( context.SyntaxContextReceiver is RpcSyntaxReceiver rpcReceiver)
@@ -19,6 +27,8 @@ namespace SciTech.Rpc.CodeGen
                 var builder = new RpcBuilderUtil(context.Compilation);
 
                 Dictionary<string, int> definedProxyTypes = new Dictionary<string, int>();
+
+                List<GeneratedProxyType> proxyTypes = new();
 
                 foreach ( var typeSymbol in rpcReceiver.rpcInterfaces)
                 {
@@ -29,10 +39,11 @@ namespace SciTech.Rpc.CodeGen
                         var allServices = RpcBuilderUtil.GetAllServices(typeSymbol, false);
 
                         var proxyBuilder = new RpcServiceProxyBuilder(allServices, context, definedProxyTypes);
-                        string proxyCode = proxyBuilder.BuildProxy();
-
-
+                        var proxyCode = proxyBuilder.BuildProxy();
+                        proxyTypes.Add(proxyCode);
+                        // context.AddSource(serviceInfo.Name, proxyCode);
                     }
+
                     //var syntaxRef = typeSymbol.DeclaringSyntaxReferences.FirstOrDefault();
                     //var syntaxNode = syntaxRef?.GetSyntax();
                     //string name = typeSymbol.Name.Substring(1);
@@ -66,6 +77,8 @@ namespace SciTech.Rpc.CodeGen
                     ////    DiagnosticSeverity.Error, DiagnosticSeverity.Error, true, 1,
                     ////    location: syntaxNode?.GetLocation() ));
                 }
+
+                proxyTypes = null;
 
             }
             Debug.WriteLine("Execute code generator");

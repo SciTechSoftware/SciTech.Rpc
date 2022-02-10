@@ -6,11 +6,11 @@
   
   <PropertyGroup>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Copyright>Copyright 2020-2021. SciTech Software AB</Copyright>
+    <Copyright>Copyright 2020-2022. SciTech Software AB</Copyright>
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.0.0-beta.25</Version>
+    <Version>1.0.0-beta.27</Version>
     <Description>Contains utility/helper classes used by the SciTech.Rpc project. This package is currently not intended for other use.</Description>
   </PropertyGroup>
 

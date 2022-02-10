@@ -34,7 +34,7 @@ namespace SciTech.Rpc.Server.Internal
         {
             if (value != null)
             {
-                // Use an object indirection to hold the HttpContext in the AsyncLocal,
+                // Use an object indirection to hold the IRpcServerContext in the AsyncLocal,
                 // so it can be cleared in all ExecutionContexts when its cleared.
                 rpcContextCurrent.Value = new RpcContextHolder { Context = value };
             }
@@ -45,7 +45,7 @@ namespace SciTech.Rpc.Server.Internal
             var holder = rpcContextCurrent.Value;
             if (holder != null)
             {
-                // Clear current HttpContext trapped in the AsyncLocals, as its done.
+                // Clear current IRpcServerContext trapped in the AsyncLocals, as its done.
                 holder.Context = null;
             }
         }

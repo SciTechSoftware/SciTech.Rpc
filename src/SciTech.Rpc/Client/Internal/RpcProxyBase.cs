@@ -184,7 +184,7 @@ namespace SciTech.Rpc.Client.Internal
             this.proxyMethods = proxyMethods;
         }
 
-        public event EventHandler? EventHandlerFailed;
+        public event EventHandler<ExceptionEventArgs>? EventHandlerFailed;
 
         public void Dispose()
         {
@@ -793,9 +793,9 @@ namespace SciTech.Rpc.Client.Internal
         {
             var request = new RpcObjectRequest(this.objectId);
 
+            var beginMethod = this.proxyMethods[eventData.eventMethodIndex];
             try
             {
-                var beginMethod = this.proxyMethods[eventData.eventMethodIndex];
                 var streamingCallTask = this.CallStreamingMethodAsync<RpcObjectRequest, TEventArgs>(
                     request, beginMethod, eventData.cancellationSource.Token);
 
@@ -885,13 +885,20 @@ namespace SciTech.Rpc.Client.Internal
 
             void NotifyEventListenerFailed(Exception e) 
             {
-                // Try to set exception on started task as well, in case 
-                // the exception occurred while starting.
-                eventData.eventListenerStartedTcs.TrySetException(e);
+                try
+                {
+                    this.HandleCallException(beginMethod, e);
+                }
+                catch (Exception x)
+                {
+                    // Try to set exception on started task as well, in case 
+                    // the exception occurred while starting.
+                    eventData.eventListenerStartedTcs.TrySetException(x);
 
-                eventData.eventListenerFinishedTcs.TrySetException(e);
+                    eventData.eventListenerFinishedTcs.TrySetException(x);
 
-                this.EventHandlerFailed?.Invoke(this, new ExceptionEventArgs(e));
+                    this.EventHandlerFailed?.Invoke(this, new ExceptionEventArgs(x));
+                }
             }
         }
 

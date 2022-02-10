@@ -2,13 +2,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Server.Internal
 {
-    public abstract class EventProducer<TService, TEventArgs> : EventProducerBase<TService>
+    public abstract class EventProducer<TService, TEventArgs> : EventProducerBase<TService> where TService : class
     {
         private readonly IRpcAsyncStreamWriter<TEventArgs> responseStream;
 
@@ -44,7 +43,7 @@ namespace SciTech.Rpc.Server.Internal
         }
 
         [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Already awaited")]
-        protected async Task RunReceiveLoop()
+        protected override async Task RunReceiveLoop(Task serviceUnpublishedTask)
         {
             try
             {
@@ -55,15 +54,21 @@ namespace SciTech.Rpc.Server.Internal
 
                 while (true)
                 {
+                    Task finishedTask;
                     var tcs = new TaskCompletionSource<bool>();
                     using (this.CancellationToken.Register(() => tcs.SetResult(true)))
                     {
-                        await Task.WhenAny(this.pendingTask, tcs.Task).ContextFree();
+                        finishedTask = await Task.WhenAny(this.pendingTask, tcs.Task, serviceUnpublishedTask).ContextFree();
                     }
                     // this.CancellationToken.ThrowIfCancellationRequested();
-                    if (this.CancellationToken.IsCancellationRequested)
+                    if (finishedTask == tcs.Task || this.CancellationToken.IsCancellationRequested)
                     {
                         break;
+                    }
+
+                    if (finishedTask == serviceUnpublishedTask)
+                    {
+                        throw new RpcServiceUnavailableException("Service is no longer published.");
                     }
 
                     var eventArgs = this.pendingTask.Result;
@@ -86,25 +91,23 @@ namespace SciTech.Rpc.Server.Internal
         }
     }
 
-    public abstract class EventProducerBase<TService>
+    public abstract class EventProducerBase<TService> where TService : class
     {
         private readonly TaskCompletionSource<bool> stopTcs = new TaskCompletionSource<bool>();
 
         private Task? runTask;
 
-        protected CancellationToken CancellationToken { get; }
-
         protected EventProducerBase(CancellationToken cancellationToken)
         {
             this.CancellationToken = cancellationToken;
-
         }
 
+        protected CancellationToken CancellationToken { get; }
         protected Task StopTask => this.stopTcs.Task;
 
-        internal Task Run(TService service)
+        internal Task Run(WeakReference<TService> service, Task serviceUnpublishedTask)
         {
-            this.runTask = this.RunCore(service);
+            this.runTask = this.RunCore(service, serviceUnpublishedTask);
 
             return this.runTask;
         }
@@ -115,6 +118,46 @@ namespace SciTech.Rpc.Server.Internal
             return this.runTask ?? Task.CompletedTask;
         }
 
-        protected abstract Task RunCore(TService service);
+        protected abstract void AddDelegate(TService service);
+
+        protected abstract void RemoveDelegate(TService service);
+
+        [SuppressMessage("Style", "IDE0059:Unnecessary assignment of a value")]
+        protected async Task RunCore(WeakReference<TService> wrService, Task serviceUnpublishedTask)
+        {
+            if (wrService != null && wrService.TryGetTarget(out var service))
+            {
+                this.AddDelegate(service);
+
+                // It's vital that there's no reference to service when running the receive loop, to allow it to be GCed.
+                // service will go out of scope, but I have seen longer variable lifetimes than expected in debug mode
+                // (but maybe not in an async methof). To be safe, let's clear the variable.
+                // (If assignment is optimized away, the lifetime will hopefully end here)
+                service = null;
+            }
+            else
+            {
+                return;
+            }
+
+            try
+            {
+                await this.RunReceiveLoop(serviceUnpublishedTask).ContextFree();
+            }
+            finally
+            {
+                if (RpcStubOptions.TestDelayEventHandlers)
+                {
+                    await Task.Delay(100).ConfigureAwait(false);
+                }
+
+                if (wrService.TryGetTarget(out service))
+                {
+                    this.RemoveDelegate(service);
+                }
+            }
+        }
+
+        protected abstract Task RunReceiveLoop(Task serviceUnpublishedTask);
     }
 }

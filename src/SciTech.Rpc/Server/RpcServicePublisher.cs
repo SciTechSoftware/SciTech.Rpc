@@ -69,6 +69,8 @@ namespace SciTech.Rpc.Server
 
         private RpcServerId serverId;
 
+        public event EventHandler<RpcServiceEventArgs>? ServiceUnpublished;
+
         public RpcServicePublisher(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId = default)
         {
             this.DefinitionsProvider = serviceDefinitionsProvider ?? throw new ArgumentNullException(nameof(serviceDefinitionsProvider));
@@ -378,15 +380,19 @@ namespace SciTech.Rpc.Server
         {
             PublishedInstance? removedInstance = null;
 
+            List<Type>? unpublishedInstances = null;
+
             lock (this.syncRoot)
             {
                 if (this.idToPublishedServices.TryGetValue(serviceInstanceId, out var publishedServices))
                 {
                     foreach (var serviceType in publishedServices.ServiceTypes)
                     {
+                        bool unpublished = false;
                         var serviceKey = new ServiceImplKey(serviceInstanceId, serviceType);
                         if (this.idToServiceImpl.TryGetValue(serviceKey, out var publishedInstance))
                         {
+                            unpublished = true;
                             this.idToServiceImpl.Remove(serviceKey);
                             if (removedInstance == null)
                             {
@@ -398,7 +404,16 @@ namespace SciTech.Rpc.Server
                             }
                         }
 
-                        this.idToServiceFactory.Remove(serviceKey);
+                        if( this.idToServiceFactory.Remove(serviceKey) )
+                        {
+                            unpublished = true;
+                        }
+
+                        if( unpublished && this.ServiceUnpublished != null )
+                        {
+                            unpublishedInstances ??= new();
+                            unpublishedInstances.Add(serviceType);
+                        }
                     }
                 }
 
@@ -409,6 +424,14 @@ namespace SciTech.Rpc.Server
                     {
                         this.serviceImplToId.Remove(new InstanceKey(instance));
                     }
+                }
+            }
+
+            if( unpublishedInstances != null )
+            {
+                foreach( var serviceType in unpublishedInstances)
+                {
+                    this.ServiceUnpublished?.Invoke(this, new RpcServiceEventArgs(serviceType, serviceInstanceId));
                 }
             }
 
@@ -423,6 +446,7 @@ namespace SciTech.Rpc.Server
         public ValueTask UnpublishSingletonAsync<TService>() where TService : class
         {
             PublishedInstance? removedInstance = null;
+            bool unpublished = false;
 
             lock (this.syncRoot)
             {
@@ -430,9 +454,14 @@ namespace SciTech.Rpc.Server
                 {
                     foreach (var serviceType in publishedTypes.ServiceTypes)
                     {
-                        this.singletonServiceTypeToFactory.Remove(serviceType);
+                        if( this.singletonServiceTypeToFactory.Remove(serviceType) )
+                        {
+                            unpublished = true;
+                        }
+
                         if (this.singletonServiceTypeToServiceImpl.TryGetValue(serviceType, out var publishedInstance))
                         {
+                            unpublished = true;
                             this.singletonServiceTypeToServiceImpl.Remove(serviceType);
                             if (removedInstance == null)
                             {
@@ -446,6 +475,16 @@ namespace SciTech.Rpc.Server
                     }
                 }
             }
+
+
+            // There's a race here, if the same Singleton is re-published before invoking the ServiceUnpublished event.
+            // However, if the user re-published a singleton before the previous unpublish is finished I think 
+            // the result it can be classified as undefined behavior.
+            if (unpublished)
+            {
+                this.ServiceUnpublished?.Invoke(this, new RpcServiceEventArgs(typeof(TService), RpcObjectId.Empty));
+            }
+
 
             if (removedInstance?.GetOwnedInstance() is IAsyncDisposable disposable)
             {

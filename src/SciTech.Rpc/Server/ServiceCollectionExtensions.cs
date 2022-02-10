@@ -45,12 +45,6 @@ namespace SciTech.Rpc.Server
         }
 
 
-        ///// <summary>
-        ///// Adds SciTech.Rpc gRPC services to the specified <see cref="IServiceCollection" />.
-        ///// </summary>
-        ///// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
-        ///// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-
         /// <inheritdoc cref="AddRpcServer{TRpcServer}(IServiceCollection)"/>
         /// <param name="options">The action used to configure the server options.</param>
         public static IRpcServerBuilder AddRpcServer<TRpcServer>(this IServiceCollection services, Action<RpcServerOptions> options)

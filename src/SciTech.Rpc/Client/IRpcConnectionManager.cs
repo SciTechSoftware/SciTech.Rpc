@@ -17,7 +17,7 @@ namespace SciTech.Rpc.Client
 {
     /// <summary>
     /// Represents a RPC connection provider that can be used to retrieve an <see cref="IRpcChannel"/> (or <see cref="IRpcConnection"/>)
-    /// from an <see cref="RpcConnectionInfo"/>. Implementation of this interface are normally registered with <see cref="IRpcConnectionManager"/>
+    /// from an <see cref="RpcConnectionInfo"/>. Implementations of this interface are normally registered with <see cref="IRpcConnectionManager"/>
     /// implementation, e.g. <see cref="RpcConnectionManager"/>.
     /// </summary>
     public interface IRpcConnectionProvider

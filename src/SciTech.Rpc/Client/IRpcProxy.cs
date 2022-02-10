@@ -31,7 +31,7 @@ namespace SciTech.Rpc.Client
         /// <para><note type="note">This event will be invoked in the thread that detected the exception. It will not be 
         /// marshalled by the <see cref="SyncContext"/> (in case the error was caused by the synchronization context).</note></para>
         /// </summary>
-        event EventHandler? EventHandlerFailed;
+        event EventHandler<ExceptionEventArgs>? EventHandlerFailed;
 
         IRpcChannel Channel { get; }
 

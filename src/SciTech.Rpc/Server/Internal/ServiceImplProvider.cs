@@ -29,12 +29,27 @@ namespace SciTech.Rpc.Server.Internal
         ActivatedService<TService> GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
 
         bool CanGetActivatedService<TService>(RpcObjectId id) where TService : class;
+
+        event EventHandler<RpcServiceEventArgs>? ServiceUnpublished;
+    }
+
+    public sealed class RpcServiceEventArgs : EventArgs
+    {
+        public RpcServiceEventArgs(Type type, RpcObjectId objectId)
+        {
+            this.Type = type;
+            this.ObjectId = objectId;
+        }
+
+        public Type Type { get; }
+
+        public RpcObjectId ObjectId { get; }
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
-    public struct ActivatedService<T> : IAsyncDisposable where T : class
+    public readonly struct ActivatedService<T> : IAsyncDisposable where T : class
     {
-        private IAsyncDisposable? disposable;
+        private readonly IAsyncDisposable? disposable;
 
         internal ActivatedService(T value, IAsyncDisposable? disposable)
         {

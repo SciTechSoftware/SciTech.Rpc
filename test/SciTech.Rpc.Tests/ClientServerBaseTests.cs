@@ -1,10 +1,12 @@
 ﻿using Moq;
 using NUnit.Framework;
+using SciTech.NetMemProfiler;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests
@@ -217,6 +219,81 @@ namespace SciTech.Rpc.Tests
             {
                 await host.ShutdownAsync().DefaultTimeout();
             }
+        }
+
+        [Test]
+        [Category("Nmp")]
+        public async Task Unpublish_Should_RemoveEventHandlers()
+        {
+            // Assert.IsTrue(MemProfiler.IsProfiling);
+
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
+            serverBuilder.RegisterService<ISimpleServiceWithEvents>();
+
+            var (host, connection) = this.CreateServerAndConnection(serverBuilder);
+            var servicePublisher = host.ServicePublisher;
+            host.Start();
+
+            var baseSnapshot = MemProfiler.FastSnapshot();
+            Client.Internal.RpcProxyOptions.RoundTripCancellationsAndTimeouts = true;
+            try
+            {
+                // TODO: Add option to use Singleton or service object.
+                await AddAndVerifyEventHandler_NoRemove_Async(connection, servicePublisher);
+                //System.GC.Collect();
+                //System.GC.WaitForPendingFinalizers();
+
+                Assert.IsTrue(
+                    MemAssertion.NoNewInstances(baseSnapshot, typeof(TestServiceWithEventsImpl), AssertionsThread.All));
+            }
+            finally
+            {
+                Client.Internal.RpcProxyOptions.RoundTripCancellationsAndTimeouts = false;
+                await host.ShutdownAsync().DefaultTimeout();
+            }
+        }
+
+        [Test]
+        [Category("Nmp")]
+        public Task AutoUnpublish_Should_RemoveEventHandlers()
+        {
+            // TODO:  Same as Unpublish_Should_RemoveEventHandlers, but with an auto-published service.
+            return Task.CompletedTask;
+        }
+
+
+        private static async Task AddAndVerifyEventHandler_NoRemove_Async(IRpcChannel connection, IRpcServicePublisher servicePublisher)
+        {
+            var serviceImpl = new TestServiceWithEventsImpl();
+            ISimpleServiceWithEvents clientService;
+            var eventFailedTcs = new TaskCompletionSource<Exception>();
+            EventHandler<ExceptionEventArgs> eventFailedHandler = (s, e) => eventFailedTcs.SetResult(e.Exception);
+
+            using (var publishScope = servicePublisher.PublishInstance(serviceImpl))
+            {
+                var objectId = publishScope.Value.ObjectId;
+                clientService = connection.GetServiceInstance<ISimpleServiceWithEvents>(objectId);
+
+                ((IRpcProxy)clientService).EventHandlerFailed += eventFailedHandler;
+
+                var detailedTcs = new TaskCompletionSource<ValueChangedEventArgs>();
+                clientService.DetailedValueChanged += (s, e) => detailedTcs.SetResult(e); 
+
+                await ((IRpcProxy)clientService).WaitForPendingEventHandlersAsync().DefaultTimeout();
+
+                clientService.SetValueAsync(12).Forget();
+
+                var detailedArgs = await detailedTcs.Task.DefaultTimeout();
+
+                // Verify
+                Assert.AreEqual(12, detailedArgs.NewValue);
+                Assert.AreEqual(0, detailedArgs.OldValue);
+
+                // Not removing the event handler
+            }
+
+            Assert.IsInstanceOf(typeof(RpcServiceUnavailableException),  await eventFailedTcs.Task.DefaultTimeout() );
+            ((IRpcProxy)clientService).EventHandlerFailed -= eventFailedHandler;
         }
 
         [Test]

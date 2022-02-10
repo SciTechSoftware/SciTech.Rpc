@@ -64,6 +64,8 @@
     <PackageReference Include="nunit" Version="3.12.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="3.17.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.2.0" />
+    <PackageReference Include="SciTech.MemProfilerApi" Version="5.7.2" />
+    <PackageReference Include="SciTech.NmpDataCollector" Version="5.7.25" />
   </ItemGroup>
 
 

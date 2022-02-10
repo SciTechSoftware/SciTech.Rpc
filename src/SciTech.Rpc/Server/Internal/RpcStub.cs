@@ -163,33 +163,57 @@ namespace SciTech.Rpc.Server.Internal
             IServiceProvider? serviceProvider,
             EventProducer<TService, TEventArgs> eventProducer)
         {
-            var service = this.GetServiceImpl(serviceProvider, request.Id);
-            if (RpcStubOptions.TestDelayEventHandlers)
-            {
-                await Task.Delay(100).ConfigureAwait(false);
-            }
 
+            TaskCompletionSource<bool> unpublishedTcs = new ();
+            var id = request.Id;
+            EventHandler<RpcServiceEventArgs> serviceUnpublishedHandler = (s, e) => { if( e.Type == typeof(TService) && e.ObjectId == id ) unpublishedTcs.SetResult(true); };
+
+            // Subscribe to ServiceUnpublished so that the event producer can exit if the service is unpublished with active event handlers.
+            // It would be nice if support for this could be included in the CancellationToken provided to EventProducer,
+            // but the EventProducer has no information about the actual service object.
+            // Using a unpublishedTask Task instead of a CancellationToken to simplify eventProducer.Run implementation (since it's using WhenAny, which doesn't have cancellation support).
+            this.serviceActivator.ServiceUnpublished += serviceUnpublishedHandler;
             try
             {
-                await eventProducer.Run(service.Value!).ContextFree();
-                this.logger.LogTrace("EventProducer.Run returned successfully.");
-            }
-            catch (OperationCanceledException oce)
-            {
-                this.logger.LogTrace(oce,"EventProducer.Run cancelled.");
-                throw;
-            }
-            catch (Exception e)
-            {
-                this.logger.LogTrace(e, "EventProducer.Run error.");
-                throw;
+                var service = this.GetServiceImpl(serviceProvider, request.Id);
+                var wrService = new WeakReference<TService>(service.Value);
+                if( !service.CanDispose)
+                {
+                    // If the activated service cannot be disposed, let's remove the reference to it, so that it can be GCed.
+                    service = default;  
+                }
+
+                if (RpcStubOptions.TestDelayEventHandlers)
+                {
+                    await Task.Delay(100).ConfigureAwait(false);
+                }
+
+                try
+                {
+                    await eventProducer.Run(wrService, unpublishedTcs.Task).ContextFree();
+                    this.logger.LogTrace("EventProducer.Run returned successfully.");
+                }
+                catch (OperationCanceledException oce)
+                {
+                    this.logger.LogTrace(oce, "EventProducer.Run cancelled.");
+                    throw;
+                }
+                catch (Exception e)
+                {
+                    this.logger.LogTrace(e, "EventProducer.Run error.");
+                    throw;
+                }
+                finally
+                {
+                    if (service.CanDispose)
+                    {
+                        await service.DisposeAsync().ContextFree();
+                    }
+                }
             }
             finally
             {
-                if( service.CanDispose)
-                {
-                    await service.DisposeAsync().ContextFree();
-                }
+                this.serviceActivator.ServiceUnpublished -= serviceUnpublishedHandler;
             }
         }
 
@@ -469,7 +493,9 @@ namespace SciTech.Rpc.Server.Internal
                         // not just for the whole numerator. Furthermore the timeout should not actually end
                         // the enumeration, it should just wake it up so that we can check if the service
                         // is still published.
-                        asyncEnum = result.GetAsyncEnumerator(combinedCts.Token);
+                        // TODO: Use this.serviceActivator.ServiceUnpublished to handle unpublished services
+                        // instead a timeout. Similar to how EventHandlers are implemented.
+                        asyncEnum = result.GetAsyncEnumerator(combinedCts.Token);                        
 
                         while (true)
                         {

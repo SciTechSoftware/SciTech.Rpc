@@ -151,7 +151,7 @@ namespace SciTech.Threading
 
             if (!task.IsCompleted || task.IsFaulted)
             {
-                _ = task.ContinueWith(t => exceptionHandler?.Invoke(t.Exception!), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                _ = task.ContinueWith(t => exceptionHandler?.Invoke(t.Exception!.InnerException ?? t.Exception), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }        
         }
 
@@ -161,7 +161,7 @@ namespace SciTech.Threading
 
             if (!task.IsCompleted || task.IsFaulted)
             {
-                _ = task.ContinueWith(t => exceptionHandler?.HandleException(t.Exception!, UnexpectedExceptionAction.Handle), 
+                _ = task.ContinueWith(t => exceptionHandler?.HandleException(t.Exception!.InnerException ?? t.Exception, UnexpectedExceptionAction.Handle), 
                     CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }
         }

@@ -1,2 +1,6 @@
 - name: Introduction
   href: intro.md
+- name: Define RPC services
+  href: define-services.md
+- name: Exception and error handling
+  href: exceptions.md

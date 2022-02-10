@@ -22,9 +22,9 @@ public interface IBlockingService
 }
 ```
 
-Unlike WCF, there’s no need to mark each member with an attribute and the service must be defined using an interface. All members of an interface marked as an RPCService will be available for remote calls.
+This is similar to the `ServiceContract` in, WCF, but unlike WCF, there's no need to mark each member with an attribute and the service must be defined using an interface. All members of an interface marked as an `RPCService  will be available for remote calls.
 
-Each member of an RPC interface defines an RPC operation. The operation is only identified by name, so it’s not possible to have overloaded members, e.g. it’s not allowed to have one “int Add(int,int)” member and one “double Add(double,double)” member. A simple method operation can be defined by three different interface methods, a blocking member, an asynchronous member, or an asynchronous member with cancellation support. Consider a method operation like `GetMailbox(string name)`, which returns a mailbox service instance for a specific name. This operation can be defined as:
+Each member of an RPC interface defines an RPC operation. The operation is only identified by name, so it's not possible to have overloaded members, e.g. it's not allowed to have one `int Add(int,int)` member and one `double Add(double,double)` member. A simple method operation can be defined by three different interface methods, a blocking member, an asynchronous member, or an asynchronous member with cancellation support. Consider a method operation like `GetMailbox(string name)`, which returns a mailbox service instance for a specific name. This operation can be defined as:
 
 ```csharp
 [RpcService]
@@ -34,13 +34,13 @@ public interface IMailboxManagerService
 }
  
 [RpcService(ServerDefinitionType = typeof(IMailboxManagerService))]
-public interface IMailboxManagerServiceClient : IRpcService
+public interface IMailboxManagerServiceClient : IRpcProxy
 {
     Task<RpcObjectRef<RpcObjectRef<IMailboxServiceClient>> GetMailboxAsync(string name);
 }
 ```
 
-By default the name of a service is the same as the interface defining it, with the initial ‘I’ removed. In this case the client interface will not match the correct service name, so the server side interface has to be specified or the name explicitly assigned (e.g. using `ServerDefinitionType = typeof(IMailboxManagerService)` or `Name = "MailboxManagerService"`). The `IRpcService` interface seen in the example, provides some useful client side utility methods and properties and is automatically implemented by the proxy. 
+By default the name of a service is the same as the interface defining it, with the initial 'I' removed. In this case the client interface will not match the correct service name, so the server side interface has to be specified or the name explicitly assigned (e.g. using `ServerDefinitionType = typeof(IMailboxManagerService)` or `Name = "MailboxManagerService"`). The `IRpcProxy` interface seen in the example, provides some useful client side utility methods and properties and is automatically implemented by the proxy. 
  
 It is allowed to define multiple variants of the same operation on the client side, e.g. both a blocking and an asynchronous method for the same operation (`GetMailbox` and` GetMailboxAsync`). This is not allowed on the server side, since then the actual method to call would be ambiguous.
 

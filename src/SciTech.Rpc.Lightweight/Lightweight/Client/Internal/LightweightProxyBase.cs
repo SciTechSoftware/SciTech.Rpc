@@ -60,6 +60,11 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         private readonly int streamingCallTimeout;
 
+        protected LightweightProxyBase(LightweightProxyArgs proxyArgs) : base(proxyArgs, null)
+        {
+
+        }
+
         protected LightweightProxyBase(LightweightProxyArgs proxyArgs, LightweightMethodDef[] proxyMethods) : base(proxyArgs, proxyMethods)
         {
             this.connection = proxyArgs.Channel;

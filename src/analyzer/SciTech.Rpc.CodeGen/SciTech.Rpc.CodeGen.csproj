@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <RootNamespace>SciTech.Rpc</RootNamespace>
+    <ApplicationIcon />
+    <OutputType>Exe</OutputType>
+    <StartupObject />
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="CodeGen\RpcStubPrototype.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\SciTech.Rpc\RpcDefinitionException.cs" Link="RpcDefinitionException.cs" />
+    <None Include="..\..\SciTech.Rpc\RpcServiceAttribute.cs" Link="RpcServiceAttribute.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="CodeGen\RpcStubPrototype.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.9.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.0.0" PrivateAssets="all" />
+    <!--<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.9.0" PrivateAssets="all" />-->
+  </ItemGroup>
+
+</Project>

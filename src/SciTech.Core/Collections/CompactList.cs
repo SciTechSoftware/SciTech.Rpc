@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
@@ -49,7 +50,7 @@ namespace SciTech.Collections
             var list = new List<T>(smallCollection);
             list.Insert(index, newItem);
             return list;
-        };
+        }!;
 
         private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
 

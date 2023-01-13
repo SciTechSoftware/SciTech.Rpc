@@ -10,6 +10,7 @@
     <HasCollectibleAssemblies>true</HasCollectibleAssemblies>
     <HasNetGrpc>false</HasNetGrpc>
     <HasAsyncDispose>false</HasAsyncDispose>
+    <NetFramework>true</NetFramework>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'net461'">
@@ -27,6 +28,7 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <NetFramework>false</NetFramework>
     <HasAsyncEnum>true</HasAsyncEnum>
     <HasNullableAttributes>true</HasNullableAttributes>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
@@ -35,6 +37,7 @@
 
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <NetFramework>false</NetFramework>
     <!--AssemblyBuilderAccess.RunAndCollect seems to unload collectible assemblies
     even though they are still on stack when running under .NET Core 2.0 and .NET Core 2.1 -->
     <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
@@ -42,6 +45,7 @@
   
   <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <NetFramework>false</NetFramework>
     <HasAsyncEnum>true</HasAsyncEnum>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
     
@@ -50,8 +54,9 @@
     <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0' OR '$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0' OR '$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0' OR '$(TargetFramework)' == 'net6.0'">
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
+    <NetFramework>false</NetFramework>
     <HasAsyncEnum>true</HasAsyncEnum>
     <HasNullableAttributes>true</HasNullableAttributes>
     <HasPlatformSpanOverloads>true</HasPlatformSpanOverloads>
@@ -59,7 +64,7 @@
     <HasAsyncDispose>true</HasAsyncDispose>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net5.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net5.0' OR '$(TargetFramework)' == 'net6.0'">
     <HasConnectCancellation>true</HasConnectCancellation>
   </PropertyGroup>
 

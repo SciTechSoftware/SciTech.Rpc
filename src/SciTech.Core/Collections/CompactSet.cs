@@ -17,7 +17,7 @@ namespace SciTech.Collections
                 newItem
             };
             return set;
-        };
+        }!;
 
         private static readonly EqualityComparer<T> Comparer = SmallCollection<T>.Comparer;
 

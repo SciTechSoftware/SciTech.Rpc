@@ -30,6 +30,7 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
+using static System.FormattableString;
 
 namespace SciTech.Rpc.Lightweight.Client
 {
@@ -43,6 +44,15 @@ namespace SciTech.Rpc.Lightweight.Client
         private volatile AuthenticatedStream? authenticatedStream;
         private AuthenticationClientOptions authenticationOptions;
         private EndPoint? remoteEndPoint;
+
+        public TcpRpcConnection(string hostOrIpAddress,
+            AuthenticationClientOptions? authenticationOptions = null,
+            IRpcClientOptions? options = null,
+            LightweightOptions? lightweightOptions = null)
+            : this(new RpcConnectionInfo(new Uri(Invariant($"{WellKnownRpcSchemes.LightweightTcp}://{hostOrIpAddress}"))),
+                  authenticationOptions, options, lightweightOptions)
+        {
+        }
 
         public TcpRpcConnection(
             RpcConnectionInfo connectionInfo,

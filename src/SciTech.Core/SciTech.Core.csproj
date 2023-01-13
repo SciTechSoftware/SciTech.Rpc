@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.1;net5.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.1;net5.0;net6.0</TargetFrameworks>
   </PropertyGroup>
   
   <PropertyGroup>
@@ -26,9 +26,17 @@
     <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
   </PropertyGroup>
 
+  <ItemGroup Condition="'$(NetFramework)' == 'true'">
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(NetFramework)' == 'true' OR '$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'netstandard2.1'">
+    <PackageReference Include="System.Collections.Immutable" Version="6.0.0" />
+  </ItemGroup>
+
+
   <ItemGroup>
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.0.0" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
   </ItemGroup>
 
   <Import Project="..\Platform.props" />
@@ -69,6 +77,5 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>-->
     <!--<PackageReference Include="System.IO.Pipelines" Version="4.7.0" />-->
-    <PackageReference Include="System.Collections.Immutable" Version="1.7.0" />
   </ItemGroup>
 </Project>

@@ -27,7 +27,7 @@ namespace SciTech.Collections
 
             list[index] = newItem;
             return list;
-        };
+        }!;
 
         private readonly object? data;
 

@@ -68,11 +68,6 @@
     <PackageReference Include="SciTech.NmpDataCollector" Version="5.7.25" />
   </ItemGroup>
 
-
-  <ItemGroup Condition="'$(HasAsyncEnum)' == 'false'">
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="5.0.0" />
-  </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\src\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.DataContract\SciTech.Rpc.DataContract.csproj" />

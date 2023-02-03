@@ -893,7 +893,7 @@ namespace SciTech.Rpc.Internal
                 throw new RpcDefinitionException("Name of server side type does not match specified service name."); ;
             }
 
-            if (!string.IsNullOrEmpty(rpcAttribute.Namespace) && rpcAttribute.Namespace != serviceNamespace)
+            if (rpcAttribute.Namespace != null && rpcAttribute.Namespace != serviceNamespace)
             {
                 throw new RpcDefinitionException("Namespace of server side type does not match specified service namespace."); ;
             }
@@ -979,7 +979,7 @@ namespace SciTech.Rpc.Internal
         private static string GetServiceNamespace(Type serviceType, RpcServiceAttribute? rpcAttribute)
         {
             var serviceNamespace = rpcAttribute?.Namespace;
-            if (string.IsNullOrEmpty(serviceNamespace))
+            if (serviceNamespace == null)
             {
                 serviceNamespace = serviceType.Namespace ?? "";
             }

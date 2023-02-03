@@ -77,7 +77,7 @@ namespace SciTech.Rpc.Server
         /// <typeparam name="TService">The type of the published instance.</typeparam>
         /// <param name="factory">A factory function that should create the service instance specified by the <see cref="RpcObjectId"/>
         /// with the help of the provided <see cref="IServiceProvider"/>.</param>
-        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
+        /// <returns>An owned object including the <see cref="RpcObjectRef"/> identifying the published instance. The owned object will unpublish 
         /// the service instance when disposed.</returns>
         public IOwned<RpcObjectRef<TService>> PublishInstance<TService>(Func<IServiceProvider?, RpcObjectId, IOwned<TService>> factory)
             where TService : class;
@@ -96,7 +96,7 @@ namespace SciTech.Rpc.Server
         /// </summary>
         /// <typeparam name="TService"></typeparam>
         /// <param name="serviceInstance">The </param>
-        /// <returns>A scoped object including the <see cref="RpcObjectRef"/> identifying the published instance. The scoped object will unpublish 
+        /// <returns>An owned object including the <see cref="RpcObjectRef"/> identifying the published instance. The owned object will unpublish 
         /// the service instance when disposed.</returns>
         IOwned<RpcObjectRef<TService>> PublishInstance<TService>(IOwned<TService> serviceInstance) where TService : class;
 

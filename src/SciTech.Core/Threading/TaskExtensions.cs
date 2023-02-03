@@ -149,19 +149,19 @@ namespace SciTech.Threading
         {
             if (task == null) throw new ArgumentNullException(nameof(task));
 
-            if (!task.IsCompleted || task.IsFaulted)
+            if (( !task.IsCompleted || task.IsFaulted ) && exceptionHandler != null )
             {
-                _ = task.ContinueWith(t => exceptionHandler?.Invoke(t.Exception!.InnerException ?? t.Exception), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                _ = task.ContinueWith(t => exceptionHandler.Invoke(t.Exception!.InnerException ?? t.Exception), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }        
         }
 
-        public static void Forget(this Task task, IExceptionHandler exceptionHandler)
+        public static void Forget(this Task task, IExceptionHandler? exceptionHandler)
         {
             if (task == null) throw new ArgumentNullException(nameof(task));
 
-            if (!task.IsCompleted || task.IsFaulted)
+            if ((!task.IsCompleted || task.IsFaulted) && exceptionHandler != null)
             {
-                _ = task.ContinueWith(t => exceptionHandler?.HandleException(t.Exception!.InnerException ?? t.Exception, UnexpectedExceptionAction.Handle), 
+                _ = task.ContinueWith(t => exceptionHandler.HandleException(t.Exception!.InnerException ?? t.Exception, UnexpectedExceptionAction.Handle), 
                     CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             }
         }

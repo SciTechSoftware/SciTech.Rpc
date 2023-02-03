@@ -26,7 +26,7 @@ namespace SciTech.Rpc.Client
     {
         private RpcConnectionState connectionState;
 
-        private bool hasPendingStateChange;
+        private volatile bool hasPendingStateChange;
 
         protected RpcConnection(
             RpcConnectionInfo connectionInfo,
@@ -84,28 +84,28 @@ namespace SciTech.Rpc.Client
         {
             this.Connected?.Invoke(this, EventArgs.Empty);
 
-            this.RaiseStateChangdIfNecessary();
+            this.RaiseStateChangedIfNecessary();
         }
 
         protected void NotifyConnectionFailed()
         {
             this.ConnectionFailed?.Invoke(this, EventArgs.Empty);
 
-            this.RaiseStateChangdIfNecessary();
+            this.RaiseStateChangedIfNecessary();
         }
 
         protected void NotifyConnectionLost()
         {
             this.ConnectionLost?.Invoke(this, EventArgs.Empty);
 
-            this.RaiseStateChangdIfNecessary();
+            this.RaiseStateChangedIfNecessary();
         }
 
         protected void NotifyDisconnected()
         {
             this.Disconnected?.Invoke(this, EventArgs.Empty);
 
-            this.RaiseStateChangdIfNecessary();
+            this.RaiseStateChangedIfNecessary();
         }
 
         /// <summary>
@@ -123,7 +123,7 @@ namespace SciTech.Rpc.Client
             }
         }
 
-        private void RaiseStateChangdIfNecessary()
+        private void RaiseStateChangedIfNecessary()
         {
             bool stateChanged;
             stateChanged = this.hasPendingStateChange;

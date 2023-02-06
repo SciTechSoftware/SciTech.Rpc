@@ -198,7 +198,11 @@ namespace SciTech.Rpc.Lightweight.Server
                                 {
                                     if (receiveTasks[index] == null)
                                     {
+#if NET6_0_OR_GREATER
+                                        receiveTasks[index] = udpClients[index].ReceiveAsync(cancellationToken).AsTask();
+#else
                                         receiveTasks[index] = udpClients[index].ReceiveAsync();
+#endif
                                     }
                                 }
 

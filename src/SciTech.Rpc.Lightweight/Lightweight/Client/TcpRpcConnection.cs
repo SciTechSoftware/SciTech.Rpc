@@ -41,6 +41,7 @@ namespace SciTech.Rpc.Lightweight.Client
         // TODO: Add logging.
         //private static readonly ILog Logger = LogProvider.For<TcpLightweightRpcConnection>();
 
+        [SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Ownership transferred")]
         private volatile AuthenticatedStream? authenticatedStream;
         private AuthenticationClientOptions authenticationOptions;
         private EndPoint? remoteEndPoint;
@@ -186,7 +187,8 @@ namespace SciTech.Rpc.Lightweight.Client
                             TargetHost = sslHost,
                             ClientCertificates = sslOptions.ClientCertificates,
                             EnabledSslProtocols = sslOptions.EnabledSslProtocols,
-                            CertificateRevocationCheckMode = sslOptions.CertificateRevocationCheckMode
+                            CertificateRevocationCheckMode = sslOptions.CertificateRevocationCheckMode,
+                            RemoteCertificateValidationCallback = sslOptions.RemoteCertificateValidationCallback
                         };
 
                         await sslStream.AuthenticateAsClientAsync(authOptions, cancellationToken).ContextFree();

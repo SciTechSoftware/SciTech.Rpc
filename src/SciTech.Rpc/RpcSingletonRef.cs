@@ -11,11 +11,25 @@ namespace SciTech.Rpc
     /// <typeparam name="TService"></typeparam>
     [DataContract]
     //[ProtoContract(SkipConstructor = true)]
-    public class RpcSingletonRef<TService> where TService : class
+    public class RpcSingletonRef<TService> : RpcSingletonRef where TService : class
     {
         public RpcSingletonRef() { }
 
-        internal RpcSingletonRef(RpcConnectionInfo? connectionInfo) 
+        internal RpcSingletonRef(RpcConnectionInfo? connectionInfo) : base(connectionInfo)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Provides information about how to access a published RPC service.
+    /// </summary>
+    [DataContract]
+    //[ProtoContract(SkipConstructor = true)]
+    public class RpcSingletonRef
+    {
+        public RpcSingletonRef() { }
+
+        internal RpcSingletonRef(RpcConnectionInfo? connectionInfo)
         {
             this.ServerConnection = connectionInfo;
         }

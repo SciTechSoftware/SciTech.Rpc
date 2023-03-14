@@ -473,6 +473,8 @@ namespace SciTech.Rpc.Server
                             }
                         }
                     }
+
+                    this.singletonTypeToPublishedServices.Remove(typeof(TService));
                 }
             }
 

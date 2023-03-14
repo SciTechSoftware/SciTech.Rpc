@@ -54,14 +54,14 @@ namespace SciTech.Rpc
         /// Gets the name of this RPC service. If not specified, the name will be retrieved from the <see cref="ServerDefinitionType"/> if available. Otherwise, 
         /// the name of the service interface with the initial 'I' removed will be used.
         /// </summary>
-        public string Name { get; set; } = "";
+        public string? Name { get; set; }
 
         /// <summary>
         /// Gets the namespace of this service. This corresponds to the package name of a gRPC service. If not specified, the name 
         /// will be retrieved from the <see cref="ServerDefinitionType"/> if available. Otherwise, 
         /// the namespace of the service interface will be used.
         /// </summary>
-        public string Namespace { get; set; } = "";
+        public string? Namespace { get; set; }
 
         /// <summary>
         /// Optional information about the server side definition type, used when <see cref="ServiceDefinitionSide"/> is 

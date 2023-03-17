@@ -40,6 +40,10 @@ This package contains a Protobuf serializer (SciTech.Rpc.Serialization.ProtobufS
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="1.1.1" />
+  </ItemGroup>
+
 
   
 </Project>

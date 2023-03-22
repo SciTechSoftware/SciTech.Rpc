@@ -238,16 +238,16 @@ namespace SciTech.Rpc.Client
         {
             if (connectionInfo.ServerId != RpcServerId.Empty)
             {
-                if (this.idToKnownConnection.TryGetValue(connectionInfo.ServerId, out var knownIdConnection))
+                if (this.idToKnownConnection.TryGetValue(connectionInfo.ServerId, out var knownIdChannel))
                 {
-                    return knownIdConnection;
+                    return knownIdChannel;
                 }
             }
             else if (connectionInfo.HostUrl != null)
             {
-                if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var knownUrlConnection))
+                if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var knownUrlChannel))
                 {
-                    return knownUrlConnection;
+                    return knownUrlChannel;
                 }
             }
 

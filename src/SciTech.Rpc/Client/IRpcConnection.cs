@@ -21,6 +21,7 @@ namespace SciTech.Rpc.Client
     public enum RpcConnectionState
     {
         None,
+        Connecting,
         Connected,
         ConnectionFailed,
         ConnectionLost,

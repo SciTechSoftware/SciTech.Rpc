@@ -59,7 +59,7 @@ namespace SciTech.Rpc.Client
         TService UnsafeCast<TService>() where TService : class;
 
         /// <summary>
-        /// Wait for all added eventh handlers to be acknowledged.
+        /// Wait for all added event handlers to be acknowledged.
         /// <para>When adding </para>
         /// </summary>
         /// <returns></returns>

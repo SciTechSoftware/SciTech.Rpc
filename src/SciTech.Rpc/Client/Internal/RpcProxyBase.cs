@@ -70,17 +70,6 @@ namespace SciTech.Rpc.Client.Internal
             this.Channel = proxyArgs.Channel;
             this.serializer = proxyArgs.Serializer;
             this.SyncContext = proxyArgs.SyncContext;
-            if (proxyArgs.ImplementedServices?.Count > 0)
-            {
-                if (proxyArgs.ImplementedServices is HashSet<string> hashedServices)
-                {
-                    this.implementedServices = hashedServices;
-                }
-                else
-                {
-                    this.implementedServices = new HashSet<string>(proxyArgs.ImplementedServices);
-                }
-            }
 
             this.logger = /*proxyArgs.Logger ?? */ RpcLogger.TryCreateLogger(this.GetType());
         }
@@ -91,7 +80,7 @@ namespace SciTech.Rpc.Client.Internal
         /// The services implemented by the server side this proxy. May be empty if
         /// implemented services are not known.
         /// </summary>
-        public IReadOnlyCollection<string> ImplementedServices => this.implementedServices ?? (IReadOnlyCollection<string>)Array.Empty<string>();
+        public abstract IReadOnlyCollection<string> ImplementedServices { get; }
 
         public RpcObjectId ObjectId => this.objectId;
 
@@ -99,12 +88,7 @@ namespace SciTech.Rpc.Client.Internal
 
         protected object SyncRoot { get; } = new object();
 
-        public bool ImplementsServices(IReadOnlyCollection<string>? otherServices)
-        {
-            return otherServices == null || otherServices.Count == 0
-                || (this.implementedServices != null && this.implementedServices.IsSupersetOf(otherServices));
-        }
-
+        public abstract bool ImplementsServices(IReadOnlyCollection<string>? otherServices);
 
         /// <summary>
         /// Protected to make it easier to use by dynamically generated code.
@@ -117,8 +101,6 @@ namespace SciTech.Rpc.Client.Internal
         /// </summary>
         [SuppressMessage("Design", "CA1051:Do not declare visible instance fields", Justification = "Accessed by generated code")]
         protected readonly IRpcSerializer serializer;
-
-        private HashSet<string>? implementedServices;
 
     }
 
@@ -181,8 +163,26 @@ namespace SciTech.Rpc.Client.Internal
         /// <param name="proxyMethods"></param>
         protected RpcProxyBase(RpcProxyArgs proxyArgs, TMethodDef[] proxyMethods) : base(proxyArgs)
         {
+            if (proxyArgs.ImplementedServices?.Count > 0)
+            {
+                if (proxyArgs.ImplementedServices is HashSet<string> hashedServices)
+                {
+                    this.implementedServices = hashedServices;
+                }
+                else
+                {
+                    this.implementedServices = new HashSet<string>(proxyArgs.ImplementedServices);
+                }
+            }
+
             this.proxyMethods = proxyMethods;
         }
+
+        /// <summary>
+        /// The services implemented by the server side this proxy. May be empty if
+        /// implemented services are not known.
+        /// </summary>
+        public override IReadOnlyCollection<string> ImplementedServices => this.implementedServices ?? (IReadOnlyCollection<string>)Array.Empty<string>();
 
         public event EventHandler<ExceptionEventArgs>? EventHandlerFailed;
 
@@ -257,6 +257,12 @@ namespace SciTech.Rpc.Client.Internal
             newServicesTcs!.SetResult(implementedServices);
 
             return implementedServices;
+        }
+
+        public override bool ImplementsServices(IReadOnlyCollection<string>? otherServices)
+        {
+            return otherServices == null || otherServices.Count == 0
+                || (this.implementedServices != null && this.implementedServices.IsSupersetOf(otherServices));
         }
 
         /// <summary>

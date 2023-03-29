@@ -26,6 +26,8 @@ namespace SciTech.Rpc.Server
         /// </summary>
         /// <value>The remote user associated with the call</value>
         IPrincipal? User { get; }
+
+        IRpcServerEndPoint? EndPoint { get; }
     }
 
     /// <summary>

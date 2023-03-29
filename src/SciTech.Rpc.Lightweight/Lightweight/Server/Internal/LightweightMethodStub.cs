@@ -43,6 +43,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public LightweightRpcEndPoint EndPoint { get; private set; }
 
+        IRpcServerEndPoint? IRpcServerContext.EndPoint => this.EndPoint;
+
         public string? GetHeaderString(string key)
         {
             if (this.headers != null && this.headers.Count > 0)

@@ -206,6 +206,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                             {
                                 if (authenticationOptions is SslServerOptions sslOptions)
                                 {
+
                                     if (sslOptions.ServerCertificate != null)
                                     {
                                         var sslStream = new SslStream(socketStream);
@@ -225,7 +226,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                             try { await sslStream.DisposeAsync().ContextFree(); } catch { }
                                             socketStream = null;
                                         }
-
+                                    } else
+                                    {
+                                        this.logger.LogWarning("Missing certificate in SslServerOptions");
+                                        try { await socketStream.DisposeAsync().ContextFree(); } catch { }
+                                        socketStream = null;
                                     }
                                 }
                                 else if (authenticationOptions is NegotiateServerOptions negotiateOptions)

@@ -24,23 +24,42 @@ namespace SciTech.Rpc.Lightweight.Client
 
         private readonly AuthenticationClientOptions? authenticationOptions;
 
+        private readonly Func<RpcConnectionInfo,AuthenticationClientOptions?>? authenticationOptionsProvider;
+
         public LightweightConnectionProvider(
             IRpcClientOptions? options = null, 
             LightweightOptions? lightweightOpions = null)
-            : this(null, options, lightweightOpions)
+            : this(null, null, options, lightweightOpions)
         {
         }
 
         public LightweightConnectionProvider(
+            AuthenticationClientOptions authenticationOptions,
+            IRpcClientOptions? options = null,
+            LightweightOptions? lightweightOpions = null)
+            : this(authenticationOptions, null, options, lightweightOpions)
+        {
+        }
+
+        public LightweightConnectionProvider(
+            Func<RpcConnectionInfo, AuthenticationClientOptions?> authenticationOptionsProvider,
+            IRpcClientOptions? options = null,
+            LightweightOptions? lightweightOpions = null)
+            : this(null, authenticationOptionsProvider, options, lightweightOpions)
+        {
+        }
+
+        private LightweightConnectionProvider(
             AuthenticationClientOptions? authenticationOptions,
+            Func<RpcConnectionInfo, AuthenticationClientOptions?>? authenticationOptionsProvider,
             IRpcClientOptions? options = null,
             LightweightOptions? lightweightOpions = null)
         {
             this.authenticationOptions = authenticationOptions;
+            this.authenticationOptionsProvider = authenticationOptionsProvider;
             this.options = options?.AsImmutable();
             this.lightweightOpions = lightweightOpions;
         }
-
 
         public bool CanCreateChannel(RpcConnectionInfo connectionInfo)
         {            
@@ -58,7 +77,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
                 return new TcpRpcConnection(
                     connectionInfo!, 
-                    this.authenticationOptions, 
+                    this.authenticationOptionsProvider?.Invoke(connectionInfo!) ?? this.authenticationOptions, 
                     ImmutableRpcClientOptions.Combine(options, this.options),
                     proxyGenerator,
                     this.lightweightOpions);

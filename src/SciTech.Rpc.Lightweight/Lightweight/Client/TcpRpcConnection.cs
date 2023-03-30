@@ -183,7 +183,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
 #if PLAT_CONNECT_CANCELLATION
                         var authOptions = new SslClientAuthenticationOptions()
-                        {
+                        {                            
                             TargetHost = sslHost,
                             ClientCertificates = sslOptions.ClientCertificates,
                             EnabledSslProtocols = sslOptions.EnabledSslProtocols,

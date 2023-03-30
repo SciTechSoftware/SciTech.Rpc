@@ -251,13 +251,12 @@ namespace SciTech.Rpc.Client
                 }
             }
 
-            return null;
-
             //if (connectionInfo.ServerId != RpcServerId.Empty
             //    && this.idToServerConnection.TryGetValue(connectionInfo.ServerId, out var wrIdConnection)
-            //    && wrIdConnection.TryGetTarget(out var idConnection))
+            //    && wrIdConnection.TryGetTarget(out var idChannel)
+            //    && (idChannel is not IRpcConnection idConnection || idConnection.ConnectionState is RpcConnectionState.ConnectionLost or ))
             //{
-            //    return idConnection;
+            //    return idChannel;
             //}
 
             //if (!string.IsNullOrWhiteSpace(connectionInfo.HostUrl)
@@ -281,7 +280,7 @@ namespace SciTech.Rpc.Client
             //    return urlConnection;
             //}
 
-            //return null;
+            return null;
         }
 
     }

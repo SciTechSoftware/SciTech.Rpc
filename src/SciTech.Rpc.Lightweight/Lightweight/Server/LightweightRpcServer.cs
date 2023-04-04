@@ -225,9 +225,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
         protected virtual ValueTask OnReceiveAsync(IMemoryOwner<byte> message) => default;
 
-        private async Task RunClientAsync(IDuplexPipe pipe, LightweightRpcEndPoint endPoint, IPrincipal? user)
+        private async Task RunClientAsync(IDuplexPipe pipe, LightweightRpcEndPoint endPoint, EstablishedConnection? establishedConnection)
         {
-            var client = new ClientPipeline(pipe, this, endPoint, user, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive);
+            var client = new ClientPipeline(pipe, this, endPoint, establishedConnection, this.MaxRequestSize, this.MaxResponseSize, this.KeepSizeLimitedConnectionAlive);
             try
             {
                 this.AddClient(client);
@@ -409,8 +409,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 => this.server.HandleDatagramAsync(endPoint, data, cancellationToken);
 
 
-            public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user)
-                => this.server.RunClientAsync(clientPipe, endPoint, user);
+            public Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, EstablishedConnection? establishedConnection)
+                => this.server.RunClientAsync(clientPipe, endPoint, establishedConnection);
         }
 
 

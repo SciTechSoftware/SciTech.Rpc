@@ -9,10 +9,8 @@
 //
 #endregion
 
-using SciTech.Rpc.Lightweight.Internal;
-using System.Collections.Generic;
+using SciTech.Rpc.Server;
 using System.IO.Pipelines;
-using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -33,7 +31,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// <param name="clientPipe">Duplex pipe to use for communication with the other party.</param>
         /// <param name="user">The connected user; <c>null</c> if not available.</param>
         /// <returns></returns>
-        Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, IPrincipal? user);
+        Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, EstablishedConnection? establishedConnection);
 
         /// <summary>
         /// Handles a single datagram packet and returns a datagram response.

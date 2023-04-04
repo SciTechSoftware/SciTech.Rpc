@@ -18,6 +18,7 @@ using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -79,16 +80,16 @@ namespace SciTech.Rpc.Lightweight.Server
             private readonly LightweightRpcServer server;
 
             private readonly object syncRoot = new object();
-            private readonly IPrincipal? user;
+            private readonly EstablishedConnection? establishedConnection;
             private readonly LightweightRpcEndPoint endPoint;
             private readonly IRpcSerializer serializer;
 
-            internal ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, LightweightRpcEndPoint endPoint, IPrincipal? user, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
+            internal ClientPipeline(IDuplexPipe pipe, LightweightRpcServer server, LightweightRpcEndPoint endPoint, EstablishedConnection? establishedConnection, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
                 : base(pipe, maxResponseSize, maxRequestSize, skipLargeFrames)
             {
                 this.server = server;
                 this.endPoint = endPoint;
-                this.user = user;
+                this.establishedConnection = establishedConnection;
                 this.serializer = server.Serializer;
             }
 
@@ -296,7 +297,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                         Task messageTask;
 
-                        var context = new LightweightCallContext(this.endPoint, this.user, frame.Headers, cancellationSource?.Token ?? default);
+                        var context = new LightweightCallContext(this.endPoint, this.establishedConnection, frame.Headers, cancellationSource?.Token ?? default);
                         scope = this.server.ServiceProvider?.CreateScope();
 
                         switch (frame.FrameType)

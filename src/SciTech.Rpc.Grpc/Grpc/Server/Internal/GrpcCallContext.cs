@@ -22,6 +22,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
 
         public IPrincipal? User { get; set; }
 
+        public EstablishedConnection? EstablishedConnection => null;
+
         public string? GetHeaderString(string key)
         {
             var metadata = this.callContext.RequestHeaders;

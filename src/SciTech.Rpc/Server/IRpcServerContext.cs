@@ -11,6 +11,8 @@
 
 #endregion Copyright notice and license
 
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Security.Principal;
 
 namespace SciTech.Rpc.Server
@@ -27,7 +29,7 @@ namespace SciTech.Rpc.Server
         /// <value>The remote user associated with the call</value>
         IPrincipal? User { get; }
 
-        IRpcServerEndPoint? EndPoint { get; }
+        EstablishedConnection? EstablishedConnection { get; }
     }
 
     /// <summary>
@@ -44,4 +46,5 @@ namespace SciTech.Rpc.Server
         /// <value>The remote user associated with the call</value>
         new IPrincipal? User { get; set; }
     }
+
 }

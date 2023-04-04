@@ -1,12 +1,14 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019-2021, SciTech Software AB
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
+
 #endregion
 
 using SciTech.Rpc.Client;
@@ -29,35 +31,31 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     {
         private readonly IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers;
 
-        public LightweightCallContext(LightweightRpcEndPoint endPoint, IPrincipal? user, IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers, CancellationToken cancellationToken)
+        private IPrincipal? user;
+
+        public LightweightCallContext(
+            LightweightRpcEndPoint endPoint,
+            EstablishedConnection? establishedConnection,
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers,
+            CancellationToken cancellationToken)
         {
             this.EndPoint = endPoint;
+            this.EstablishedConnection = establishedConnection;
             this.User = user;
             this.CancellationToken = cancellationToken;
             this.headers = headers;
         }
 
-        public IPrincipal? User { get; set; }
-
         public CancellationToken CancellationToken { get; }
 
         public LightweightRpcEndPoint EndPoint { get; private set; }
 
-        IRpcServerEndPoint? IRpcServerContext.EndPoint => this.EndPoint;
+        public EstablishedConnection? EstablishedConnection { get; }
 
-        public string? GetHeaderString(string key)
+        public IPrincipal? User
         {
-            if (this.headers != null && this.headers.Count > 0)
-            {
-                foreach (var pair in this.headers)
-                {
-                    if (pair.Key == key)
-                    {
-                        return RpcRequestContext.StringFromHeaderBytes(pair.Value);
-                    }
-                }
-            }
-            return null;
+            get => this.user ?? this.EstablishedConnection?.User;
+            set => this.user = value;
         }
 
         public ImmutableArray<byte> GetBinaryHeader(string key)
@@ -73,6 +71,22 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 }
             }
             return default;
+        }
+
+        public string? GetHeaderString(string key)
+        {
+            if (this.headers != null && this.headers.Count > 0)
+            {
+                foreach (var pair in this.headers)
+                {
+                    if (pair.Key == key)
+                    {
+                        return RpcRequestContext.StringFromHeaderBytes(pair.Value);
+                    }
+                }
+            }
+
+            return null;
         }
     }
 
@@ -94,75 +108,6 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public abstract Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context);
     }
-
-    internal class LightweightStreamingMethodStub<TRequest, TStreamResponse> : LightweightMethodStub
-        where TRequest : class, IObjectRequest
-    {
-        private readonly IRpcSerializer<TRequest> requestSerializer;
-
-        private readonly IRpcSerializer<TStreamResponse> responseSerializer;
-
-        /// <summary>
-        /// Creates a method stub that will handle streaming requests.
-        /// </summary>
-        /// <param name="fullName">Full name of unary operation.</param>
-        /// <param name="streamHandler">Delegate that will be invoked to handle the request.</param>
-        public LightweightStreamingMethodStub(
-            string fullName,
-            Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TStreamResponse>, LightweightCallContext, ValueTask> streamHandler,
-            IRpcSerializer serializer, RpcServerFaultHandler? faultHandler)
-            : base(fullName, serializer, faultHandler)
-        {
-            this.StreamHandler = streamHandler;
-            this.requestSerializer = this.Serializer.CreateTyped<TRequest>();
-            this.responseSerializer = this.Serializer.CreateTyped<TStreamResponse>();
-        }
-
-        public override Type RequestType => typeof(TRequest);
-
-        public override Type ResponseType => typeof(RpcResponse);
-
-        /// <summary>
-        /// Gets the handler for a streaming request. 
-        /// </summary>
-        internal Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TStreamResponse>, LightweightCallContext, ValueTask> StreamHandler { get; }
-
-        public override Task HandleMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
-        {
-            throw new NotSupportedException();
-        }
-
-        public override Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
-        {
-            TRequest? request = this.requestSerializer.Deserialize(frame.Payload);
-            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData);
-
-            var responseWriter = new StreamingResponseWriter<TStreamResponse>(pipeline, this.responseSerializer, frame.MessageNumber, frame.RpcOperation);
-            var responseTask = this.StreamHandler(request, serviceProvider, responseWriter, context);
-
-            return HandleStreamResponse(responseTask, responseWriter);
-        }
-
-        private static async Task HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TStreamResponse> responseWriter)
-        {
-            //try
-            //{
-            await responseTask.ContextFree();
-            await responseWriter.EndAsync().ContextFree();
-            //            }
-            //#pragma warning disable CA1031 // Do not catch general exception types
-            //            catch (Exception x)
-            //            {
-            //                HandleResponse
-            //                throw new NotImplementedException();
-
-            //            }
-            //#pragma warning restore CA1031 // Do not catch general exception types
-
-        }
-
-    }
-
 
     internal class LightweightMethodStub<TRequest, TResponse> : LightweightMethodStub
         where TRequest : class, IObjectRequest
@@ -225,7 +170,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             if (this.AllowInlineExecution)
             {
-                // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even 
+                // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even
                 // higher risk of dead-lock. AllowInlineExecution and PipeScheduler.Inline should
                 // be used with caution.
                 return ExecuteOperation(this, frameWriter, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
@@ -279,7 +224,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
                 var writeState = frameWriter.BeginWrite(responseHeader);
                 BufferWriterStream responseStream = writeState.Writer;
-                
+
                 try
                 {
                     this.responseSerializer.Serialize(responseStream, response);
@@ -289,7 +234,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     frameWriter.AbortWrite(writeState);
                     throw;
                 }
-                
+
                 var endWriteTask = frameWriter.EndWriteAsync(writeState, false);
                 if (!endWriteTask.IsCompletedSuccessfully)
                 {
@@ -325,6 +270,72 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
                 return AwaitAndWriteResponse(messageNumber, operation);
             }
+        }
+    }
+
+    internal class LightweightStreamingMethodStub<TRequest, TStreamResponse> : LightweightMethodStub
+            where TRequest : class, IObjectRequest
+    {
+        private readonly IRpcSerializer<TRequest> requestSerializer;
+
+        private readonly IRpcSerializer<TStreamResponse> responseSerializer;
+
+        /// <summary>
+        /// Creates a method stub that will handle streaming requests.
+        /// </summary>
+        /// <param name="fullName">Full name of unary operation.</param>
+        /// <param name="streamHandler">Delegate that will be invoked to handle the request.</param>
+        public LightweightStreamingMethodStub(
+            string fullName,
+            Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TStreamResponse>, LightweightCallContext, ValueTask> streamHandler,
+            IRpcSerializer serializer, RpcServerFaultHandler? faultHandler)
+            : base(fullName, serializer, faultHandler)
+        {
+            this.StreamHandler = streamHandler;
+            this.requestSerializer = this.Serializer.CreateTyped<TRequest>();
+            this.responseSerializer = this.Serializer.CreateTyped<TStreamResponse>();
+        }
+
+        public override Type RequestType => typeof(TRequest);
+
+        public override Type ResponseType => typeof(RpcResponse);
+
+        /// <summary>
+        /// Gets the handler for a streaming request.
+        /// </summary>
+        internal Func<TRequest, IServiceProvider?, IRpcAsyncStreamWriter<TStreamResponse>, LightweightCallContext, ValueTask> StreamHandler { get; }
+
+        public override Task HandleMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
+        {
+            TRequest? request = this.requestSerializer.Deserialize(frame.Payload);
+            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData);
+
+            var responseWriter = new StreamingResponseWriter<TStreamResponse>(pipeline, this.responseSerializer, frame.MessageNumber, frame.RpcOperation);
+            var responseTask = this.StreamHandler(request, serviceProvider, responseWriter, context);
+
+            return HandleStreamResponse(responseTask, responseWriter);
+        }
+
+        private static async Task HandleStreamResponse(ValueTask responseTask, StreamingResponseWriter<TStreamResponse> responseWriter)
+        {
+            //try
+            //{
+            await responseTask.ContextFree();
+            await responseWriter.EndAsync().ContextFree();
+            //            }
+            //#pragma warning disable CA1031 // Do not catch general exception types
+            //            catch (Exception x)
+            //            {
+            //                HandleResponse
+            //                throw new NotImplementedException();
+
+            //            }
+            //#pragma warning restore CA1031 // Do not catch general exception types
         }
     }
 }

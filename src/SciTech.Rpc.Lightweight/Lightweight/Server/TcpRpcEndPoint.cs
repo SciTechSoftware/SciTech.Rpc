@@ -253,7 +253,7 @@ namespace SciTech.Rpc.Lightweight.Server
             protected override Task OnClientConnectedAsync(in ClientConnection client)
             {
                 // TODO: Implement CancellationToken
-                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, client.User);
+                return this.connectionHandler.RunPipelineClientAsync(client.Transport, this.rpcEndPoint, client.EstablishedConnection);
             }
 
             protected override void OnClientFaulted(in ClientConnection client, Exception exception)

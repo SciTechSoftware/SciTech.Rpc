@@ -129,7 +129,6 @@ namespace SciTech.Rpc.Lightweight.Client
         [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Transferred ownership")]
         protected override async Task<IDuplexPipe> ConnectPipelineAsync(int sendMaxMessageSize, int receiveMaxMessageSize, CancellationToken cancellationToken)
         {
-            // TODO: Implement cancellationToken somehow, but how?. ConnectAsync and AuthenticateAsClientAsync don't accept a CancellationToken.
             IDuplexPipe? connection;
 
             var endPoint = this.CreateNetEndPoint();
@@ -165,7 +164,6 @@ namespace SciTech.Rpc.Lightweight.Client
                     var selectedAuthentication = await this.GetAuthenticationOptionsAsync(workStream, cancellationToken).ContextFree();
 
                     if (selectedAuthentication is SslClientOptions sslOptions)
-
                     {
                         string sslHost = endPoint switch
                         {
@@ -188,7 +186,11 @@ namespace SciTech.Rpc.Lightweight.Client
                             ClientCertificates = sslOptions.ClientCertificates,
                             EnabledSslProtocols = sslOptions.EnabledSslProtocols,
                             CertificateRevocationCheckMode = sslOptions.CertificateRevocationCheckMode,
-                            RemoteCertificateValidationCallback = sslOptions.RemoteCertificateValidationCallback
+                            RemoteCertificateValidationCallback = sslOptions.RemoteCertificateValidationCallback,
+                            LocalCertificateSelectionCallback= (object sender, string targetHost, X509CertificateCollection localCertificates, X509Certificate? remoteCertificate, string[] acceptableIssuers)=>
+                            {
+                                return localCertificates.Count > 0 ? localCertificates[0] : null;
+                            }
                         };
 
                         await sslStream.AuthenticateAsClientAsync(authOptions, cancellationToken).ContextFree();

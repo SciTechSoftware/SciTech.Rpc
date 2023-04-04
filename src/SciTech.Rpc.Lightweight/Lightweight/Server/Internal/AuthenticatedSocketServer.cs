@@ -201,8 +201,9 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                             }
 
 
-                            IPrincipal? user = null;
-                            if (socketStream != null && authenticationOptions != null)
+                            EstablishedConnection? establishedConnection = null;
+
+                            if (socketStream != null )
                             {
                                 if (authenticationOptions is SslServerOptions sslOptions)
                                 {
@@ -212,12 +213,31 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                         var sslStream = new SslStream(socketStream);
                                         try
                                         {
-                                            await sslStream.AuthenticateAsServerAsync(sslOptions.ServerCertificate,
+#if NETCOREAPP2_1_OR_GREATER
+                                            var streamAuthenticationOptions = new SslServerAuthenticationOptions
+                                            {
+                                                ServerCertificate = sslOptions.ServerCertificate,
+                                                ClientCertificateRequired = sslOptions.ClientCertificateRequired,
+                                                EnabledSslProtocols = sslOptions.EnabledSslProtocols,
+                                                CertificateRevocationCheckMode = sslOptions.CertificateRevocationCheckMode,
+                                                RemoteCertificateValidationCallback = sslOptions.RemoteCertificateValidationCallback
+                                            };
+
+                                            await sslStream.AuthenticateAsServerAsync(streamAuthenticationOptions, CancellationToken.None).ContextFree();
+#else
+                                            await sslStream.AuthenticateAsServerAsync(
+                                                sslOptions.ServerCertificate,
                                                 sslOptions.ClientCertificateRequired,
                                                 sslOptions.EnabledSslProtocols,
                                                 sslOptions.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ContextFree();
-
+#endif
                                             socketStream = sslStream;
+                                            establishedConnection = new EstablishedConnection(
+                                                user: null,
+                                                isMutuallyAuthenticated: sslStream.IsMutuallyAuthenticated,
+                                                isEncrypted: sslStream.IsEncrypted,
+                                                isSigned: sslStream.IsSigned,
+                                                headers: null);
                                         }
                                         catch (Exception x)
                                         {
@@ -241,7 +261,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                         await negotiateStream.AuthenticateAsServerAsync(
                                             negotiateOptions.Credential ?? CredentialCache.DefaultNetworkCredentials,
                                             ProtectionLevel.EncryptAndSign, TokenImpersonationLevel.Identification).ContextFree();
-                                        user = CreatePrincipal(negotiateStream.RemoteIdentity);
+
+                                        establishedConnection = new EstablishedConnection(
+                                            user: CreatePrincipal(negotiateStream.RemoteIdentity),
+                                            isMutuallyAuthenticated: negotiateStream.IsMutuallyAuthenticated,
+                                            isEncrypted: negotiateStream.IsEncrypted,
+                                            isSigned: negotiateStream.IsSigned,
+                                            headers: null);
+
                                         socketStream = negotiateStream;
                                     }
                                     catch (Exception x)
@@ -250,6 +277,14 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                         try { await negotiateStream.DisposeAsync().ContextFree(); } catch { }
                                         socketStream = null;
                                     }
+                                }
+                                else if( authenticationOptions == null )
+                                {
+                                    establishedConnection = EstablishedConnection.Empty;
+                                }
+                                else
+                                {
+                                    throw new InvalidOperationException($"Unexepected authentication options: '{authenticationOptions.Name} ({authenticationOptions.GetType()})'");
                                 }
                             }
 
@@ -261,7 +296,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                 {
                                     socketStream = null;
 
-                                    var clientConnection = new ClientConnection(pipe, remoteEndPoint, user);
+                                    var clientConnection = new ClientConnection(pipe, remoteEndPoint, establishedConnection);
 
                                     PipeScheduler.ThreadPool.Schedule(this.RunClientAsync, clientConnection);
                                     pipe = null;
@@ -323,11 +358,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// </summary>
         protected readonly struct ClientConnection
         {
-            internal ClientConnection(IDuplexPipe transport, EndPoint remoteEndPoint, IPrincipal? user)
+            internal ClientConnection(IDuplexPipe transport, EndPoint remoteEndPoint, EstablishedConnection? establishedConnection)
             {
                 this.Transport = transport;
                 this.RemoteEndPoint = remoteEndPoint;
-                this.User = user;
+                this.EstablishedConnection = establishedConnection;
             }
 
             /// <summary>
@@ -340,7 +375,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             /// </summary>
             public IDuplexPipe Transport { get; }
 
-            public IPrincipal? User { get; }
+            public EstablishedConnection? EstablishedConnection { get; }
         }
     }
 }

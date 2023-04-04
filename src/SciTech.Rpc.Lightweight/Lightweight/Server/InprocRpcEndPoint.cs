@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Server;
 using SciTech.Threading;
 using System;
 using System.IO.Pipelines;
@@ -93,7 +94,13 @@ namespace SciTech.Rpc.Lightweight.Server
                 if (this.isListening || this.pipe == null) throw new InvalidOperationException("DirectListener is already listening or has been stopped.");
                 this.isListening = true;
 
-                this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, Thread.CurrentPrincipal);//, this.clientCts.Token);
+                this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, 
+                    new EstablishedConnection( 
+                        Thread.CurrentPrincipal, 
+                        isMutuallyAuthenticated: true,  
+                        isEncrypted: true,  // Not really true, but no external entity could gain access to the data.
+                        isSigned: true,     // Not really true, but no external entity could tamper with the data.
+                        headers: null) );
                 this.pipe = null;
             }
 

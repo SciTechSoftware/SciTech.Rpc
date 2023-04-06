@@ -1143,7 +1143,7 @@ namespace SciTech.Rpc.Internal
 
         public RpcServiceDefinitionSide DefinitionSide { get; }
 
-        public string FullName => $"{this.Namespace}.{this.Name}";
+        public string FullName => !string.IsNullOrEmpty(this.Namespace) ? $"{this.Namespace}.{this.Name}" : this.Name;
 
         public Type? ImplementationType { get; }
 

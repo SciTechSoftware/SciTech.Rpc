@@ -189,7 +189,7 @@ namespace SciTech.Rpc.Lightweight.Client
                             RemoteCertificateValidationCallback = sslOptions.RemoteCertificateValidationCallback,
                             LocalCertificateSelectionCallback= (object sender, string targetHost, X509CertificateCollection localCertificates, X509Certificate? remoteCertificate, string[] acceptableIssuers)=>
                             {
-                                return localCertificates.Count > 0 ? localCertificates[0] : null;
+                                return localCertificates.Count > 0 ? localCertificates[0] : null!;
                             }
                         };
 

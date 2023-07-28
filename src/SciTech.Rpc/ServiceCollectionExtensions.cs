@@ -43,9 +43,9 @@ namespace SciTech.Rpc
         /// <typeparam name="T">The known type.</typeparam>
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IServiceCollection RegisterKnownType<T>(this IServiceCollection services)
+        public static IServiceCollection RegisterKnownType<T>(this IServiceCollection services, int order = 0)
         {
-            services.AddSingleton(new KnownSerializationType(typeof(T)));
+            services.AddSingleton(new KnownSerializationType(typeof(T), order ));
             return services;
         }
 
@@ -55,9 +55,9 @@ namespace SciTech.Rpc
         /// <param name="services">The <see cref="IServiceCollection"/> for adding services.</param>
         /// <param name="type">The known type.</param>
         /// <returns>An <see cref="IServiceCollection"/> that can be used to further configure services.</returns>
-        public static IServiceCollection RegisterKnownType(this IServiceCollection services, Type type)
+        public static IServiceCollection RegisterKnownType(this IServiceCollection services, Type type, int order = 0)
         {
-            services.AddSingleton(new KnownSerializationType(type));
+            services.AddSingleton(new KnownSerializationType(type, order));
             return services;
         }
 

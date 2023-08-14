@@ -70,17 +70,17 @@ namespace SciTech.Collections.Immutable
         {
             if (immutableArrayBuilder is null) throw new ArgumentNullException(nameof(immutableArrayBuilder));
 
-            if (immutableArrayBuilder.Count == immutableArrayBuilder.Capacity)
-            {
-                return new ImmutableArrayList<T>(immutableArrayBuilder.MoveToImmutable());
-            }
-
             return new ImmutableArrayList<T>(immutableArrayBuilder.ToImmutable());
         }
 
         public static ImmutableArrayList<T> TryMoveToImmutableArrayList<T>(this ImmutableArray<T>.Builder immutableArrayBuilder)
         {
             if (immutableArrayBuilder is null) throw new ArgumentNullException(nameof(immutableArrayBuilder));
+
+            if (immutableArrayBuilder.Count == immutableArrayBuilder.Capacity)
+            {
+                return new ImmutableArrayList<T>(immutableArrayBuilder.MoveToImmutable());
+            }
 
             return new ImmutableArrayList<T>(immutableArrayBuilder.ToImmutable());
         }

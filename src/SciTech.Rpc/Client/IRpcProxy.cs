@@ -111,5 +111,12 @@ namespace SciTech.Rpc.Client
             service = rpcService?.TryCastAsync<TService>()?.AwaiterResult();
             return service != null;
         }
+
+        public static Task<TService?> SafeTryCastAsync<TService>(this IRpcProxy? rpcService) where TService : class
+        {
+            if (rpcService is null) return Task.FromResult((TService?)null);
+
+            return rpcService.TryCastAsync<TService>();
+        }
     }
 }

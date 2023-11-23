@@ -88,7 +88,6 @@ namespace SciTech.Rpc.Serialization
             this.typeModel = typeModel;
         }
 
-        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "False positive")]
         public T Deserialize(ReadOnlySequence<byte> input, [AllowNull] T value)
         {
             using var state = ProtoBuf.ProtoReader.State.Create(input, this.typeModel);
@@ -96,7 +95,6 @@ namespace SciTech.Rpc.Serialization
         }
 
 
-        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "False positive")]
         public void Serialize(BufferWriterStream bufferWriter, [AllowNull]T input)
         {
             using var state = ProtoBuf.ProtoWriter.State.Create((IBufferWriter<byte>)bufferWriter, this.typeModel);

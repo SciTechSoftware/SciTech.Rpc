@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
@@ -256,9 +257,10 @@ namespace SciTech.Collections
 
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<T>)this).GetEnumerator();
 
+        [SuppressMessage("Performance", "CA1859:Use concrete types when possible for improved performance", Justification = "False detection")]
         internal static object? CreateListData(IEnumerable<T> enumerable)
         {
-            if (!(enumerable is ICollection<T> collection))
+            if (enumerable is not ICollection<T> collection)
             {
                 // Copy items into a temporary collection, to avoid
                 // enumerating the enumerator twice.

@@ -11,7 +11,7 @@ namespace SciTech.Collections
 {
     public static class ListExtensions
     {
-        public static IReadOnlyList<T> AsReadOnly<T>(this IList<T> collection)
+        public static IReadOnlyList<T> AsReadOnlyList<T>(this IList<T> collection)
         {
             if (collection == null)
                 throw new ArgumentNullException(nameof( collection ));

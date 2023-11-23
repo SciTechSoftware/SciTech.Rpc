@@ -120,10 +120,14 @@ namespace SciTech.Rpc.Lightweight.Internal
         internal static string CreateSharedMemoryName(string absolutePath, bool? useGlobal)
         {
             byte[] hash;
+#if NET5_0_OR_GREATER
+            hash = SHA256.HashData(Encoding.UTF8.GetBytes(absolutePath));
+#else
             using (var hashAlgorithm = SHA256.Create())
             {
                 hash = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes(absolutePath));
             }
+#endif
 
             var scheme = WellKnownRpcSchemes.LightweightPipe;
             // Cannot use Convert.ToBase64String, since it may include invalid file name chars.

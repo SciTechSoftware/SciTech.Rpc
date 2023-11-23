@@ -92,6 +92,7 @@ namespace SciTech.Rpc.Serialization
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
+        [SuppressMessage("Performance", "CA1869:Cache and reuse 'JsonSerializerOptions' instances", Justification = "Tracing only")]
         internal void TraceDeserialize(ReadOnlySequence<byte> input, Type type)
         {
             var readerOptions = new JsonReaderOptions
@@ -107,6 +108,7 @@ namespace SciTech.Rpc.Serialization
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
+        [SuppressMessage("Performance", "CA1869:Cache and reuse 'JsonSerializerOptions' instances", Justification = "Tracing only")]
         internal void TraceSerialize(object? input, Type type)
         {
             var writerOptions = new JsonWriterOptions();

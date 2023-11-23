@@ -637,7 +637,7 @@ namespace SciTech.Rpc.Internal
         private static string GetDefaultServiceName(Type serviceType)
         {
             string serviceName = serviceType.Name;
-            if (serviceName.StartsWith("I", StringComparison.Ordinal) && serviceName.Length > 1 && char.IsUpper(serviceName[1]))
+            if (serviceName.StartsWith('I') && serviceName.Length > 1 && char.IsUpper(serviceName[1]))
             {
                 serviceName = serviceName.Substring(1);
             }

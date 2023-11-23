@@ -54,7 +54,7 @@
     <HasCollectibleAssemblies>false</HasCollectibleAssemblies>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0' OR '$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0' OR '$(TargetFramework)' == 'net6.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp3.0' OR '$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net5.0' OR '$(TargetFramework)' == 'net6.0' OR '$(TargetFramework)' == 'net8.0'" >
     <DefineConstants>$(DefineConstants);COREFX</DefineConstants>
     <NetFramework>false</NetFramework>
     <HasAsyncEnum>true</HasAsyncEnum>
@@ -64,7 +64,7 @@
     <HasAsyncDispose>true</HasAsyncDispose>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net5.0' OR '$(TargetFramework)' == 'net6.0'">
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net5.0' OR '$(TargetFramework)' == 'net6.0' OR '$(TargetFramework)' == 'net8.0'">
     <HasConnectCancellation>true</HasConnectCancellation>
   </PropertyGroup>
 

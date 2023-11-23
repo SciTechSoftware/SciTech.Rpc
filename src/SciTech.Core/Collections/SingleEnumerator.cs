@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace SciTech.Collections
 {
-    internal class SingleEnumerator<T> : IEnumerator<T>
+    internal sealed class SingleEnumerator<T> : IEnumerator<T>
     {
         [AllowNull]
         private readonly T item;

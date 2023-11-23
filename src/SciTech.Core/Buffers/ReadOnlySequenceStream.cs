@@ -28,7 +28,7 @@ namespace SciTech.Buffers
     /// <summary>
     /// <see cref="Stream"/> wrapper around a <see cref="ReadOnlySequence{T}"/> (of byte).
     /// </summary>
-    internal class ReadOnlySequenceStream : Stream
+    internal sealed class ReadOnlySequenceStream : Stream
     {
         private static readonly Task<int> TaskOfZero = Task.FromResult(0);
 

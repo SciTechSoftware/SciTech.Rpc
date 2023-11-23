@@ -48,9 +48,13 @@ namespace SciTech.Rpc.Server.Internal
             try
             {
                 // Write an empty EventArgs to notify client that we have added the event handler
-                await this.responseStream.WriteAsync(
-                    (TEventArgs)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(
-                        typeof(TEventArgs))).ConfigureAwait(false);
+                TEventArgs emptyArgs;
+#if NET5_0_OR_GREATER
+                emptyArgs = (TEventArgs)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(TEventArgs));
+#else
+                emptyArgs = (TEventArgs)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(TEventArgs));
+#endif
+                await this.responseStream.WriteAsync(emptyArgs).ContextFree();
 
                 while (true)
                 {

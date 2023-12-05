@@ -35,6 +35,7 @@ namespace SciTech.Rpc.Lightweight.Client
         {
             this.ConnectionInfo = connectionInfo;
             this.Service = service;
+            this.LastDiscoveryTime = DateTime.UtcNow;
             //this.Version = version;
         }
 
@@ -44,6 +45,8 @@ namespace SciTech.Rpc.Lightweight.Client
 
         // Not implemented yet.
         //public int Version { get; }
+
+        internal DateTime LastDiscoveryTime { get; set; }
     }
 
     public sealed class DiscoveredServiceEventArgs : EventArgs
@@ -83,11 +86,11 @@ namespace SciTech.Rpc.Lightweight.Client
         /// </summary>
         public event EventHandler<DiscoveredServerEventArgs>? ServerDiscovered;
 
-        //// <summary>
-        //// Occurs when a previously discovered RPC server is no longer available.
-        //// <note>Will be invoked in the synchronization context of the <see cref="FindServicesAsync(CancellationToken)"/> caller.</note>
-        //// </summary>
-        // public event EventHandler<DiscoveredServerEventArgs>? ServerLost;
+        // <summary>
+        // Occurs when a previously discovered RPC server is no longer available.
+        // <note>Will be invoked in the synchronization context of the <see cref="FindServicesAsync(CancellationToken)"/> caller.</note>
+        // </summary>
+        public event EventHandler<DiscoveredServerEventArgs>? ServerLost;
 
         /// <summary>
         /// Occurs when a new RPC service has been discovered.
@@ -123,6 +126,8 @@ namespace SciTech.Rpc.Lightweight.Client
                 }
             }
         }
+
+        public TimeSpan ServiceDiscoveryTimeout { get; set; } = TimeSpan.FromSeconds( 5 );
 
         public async Task<IImmutableList<DiscoveredService>> FindServicesAsync(CancellationToken cancellationToken)
         {
@@ -193,8 +198,9 @@ namespace SciTech.Rpc.Lightweight.Client
                     int nextRequestNo = 1;
                     while (!cancellationToken.IsCancellationRequested)
                     {
+                        int requestNo = nextRequestNo++;
                         var requestHeader = new LightweightRpcFrame(
-                            RpcFrameType.UnaryRequest, nextRequestNo++,
+                            RpcFrameType.UnaryRequest, requestNo,
                             ServiceDiscoveryOperations.GetPublishedSingletons, null);
 
                         var requestData = frameWriter.WriteFrame(requestHeader, new RpcDiscoveryRequest(clientId), ServiceDiscoveryOperations.DiscoverySerializer);
@@ -212,7 +218,42 @@ namespace SciTech.Rpc.Lightweight.Client
                             break;
                         }
 
-                        // TODO: Cleanup lost servers (e.g. with no response the last 10 requests).
+                        List<DiscoveredServer>? expiredServers = null;
+
+                        lock (this.syncRoot)
+                        {
+                            DateTime now = DateTime.UtcNow;
+                            DateTime expiryTime = now - this.ServiceDiscoveryTimeout;
+
+                            foreach (var server in this.discoveredServers.Values)
+                            {
+                                if (server.HasExpired(expiryTime))
+                                {
+                                    expiredServers ??= new();
+                                    expiredServers.Add(server);
+                                }
+                            }
+
+                            if (expiredServers != null)
+                            {
+                                foreach( var server in expiredServers)
+                                {
+                                    this.discoveredServers.Remove(server.ConnectionInfo.ServerId);
+                                }
+                            }
+                        }
+
+                        if ( expiredServers != null)
+                        {
+                            this.discoveredServices = null;
+                            foreach (var server in expiredServers)
+                            {
+                                this.UpdateDiscoveredServices(server.ConnectionInfo, null, server.Services);
+                                this.ServerLost?.Invoke(this, new DiscoveredServerEventArgs(server.ConnectionInfo));
+                            }
+
+                            this.ServicesChanged?.Invoke(this, EventArgs.Empty);
+                        }
                     }
                 }
                 finally
@@ -270,7 +311,7 @@ namespace SciTech.Rpc.Lightweight.Client
                         RpcConnectionInfo connectionInfo = response.ConnectionInfo;
                         if (response.ConnectionInfo.HostUrl is Uri uri )
                         {
-                            connectionInfo = TcpRpcConnection.CreateConnectionInfo(new IPEndPoint(remoteEndPoint.Address, uri.Port), connectionInfo.ServerId);
+                            connectionInfo = TcpRpcConnection.CreateConnectionInfo(connectionInfo.DisplayName, new IPEndPoint(remoteEndPoint.Address, uri.Port), connectionInfo.ServerId);
                         }
 
                         discoveredServer = new DiscoveredServer(connectionInfo);
@@ -308,30 +349,36 @@ namespace SciTech.Rpc.Lightweight.Client
             }            
         }
 
-        private void UpdateDiscoveredServices(RpcConnectionInfo connectionInfo, ImmutableArray<DiscoveredService> services, ImmutableArray<DiscoveredService> oldServices)
+        private void UpdateDiscoveredServices(RpcConnectionInfo connectionInfo, ImmutableArray<DiscoveredService>? services, ImmutableArray<DiscoveredService> oldServices)
         {
-            foreach( var service in services )
+            if (services != null)
             {
-                if (!string.IsNullOrEmpty(service?.Service))
+                foreach (var service in services)
                 {
-                    var oldService = oldServices.FirstOrDefault(s => s.Service == service!.Service);
-                    if (oldService == null)
+                    if (!string.IsNullOrEmpty(service?.Service))
                     {
-                        // It's a new one.
-                        this.RaiseEvent(this.ServiceDiscovered, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service!.Service)));
+                        var oldService = oldServices.FirstOrDefault(s => s.Service == service!.Service);
+                        if (oldService == null)
+                        {
+                            // It's a new one.
+                            this.RaiseEvent(this.ServiceDiscovered, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service!.Service)));
+                        }
                     }
                 }
             }
 
-            foreach (var service in oldServices)
+            if (oldServices != null)
             {
-                if (!string.IsNullOrEmpty(service?.Service))
+                foreach (var service in oldServices)
                 {
-                    var newService = services.FirstOrDefault(s => s.Service == service!.Service);
-                    if (newService == null)
+                    if (!string.IsNullOrEmpty(service?.Service))
                     {
-                        // It's a lost one.
-                        this.RaiseEvent(this.ServiceLost, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service!.Service)));
+                        var newService = services?.FirstOrDefault(s => s.Service == service!.Service);
+                        if (newService == null)
+                        {
+                            // It's a lost one.
+                            this.RaiseEvent(this.ServiceLost, new DiscoveredServiceEventArgs(new DiscoveredService(connectionInfo, service!.Service)));
+                        }
                     }
                 }
             }
@@ -428,6 +475,7 @@ namespace SciTech.Rpc.Lightweight.Client
             internal DiscoveredServer(RpcConnectionInfo connectionInfo)
             {
                 this.ConnectionInfo = connectionInfo;
+                this.timeLastUpdate = DateTime.UtcNow;
             }
 
             internal RpcConnectionInfo ConnectionInfo { get; }
@@ -435,6 +483,11 @@ namespace SciTech.Rpc.Lightweight.Client
             internal ImmutableArray<DiscoveredService> Services { get; private set; } = ImmutableArray<DiscoveredService>.Empty;
 
             internal int RequestNoLastFound { get; private set; }
+
+            private DateTime timeLastUpdate;
+
+            internal bool HasExpired(DateTime expiryTime)
+                => this.timeLastUpdate < expiryTime;
 
             internal bool UpdateServicesLocked(RpcPublishedSingleton[]? newServices, int requestNo )
             {
@@ -451,6 +504,9 @@ namespace SciTech.Rpc.Lightweight.Client
                             {
                                 service = new DiscoveredService(this.ConnectionInfo, newService!.Name!);
                                 changed = true;
+                            } else
+                            {
+                                service.LastDiscoveryTime = DateTime.UtcNow;
                             }
 
                             builder.Add(service);
@@ -465,7 +521,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
                 this.Services = builder.ToImmutable();
                 this.RequestNoLastFound = requestNo;
-
+                this.timeLastUpdate = DateTime.UtcNow;
                 return changed;
             }
         }

@@ -20,9 +20,9 @@ namespace SciTech.Rpc.Lightweight.Client
 {
     public partial class TcpRpcConnection
     {
-        public static RpcConnectionInfo CreateConnectionInfo(EndPoint endPoint, RpcServerId serverId = default)
+        public static RpcConnectionInfo CreateConnectionInfo(string displayName, EndPoint endPoint, RpcServerId serverId = default)
         {
-            return new RpcConnectionInfo(new Uri($"lightweight.tcp://{endPoint}", UriKind.Absolute), serverId);
+            return new RpcConnectionInfo(displayName, new Uri($"lightweight.tcp://{endPoint}", UriKind.Absolute), serverId);
         }
 
         public static bool TryParseConnectionInfo(string hostOrIpAddress, int port, RpcServerId serverId, [NotNullWhen(true)] out RpcConnectionInfo? connectionInfo)

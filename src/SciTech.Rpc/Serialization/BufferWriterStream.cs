@@ -1,12 +1,14 @@
 ﻿#region Copyright notice and license
+
 // Copyright (c) 2019-2021, SciTech Software AB.
 // All rights reserved.
 //
-// Licensed under the BSD 3-Clause License. 
+// Licensed under the BSD 3-Clause License.
 // You may obtain a copy of the License at:
 //
 //     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
 //
+
 #endregion
 
 using System;
@@ -29,17 +31,17 @@ namespace SciTech.Rpc.Serialization
     {
         private byte[]? activeBuffer;
 
-        private ArrayPool<byte> arrayPool;
+        private readonly ArrayPool<byte> arrayPool;
 
         private int availableBufferSize;
 
-        private int chunkSize;
+        private readonly int chunkSize;
 
         private List<FilledBuffer>? filledBuffers;
 
         private long length;
 
-        private protected BufferWriterStream(int chunkSize = 16384, ArrayPool<byte>? arrayPool = null)
+        protected BufferWriterStream(int chunkSize = 16384, ArrayPool<byte>? arrayPool = null)
         {
             this.arrayPool = arrayPool ?? ArrayPool<byte>.Shared;
             this.chunkSize = chunkSize;
@@ -99,8 +101,6 @@ namespace SciTech.Rpc.Serialization
                 }
             }
         }
-
-
 
         public override sealed void Flush()
         {
@@ -248,6 +248,7 @@ namespace SciTech.Rpc.Serialization
         }
 
 #if PLAT_SPAN_OVERLOADS
+
         /// <inheritdoc />
         public override sealed ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
@@ -265,24 +266,7 @@ namespace SciTech.Rpc.Serialization
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            int srcOffset = 0;
-            int bytesLeft = buffer.Length;
-            while (bytesLeft > 0)
-            {
-                if (this.availableBufferSize == 0)
-                {
-                    this.AllocateBuffer(0);
-                }
-
-                int dstOffset = this.activeBuffer!.Length - this.availableBufferSize;
-                int bytesToCopy = Math.Min(bytesLeft, this.availableBufferSize);
-                buffer.Slice(srcOffset, bytesToCopy).CopyTo(new Memory<byte>(this.activeBuffer, dstOffset, bytesToCopy));
-                bytesLeft -= bytesToCopy;
-                this.availableBufferSize -= bytesToCopy;
-                this.length += bytesToCopy;
-
-                srcOffset += bytesToCopy;
-            }
+            Write(buffer.Span);
 
             return default;
         }
@@ -290,9 +274,8 @@ namespace SciTech.Rpc.Serialization
         /// <inheritdoc />
         public override sealed void Write(ReadOnlySpan<byte> buffer)
         {
-            int srcOffset = 0;
-            int bytesLeft = buffer.Length;
-            while (bytesLeft > 0)
+            var span = buffer;
+            while (span.Length > 0)
             {
                 if (this.availableBufferSize == 0)
                 {
@@ -300,13 +283,13 @@ namespace SciTech.Rpc.Serialization
                 }
 
                 int dstOffset = this.activeBuffer!.Length - this.availableBufferSize;
-                int bytesToCopy = Math.Min(bytesLeft, this.availableBufferSize);
-                buffer.Slice(srcOffset, bytesToCopy).CopyTo(new Span<byte>(this.activeBuffer, dstOffset, bytesToCopy));
-                bytesLeft -= bytesToCopy;
+                int bytesToCopy = Math.Min(span.Length, this.availableBufferSize);
+                buffer[..bytesToCopy].CopyTo(new Span<byte>(this.activeBuffer, dstOffset, bytesToCopy));
+
                 this.availableBufferSize -= bytesToCopy;
                 this.length += bytesToCopy;
 
-                srcOffset += bytesToCopy;
+                span = span[bytesToCopy..];
             }
         }
 

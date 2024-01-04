@@ -38,7 +38,12 @@ namespace SciTech.Rpc
         /// Indicates that an end point address is already in use, e.g. that some other service or process is 
         /// listening to the same network interface and port.
         /// </summary>
-        AddressInUse
+        AddressInUse,
+
+        /// <summary>
+        /// Indicates that the server id of a <see cref="RpcObjectRef"/> does not match the server id of the connection.
+        /// </summary>
+        ServerMismatch
     }
 
     /// <summary>

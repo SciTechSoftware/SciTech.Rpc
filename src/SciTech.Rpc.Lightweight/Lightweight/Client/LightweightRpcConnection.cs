@@ -159,6 +159,7 @@ namespace SciTech.Rpc.Lightweight.Client
                 }
                 else
                 {
+                    this.SetConnectionState(RpcConnectionState.Connecting);
                     this.connectionTcs = new TaskCompletionSource<RpcPipelineClient>();
                 }
             }
@@ -191,6 +192,11 @@ namespace SciTech.Rpc.Lightweight.Client
                     TaskCompletionSource<RpcPipelineClient>? connectionTcs;
                     lock (this.SyncRoot)
                     {
+                        if( this.ConnectionState != RpcConnectionState.Connecting)
+                        {
+                            throw new RpcCommunicationException(RpcCommunicationStatus.ConnectionLost);
+                        }
+
                         this.connectedClient = connectedClient;
                         connectionTcs = this.connectionTcs;
                         this.connectionTcs = null;

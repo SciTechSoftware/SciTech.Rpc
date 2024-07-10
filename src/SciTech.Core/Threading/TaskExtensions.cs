@@ -173,6 +173,7 @@ namespace SciTech.Threading
             return task.GetAwaiter().GetResult();
         }
 
+#if NET6_0_OR_GREATER
         /// <summary>
         /// Asynchronously waits for the task to complete, or for the cancellation token to be canceled.
         /// </summary>
@@ -207,6 +208,7 @@ namespace SciTech.Threading
                 return Task.FromCanceled<TResult>(cancellationToken);
             return DoWaitAsync(task, cancellationToken);
         }
+#endif
 
         /// <summary>
         /// Asynchronously waits for all of the source tasks to complete.

@@ -9,7 +9,7 @@ namespace SciTech.Threading
     public static class SynchronizationContextExtensions
     {
         private static readonly SendOrPostCallback ActionCallback = s => ((Action)s!)();
-        private static readonly SendOrPostCallback AsyncCallback = s => ((Func<Task>)s!)().Forget();
+        // private static readonly SendOrPostCallback AsyncCallback = s => ((Func<Task>)s!)().Forget();
 
         public static void TryPost(this SynchronizationContext? syncContext, Action? action)
         {
@@ -28,10 +28,10 @@ namespace SciTech.Threading
 
 
 
-        public static void Post(this SynchronizationContext syncContext, Action action)
+        public static void Post(this SynchronizationContext? syncContext, Action action)
             => syncContext.Post(new SendOrPostCallback(_ => action()), null);
 
-        public static void Post(this SynchronizationContext syncContext, Action<object?> action, object? state)
+        public static void Post(this SynchronizationContext? syncContext, Action<object?> action, object? state)
             => syncContext.Post(new SendOrPostCallback(s => action(s)), state);
 
         //public static void TryPost(this SynchronizationContext? syncContext, Func<object?, Task>? action, object? state)
@@ -67,6 +67,7 @@ namespace SciTech.Threading
                 }
             }
         }
+
         public static void RaiseEvent(this SynchronizationContext? syncContext, Func<EventHandler?> eventHandlerRetriever, object source, EventArgs e)
         {
             if (syncContext != null)
@@ -75,7 +76,7 @@ namespace SciTech.Threading
             }
             else
             {
-                eventHandlerRetriever()?.Invoke(source, e);
+                eventHandlerRetriever?.Invoke()?.Invoke(source, e);
             }
         }
 

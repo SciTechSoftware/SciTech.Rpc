@@ -101,7 +101,7 @@ namespace SciTech.Threading
 
         }
 
-        private class InvokeEntry
+        private sealed class InvokeEntry
         {
             internal SendOrPostCallback m_delegate;
             internal object? m_state;

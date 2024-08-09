@@ -21,6 +21,7 @@ using SciTech.Threading;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
@@ -130,6 +131,7 @@ namespace SciTech.Rpc.Lightweight.Client
             this.NotifyDisconnected();
         }
 
+        [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Handled by ShutdownAsync")]
         internal ValueTask<RpcPipelineClient> ConnectClientAsync(CancellationToken cancellationToken)
         {
             Task<RpcPipelineClient>? activeConnectionTask = null;

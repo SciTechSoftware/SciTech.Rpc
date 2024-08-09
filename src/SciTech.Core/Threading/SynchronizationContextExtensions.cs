@@ -26,31 +26,18 @@ namespace SciTech.Threading
             }
         }
 
-
-
         public static void Post(this SynchronizationContext? syncContext, Action action)
-            => syncContext.Post(new SendOrPostCallback(_ => action()), null);
+        {
+            ArgumentNullException.ThrowIfNull(syncContext);
+            syncContext.Post(new SendOrPostCallback(_ => action()), null);
+        }
+
 
         public static void Post(this SynchronizationContext? syncContext, Action<object?> action, object? state)
-            => syncContext.Post(new SendOrPostCallback(s => action(s)), state);
-
-        //public static void TryPost(this SynchronizationContext? syncContext, Func<object?, Task>? action, object? state)
-        //{
-        //    if( action !=  null )
-        //    {
-        //        if( syncContext is OrderedSynchronizationContext orderedSyncContext )
-        //        {
-        //            orderedSyncContext.Post(action, state);
-        //        } else if ( syncContext != null)
-        //        {
-        //            syncContext.Post(AsyncCallback, action);
-        //        } else
-        //        {
-        //            action().Forget();
-        //        }
-        //    }
-        //}
-
+        {
+            ArgumentNullException.ThrowIfNull(syncContext);
+            syncContext.Post(new SendOrPostCallback(s => action(s)), state);
+        }
 
         public static void RaiseEvent(this SynchronizationContext? syncContext, EventHandler? eventHandler, object source, EventArgs e)
         {

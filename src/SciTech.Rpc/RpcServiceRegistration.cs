@@ -68,38 +68,6 @@ namespace SciTech.Rpc
         }
     }
 
-    public class KnownSerializationType
-    {
-        public KnownSerializationType(Type knownType)
-            : this(knownType, null, 0)
-        {
-        }
-
-        public KnownSerializationType(Type knownType, int order)
-            : this(knownType, null, order)
-        {
-        }
-
-        public KnownSerializationType(Type knownType, string? discriminator)
-            : this(knownType, discriminator, 0)
-        {
-        }
-
-        public KnownSerializationType(Type knownType, string? discriminator, int order)
-        {
-            this.KnownType = knownType ?? throw new ArgumentNullException(nameof(knownType));
-            this.Order = order;
-            this.Discriminator = discriminator ?? knownType.Name;
-        }
-
-
-        public Type KnownType { get; }
-
-        public int Order { get; }
-
-        public string Discriminator {  get; }
-    }
-
 
     /// <summary>
     /// Implementation of <see cref="IRpcServiceRegistration"/> that provides registration for a single service type.

@@ -49,7 +49,7 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
   </ItemGroup>
   
   <ItemGroup Condition="$(TargetFramework)!='netcoreapp3.0'">
-    <PackageReference Include="System.Text.Json" Version="8.0.4" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
   
   <ItemGroup Condition="$(TargetFramework)=='netstandard2.0' Or $(TargetFramework)=='netstandard2.1'">

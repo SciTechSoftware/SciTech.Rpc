@@ -64,8 +64,11 @@ namespace SciTech.Rpc.Lightweight.Client
         {
             base.Dispose(disposing);
 
-            (this.clientPipe as IDisposable)?.Dispose();
-            this.clientPipe = null;
+            if (disposing)
+            {
+                (this.clientPipe as IDisposable)?.Dispose();
+                this.clientPipe = null;
+            }
         }
     }
 }

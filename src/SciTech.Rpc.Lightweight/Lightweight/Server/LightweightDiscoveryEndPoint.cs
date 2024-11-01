@@ -75,6 +75,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
             public void Listen()
             {
+                this.logger?.LogInformation("Starting LightweightDiscoveryEndpoint listener.");
                 lock (this.syncRoot)
                 {
                     if (this.isListening)
@@ -88,6 +89,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 NetworkChange.NetworkAvailabilityChanged += this.NetworkChange_NetworkAvailabilityChanged;
                 NetworkChange.NetworkAddressChanged += this.NetworkChange_NetworkAddressChanged;
                 this.UpdateListenerAsync().Forget();
+
+                this.logger?.LogInformation("LightweightDiscoveryEndpoint listener started.");
             }
 
             public async Task StopAsync()
@@ -184,7 +187,7 @@ namespace SciTech.Rpc.Lightweight.Server
             [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "RunListener should be silent.")]
             private async Task RunListener(IReadOnlyList<UdpClient> udpClients, CancellationToken cancellationToken)
             {
-                using (this.logger?.BeginScope("DiscoveryRpcListener.RunListener begin at"))// {EndPoint}.", udpClient.Client.LocalEndPoint))
+                using (this.logger?.BeginScope("DiscoveryRpcListener.RunListener begin"))
                 {
                     try
                     {
@@ -198,10 +201,13 @@ namespace SciTech.Rpc.Lightweight.Server
                                 {
                                     if (receiveTasks[index] == null)
                                     {
+                                        var udpClient = udpClients[index];
+                                        this.logger?.LogTrace("Begin receive discovery UDP at {EndPoint}.", udpClient.Client.LocalEndPoint);
+
 #if NET6_0_OR_GREATER
-                                        receiveTasks[index] = udpClients[index].ReceiveAsync(cancellationToken).AsTask();
+                                        receiveTasks[index] = udpClient.ReceiveAsync(cancellationToken).AsTask();
 #else
-                                        receiveTasks[index] = udpClients[index].ReceiveAsync();
+                                        receiveTasks[index] = udpClient.ReceiveAsync();
 #endif
                                     }
                                 }
@@ -216,10 +222,13 @@ namespace SciTech.Rpc.Lightweight.Server
 
                                 if (!cancellationToken.IsCancellationRequested)
                                 {
+                                    this.logger?.LogTrace("Discovery UDP request received at {EndPoint}.", currentClient.Client.LocalEndPoint);
+
                                     var res = receiveTask.AwaiterResult();
                                     var responseData = await this.connectionHandler.HandleDatagramAsync(this.endPoint, res.Buffer, cancellationToken).ContextFree();
                                     if (responseData != null)
                                     {
+                                        this.logger?.LogTrace("Sending discovery UDP response to {EndPoint}.", res.RemoteEndPoint);
                                         await currentClient.SendAsync(responseData, responseData.Length, res.RemoteEndPoint).ContextFree();
                                     }
                                 }
@@ -265,8 +274,10 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 if (udpClients != null)
                 {
+
                     foreach (var udpClient in udpClients)
                     {
+                        this.logger?.LogInformation("Closing UDP discovery listener {UdpClient}", udpClient);
                         udpClient?.Close();
                     }
                 }
@@ -276,7 +287,14 @@ namespace SciTech.Rpc.Lightweight.Server
                     listenerCts.Cancel();
                     try
                     {
+                        this.logger?.LogInformation("Waiting for discovery listener to finish.");
                         await listenerTask.ContextFree();
+                        this.logger?.LogInformation("Discovery listener finished.");
+                    }
+                    catch (Exception x )
+                    {
+                        this.logger?.LogWarning(x, "Discovery listener error when stopping.");
+                        throw;
                     }
                     finally
                     {
@@ -333,6 +351,9 @@ namespace SciTech.Rpc.Lightweight.Server
                                 }
                             }
                         }
+                    } else
+                    {
+                        this.logger?.LogInformation("No UDP clients found for discovery listener. No network?");
                     }
                 }
             }

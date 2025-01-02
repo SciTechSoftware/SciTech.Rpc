@@ -156,11 +156,13 @@ namespace SciTech.Rpc.Lightweight.Server
                                     if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
                                     {
                                         socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
+
                                         udpClient.JoinMulticastGroup(DefaultMulticastAddress, ipAddress);
                                     }
                                     else
                                     {
                                         socket.Bind(new IPEndPoint(IPAddress.IPv6Any, DefaultDiscoveryPort));
+
                                         udpClient.JoinMulticastGroup(DefaultMulticastAddressV6, ipAddress);
                                     }
 
@@ -222,9 +224,9 @@ namespace SciTech.Rpc.Lightweight.Server
 
                                 if (!cancellationToken.IsCancellationRequested)
                                 {
-                                    this.logger?.LogTrace("Discovery UDP request received at {EndPoint}.", currentClient.Client.LocalEndPoint);
-
                                     var res = receiveTask.AwaiterResult();
+                                    this.logger?.LogTrace("Discovery UDP request received at {EndPoint}.", currentClient.Client?.LocalEndPoint);
+
                                     var responseData = await this.connectionHandler.HandleDatagramAsync(this.endPoint, res.Buffer, cancellationToken).ContextFree();
                                     if (responseData != null)
                                     {

@@ -39,11 +39,11 @@ namespace SciTech.Rpc.Lightweight.Server
         /// </summary>
         private class ClientPipeline : RpcPipeline
         {
-            private static readonly Action<ILogger, string, Exception?> LogBeginHandleStreamingRequest = LoggerMessage.Define<string>(LogLevel.Information,
+            private static readonly Action<ILogger, string, Exception?> LogBeginHandleStreamingRequest = LoggerMessage.Define<string>(LogLevel.Trace,
                 new EventId(1, "BeginHandleStreamingRequest"),
                 "Begin handle streaming request '{Operation}'.");
 
-            private static readonly Action<ILogger, string, Exception?> LogBeginHandleUnaryRequest = LoggerMessage.Define<string>(LogLevel.Information,
+            private static readonly Action<ILogger, string, Exception?> LogBeginHandleUnaryRequest = LoggerMessage.Define<string>(LogLevel.Trace,
                 new EventId(2, "BeginHandleUnaryRequest"),
                 "Begin handle unary request '{Operation}'.");
 
@@ -59,11 +59,11 @@ namespace SciTech.Rpc.Lightweight.Server
                 new EventId(5, "RequestFailed"),
                 "Request '{Operation}' failed.");
 
-            private static readonly Action<ILogger, string, Exception?> LogRequestHandledAsynchronously = LoggerMessage.Define<string>(LogLevel.Information,
+            private static readonly Action<ILogger, string, Exception?> LogRequestHandledAsynchronously = LoggerMessage.Define<string>(LogLevel.Trace,
                 new EventId(6, "RequestHandledAsynchronously"),
                 "Request '{Operation}' handled asynchronously.");
 
-            private static readonly Action<ILogger, string, Exception?> LogRequestHandledSynchronously = LoggerMessage.Define<string>(LogLevel.Information,
+            private static readonly Action<ILogger, string, Exception?> LogRequestHandledSynchronously = LoggerMessage.Define<string>(LogLevel.Trace,
                 new EventId(7, "RequestHandledSynchronously"),
                 "Request '{Operation}' handled synchronously.");
 
@@ -71,9 +71,21 @@ namespace SciTech.Rpc.Lightweight.Server
                 new EventId(8, "RequestTimedOut"),
                 "Request '{Operation}' timed out.");
 
-            private static readonly Action<ILogger, string,int,int, Exception?> LogReceivedLargeFrame = LoggerMessage.Define<string,int,int>(LogLevel.Warning,
+            private static readonly Action<ILogger, string, int, int, Exception?> LogReceivedLargeFrame = LoggerMessage.Define<string, int, int>(LogLevel.Warning,
                 new EventId(9, "ReceivedLargeFrame"),
                 "Size of received request frame for operation '{Operation}' exceeds size limit(frame size={FrameLength}, max size={MaxReceiveFrameLength}).");
+
+            private static readonly Action<ILogger, string, Exception?> LogClientConnected = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(10, "ClientConnected"),
+                "Client '{Client}' has been connected.");
+
+            private static readonly Action<ILogger, string, Exception?> LogClientDisconnected = LoggerMessage.Define<string>(LogLevel.Information,
+                new EventId(10, "ClientDisconnected"),
+                "Client '{Client}' has been disconnected.");
+
+            private static readonly Action<ILogger, string, Exception?> LogReceiveLoopFault = LoggerMessage.Define<string>(LogLevel.Warning,
+                new EventId(10, "ReceiveLoopFault"),
+                "Error in receive loop for '{Client}'.");
 
             private readonly Dictionary<int, ActiveOperation> activeOperations = new Dictionary<int, ActiveOperation>();
 
@@ -140,6 +152,18 @@ namespace SciTech.Rpc.Lightweight.Server
                 return handleRequestTask;
             }
 
+            protected override ValueTask OnStartReceiveLoopAsync()
+            {
+                LogClientConnected(this.server.Logger, this.establishedConnection?.RemoteName ?? this.endPoint.DisplayName, null);
+                return base.OnStartReceiveLoopAsync();
+            }
+
+            protected override ValueTask OnEndReceiveLoopAsync()
+            {
+                LogClientDisconnected(this.server.Logger, this.establishedConnection?.RemoteName ?? this.endPoint.DisplayName, null);
+                return base.OnEndReceiveLoopAsync();
+            }
+
             protected override Task OnReceiveLargeFrameAsync(LightweightRpcFrame frame)
             {
                 LogReceivedLargeFrame(this.server.Logger, frame.RpcOperation, frame.FrameLength ?? 0, this.MaxReceiveFrameLength, null);
@@ -154,11 +178,10 @@ namespace SciTech.Rpc.Lightweight.Server
                 if( e.Exception is RpcCommunicationException rce && rce.Status == RpcCommunicationStatus.ConnectionLost)
                 {
                     // A connection lost exception is expected when a client disconnects.
-                    // Log: Client disconnecteed
                 }
                 else
                 {
-                    // Log warning.
+                    LogReceiveLoopFault(this.server.Logger, this.endPoint.DisplayName, e.Exception);
                 }
 
                 await base.OnReceiveLoopFaultedAsync(e).ContextFree();
@@ -226,7 +249,7 @@ namespace SciTech.Rpc.Lightweight.Server
                             // write the response as well. Most likely we will not succeed now either (and the
                             // pipe will be closed). Maybe the handler should close the pipe instead
                             // and not propagate the error?
-                            LogRequestError(this.server.Logger, operationName, t.Exception!.InnerException ?? t.Exception);
+                            LogRequestError(this.server.Logger, operationName, t.Exception?.InnerException ?? t.Exception);
                             await this.WriteExceptionResponseAsync(messageId, operationName, t.Exception!.InnerException ?? t.Exception, serializer).ContextFree();
                         }
                     }

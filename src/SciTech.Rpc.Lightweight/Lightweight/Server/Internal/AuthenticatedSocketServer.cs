@@ -234,6 +234,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                             socketStream = sslStream;
                                             establishedConnection = new EstablishedConnection(
                                                 user: null,
+                                                remoteName: remoteEndPoint.ToString(),
                                                 isMutuallyAuthenticated: sslStream.IsMutuallyAuthenticated,
                                                 isEncrypted: sslStream.IsEncrypted,
                                                 isSigned: sslStream.IsSigned,
@@ -264,6 +265,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
                                         establishedConnection = new EstablishedConnection(
                                             user: CreatePrincipal(negotiateStream.RemoteIdentity),
+                                            remoteName: remoteEndPoint.ToString(),
                                             isMutuallyAuthenticated: negotiateStream.IsMutuallyAuthenticated,
                                             isEncrypted: negotiateStream.IsEncrypted,
                                             isSigned: negotiateStream.IsSigned,

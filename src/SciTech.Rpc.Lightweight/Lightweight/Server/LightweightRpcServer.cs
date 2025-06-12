@@ -363,14 +363,14 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private void AddMethodDef(LightweightMethodStub methodStub)
         {
-            this.Logger.LogInformation("Add service operation {Operation}.", methodStub.OperationName);
+            this.Logger.LogDebug("Add service operation {Operation}.", methodStub.OperationName);
 
             this.methodDefinitions.Add(methodStub.OperationName, methodStub);
         }
 
         private void AddServiceDef(/*HashSet<string> registeredServices, */LightweightServerServiceDefinition serviceDef)
         {
-            this.Logger.LogInformation("Build service stub for {Service}.", serviceDef.ServiceName);
+            this.Logger.LogDebug("Build service stub for {Service}.", serviceDef.ServiceName);
             //if (!registeredServices.Add(serviceDef.ServiceName))
             //{
             //    // This is actually an internal error. It should have been checked earlier.

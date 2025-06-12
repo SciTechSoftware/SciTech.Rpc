@@ -19,11 +19,12 @@ namespace SciTech.Rpc.Server
 {
     public class EstablishedConnection
     {
-        public static readonly EstablishedConnection Empty = new EstablishedConnection(null, null, null, null, null);
+        public static readonly EstablishedConnection Empty = new EstablishedConnection(null, null, null, null, null, null);
 
-        public EstablishedConnection(IPrincipal? user, bool? isMutuallyAuthenticated, bool? isEncrypted, bool? isSigned, IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
+        public EstablishedConnection(IPrincipal? user, string? remoteName, bool? isMutuallyAuthenticated, bool? isEncrypted, bool? isSigned, IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
         {
             this.User = user;
+            this.RemoteName = remoteName;
             this.IsMutuallyAuthenticated = isMutuallyAuthenticated;
             this.IsEncrypted = isEncrypted;
             this.IsSigned = isSigned;
@@ -31,6 +32,8 @@ namespace SciTech.Rpc.Server
         }
 
         public IPrincipal? User { get; }
+
+        public string? RemoteName { get; }
 
         public bool? IsMutuallyAuthenticated { get; }
 

@@ -165,8 +165,17 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public override Task HandleMessage(ILightweightRpcFrameWriter frameWriter, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
-            TRequest? request = this.requestSerializer.Deserialize(frame.Payload, null);
-            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData);
+            TRequest? request;
+            try
+            {
+                request = this.requestSerializer.Deserialize(frame.Payload, null);
+            }
+            catch (Exception ex) 
+            {
+                throw new RpcFailureException(RpcFailure.InvalidData, $"Payload deserialization failed. {ex.Message}", ex);
+            }
+
+            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData, "Payload deserialization failed");
 
             if (this.AllowInlineExecution)
             {
@@ -312,8 +321,17 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public override Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
-            TRequest? request = this.requestSerializer.Deserialize(frame.Payload);
-            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData);
+            TRequest? request;
+            try
+            {
+                request = this.requestSerializer.Deserialize(frame.Payload, null);
+            }
+            catch (Exception ex)
+            {
+                throw new RpcFailureException(RpcFailure.InvalidData, $"Payload deserialization failed. {ex.Message}", ex);
+            }
+
+            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData, "Payload deserialization failed");
 
             var responseWriter = new StreamingResponseWriter<TStreamResponse>(pipeline, this.responseSerializer, frame.MessageNumber, frame.RpcOperation);
             var responseTask = this.StreamHandler(request, serviceProvider, responseWriter, context);

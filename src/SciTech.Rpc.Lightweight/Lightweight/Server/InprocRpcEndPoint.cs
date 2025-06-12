@@ -96,7 +96,8 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 this.connectionHandler.RunPipelineClientAsync(this.pipe, this.endPoint, 
                     new EstablishedConnection( 
-                        Thread.CurrentPrincipal, 
+                        Thread.CurrentPrincipal,
+                        null,
                         isMutuallyAuthenticated: true,  
                         isEncrypted: true,  // Not really true, but no external entity could gain access to the data.
                         isSigned: true,     // Not really true, but no external entity could tamper with the data.

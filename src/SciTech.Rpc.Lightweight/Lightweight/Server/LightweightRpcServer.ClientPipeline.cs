@@ -75,11 +75,11 @@ namespace SciTech.Rpc.Lightweight.Server
                 new EventId(9, "ReceivedLargeFrame"),
                 "Size of received request frame for operation '{Operation}' exceeds size limit(frame size={FrameLength}, max size={MaxReceiveFrameLength}).");
 
-            private static readonly Action<ILogger, string, Exception?> LogClientConnected = LoggerMessage.Define<string>(LogLevel.Information,
+            private static readonly Action<ILogger, string, Exception?> LogClientConnected = LoggerMessage.Define<string>(LogLevel.Debug,
                 new EventId(10, "ClientConnected"),
                 "Client '{Client}' has been connected.");
 
-            private static readonly Action<ILogger, string, Exception?> LogClientDisconnected = LoggerMessage.Define<string>(LogLevel.Information,
+            private static readonly Action<ILogger, string, Exception?> LogClientDisconnected = LoggerMessage.Define<string>(LogLevel.Debug,
                 new EventId(10, "ClientDisconnected"),
                 "Client '{Client}' has been disconnected.");
 

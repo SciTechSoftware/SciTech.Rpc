@@ -386,6 +386,8 @@ namespace SciTech.Rpc.Server
             {
                 if (this.idToPublishedServices.TryGetValue(serviceInstanceId, out var publishedServices))
                 {
+                    this.idToPublishedServices.Remove(serviceInstanceId);
+
                     foreach (var serviceType in publishedServices.ServiceTypes)
                     {
                         bool unpublished = false;

@@ -1133,6 +1133,8 @@ namespace SciTech.Rpc.Internal
         {
             this.Namespace = @namespace ?? throw new ArgumentNullException(nameof(@namespace));
             this.Name = name ?? throw new ArgumentNullException(nameof(name));
+            this.FullName = !string.IsNullOrEmpty(this.Namespace) ? $"{this.Namespace}.{this.Name}" : this.Name;
+
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.DefinitionSide = definitionSide;
             this.ServerType = serverType;
@@ -1143,7 +1145,7 @@ namespace SciTech.Rpc.Internal
 
         public RpcServiceDefinitionSide DefinitionSide { get; }
 
-        public string FullName => !string.IsNullOrEmpty(this.Namespace) ? $"{this.Namespace}.{this.Name}" : this.Name;
+        public string FullName { get; }
 
         public Type? ImplementationType { get; }
 

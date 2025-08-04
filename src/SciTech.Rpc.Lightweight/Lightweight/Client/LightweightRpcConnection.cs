@@ -34,8 +34,8 @@ namespace SciTech.Rpc.Lightweight.Client
     /// </para>
     /// <para>To create a connection, use one of the derived classes,
     /// e.g. <see cref="TcpRpcConnection"/>, <see cref="NamedPipeRpcConnection"/>, or <see cref="InprocRpcConnection"/>.
-    /// Alternatively, a <see cref="LightweightConnectionProvider"/> can be registered with an <see cref="RpcConnectionManager"/>
-    /// and then connections can be retrieved using <see cref="RpcConnectionManager.CreateServerConnection(RpcConnectionInfo)"/>.
+    /// Alternatively, a <see cref="LightweightConnectionProvider"/> can be registered with an <see cref="IRpcConnectionManager"/>
+    /// and then connections can be retrieved using <see cref="IRpcConnectionManager.GetServerConnection(RpcConnectionInfo)"/>.
     /// </para>
     /// </summary>
     public abstract class LightweightRpcConnection : RpcConnection

@@ -261,6 +261,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     finally
                     {
                         this.RemoveActiveOperation(messageId);
+                        activeOperation.Dispose();
                         scope?.Dispose();
                         LogRequestHandledAsynchronously(this.server.Logger, operationName, null);
                     }
@@ -482,7 +483,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
-            private sealed class ActiveOperation
+            private sealed class ActiveOperation : IDisposable
             {
                 internal ActiveOperation(int messageId, CancellationTokenSource? cancellationSource)
                 {
@@ -500,6 +501,11 @@ namespace SciTech.Rpc.Lightweight.Server
                 {
                     this.IsCancellationRequested = true;
                     this.CancellationSource?.Cancel();
+                }
+
+                public void Dispose()
+                {
+                    this.CancellationSource?.Dispose();
                 }
             }
         }

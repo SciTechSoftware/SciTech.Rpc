@@ -176,6 +176,19 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 throw;
             }
 
+#if NET8_0_OR_GREATER
+            async Task<TResponse> AwaitTimeoutResponse(Task<TResponse> responseTask, string operation, int timeout)
+            {
+                try
+                {
+                    return await responseTask.WaitAsync(TimeSpan.FromMilliseconds(timeout)).ContextFree();
+                }
+                catch (TimeoutException x)
+                {
+                    throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).", x);
+                }
+            }
+#else
             async Task<TResponse> AwaitTimeoutResponse(Task<TResponse> responseTask, string operation, int timeout)
             {
                 var completedTask = await Task.WhenAny(responseTask, Task.Delay(timeout)).ContextFree();
@@ -188,7 +201,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).");
                 }
             }
-
+#endif
 
             async Task<TResponse> AwaitWrite(ValueTask writeTask, Task<TResponse> responseTask)
             {

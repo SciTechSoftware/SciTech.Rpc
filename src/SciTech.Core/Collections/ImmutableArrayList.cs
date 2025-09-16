@@ -124,43 +124,66 @@ namespace SciTech.Collections.Immutable
 
         public T this[int index] => data[index];
 
-        public IImmutableList<T> Add(T value) => new ImmutableArrayList<T>(this.data.Add(value));
+        IImmutableList<T> IImmutableList<T>.Add(T value) => this.Add(value);
 
-        public IImmutableList<T> AddRange(IEnumerable<T> items) => new ImmutableArrayList<T>(this.data.AddRange(items));
+        public ImmutableArrayList<T> Add(T value) => new ImmutableArrayList<T>(this.data.Add(value));
 
-        public IImmutableList<T> Clear() => new ImmutableArrayList<T>(this.data.Clear());
+        IImmutableList<T> IImmutableList<T>.AddRange(IEnumerable<T> items) => this.AddRange(items);
+
+        public ImmutableArrayList<T> AddRange(IEnumerable<T> items) => new ImmutableArrayList<T>(this.data.AddRange(items));
+
+        IImmutableList<T> IImmutableList<T>.Clear() => this.Clear();
+
+        public ImmutableArrayList<T> Clear() => new ImmutableArrayList<T>(this.data.Clear());
 
         public Enumerator GetEnumerator() => new Enumerator(this.data);
 
         public int IndexOf(T item, int index, int count, IEqualityComparer<T>? equalityComparer)
             => this.data.IndexOf(item, index, count, equalityComparer);
 
-        public IImmutableList<T> Insert(int index, T element) => new ImmutableArrayList<T>(this.data.Insert(index, element));
+        IImmutableList<T> IImmutableList<T>.Insert(int index, T element) => this.Insert(index, element);
 
-        public IImmutableList<T> InsertRange(int index, IEnumerable<T> items) => new ImmutableArrayList<T>(this.data.InsertRange(index, items));
+        public ImmutableArrayList<T> Insert(int index, T element) => new ImmutableArrayList<T>(this.data.Insert(index, element));
+
+        IImmutableList<T> IImmutableList<T>.InsertRange(int index, IEnumerable<T> items) => this.InsertRange(index, items);
+
+        public ImmutableArrayList<T> InsertRange(int index, IEnumerable<T> items) => new ImmutableArrayList<T>(this.data.InsertRange(index, items));
 
         public int LastIndexOf(T item, int index, int count, IEqualityComparer<T>? equalityComparer)
             => this.data.LastIndexOf(item, index, count, equalityComparer);
 
-        public IImmutableList<T> Remove(T value, IEqualityComparer<T>? equalityComparer)
+        IImmutableList<T> IImmutableList<T>.Remove(T value, IEqualityComparer<T>? equalityComparer) => this.Remove(value, equalityComparer);
+
+        public ImmutableArrayList<T> Remove(T value, IEqualityComparer<T>? equalityComparer)
             => new ImmutableArrayList<T>(this.data.Remove(value, equalityComparer));
 
-        public IImmutableList<T> RemoveAll(Predicate<T> match)
+        IImmutableList<T> IImmutableList<T>.RemoveAll(Predicate<T> match) => this.RemoveAll(match);
+
+        public ImmutableArrayList<T> RemoveAll(Predicate<T> match)
             => new ImmutableArrayList<T>(this.data.RemoveAll(match));
 
-        public IImmutableList<T> RemoveAt(int index)
+        IImmutableList<T> IImmutableList<T>.RemoveAt(int index) => this.RemoveAt(index);
+
+        public ImmutableArrayList<T> RemoveAt(int index)
             => new ImmutableArrayList<T>(this.data.RemoveAt(index));
 
         public IImmutableList<T> RemoveRange(IEnumerable<T> items, IEqualityComparer<T>? equalityComparer)
             => new ImmutableArrayList<T>(this.data.RemoveRange(items, equalityComparer));
 
-        public IImmutableList<T> RemoveRange(int index, int count)
+        IImmutableList<T> IImmutableList<T>.RemoveRange(int index, int count) => this.RemoveRange(index, count);
+
+        public ImmutableArrayList<T> RemoveRange(int index, int count)
             => new ImmutableArrayList<T>(this.data.RemoveRange(index, count));
 
-        public IImmutableList<T> Replace(T oldValue, T newValue, IEqualityComparer<T>? equalityComparer)
+        IImmutableList<T> IImmutableList<T>.Replace(T oldValue, T newValue, IEqualityComparer<T>? equalityComparer)
+            => this.Replace(oldValue, newValue, equalityComparer);
+
+        public ImmutableArrayList<T> Replace(T oldValue, T newValue, IEqualityComparer<T>? equalityComparer)
             => new ImmutableArrayList<T>(this.data.Replace(oldValue, newValue, equalityComparer));
 
-        public IImmutableList<T> SetItem(int index, T value)
+        IImmutableList<T> IImmutableList<T>.SetItem(int index, T value) => this.SetItem(index, value);
+
+        public ImmutableArrayList<T> SetItem(int index, T value)
             => new ImmutableArrayList<T>(this.data.SetItem(index, value));
 
         public ImmutableArray<T> ToImmutableArray()

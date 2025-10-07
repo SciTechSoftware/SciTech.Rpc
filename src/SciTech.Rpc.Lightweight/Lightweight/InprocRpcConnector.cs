@@ -20,12 +20,12 @@ namespace SciTech.Rpc.Lightweight
 {
     public class InprocRpcConnector
     {
-        public InprocRpcConnector(IRpcClientOptions? options=null)
-            : this(RpcServerId.Empty, options)
+        public InprocRpcConnector(IRpcClientOptions? options=null, int? priority = null)
+            : this(RpcServerId.Empty, options, priority)
         {
         }
 
-        public InprocRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null)
+        public InprocRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null, int? priority = null)
         {
             var requestPipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
             var responsePipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Lightweight
             this.EndPoint = new InprocRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
 
             this.Connection = new InprocRpcConnection(
-                new RpcConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId),
+                new RpcConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId, priority),
                 new DuplexPipe(responsePipe.Reader, requestPipe.Writer),
                 options);
         }

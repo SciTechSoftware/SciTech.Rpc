@@ -98,6 +98,10 @@ namespace SciTech.Rpc
             writer.WriteString("DisplayName", value.DisplayName);
             writer.WriteString("HostUrl", value.HostUrl?.ToString() ?? "");
             writer.WriteString("ServerId", value.ServerId.ToGuid());
+            if( value.Priority.HasValue )
+            {
+                writer.WriteNumber("Priority", value.Priority.Value);
+            }
             writer.WriteEndObject();
         }
 
@@ -110,6 +114,7 @@ namespace SciTech.Rpc
 
             string displayName = "";
             string hostUrl = "";
+            int? priority = null;
             Guid serverId = Guid.Empty;
             while (reader.Read())
             {
@@ -130,12 +135,15 @@ namespace SciTech.Rpc
                                 case "ServerId":
                                     serverId = reader.GetGuid();
                                     break;
+                                case "Priority":
+                                    priority = reader.GetInt32();
+                                    break;
                             }
                             reader.Skip();
                             break;
                         }
                     case JsonTokenType.EndObject:
-                        return new RpcConnectionInfo(displayName, !string.IsNullOrEmpty(hostUrl) ? new Uri(hostUrl) : null, new RpcServerId(serverId));
+                        return new RpcConnectionInfo(displayName, !string.IsNullOrEmpty(hostUrl) ? new Uri(hostUrl) : null, new RpcServerId(serverId), priority);
                     default:
                         throw new JsonException();
                 }
@@ -189,11 +197,12 @@ namespace SciTech.Rpc
         /// </summary>
         /// <param name="displayName">The display name of the server connection.</param>
         /// <param name="serverId">Id of the server.</param>
-        public RpcConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId = default)
+        public RpcConnectionInfo(string displayName, Uri? hostUrl, RpcServerId serverId = default, int? priority = null )
         {
             this.DisplayName = displayName ?? hostUrl?.Host ?? "";
             this.HostUrl = hostUrl;
             this.ServerId = serverId;
+            this.Priority = priority;
         }
 
 
@@ -244,6 +253,12 @@ namespace SciTech.Rpc
         /// </summary>
         [DataMember(Order = 3)]
         public RpcServerId ServerId { get; private set; }
+
+        /// <summary>
+        /// Gets the priority of this connection info. A lower value indicates a higher priority.
+        /// </summary>
+        [DataMember(Order = 4)]
+        public int? Priority { get; private set; }
 
         public override sealed bool Equals(object? obj)
         {
@@ -305,6 +320,16 @@ namespace SciTech.Rpc
         public override string ToString()
         {
             return this.DisplayName;
+        }
+
+        public bool HasHigherPriority(RpcConnectionInfo? connectionInfo)
+        {
+            if (connectionInfo == null) return true;
+
+            if( this.Priority == null) return false;
+            if( connectionInfo.Priority == null) return true;
+
+            return this.Priority.Value < connectionInfo.Priority.Value;
         }
     }
 }

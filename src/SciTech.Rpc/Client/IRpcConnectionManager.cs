@@ -39,17 +39,29 @@ namespace SciTech.Rpc.Client
         TService GetServiceSingleton<TService>(RpcConnectionInfo connectionInfo, SynchronizationContext? syncContext) where TService : class;
 
         /// <summary>
-        /// Gets a connection to 
+        /// Gets or creates a connection to the server defined by <paramref name="connectionInfo"/>. 
         /// <para><note type="note">Do not call <see cref="IRpcChannel.ShutdownAsync"/> on the returned connection. The connection will
-        /// be closed when it is garbage collected. To control the lifetime of connections, manually create the connection (TODO: or use CreateServerConnection).</note></para>
+        /// be closed when it is garbage collected. To control the lifetime of connections, manually create the connection,
+        /// or use <see cref="CreateServerConnection(RpcConnectionInfo)"/>).</note></para>
         /// </summary>
         /// <param name="connectionInfo"></param>
         /// <exception cref="NotSupportedException">Thrown if there is no connection provider registered that can 
         /// handle the provided <paramref name="connectionInfo"/></exception>
         /// <returns>A connection to the server defined by <paramref name="connectionInfo"/>.</returns>
         IRpcChannel GetServerConnection(RpcConnectionInfo connectionInfo);
-        
+
+        /// <summary>
+        /// Created a connection to the server defined by <paramref name="connectionInfo"/>.
+        /// </summary>
+        /// <param name="connectionInfo"></param>
+        /// <exception cref="NotSupportedException">Thrown if there is no connection provider registered that can 
+        /// handle the provided <paramref name="connectionInfo"/></exception>
+        /// <returns>A connection to the server defined by <paramref name="connectionInfo"/>.</returns>
+        IRpcChannel CreateServerConnection(RpcConnectionInfo connectionInfo);
+
         bool RemoveKnownChannel(IRpcChannel channel);
+
+        void InvalidateConnections(RpcConnectionInfo rpcConnectionInfo);
 
         ImmutableRpcClientOptions Options { get; }
     }

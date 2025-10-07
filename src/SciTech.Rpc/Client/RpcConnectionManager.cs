@@ -1,6 +1,6 @@
 ﻿#region Copyright notice and license
 
-// Copyright (c) 2019-2025, SciTech Software AB and TA Instrument Inc.
+// Copyright (c) 2019-2025, SciTech Software AB and contributors.
 // All rights reserved.
 //
 // Licensed under the BSD 3-Clause License.
@@ -15,6 +15,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -172,54 +173,17 @@ namespace SciTech.Rpc.Client
         {
             if (rpcConnectionInfo == null) return;
 
-            List<RpcServerId> idsToRemove = new List<RpcServerId>();
-            List<Uri> urlsToRemove = new List<Uri>();
-            HashSet<IRpcChannel> connectionsToDispose = new HashSet<IRpcChannel>();
-
             lock (this.syncRoot)
             {
                 if (rpcConnectionInfo.ServerId != RpcServerId.Empty)
                 {
-                    foreach (var kvp in this.idToConnection)
-                    {
-                        if (kvp.Key == rpcConnectionInfo.ServerId)
-                        {
-                            idsToRemove.Add(kvp.Key);
-                            if( kvp.Value.TryGetTarget(out var connection) )
-                            {
-                                connectionsToDispose.Add(connection);
-                            }
-                        }
-                    }
-                    foreach (var id in idsToRemove)
-                    {
-                        this.idToConnection.Remove(id);
-                    }
+                    this.idToConnection.Remove(rpcConnectionInfo.ServerId);
                 }
+
                 if (rpcConnectionInfo.HostUrl != null)
                 {
-                    foreach (var kvp in this.urlToConnection)
-                    {
-                        if (kvp.Key == rpcConnectionInfo.HostUrl)
-                        {
-                            urlsToRemove.Add(kvp.Key);
-                        }
-                        if (kvp.Value.TryGetTarget(out var connection))
-                        {
-                            connectionsToDispose.Add(connection);
-                        }
-                    }
-                    foreach (var url in urlsToRemove)
-                    {
-                        this.urlToConnection.Remove(url);
-                    }
+                    this.urlToConnection.Remove(rpcConnectionInfo.HostUrl);
                 }
-            }
-
-            // Not sure if this is really wanted, since the connection might still be in use.
-            foreach (var connection in connectionsToDispose)
-            {
-                connection.Dispose();
             }
         }
 

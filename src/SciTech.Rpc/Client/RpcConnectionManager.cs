@@ -336,7 +336,7 @@ namespace SciTech.Rpc.Client
             }
 
             if (candidateConnection != null
-                && (candidateConnection.ConnectionInfo.Equals(connectionInfo) || candidateConnection.ConnectionInfo.HasHigherPriority(connectionInfo)))
+                && !connectionInfo.HasHigherPriority(candidateConnection.ConnectionInfo))
             {
                 return candidateConnection;
             }

@@ -15,6 +15,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -130,13 +131,8 @@ namespace SciTech.Rpc.Client
                 if (connectionInfo.ServerId != RpcServerId.Empty)
                 {
                     this.idToConnection[connectionInfo.ServerId] = wrNewConnection;
-                }
 
-                if (connectionInfo.HostUrl != null)
-                {
-                    if (!this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var currUrlConnection)
-                        || connectionInfo.ServerId != RpcServerId.Empty
-                        || currUrlConnection.ConnectionInfo.ServerId == RpcServerId.Empty)
+                    if (connectionInfo.HostUrl != null)
                     {
                         this.urlToConnection[connectionInfo.HostUrl] = wrNewConnection;
                     }
@@ -254,8 +250,7 @@ namespace SciTech.Rpc.Client
         {
             if( channel is IRpcConnection connection )
             {
-
-
+                return connection.ConnectionState is RpcConnectionState.Connecting or RpcConnectionState.Connected;
             }
 
             // No connection state available, so we assume the channel is usable.
@@ -285,6 +280,7 @@ namespace SciTech.Rpc.Client
             if (connectionInfo.HostUrl != null)
             {
                 if (this.urlToKnownConnection.TryGetValue(connectionInfo.HostUrl, out var knownUrlChannel)
+                    && (connectionInfo.ServerId == RpcServerId.Empty || knownUrlChannel.ConnectionInfo.ServerId == connectionInfo.ServerId )
                     && knownUrlChannel.ConnectionInfo.HasHigherPriority(candidateConnection?.ConnectionInfo))
                 {
                     candidateConnection = knownUrlChannel;
@@ -293,6 +289,7 @@ namespace SciTech.Rpc.Client
                 if (this.urlToConnection.TryGetValue(connectionInfo.HostUrl, out var wrUrlChannel)
                     && wrUrlChannel.TryGetTarget(out var urlChannel)
                     && this.CanUseChannel(urlChannel)
+                    && (connectionInfo.ServerId == RpcServerId.Empty || urlChannel.ConnectionInfo.ServerId == connectionInfo.ServerId)
                     && urlChannel.ConnectionInfo.HasHigherPriority(candidateConnection?.ConnectionInfo))
                 {
                     candidateConnection = urlChannel;

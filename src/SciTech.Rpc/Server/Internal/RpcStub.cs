@@ -508,8 +508,8 @@ namespace SciTech.Rpc.Server.Internal
                             {
                                 var taskTimeOut = Task.Delay(RpcStubOptions.StreamingResponseWaitTime, moveNextCts.Token);
                                 var finishedTask = await Task.WhenAny(taskHasNext, taskTimeOut).ContextFree();
+                                if (context.CancellationToken.IsCancellationRequested) break;
 
-                                context.CancellationToken.ThrowIfCancellationRequested();
                                 this.CheckPublished(request.Id);
 
                                 if (finishedTask == taskHasNext)
@@ -551,7 +551,7 @@ namespace SciTech.Rpc.Server.Internal
                         {
                             // Still waiting for next enumerator item so the enumerator cannot be disposed yet.
                             // Let's cancel the enumerator and dispose once finished. Let's not
-                            // wait for cancellation to finish, since it may take awhile for the enumerator to notice it.
+                            // wait for cancellation to finish, since it may take a while for the enumerator to notice it.
                             enumCts.Cancel();
 
                             taskHasNext.ContinueWith(t =>

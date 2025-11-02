@@ -701,7 +701,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     }
                 }
 
-                responseTcs?.SetCanceled();
+                responseTcs?.TrySetResult(false);
             }
 
 

@@ -45,14 +45,16 @@ namespace SciTech.Collections.Immutable
         {
             if (list == null) throw new ArgumentNullException(nameof(list));
 
-            return ImmutableArrayList.CreateRange(list);
+            if( list is ImmutableArrayList<T> arrayList ) return arrayList;
+            if( list is ImmutableArray<T> immutableArray ) return new ImmutableArrayList<T>(immutableArray);
+
+            return [.. list];
         }
 
         public static ImmutableArrayList<T> ToImmutableArrayList<T>(this ImmutableArray<T> immutableArray)
         {
             return new ImmutableArrayList<T>(immutableArray);
         }
-
 
         public static ImmutableArrayList<T> ToImmutableArrayList<T>(this ImmutableArray<T>.Builder immutableArrayBuilder)
         {

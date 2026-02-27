@@ -23,23 +23,25 @@ namespace SciTech.Rpc.Lightweight.Client
     public sealed class InprocRpcConnection : LightweightRpcConnection
     {
         private IDuplexPipe? clientPipe;
+        private readonly bool treatAsMutuallyAuthenticated;
 
-        public InprocRpcConnection(
+        internal InprocRpcConnection(
             RpcConnectionInfo connectionInfo,
             IDuplexPipe clientPipe,
-            IRpcClientOptions? options=null,            
-            LightweightOptions? lightweightOptions = null)
+            IRpcClientOptions? options,            
+            LightweightOptions? lightweightOptions,
+            bool treatAsMutuallyAuthenticated)
             : base(connectionInfo, options, 
                   LightweightProxyGenerator.Default, 
                   lightweightOptions)
         {
             this.clientPipe = clientPipe;
-
+            this.treatAsMutuallyAuthenticated = treatAsMutuallyAuthenticated;
         }
 
         public override bool IsEncrypted => false;
 
-        public override bool IsMutuallyAuthenticated => false;
+        public override bool IsMutuallyAuthenticated => this.treatAsMutuallyAuthenticated;
 
         public override bool IsSigned => false;
 

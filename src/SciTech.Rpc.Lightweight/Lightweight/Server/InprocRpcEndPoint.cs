@@ -24,14 +24,16 @@ namespace SciTech.Rpc.Lightweight.Server
         private readonly object syncRoot = new object();
 
         private IDuplexPipe? clientPipe;
+        private readonly bool treatAsMutuallyAuthenticated;
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="clientPipe"></param>
-        public InprocRpcEndPoint(IDuplexPipe clientPipe)
+        internal InprocRpcEndPoint(IDuplexPipe clientPipe, bool treatAsMutuallyAuthenticated)
         {
             this.clientPipe = clientPipe;
+            this.treatAsMutuallyAuthenticated = treatAsMutuallyAuthenticated;
         }
 
         public override string DisplayName => "Direct";
@@ -98,7 +100,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     new EstablishedConnection( 
                         Thread.CurrentPrincipal,
                         null,
-                        isMutuallyAuthenticated: true,  
+                        isMutuallyAuthenticated: endPoint.treatAsMutuallyAuthenticated,  
                         isEncrypted: true,  // Not really true, but no external entity could gain access to the data.
                         isSigned: true,     // Not really true, but no external entity could tamper with the data.
                         headers: null) );

@@ -25,17 +25,19 @@ namespace SciTech.Rpc.Lightweight
         {
         }
 
-        public InprocRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null, int? priority = null)
+        public InprocRpcConnector(RpcServerId serverId, IRpcClientOptions? options = null, int? priority = null, bool treatAsMutuallyAuthenticated = true)
         {
             var requestPipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
             var responsePipe = new Pipe(new PipeOptions(null, readerScheduler: PipeScheduler.Inline, useSynchronizationContext: false));
 
-            this.EndPoint = new InprocRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer));
+            this.EndPoint = new InprocRpcEndPoint(new DuplexPipe(requestPipe.Reader, responsePipe.Writer), treatAsMutuallyAuthenticated);
 
             this.Connection = new InprocRpcConnection(
                 new RpcConnectionInfo("Direct", new Uri( "direct://localhost" ), serverId, priority),
                 new DuplexPipe(responsePipe.Reader, requestPipe.Writer),
-                options);
+                options,
+                null,
+                treatAsMutuallyAuthenticated);
         }
 
         public LightweightRpcConnection Connection { get; }

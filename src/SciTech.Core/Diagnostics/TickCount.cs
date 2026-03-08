@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 
 namespace SciTech.Diagnostics
@@ -91,6 +91,23 @@ namespace SciTech.Diagnostics
                 return new TickCount(op1.tickCount + op2.Ticks);
             }
         }
+
+        public static TickCount operator -(TickCount op1, TimeSpan op2)
+        {
+            if (Stopwatch.IsHighResolution)
+            {
+                long timeSpanTicks = op2.Ticks;
+                double dticks = (double)timeSpanTicks / tickFrequency;
+                long ticks = unchecked((long)dticks);
+
+                return new TickCount(op1.tickCount - ticks);
+            }
+            else
+            {
+                return new TickCount(op1.tickCount - op2.Ticks);
+            }
+        }
+
 
         public static bool operator >(TickCount op1, TickCount op2)
         {

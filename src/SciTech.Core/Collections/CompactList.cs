@@ -465,7 +465,7 @@ namespace SciTech.Collections
             }
         }
 
-        internal void RemoveRange(int index, int count)
+        public void RemoveRange(int index, int count)
         {
             if (this.data == null)
             {

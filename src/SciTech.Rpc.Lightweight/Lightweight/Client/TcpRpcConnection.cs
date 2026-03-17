@@ -320,8 +320,6 @@ namespace SciTech.Rpc.Lightweight.Client
         {
             if (socket.AddressFamily == AddressFamily.Unix) return;
 
-            try { socket.NoDelay = true; } catch { }
-
             try { SetFastLoopbackOption(socket); } catch { }
         }
 

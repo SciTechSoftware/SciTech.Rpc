@@ -11,20 +11,8 @@ namespace GrpcGreeter
 {
     internal class Program
     {
-        static void QuickLightWeight()
-        {
-            var connection = new NamedPipeRpcConnection("RpcQuickStart");
-            var greeterService = connection.GetServiceSingleton<IGreeterService>();
-            Console.WriteLine(greeterService.SayHello("User"));
-        }
-
         private static async Task Main(string[] args)
         {
-            var connection = new NamedPipeRpcConnection("RpcQuickStart");
-            var greeterService = connection.GetServiceSingleton<IGreeterService>();
-            var greeting = greeterService.SayHello("User");
-            Console.WriteLine(greeting);
-
             var credentials = TestCertificates.GrpcSslCredentials;
             var sslOptions = TestCertificates.SslClientOptions;
 
@@ -33,9 +21,6 @@ namespace GrpcGreeter
                     new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
                     new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)
                 });
-
-            /*var */connection = new NamedPipeRpcConnection("Test");
-            connection.GetServiceSingleton<IGreeterServiceClient>();
 
 
             RpcConnectionInfo connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
@@ -55,25 +40,6 @@ namespace GrpcGreeter
             Console.WriteLine("Press any key to exit...");
 
             Console.ReadKey();
-
-
-            //var server = new LightweightRpcServer();
-            //server.AddEndPoint(new NamedPipeRpcEndPoint("GreeterPipe"));
-            //server.PublishSingleton<IGreeterService>(new GreeterServiceImpl());
-            //server.Start();
-
-
-            //Console.WriteLine("Press any key to exit...");
-
-            //Console.ReadKey();
-
-
-            //var connection = new NamedPipeRpcConnection("GreeterPipe");
-            //var greeter2 = connection.GetServiceSingleton<IGreeterServiceClient>();
-
-            
-
-
         }
     }
 }

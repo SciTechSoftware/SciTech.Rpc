@@ -280,13 +280,13 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                         socketStream = null;
                                     }
                                 }
-                                else if( authenticationOptions == null )
+                                else if( authenticationOptions is AnonymousAuthenticationServerOptions)
                                 {
                                     establishedConnection = EstablishedConnection.Empty;
                                 }
                                 else
                                 {
-                                    throw new InvalidOperationException($"Unexepected authentication options: '{authenticationOptions.Name} ({authenticationOptions.GetType()})'");
+                                    throw new InvalidOperationException($"Unexepected authentication options: '{authenticationOptions?.Name}' ({authenticationOptions?.GetType()})'");
                                 }
                             }
 

@@ -1,7 +1,19 @@
 ﻿<Project>
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <!--<TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.1;net5.0;net6.0</TargetFrameworks>-->
 
-  <PropertyGroup>
-    <Nullable>enable</Nullable>
-    <EnableSourceLink Condition=" $(EnableSourceLink)=='' ">false</EnableSourceLink>
-  </PropertyGroup>
+        <Nullable>enable</Nullable>
+        <EnableSourceLink Condition=" $(EnableSourceLink)=='' ">false</EnableSourceLink>
+
+        <!--<AnalysisLevel>latest-all</AnalysisLevel>
+        <WarningLevel>9999</WarningLevel>
+
+        <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>-->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="$(AssemblyName).Tests" />
+    </ItemGroup>
+
 </Project>

@@ -46,7 +46,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             _ = RpcServerId.NewId();
             using (var host = new LightweightRpcServer(Mock.Of<IRpcServicePublisher>(), serviceImplProviderMock.Object, serviceRegistrator, null, new RpcServerOptions { Serializer = serializer }))
             {
-                host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
+                host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer), false));
 
                 host.Start();
 

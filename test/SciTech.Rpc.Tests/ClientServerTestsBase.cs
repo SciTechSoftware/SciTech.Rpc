@@ -163,10 +163,10 @@ namespace SciTech.Rpc.Tests
 
                         var host = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions,
                             loggerFactory: services.GetService<ILoggerFactory>());
-                        host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer)));
+                        host.AddEndPoint(new InprocRpcEndPoint(new DirectDuplexPipe(requestPipe.Reader, responsePipe.Writer), false));
 
                         var connection = new InprocRpcConnection(new RpcConnectionInfo("Direct", new Uri("direct:localhost"), rpcServerId),
-                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable());
+                            new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), null, false);
                         return (host, connection);
                     }
                 case RpcConnectionType.Grpc:

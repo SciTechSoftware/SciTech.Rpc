@@ -6,7 +6,7 @@ namespace SciTech.Collections
 {
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types")]
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix")]
-    public struct CompactSet<T> : ICollection<T>, IReadOnlyCollection<T>
+    public struct CompactSet<T> : ICollection<T>, IReadOnlyCollection<T>/*, ISet<T>*/
     {
         private static readonly T[] EmptyArray = Array.Empty<T>();
 
@@ -94,6 +94,17 @@ namespace SciTech.Collections
         {
             return new CompactSet<T>(boxedCompactSet);
         }
+
+        public void UnionWith(IEnumerable<T> other)
+        {
+            ArgumentNullException.ThrowIfNull(other);
+
+            foreach (T item in other)
+            {
+                Add(item);
+            }
+        }
+
 
         public bool Add(T item)
         {
@@ -183,7 +194,7 @@ namespace SciTech.Collections
             }
         }
 
-        public IEnumerator<T> GetEnumerator()
+        public readonly IEnumerator<T> GetEnumerator()
         {
             if (this.data == null)
             {

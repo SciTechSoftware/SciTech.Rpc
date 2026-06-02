@@ -21,6 +21,7 @@ using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics;
 using System.Security.Principal;
 using System.Threading;
 using System.Threading.Channels;
@@ -129,13 +130,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
     /// <summary>
     /// Feed used by the server pipeline to push uploaded stream data to a running client-streaming handler.
     /// </summary>
-    internal interface IClientStreamFeed
+    internal interface IClientStreamFeed : IDisposable
     {
-        /// <summary>
-        /// The task representing the running operation handler. Completes when the handler has produced its response.
-        /// </summary>
-        Task HandlerTask { get; }
-
         /// <summary>
         /// Deserializes a stream item from the supplied <see cref="RpcFrameType.StreamingData"/> frame and writes
         /// it to the request stream.
@@ -151,6 +147,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// Faults the request stream, e.g. if the connection is lost before the stream is completed.
         /// </summary>
         void Fault(Exception exception);
+        Task RunAsync();
     }
 
 
@@ -508,6 +505,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             private readonly Channel<TStreamItem> channel;
 
+            // Signalled when the handler has completed (or faulted). Used to release any
+            // pending or subsequent channel writes so that the receive loop is not blocked
+            // when the handler stops reading the uploaded stream early.
+            private readonly CancellationTokenSource handlerCompletedCts = new CancellationTokenSource();
+
             internal ClientStreamFeed(
                 LightweightClientStreamingMethodStub<TRequest, TStreamItem, TResponse> stub,
                 ILightweightRpcFrameWriter frameWriter,
@@ -527,14 +529,18 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     SingleReader = true,
                     SingleWriter = true
                 });
-
-                this.HandlerTask = this.RunAsync();
             }
-
-            public Task HandlerTask { get; } 
 
             public ValueTask WriteDataAsync(in LightweightRpcFrame frame)
             {
+                if (this.handlerCompletedCts.IsCancellationRequested)
+                {
+                    // The handler has already finished and is no longer reading the uploaded
+                    // stream. Discard any further uploaded items so that the receive loop is
+                    // not blocked on a full channel that will never be drained.
+                    return default;
+                }
+
                 TStreamItem? item;
                 try
                 {
@@ -545,7 +551,44 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     throw new RpcFailureException(RpcFailure.InvalidData, $"Stream payload deserialization failed. {ex.Message}", ex);
                 }
 
-                return this.channel.Writer.WriteAsync(item!);
+                return this.WriteItemAsync(item!);
+            }
+
+            private ValueTask WriteItemAsync(TStreamItem item)
+            {
+                try
+                {
+                    var writeTask = this.channel.Writer.WriteAsync(item, this.handlerCompletedCts.Token);
+                    if (!writeTask.IsCompletedSuccessfully) return AwaitWriteAsync(writeTask);
+                }
+                catch (OperationCanceledException) when (this.handlerCompletedCts.IsCancellationRequested)
+                {
+                    // The handler completed while this item was waiting to be written to a
+                    // full channel. The item is no longer needed, so it is safely discarded.
+                }
+                catch (ChannelClosedException)
+                {
+                    // The channel was completed (e.g. the handler finished). Discard the item.
+                }
+
+                return default;
+
+                async ValueTask AwaitWriteAsync(ValueTask task)
+                {
+                    try
+                    {
+                        await task.ContextFree();
+                    }
+                    catch (OperationCanceledException) when (this.handlerCompletedCts.IsCancellationRequested)
+                    {
+                        // The handler completed while this item was waiting to be written to a
+                        // full channel. The item is no longer needed, so it is safely discarded.
+                    }
+                    catch (ChannelClosedException)
+                    {
+                        // The channel was completed (e.g. the handler finished). Discard the item.
+                    }
+                }
             }
 
             public void CompleteData()
@@ -558,12 +601,29 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 this.channel.Writer.TryComplete(exception);
             }
 
-            private async Task RunAsync()
+            public async Task RunAsync()
             {
-                var response = await this.stub.Handler(
-                    this.request, this.serviceProvider, this.channel.Reader.ReadAllAsync(this.context.CancellationToken), this.context).ContextFree();
+                try
+                {
+                    var response = await this.stub.Handler(
+                        this.request, this.serviceProvider, this.channel.Reader.ReadAllAsync(this.context.CancellationToken), this.context).ContextFree();
 
-                await this.stub.WriteResponse(this.messageNumber, this.operation, this.frameWriter, response).ContextFree();
+                    await this.stub.WriteResponse(this.messageNumber, this.operation, this.frameWriter, response).ContextFree();
+                }
+                finally
+                {
+                    // Release any pending or subsequent uploaded items so that the receive
+                    // loop is never blocked waiting to write to a channel that the handler
+                    // is no longer reading.
+                    await this.handlerCompletedCts.CancelAsync().ContextFree();
+                    this.channel.Writer.TryComplete();
+                }
+            }
+
+            public void Dispose()
+            {
+                Debug.Assert(this.handlerCompletedCts.IsCancellationRequested);
+                this.handlerCompletedCts.Dispose();
             }
         }
     }

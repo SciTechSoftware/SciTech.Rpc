@@ -22,6 +22,10 @@ namespace SciTech.Rpc.Tests.Lightweight
         Task CollectValues(IAsyncEnumerable<SequenceData> values);
 
         Task<int> SumCancellableValues(IAsyncEnumerable<SequenceData> values, CancellationToken cancellationToken);
+
+        Task<int> SumFirstValues(int count, IAsyncEnumerable<SequenceData> values);
+
+        Task<int> SumValuesWithDelay(int delayMs, IAsyncEnumerable<SequenceData> values);
     }
 
     public class ClientStreamingServiceImpl : IClientStreamingService
@@ -95,6 +99,37 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             return sum;
         }
+
+        public async Task<int> SumFirstValues(int count, IAsyncEnumerable<SequenceData> values)
+        {
+            // Returns as soon as 'count' items have been received, without
+            // enumerating the rest of the uploaded stream.
+            int sum = 0;
+            int received = 0;
+            await foreach (var value in values)
+            {
+                sum += value.SequenceNo;
+                received++;
+                if (received >= count)
+                {
+                    break;
+                }
+            }
+
+            return sum;
+        }
+
+        public async Task<int> SumValuesWithDelay(int delayMs, IAsyncEnumerable<SequenceData> values)
+        {
+            int sum = 0;
+            await foreach (var value in values)
+            {
+                await Task.Delay(delayMs);
+                sum += value.SequenceNo;
+            }
+
+            return sum;
+        }
     }
 
     [TestFixture(RpcConnectionType.LightweightTcp)]
@@ -124,6 +159,15 @@ namespace SciTech.Rpc.Tests.Lightweight
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await Task.Yield();
+                yield return new SequenceData(i + 1);
+            }
+        }
+
+        private static async IAsyncEnumerable<SequenceData> GenerateSlowSequence(int count, int delayMs, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                await Task.Delay(delayMs, cancellationToken);
                 yield return new SequenceData(i + 1);
             }
         }
@@ -223,6 +267,102 @@ namespace SciTech.Rpc.Tests.Lightweight
                 int result = await clientStreamingService.SumValues(GenerateSequence(0)).DefaultTimeout();
 
                 Assert.AreEqual(0, result);
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+        [Test]
+        public async Task ClientStreaming_CancelledCall_ThrowsAndCancelsServer()
+        {
+            var builder = new RpcServiceDefinitionsBuilder();
+            builder.RegisterService<IClientStreamingService>();
+
+            var (server, connection) = this.CreateServerAndConnection(builder);
+            var serviceImpl = new ClientStreamingServiceImpl();
+            using var publishedService = server.ServicePublisher.PublishSingleton<IClientStreamingService>(serviceImpl);
+            try
+            {
+                server.Start();
+
+                var clientStreamingService = connection.GetServiceSingleton<IClientStreamingService>();
+
+                using var cts = new CancellationTokenSource();
+
+                // Cancel the call while the (slow) upload stream is still in progress.
+                cts.CancelAfter(200);
+
+                Assert.CatchAsync<OperationCanceledException>(async () =>
+                {
+                    // The slow sequence honors the cancellation token, so both the upload
+                    // loop and the server-side handler observe the cancellation.
+                    await clientStreamingService.SumCancellableValues(GenerateSlowSequence(1000, 20, cts.Token), cts.Token).DefaultTimeout();
+                });
+
+                // The server-side handler should observe the cancellation.
+                Assert.IsTrue(await serviceImpl.GetIsCancelledAsync().DefaultTimeout());
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+        [Test]
+        public async Task ClientStreaming_HandlerReturnsBeforeStreamEnd_ReturnsResult()
+        {
+            var builder = new RpcServiceDefinitionsBuilder();
+            builder.RegisterService<IClientStreamingService>();
+
+            var (server, connection) = this.CreateServerAndConnection(builder);
+            var serviceImpl = new ClientStreamingServiceImpl();
+            using var publishedService = server.ServicePublisher.PublishSingleton<IClientStreamingService>(serviceImpl);
+            try
+            {
+                server.Start();
+
+                var clientStreamingService = connection.GetServiceSingleton<IClientStreamingService>();
+
+                // The handler returns after reading the first 3 items. The remaining items
+                // (including more than the bounded channel capacity) must not cause the call
+                // to hang, since the server stops reading the stream early.
+                int result = await clientStreamingService.SumFirstValues(3, GenerateSequence(100)).DefaultTimeout();
+
+                // 1 + 2 + 3 = 6
+                Assert.AreEqual(6, result);
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+        [Test]
+        public async Task ClientStreaming_Timeout_ThrowsTimeoutException()
+        {
+            var builder = new RpcServiceDefinitionsBuilder();
+            builder.RegisterService<IClientStreamingService>();
+
+            var (server, connection) = this.CreateServerAndConnection(
+                builder,
+                configClientOptions: o => o.StreamingCallTimeout = TimeSpan.FromMilliseconds(200));
+
+            var serviceImpl = new ClientStreamingServiceImpl();
+            using var publishedService = server.ServicePublisher.PublishSingleton<IClientStreamingService>(serviceImpl);
+            try
+            {
+                server.Start();
+
+                var clientStreamingService = connection.GetServiceSingleton<IClientStreamingService>();
+
+                // The server delays processing of each item, so the overall call cannot
+                // complete within the configured streaming call timeout.
+                Assert.ThrowsAsync<TimeoutException>(async () =>
+                {
+                    await clientStreamingService.SumValuesWithDelay(500, GenerateSlowSequence(20, 50)).DefaultTimeout();
+                });
             }
             finally
             {

@@ -401,7 +401,7 @@ namespace SciTech.Rpc.Lightweight.Server
                                 activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
                                 var feed = methodStub.BeginClientStreaming(this, frame, scope?.ServiceProvider, context);
                                 activeOperation.ClientStreamFeed = feed;
-                                messageTask = feed.HandlerTask;
+                                messageTask = feed.RunAsync();
                                 break;
 
                             default:
@@ -576,6 +576,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 public void Dispose()
                 {
+                    this.ClientStreamFeed?.Dispose();
                     this.CancellationSource?.Dispose();
                 }
             }

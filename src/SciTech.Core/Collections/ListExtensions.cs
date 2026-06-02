@@ -92,34 +92,7 @@ namespace SciTech.Collections
 
             return -1;
         }
-        
-        public static int FindIndex<T>(this IList<T> list, Predicate<T> predicate)
-        {
-            if (list is null) throw new ArgumentNullException(nameof(list));
-            if (predicate is null) throw new ArgumentNullException(nameof(predicate));
 
-            if (list is List<T> concreteList)
-            {
-                return concreteList.FindIndex(predicate);
-            }
-
-            if (list is T[] array)
-            {
-                return Array.FindIndex(array, predicate);
-            }
-
-            int nItems = list.Count;
-
-            for (int i = 0; i < nItems; i++)
-            {
-                if (predicate(list[i]))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
         private sealed class ReadOnlyWrapper<T> : IReadOnlyList<T>
         {
             private readonly IList<T> source;

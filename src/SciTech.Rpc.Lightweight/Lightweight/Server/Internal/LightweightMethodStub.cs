@@ -140,7 +140,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// Deserializes a stream item from the supplied <see cref="RpcFrameType.StreamingData"/> frame and writes
         /// it to the request stream.
         /// </summary>
-        void WriteData(in LightweightRpcFrame frame);
+        ValueTask WriteDataAsync(in LightweightRpcFrame frame);
 
         /// <summary>
         /// Marks the request stream as completed, in response to a <see cref="RpcFrameType.StreamingEnd"/> frame.
@@ -464,9 +464,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             if (request == null) throw new RpcFailureException(RpcFailure.InvalidData, "Payload deserialization failed");
 
-            var feed = new ClientStreamFeed(this, pipeline, frame.MessageNumber, frame.RpcOperation, request, serviceProvider, context);
-            feed.Start();
-            return feed;
+            return new ClientStreamFeed(this, pipeline, frame.MessageNumber, frame.RpcOperation, request, serviceProvider, context);
         }
 
         private Task WriteResponse(int messageNumber, string operation, ILightweightRpcFrameWriter frameWriter, TResponse response)
@@ -492,6 +490,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private sealed class ClientStreamFeed : IClientStreamFeed
         {
+            private const int MaxQueuedItems = 16; // TODO: Configurable max queue size?
+
             private readonly LightweightClientStreamingMethodStub<TRequest, TStreamItem, TResponse> stub;
 
             private readonly ILightweightRpcFrameWriter frameWriter;
@@ -508,7 +508,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             private readonly Channel<TStreamItem> channel;
 
-            public ClientStreamFeed(
+            internal ClientStreamFeed(
                 LightweightClientStreamingMethodStub<TRequest, TStreamItem, TResponse> stub,
                 ILightweightRpcFrameWriter frameWriter,
                 int messageNumber, string operation, TRequest request,
@@ -521,22 +521,19 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 this.request = request;
                 this.serviceProvider = serviceProvider;
                 this.context = context;
-                // Unbounded buffering of uploaded stream items is acceptable for the current implementation.
-                this.channel = Channel.CreateUnbounded<TStreamItem>(new UnboundedChannelOptions
+
+                this.channel = Channel.CreateBounded<TStreamItem>(new BoundedChannelOptions(MaxQueuedItems)
                 {
                     SingleReader = true,
                     SingleWriter = true
                 });
-            }
 
-            public Task HandlerTask { get; private set; } = Task.CompletedTask;
-
-            public void Start()
-            {
                 this.HandlerTask = this.RunAsync();
             }
 
-            public void WriteData(in LightweightRpcFrame frame)
+            public Task HandlerTask { get; } 
+
+            public ValueTask WriteDataAsync(in LightweightRpcFrame frame)
             {
                 TStreamItem? item;
                 try
@@ -548,7 +545,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     throw new RpcFailureException(RpcFailure.InvalidData, $"Stream payload deserialization failed. {ex.Message}", ex);
                 }
 
-                this.channel.Writer.TryWrite(item!);
+                return this.channel.Writer.WriteAsync(item!);
             }
 
             public void CompleteData()

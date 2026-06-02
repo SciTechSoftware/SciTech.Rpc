@@ -95,7 +95,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             {
                 var client = clientTask.Result;
                 var streamingCall = client.BeginStreamingServerCall(
-                    RpcFrameType.StreamingRequest,
+                    RpcFrameType.ServerStreamingRequest,
                     method.OperationName,
                     context,
                     request,
@@ -109,7 +109,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             {
                 var client = await pendingClientTask.ContextFree();
                 var streamingCall = client.BeginStreamingServerCall(
-                    RpcFrameType.StreamingRequest,
+                    RpcFrameType.ServerStreamingRequest,
                     method.OperationName,
                     context,
                     request,

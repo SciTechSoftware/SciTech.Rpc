@@ -243,7 +243,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 }
 
                 // Send the initial streaming request frame with the request object.
-                var requestFrame = new LightweightRpcFrame(RpcFrameType.StreamingRequest, messageId, operation, flags, (uint)timeout, context?.Headers);
+                var requestFrame = new LightweightRpcFrame(RpcFrameType.ClientStreamingRequest, messageId, operation, flags, (uint)timeout, context?.Headers);
                 var requestWriteState = this.BeginWrite(requestFrame);
                 await this.WriteRequestAsync(request, serializers.RequestSerializer, requestWriteState).ContextFree();
 

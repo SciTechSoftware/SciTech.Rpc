@@ -132,13 +132,14 @@ namespace SciTech.Rpc.Lightweight.Server
                 switch (frame.FrameType)
                 {
                     case RpcFrameType.UnaryRequest:
-                    case RpcFrameType.StreamingRequest:
+                    case RpcFrameType.ServerStreamingRequest:
+                    case RpcFrameType.ClientStreamingRequest:
                         handleRequestTask = this.HandleRequestAsync(frame);
                         break;
 
                     case RpcFrameType.StreamingData:
                     case RpcFrameType.StreamingEnd:
-                        handleRequestTask = this.HandleClientStreamFrame(frame);
+                        handleRequestTask = this.HandleClientStreamFrameAsync(frame);
                         break;
 
                     case RpcFrameType.CancelRequest:
@@ -296,7 +297,7 @@ namespace SciTech.Rpc.Lightweight.Server
             }
 
             [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
-            private ValueTask HandleClientStreamFrame(in LightweightRpcFrame frame)
+            private ValueTask HandleClientStreamFrameAsync(in LightweightRpcFrame frame)
             {
                 ActiveOperation? activeOperation;
                 lock (this.syncRoot)
@@ -315,7 +316,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 {
                     if (frame.FrameType == RpcFrameType.StreamingData)
                     {
-                        feed.WriteData(frame);
+                        return feed.WriteDataAsync(frame);
                     }
                     else
                     {
@@ -373,30 +374,41 @@ namespace SciTech.Rpc.Lightweight.Server
                                 messageTask = methodStub.HandleMessage(this, frame, scope?.ServiceProvider, context);
                                 break;
 
-                            case RpcFrameType.StreamingRequest:
+                            case RpcFrameType.ServerStreamingRequest:
                                 LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
 
                                 if (methodStub.IsClientStreaming)
                                 {
-                                    // Client-streaming requests are kept active so that subsequent StreamingData/StreamingEnd
-                                    // frames can be routed to the running handler. The active operation must be registered
-                                    // before the handler starts producing, so create it up-front.
-                                    activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
-                                    var feed = methodStub.BeginClientStreaming(this, frame, scope?.ServiceProvider, context);
-                                    activeOperation.ClientStreamFeed = feed;
-                                    messageTask = feed.HandlerTask;
+                                    throw new RpcFailureException(RpcFailure.RemoteDefinitionError,
+                                        $"Received a server-streaming request for client-streaming operation '{frame.RpcOperation}'.");
                                 }
-                                else
+
+                                messageTask = methodStub.HandleStreamingMessage(this, frame, scope?.ServiceProvider, context);
+                                break;
+
+                            case RpcFrameType.ClientStreamingRequest:
+                                LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
+
+                                if (!methodStub.IsClientStreaming)
                                 {
-                                    messageTask = methodStub.HandleStreamingMessage(this, frame, scope?.ServiceProvider, context);
+                                    throw new RpcFailureException(RpcFailure.RemoteDefinitionError,
+                                        $"Received a client-streaming request for non-client-streaming operation '{frame.RpcOperation}'.");
                                 }
+
+                                // Client-streaming requests are kept active so that subsequent StreamingData/StreamingEnd
+                                // frames can be routed to the running handler. The active operation must be registered
+                                // before the handler starts producing, so create it up-front.
+                                activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
+                                var feed = methodStub.BeginClientStreaming(this, frame, scope?.ServiceProvider, context);
+                                activeOperation.ClientStreamFeed = feed;
+                                messageTask = feed.HandlerTask;
                                 break;
 
                             default:
                                 throw new NotImplementedException();
                         }
 
-                        if (messageTask.Status != TaskStatus.RanToCompletion)
+                        if (messageTask.Status != TaskStatus.RanToCompletion || activeOperation != null)
                         {
                             var activeScope = scope;
                             var activeLogScope = logScope;

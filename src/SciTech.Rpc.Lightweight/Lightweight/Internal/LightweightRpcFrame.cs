@@ -682,7 +682,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         UnaryRequest,
         UnaryResponse,
 
-        StreamingRequest,
+        ServerStreamingRequest,
         StreamingResponse,
         StreamingEnd,
 
@@ -705,9 +705,16 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         /// <summary>
         /// A data frame sent by the client during a client-streaming call, after the
-        /// initial <see cref="StreamingRequest"/> and before the terminating <see cref="StreamingEnd"/>.
+        /// initial <see cref="ClientStreamingRequest"/> and before the terminating <see cref="StreamingEnd"/>.
         /// </summary>
         StreamingData,
+
+        /// <summary>
+        /// The initial request frame sent by the client to start a client-streaming call.
+        /// It is followed by zero or more <see cref="StreamingData"/> frames and terminated
+        /// by a <see cref="StreamingEnd"/> frame.
+        /// </summary>
+        ClientStreamingRequest,
     }
 
     [Flags]

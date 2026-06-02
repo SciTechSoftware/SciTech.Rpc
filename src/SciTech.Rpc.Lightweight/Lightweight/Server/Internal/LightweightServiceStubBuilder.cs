@@ -200,8 +200,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             var serializer = operationInfo.SerializerOverride ?? serviceStub.Serializer;
 
-            async ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, IAsyncEnumerable<TStreamItem> requestStream, LightweightCallContext context)
-                => await serviceStub.CallClientStreamingMethod(request, serviceProvider, context, requestStream, serviceCaller, responseConverter, faultHandler, serializer).ContextFree();
+            ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, IAsyncEnumerable<TStreamItem> requestStream, LightweightCallContext context)
+                => serviceStub.CallClientStreamingMethod(request, serviceProvider, context, requestStream, serviceCaller, responseConverter, faultHandler, serializer);
 
             var methodStub = new LightweightClientStreamingMethodStub<TRequest, TStreamItem, RpcResponse<TResponseReturn>>(
                 operationInfo.FullName, HandleRequest, serializer, faultHandler);
@@ -217,8 +217,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         {
             var serializer = operationInfo.SerializerOverride ?? serviceStub.Serializer;
 
-            async ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, IAsyncEnumerable<TStreamItem> requestStream, LightweightCallContext context)
-                => await serviceStub.CallVoidClientStreamingMethod(request, serviceProvider, context, requestStream, serviceCaller, faultHandler, serializer).ContextFree();
+            ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, IAsyncEnumerable<TStreamItem> requestStream, LightweightCallContext context)
+                => serviceStub.CallVoidClientStreamingMethod(request, serviceProvider, context, requestStream, serviceCaller, faultHandler, serializer);
 
             var methodStub = new LightweightClientStreamingMethodStub<TRequest, TStreamItem, RpcResponse>(
                 operationInfo.FullName, HandleRequest, serializer, faultHandler);

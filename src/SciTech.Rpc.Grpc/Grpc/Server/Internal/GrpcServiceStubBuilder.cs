@@ -186,7 +186,6 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             IGrpcMethodBinder binder)
-            where TResponseReturn : class
         {
             throw new NotImplementedException("Client-streaming is not yet implemented for the gRPC backend.");
         }

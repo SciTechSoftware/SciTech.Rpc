@@ -402,7 +402,6 @@ namespace SciTech.Rpc.Server.Internal
 
         protected void AddGenericClientStreamingMethod<TRequest, TStreamItem, TReturn, TResponseReturn>(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
             where TRequest : class, IObjectRequest
-            where TResponseReturn : class  // Needs to be class due to gRPC constraint
         {
             if (opInfo is null) throw new ArgumentNullException(nameof(opInfo));
 
@@ -446,8 +445,7 @@ namespace SciTech.Rpc.Server.Internal
             RpcStub<TService> serviceStub,
             RpcOperationInfo operationInfo,
             TMethodBinder binder)
-            where TRequest : class, IObjectRequest
-            where TResponseReturn : class;  // Needs to be class due to gRPC restriction
+            where TRequest : class, IObjectRequest;
 
         protected abstract void AddVoidClientStreamingMethodCore<TRequest, TStreamItem>(
             Func<TService, TRequest, IAsyncEnumerable<TStreamItem>, CancellationToken, Task> serviceCaller,

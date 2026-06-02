@@ -122,33 +122,6 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return AwaitConnectAndCall(clientTask);
         }
 
-        protected override Task<TResponse> CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, TResponse>(
-            LightweightMethodDef method, TRequest request, IAsyncEnumerable<TStreamItem> requestStream, CancellationToken cancellationToken)
-        {
-            var context = this.CreateCallHeaders(cancellationToken);
-
-            var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)method).LightweightSerializersOverride
-                ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(method);
-
-            var streamItemSerializer = actualSerializers.Serializer.CreateTyped<TStreamItem>();
-
-            async Task<TResponse> AwaitConnectAndCall()
-            {
-                var client = await this.ConnectCoreAsync(cancellationToken).ContextFree();
-                return await client.SendClientStreamingFrameAsync<TRequest, TStreamItem, TResponse>(
-                    method.OperationName,
-                    context,
-                    request,
-                    requestStream,
-                    actualSerializers,
-                    streamItemSerializer,
-                    this.streamingCallTimeout,
-                    cancellationToken).ContextFree();
-            }
-
-            return AwaitConnectAndCall();
-        }
-
         protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
             return CallUnaryMethodCoreAsync<TRequest, TResponse>(methodDef, request, cancellationToken).AwaiterResult();
@@ -189,6 +162,33 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
 
             return AwaitConnectAndCall(clientTask);
+        }
+
+        protected override Task<TResponse> CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, TResponse>(
+            LightweightMethodDef methodDef, TRequest request, IAsyncEnumerable<TStreamItem> requestStream, CancellationToken cancellationToken)
+        {
+            var context = this.CreateCallHeaders(cancellationToken);
+
+            var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)methodDef).LightweightSerializersOverride
+                ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(methodDef);
+
+            var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
+            var streamItemSerializer = actualSerializer.CreateTyped<TStreamItem>();
+
+            async Task<TResponse> AwaitConnectAndCall(ValueTask<RpcPipelineClient> pendingClientTask)
+            {
+                var client = await pendingClientTask.ContextFree();
+                return await client.SendClientStreamingAsync<TRequest, TStreamItem, TResponse>(
+                    methodDef.OperationName,
+                    context,
+                    request,
+                    requestStream,
+                    actualSerializers,
+                    streamItemSerializer,
+                    this.streamingCallTimeout).ContextFree();
+            }
+
+            return AwaitConnectAndCall(this.ConnectCoreAsync(cancellationToken));
         }
 
         protected override LightweightMethodDef CreateDynamicMethodDef<TRequest, TResponse>(string serviceName, string operationName)

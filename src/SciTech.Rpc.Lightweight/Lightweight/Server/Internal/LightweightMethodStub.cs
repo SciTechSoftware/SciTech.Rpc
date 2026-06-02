@@ -541,7 +541,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 TStreamItem? item;
                 try
                 {
-                    item = this.stub.streamItemSerializer.Deserialize(frame.Payload, null);
+                    item = this.stub.streamItemSerializer.Deserialize(frame.Payload);
                 }
                 catch (Exception ex)
                 {

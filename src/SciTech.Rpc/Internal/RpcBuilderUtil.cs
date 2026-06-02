@@ -222,6 +222,7 @@ namespace SciTech.Rpc.Internal
                     {
                         case RpcMethodType.Unary:
                         case RpcMethodType.ServerStreaming:
+                        case RpcMethodType.ClientStreaming:
                             yield return opInfo;
                             break;
                     }

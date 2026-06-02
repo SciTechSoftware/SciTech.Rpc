@@ -138,7 +138,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                     case RpcFrameType.StreamingData:
                     case RpcFrameType.StreamingEnd:
-                        handleRequestTask = this.HandleStreamDataAsync(frame);
+                        handleRequestTask = this.HandleClientStreamFrame(frame);
                         break;
 
                     case RpcFrameType.CancelRequest:
@@ -295,8 +295,8 @@ namespace SciTech.Rpc.Lightweight.Server
                 return default;
             }
 
-            [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types")]
-            private ValueTask HandleStreamDataAsync(in LightweightRpcFrame frame)
+            [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
+            private ValueTask HandleClientStreamFrame(in LightweightRpcFrame frame)
             {
                 ActiveOperation? activeOperation;
                 lock (this.syncRoot)
@@ -305,23 +305,27 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
 
                 var feed = activeOperation?.ClientStreamFeed;
-                if (feed != null)
+                if (feed == null)
                 {
-                    try
+                    // No active client-streaming operation for this message; ignore the frame.
+                    return default;
+                }
+
+                try
+                {
+                    if (frame.FrameType == RpcFrameType.StreamingData)
                     {
-                        if (frame.FrameType == RpcFrameType.StreamingEnd)
-                        {
-                            feed.CompleteData();
-                        }
-                        else
-                        {
-                            feed.WriteData(frame);
-                        }
+                        feed.WriteData(frame);
                     }
-                    catch (Exception e)
+                    else
                     {
-                        feed.Fault(e);
+                        // StreamingEnd
+                        feed.CompleteData();
                     }
+                }
+                catch (Exception e)
+                {
+                    feed.Fault(e);
                 }
 
                 return default;
@@ -369,31 +373,23 @@ namespace SciTech.Rpc.Lightweight.Server
                                 messageTask = methodStub.HandleMessage(this, frame, scope?.ServiceProvider, context);
                                 break;
 
-                            case RpcFrameType.StreamingRequest when methodStub.IsClientStreaming:
-                                LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
-
-                                // Client-streaming operation. Begin handling, keeping the operation active so that
-                                // subsequent StreamingData/StreamingEnd frames can be routed to the upload feed.
-                                activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
-                                var feed = methodStub.BeginClientStreaming(this, frame, scope?.ServiceProvider, context);
-                                activeOperation.ClientStreamFeed = feed;
-                                messageTask = feed.HandlerTask;
-
-                                {
-                                    var activeScope = scope;
-                                    var activeLogScope = logScope;
-
-                                    // Make sure that the scope and cancellationSource are not disposed until the operation is finished.
-                                    scope = null;
-                                    logScope = null;
-                                    cancellationSource = null;
-                                    return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub.Serializer, messageTask);
-                                }
-
                             case RpcFrameType.StreamingRequest:
                                 LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
 
-                                messageTask = methodStub.HandleStreamingMessage(this, frame, scope?.ServiceProvider, context);
+                                if (methodStub.IsClientStreaming)
+                                {
+                                    // Client-streaming requests are kept active so that subsequent StreamingData/StreamingEnd
+                                    // frames can be routed to the running handler. The active operation must be registered
+                                    // before the handler starts producing, so create it up-front.
+                                    activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
+                                    var feed = methodStub.BeginClientStreaming(this, frame, scope?.ServiceProvider, context);
+                                    activeOperation.ClientStreamFeed = feed;
+                                    messageTask = feed.HandlerTask;
+                                }
+                                else
+                                {
+                                    messageTask = methodStub.HandleStreamingMessage(this, frame, scope?.ServiceProvider, context);
+                                }
                                 break;
 
                             default:
@@ -554,8 +550,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 internal int MessageId { get; }
 
                 /// <summary>
-                /// Feed for a client-streaming operation, used to route inbound StreamingData/StreamingEnd frames
-                /// to the running handler. Null for non-client-streaming operations.
+                /// For client-streaming operations, the feed used to push uploaded stream data to the running handler.
                 /// </summary>
                 internal IClientStreamFeed? ClientStreamFeed { get; set; }
 
@@ -564,7 +559,6 @@ namespace SciTech.Rpc.Lightweight.Server
                 internal void Cancel()
                 {
                     this.IsCancellationRequested = true;
-                    this.ClientStreamFeed?.Fault(new OperationCanceledException());
                     this.CancellationSource?.Cancel();
                 }
 

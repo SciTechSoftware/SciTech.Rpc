@@ -218,71 +218,47 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
         }
 
-        /// <summary>
-        /// Sends a client-streaming request: an initial <see cref="RpcFrameType.StreamingRequest"/> frame carrying the
-        /// request DTO, followed by a <see cref="RpcFrameType.StreamingData"/> frame for each uploaded stream item, and
-        /// terminated by a <see cref="RpcFrameType.StreamingEnd"/> frame. The returned task completes with the unary
-        /// response sent by the server once it has finished handling the upload.
-        /// </summary>
-        internal async Task<TResponse> SendClientStreamingFrameAsync<TRequest, TStreamItem, TResponse>(
+        internal async Task<TResponse> SendClientStreamingAsync<TRequest, TStreamItem, TResponse>(
             string operation,
             RpcRequestContext? context,
             TRequest request,
             IAsyncEnumerable<TStreamItem> requestStream,
             LightweightSerializers<TRequest, TResponse> serializers,
             IRpcSerializer<TStreamItem> streamItemSerializer,
-            int timeout,
-            CancellationToken cancellationToken)
+            int timeout)
             where TRequest : class
             where TResponse : class
         {
             var tcs = new ResponseCompletionSource<TResponse>(serializers.Serializer, serializers.ResponseSerializer);
 
             int messageId = this.AddAwaitingResponse(tcs);
+            var cancellationToken = context != null ? context.CancellationToken : default;
             try
             {
                 RpcOperationFlags flags = 0;
-
-                var requestCancellationToken = context != null ? context.CancellationToken : default;
-                if (requestCancellationToken.CanBeCanceled)
+                if (cancellationToken.CanBeCanceled)
                 {
-                    requestCancellationToken.Register(() => this.CancelCall(messageId, operation));
+                    cancellationToken.Register(() => this.CancelCall(messageId, operation));
                     flags |= RpcOperationFlags.CanCancel;
                 }
 
+                // Send the initial streaming request frame with the request object.
                 var requestFrame = new LightweightRpcFrame(RpcFrameType.StreamingRequest, messageId, operation, flags, (uint)timeout, context?.Headers);
                 var requestWriteState = this.BeginWrite(requestFrame);
                 await this.WriteRequestAsync(request, serializers.RequestSerializer, requestWriteState).ContextFree();
 
-                try
+                // Send each uploaded stream item as a separate StreamingData frame.
+                await foreach (var item in requestStream.WithCancellation(cancellationToken).ConfigureAwait(false))
                 {
-                    await foreach (var item in requestStream.WithCancellation(cancellationToken).ConfigureAwait(false))
-                    {
-                        var dataFrame = new LightweightRpcFrame(RpcFrameType.StreamingData, messageId, operation, RpcOperationFlags.None, 0, null);
-                        var dataWriteState = this.BeginWrite(dataFrame);
-                        await this.WriteRequestAsync(item!, streamItemSerializer, dataWriteState).ContextFree();
-                    }
-                }
-                catch (Exception streamException)
-                {
-                    // Propagate the local enumeration error to the caller and abort the upload.
-                    this.CancelCall(messageId, operation);
-                    tcs.TrySetException(streamException);
-                    return await tcs.Task.ContextFree();
+                    var dataFrame = new LightweightRpcFrame(RpcFrameType.StreamingData, messageId, operation, RpcOperationFlags.None, 0, null);
+                    var dataWriteState = this.BeginWrite(dataFrame);
+                    await this.WriteStreamItemAsync(item, streamItemSerializer, dataWriteState).ContextFree();
                 }
 
+                // Signal the end of the uploaded stream.
                 var endFrame = new LightweightRpcFrame(RpcFrameType.StreamingEnd, messageId, operation, RpcOperationFlags.None, 0, null);
                 var endWriteState = this.BeginWrite(endFrame);
                 await this.EndWriteAsync(endWriteState, false).ContextFree();
-
-                if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
-                {
-                    return await tcs.Task.ContextFree();
-                }
-                else
-                {
-                    return await AwaitTimeoutResponse(tcs.Task, operation, timeout).ContextFree();
-                }
             }
             catch (Exception ex)
             {
@@ -290,31 +266,28 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 throw;
             }
 
-#if NET8_0_OR_GREATER
-            async Task<TResponse> AwaitTimeoutResponse(Task<TResponse> responseTask, string operation, int timeout)
+            if (timeout == 0 || RpcProxyOptions.RoundTripCancellationsAndTimeouts)
             {
-                try
-                {
-                    return await responseTask.WaitAsync(TimeSpan.FromMilliseconds(timeout)).ContextFree();
-                }
-                catch (TimeoutException x)
-                {
-                    throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).", x);
-                }
+                return await tcs.Task.ContextFree();
+            }
+
+#if NET8_0_OR_GREATER
+            try
+            {
+                return await tcs.Task.WaitAsync(TimeSpan.FromMilliseconds(timeout)).ContextFree();
+            }
+            catch (TimeoutException x)
+            {
+                throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).", x);
             }
 #else
-            async Task<TResponse> AwaitTimeoutResponse(Task<TResponse> responseTask, string operation, int timeout)
+            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(timeout)).ContextFree();
+            if (completedTask == tcs.Task)
             {
-                var completedTask = await Task.WhenAny(responseTask, Task.Delay(timeout)).ContextFree();
-                if (completedTask == responseTask)
-                {
-                    return responseTask.AwaiterResult();
-                }
-                else
-                {
-                    throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).");
-                }
+                return tcs.Task.AwaiterResult();
             }
+
+            throw new TimeoutException($"Operation '{operation}' didn't complete within the timeout ({timeout} ms).");
 #endif
         }
 
@@ -513,6 +486,21 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
 
             return this.EndWriteAsync(writeState,false);
+        }
+
+        private ValueTask WriteStreamItemAsync<TStreamItem>(TStreamItem item, IRpcSerializer<TStreamItem> serializer, in LightweightRpcFrame.WriteState writeState)
+        {
+            try
+            {
+                serializer.Serialize(writeState.Writer, item);
+            }
+            catch
+            {
+                this.AbortWrite(writeState);
+                throw;
+            }
+
+            return this.EndWriteAsync(writeState, false);
         }
 
         private static RpcError? ExtractRpcError(in LightweightRpcFrame frame, IRpcSerializer serializer)

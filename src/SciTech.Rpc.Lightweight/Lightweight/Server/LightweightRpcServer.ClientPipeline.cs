@@ -136,6 +136,11 @@ namespace SciTech.Rpc.Lightweight.Server
                         handleRequestTask = this.HandleRequestAsync(frame);
                         break;
 
+                    case RpcFrameType.StreamingData:
+                    case RpcFrameType.StreamingEnd:
+                        handleRequestTask = this.HandleStreamDataAsync(frame);
+                        break;
+
                     case RpcFrameType.CancelRequest:
                         {
                             // It is possible that the PipeScheduler is set to Inline (which
@@ -291,6 +296,38 @@ namespace SciTech.Rpc.Lightweight.Server
             }
 
             [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types")]
+            private ValueTask HandleStreamDataAsync(in LightweightRpcFrame frame)
+            {
+                ActiveOperation? activeOperation;
+                lock (this.syncRoot)
+                {
+                    this.activeOperations.TryGetValue(frame.MessageNumber, out activeOperation);
+                }
+
+                var feed = activeOperation?.ClientStreamFeed;
+                if (feed != null)
+                {
+                    try
+                    {
+                        if (frame.FrameType == RpcFrameType.StreamingEnd)
+                        {
+                            feed.CompleteData();
+                        }
+                        else
+                        {
+                            feed.WriteData(frame);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        feed.Fault(e);
+                    }
+                }
+
+                return default;
+            }
+
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types")]
             private ValueTask HandleRequestAsync(in LightweightRpcFrame frame)
             {
                 IServiceScope? scope = null;
@@ -331,6 +368,27 @@ namespace SciTech.Rpc.Lightweight.Server
 
                                 messageTask = methodStub.HandleMessage(this, frame, scope?.ServiceProvider, context);
                                 break;
+
+                            case RpcFrameType.StreamingRequest when methodStub.IsClientStreaming:
+                                LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
+
+                                // Client-streaming operation. Begin handling, keeping the operation active so that
+                                // subsequent StreamingData/StreamingEnd frames can be routed to the upload feed.
+                                activeOperation = this.CreateActiveOperation(frame.MessageNumber, activeOperation, cancellationSource);
+                                var feed = methodStub.BeginClientStreaming(this, frame, scope?.ServiceProvider, context);
+                                activeOperation.ClientStreamFeed = feed;
+                                messageTask = feed.HandlerTask;
+
+                                {
+                                    var activeScope = scope;
+                                    var activeLogScope = logScope;
+
+                                    // Make sure that the scope and cancellationSource are not disposed until the operation is finished.
+                                    scope = null;
+                                    logScope = null;
+                                    cancellationSource = null;
+                                    return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub.Serializer, messageTask);
+                                }
 
                             case RpcFrameType.StreamingRequest:
                                 LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
@@ -495,11 +553,18 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 internal int MessageId { get; }
 
+                /// <summary>
+                /// Feed for a client-streaming operation, used to route inbound StreamingData/StreamingEnd frames
+                /// to the running handler. Null for non-client-streaming operations.
+                /// </summary>
+                internal IClientStreamFeed? ClientStreamFeed { get; set; }
+
                 private CancellationTokenSource? CancellationSource { get; }
 
                 internal void Cancel()
                 {
                     this.IsCancellationRequested = true;
+                    this.ClientStreamFeed?.Fault(new OperationCanceledException());
                     this.CancellationSource?.Cancel();
                 }
 

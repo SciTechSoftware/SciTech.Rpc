@@ -643,6 +643,74 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
+        public async ValueTask<RpcResponse<TResponse>> CallClientStreamingMethod<TRequest, TStreamItem, TResult, TResponse>(
+            TRequest request,
+            IServiceProvider? serviceProvider,
+            IRpcServerContextBuilder context,
+            IAsyncEnumerable<TStreamItem> requestStream,
+            Func<TService, TRequest, IAsyncEnumerable<TStreamItem>, CancellationToken, Task<TResult>> implCaller,
+            Func<TResult, TResponse>? responseConverter,
+            RpcServerFaultHandler? faultHandler,
+            IRpcSerializer serializer) where TRequest : IObjectRequest
+        {
+            try
+            {
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+
+                try
+                {
+                    // Call the actual implementation method.
+                    var result = await implCaller(activatedService.Value, request, requestStream, context.CancellationToken).ContextFree();
+
+                    context.CancellationToken.ThrowIfCancellationRequested();
+
+                    return new RpcResponse<TResponse>(CreateResponse(responseConverter, result));
+                }
+                finally
+                {
+                    await this.EndCallAsync(activatedService, interceptDisposables).ContextFree();
+                }
+            }
+            catch (Exception e)
+            {
+                this.HandleRpcError(e, faultHandler, serializer);
+                throw;
+            }
+        }
+
+        public async ValueTask<RpcResponse> CallVoidClientStreamingMethod<TRequest, TStreamItem>(
+            TRequest request,
+            IServiceProvider? serviceProvider,
+            IRpcServerContextBuilder context,
+            IAsyncEnumerable<TStreamItem> requestStream,
+            Func<TService, TRequest, IAsyncEnumerable<TStreamItem>, CancellationToken, Task> implCaller,
+            RpcServerFaultHandler? faultHandler,
+            IRpcSerializer serializer) where TRequest : IObjectRequest
+        {
+            try
+            {
+                var (activatedService, interceptDisposables) = await this.BeginCall(serviceProvider, request.Id, context).ContextFree();
+
+                try
+                {
+                    // Call the actual implementation method.
+                    await implCaller(activatedService.Value, request, requestStream, context.CancellationToken).ContextFree();
+                    context.CancellationToken.ThrowIfCancellationRequested();
+
+                    return new RpcResponse();
+                }
+                finally
+                {
+                    await this.EndCallAsync(activatedService, interceptDisposables).ContextFree();
+                }
+            }
+            catch (Exception e)
+            {
+                this.HandleRpcError(e, faultHandler, serializer);
+                throw;
+            }
+        }
+
         private static TResponse CreateResponse<TResult, TResponse>(Func<TResult, TResponse>? responseConverter, TResult result)
         {
             if (responseConverter == null)

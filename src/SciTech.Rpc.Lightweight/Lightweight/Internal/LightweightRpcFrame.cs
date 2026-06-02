@@ -699,6 +699,15 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         ConnectionRequest,
         ConnectionResponse,
+
+        // NOTE: New frame types must be appended at the end to preserve the wire
+        // values of existing frame types.
+
+        /// <summary>
+        /// A data frame sent by the client during a client-streaming call, after the
+        /// initial <see cref="StreamingRequest"/> and before the terminating <see cref="StreamingEnd"/>.
+        /// </summary>
+        StreamingData,
     }
 
     [Flags]

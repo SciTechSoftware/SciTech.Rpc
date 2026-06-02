@@ -182,6 +182,27 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             binder.AddUnaryMethod(methodStub, operationInfo.Metadata, handler);
         }
 
+        protected override void AddClientStreamingMethodCore<TRequest, TStreamItem, TReturn, TResponseReturn>(
+            Func<TService, TRequest, IAsyncEnumerable<TStreamItem>, CancellationToken, Task<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            INetGrpcBinder<TService> binder)
+        {
+            throw new NotImplementedException("Client-streaming is not yet implemented for the NetGrpc backend.");
+        }
+
+        protected override void AddVoidClientStreamingMethodCore<TRequest, TStreamItem>(
+            Func<TService, TRequest, IAsyncEnumerable<TStreamItem>, CancellationToken, Task> serviceCaller,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            INetGrpcBinder<TService> binder)
+        {
+            throw new NotImplementedException("Client-streaming is not yet implemented for the NetGrpc backend.");
+        }
+
         protected override void AddServerStreamingMethodCore<TRequest, TReturn, TResponseReturn>(
             Func<TService, TRequest, CancellationToken, IAsyncEnumerable<TReturn>> serviceCaller,
             Func<TReturn, TResponseReturn>? responseConverter,

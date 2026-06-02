@@ -122,6 +122,33 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return AwaitConnectAndCall(clientTask);
         }
 
+        protected override Task<TResponse> CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, TResponse>(
+            LightweightMethodDef method, TRequest request, IAsyncEnumerable<TStreamItem> requestStream, CancellationToken cancellationToken)
+        {
+            var context = this.CreateCallHeaders(cancellationToken);
+
+            var actualSerializers = ((LightweightMethodDef<TRequest, TResponse>)method).LightweightSerializersOverride
+                ?? this.methodSerializersCache.GetSerializers<TRequest, TResponse>(method);
+
+            var streamItemSerializer = actualSerializers.Serializer.CreateTyped<TStreamItem>();
+
+            async Task<TResponse> AwaitConnectAndCall()
+            {
+                var client = await this.ConnectCoreAsync(cancellationToken).ContextFree();
+                return await client.SendClientStreamingFrameAsync<TRequest, TStreamItem, TResponse>(
+                    method.OperationName,
+                    context,
+                    request,
+                    requestStream,
+                    actualSerializers,
+                    streamItemSerializer,
+                    this.streamingCallTimeout,
+                    cancellationToken).ContextFree();
+            }
+
+            return AwaitConnectAndCall();
+        }
+
         protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(LightweightMethodDef methodDef, TRequest request, CancellationToken cancellationToken)
         {
             return CallUnaryMethodCoreAsync<TRequest, TResponse>(methodDef, request, cancellationToken).AwaiterResult();

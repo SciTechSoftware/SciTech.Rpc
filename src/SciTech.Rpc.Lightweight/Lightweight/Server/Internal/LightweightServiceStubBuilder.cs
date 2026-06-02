@@ -190,6 +190,41 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             binder.AddMethod(methodStub);
         }
 
+        protected override void AddClientStreamingMethodCore<TRequest, TStreamItem, TReturn, TResponseReturn>(
+            Func<TService, TRequest, IAsyncEnumerable<TStreamItem>, CancellationToken, Task<TReturn>> serviceCaller,
+            Func<TReturn, TResponseReturn>? responseConverter,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            ILightweightMethodBinder binder)
+        {
+            var serializer = operationInfo.SerializerOverride ?? serviceStub.Serializer;
+
+            async ValueTask<RpcResponse<TResponseReturn>> HandleRequest(TRequest request, IServiceProvider? serviceProvider, IAsyncEnumerable<TStreamItem> requestStream, LightweightCallContext context)
+                => await serviceStub.CallClientStreamingMethod(request, serviceProvider, context, requestStream, serviceCaller, responseConverter, faultHandler, serializer).ContextFree();
+
+            var methodStub = new LightweightClientStreamingMethodStub<TRequest, TStreamItem, RpcResponse<TResponseReturn>>(
+                operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            binder.AddMethod(methodStub);
+        }
+
+        protected override void AddVoidClientStreamingMethodCore<TRequest, TStreamItem>(
+            Func<TService, TRequest, IAsyncEnumerable<TStreamItem>, CancellationToken, Task> serviceCaller,
+            RpcServerFaultHandler faultHandler,
+            RpcStub<TService> serviceStub,
+            RpcOperationInfo operationInfo,
+            ILightweightMethodBinder binder)
+        {
+            var serializer = operationInfo.SerializerOverride ?? serviceStub.Serializer;
+
+            async ValueTask<RpcResponse> HandleRequest(TRequest request, IServiceProvider? serviceProvider, IAsyncEnumerable<TStreamItem> requestStream, LightweightCallContext context)
+                => await serviceStub.CallVoidClientStreamingMethod(request, serviceProvider, context, requestStream, serviceCaller, faultHandler, serializer).ContextFree();
+
+            var methodStub = new LightweightClientStreamingMethodStub<TRequest, TStreamItem, RpcResponse>(
+                operationInfo.FullName, HandleRequest, serializer, faultHandler);
+            binder.AddMethod(methodStub);
+        }
+
 
 
         private class Binder : ILightweightMethodBinder

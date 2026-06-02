@@ -27,6 +27,7 @@ namespace SciTech.Rpc.Internal
     {
         Unary,
         ServerStreaming,
+        ClientStreaming,
         //PropertySet,
         //PropertyGet,
         EventAdd,
@@ -61,13 +62,16 @@ namespace SciTech.Rpc.Internal
     public class RpcRequestTypeInfo
 #pragma warning restore CA1815 // Override equals and operator equals on value types
     {
-        public RpcRequestTypeInfo(Type type, ImmutableArray<RpcRequestParameter> parameters, Type? callbackRequestType, int? callbackParameterIndex, int? cancellationTokenIndex)
+        public RpcRequestTypeInfo(Type type, ImmutableArray<RpcRequestParameter> parameters, Type? callbackRequestType, int? callbackParameterIndex, int? cancellationTokenIndex,
+            Type? streamItemType = null, int? streamParameterIndex = null)
         {
             this.Type = type ?? throw new ArgumentNullException(nameof(type));
             this.Parameters = parameters;
             this.CallbackRequestType = callbackRequestType;
             this.CallbackParameterIndex = callbackParameterIndex;
             this.CancellationTokenIndex = cancellationTokenIndex;
+            this.StreamItemType = streamItemType;
+            this.StreamParameterIndex = streamParameterIndex;
         }
 
         public int? CallbackParameterIndex { get; }
@@ -80,7 +84,19 @@ namespace SciTech.Rpc.Internal
 
         public Type Type { get; }
 
-        public bool HasSpecialParameter => this.CallbackParameterIndex != null || this.CancellationTokenIndex != null;
+        /// <summary>
+        /// For a client-streaming operation, the item type <c>T</c> of the single
+        /// <see cref="IAsyncEnumerable{T}"/> request stream parameter. <c>null</c> otherwise.
+        /// </summary>
+        public Type? StreamItemType { get; }
+
+        /// <summary>
+        /// For a client-streaming operation, the zero-based index of the single
+        /// <see cref="IAsyncEnumerable{T}"/> request stream parameter. <c>null</c> otherwise.
+        /// </summary>
+        public int? StreamParameterIndex { get; }
+
+        public bool HasSpecialParameter => this.CallbackParameterIndex != null || this.CancellationTokenIndex != null || this.StreamParameterIndex != null;
     }
 
 #pragma warning disable CA1062 // Validate arguments of public methods
@@ -347,6 +363,16 @@ namespace SciTech.Rpc.Internal
                 methodType = RpcMethodType.ServerStreaming;
             }
 
+            if (requestTypeInfo.StreamParameterIndex != null)
+            {
+                if (methodType != RpcMethodType.Unary)
+                {
+                    throw new RpcDefinitionException($"Method '{method.Name}' has an IAsyncEnumerable<> request parameter and cannot also be a server-streaming or callback operation.");
+                }
+
+                methodType = RpcMethodType.ClientStreaming;
+            }
+
             string? operationName = null;
 
             var rpcAttribute = method.GetCustomAttribute<RpcOperationAttribute>();
@@ -386,7 +412,9 @@ namespace SciTech.Rpc.Internal
                 responseReturnType: responseReturnType,
                 returnKind: returnKind,
                 allowInlineExecution: rpcAttribute?.AllowInlineExecution ?? false,
-                metadata: metadata
+                metadata: metadata,
+                requestStreamItemType: requestTypeInfo.StreamItemType,
+                requestStreamParameterIndex: requestTypeInfo.StreamParameterIndex
             );
         }
 
@@ -410,6 +438,8 @@ namespace SciTech.Rpc.Internal
             int? cancellationTokenIndex = null;
             Type? callbackRequestType = null;
             int? callbackParameterIndex = null;
+            int? streamParameterIndex = null;
+            Type? streamItemType = null;
 
             var parametersBuilder = ImmutableArray.CreateBuilder<RpcRequestParameter>(parameters.Count);
             var parameterTypesList = new List<Type>(parameters.Count);
@@ -424,6 +454,16 @@ namespace SciTech.Rpc.Internal
                         throw new RpcDefinitionException("RPC operation can only include a single CancellationToken.");
                     }
                     cancellationTokenIndex = parameterIndex;
+                }
+                else if (parameterInfo.ParameterType.IsGenericType
+                    && typeof(IAsyncEnumerable<>).Equals(parameterInfo.ParameterType.GetGenericTypeDefinition()))
+                {
+                    if (streamParameterIndex != null)
+                    {
+                        throw new RpcDefinitionException("A client-streaming RPC operation can only include a single IAsyncEnumerable<> parameter.");
+                    }
+                    streamParameterIndex = parameterIndex;
+                    streamItemType = parameterInfo.ParameterType.GenericTypeArguments[0];
                 }
                 else if( typeof(Delegate).IsAssignableFrom(parameterInfo.ParameterType) )
                 {
@@ -467,6 +507,11 @@ namespace SciTech.Rpc.Internal
                     parametersBuilder.Add(new RpcRequestParameter(parameterInfo.ParameterType, parameterIndex));
                     parameterTypesList.Add(parameterInfo.ParameterType);
                 }
+            }
+
+            if (streamParameterIndex != null && callbackParameterIndex != null)
+            {
+                throw new RpcDefinitionException("A client-streaming RPC operation cannot include a callback parameter.");
             }
 
             parametersBuilder.Capacity = parametersBuilder.Count;
@@ -551,7 +596,7 @@ namespace SciTech.Rpc.Internal
                 }
             }
 
-            return new RpcRequestTypeInfo(requestType, requestParameters, callbackRequestType, callbackParameterIndex, cancellationTokenIndex);
+            return new RpcRequestTypeInfo(requestType, requestParameters, callbackRequestType, callbackParameterIndex, cancellationTokenIndex, streamItemType, streamParameterIndex);
 
         }
 
@@ -1045,7 +1090,9 @@ namespace SciTech.Rpc.Internal
             Type responseType,
             ServiceOperationReturnKind returnKind,
             bool allowInlineExecution,
-            ImmutableArray<object> metadata) :
+            ImmutableArray<object> metadata,
+            Type? requestStreamItemType = null,
+            int? requestStreamParameterIndex = null) :
             base(name, service, declaringMember, metadata)
         {
             this.Method = method ?? throw new ArgumentNullException(nameof(method));
@@ -1060,6 +1107,8 @@ namespace SciTech.Rpc.Internal
             this.ResponseType = responseType ?? throw new ArgumentNullException(nameof(responseType));
             this.ReturnKind = returnKind;
             this.AllowInlineExecution = allowInlineExecution;
+            this.RequestStreamItemType = requestStreamItemType;
+            this.RequestStreamParameterIndex = requestStreamParameterIndex;
         }
 
         public bool AllowInlineExecution { get; }
@@ -1077,6 +1126,20 @@ namespace SciTech.Rpc.Internal
         public ImmutableArray<RpcRequestParameter> RequestParameters { get; }
 
         public Type RequestType { get; }
+
+        /// <summary>
+        /// For a client-streaming operation, the item type <c>T</c> of the
+        /// <see cref="IAsyncEnumerable{T}"/> request stream parameter. <c>null</c> for
+        /// non client-streaming operations.
+        /// </summary>
+        public Type? RequestStreamItemType { get; }
+
+        /// <summary>
+        /// For a client-streaming operation, the zero-based index of the
+        /// <see cref="IAsyncEnumerable{T}"/> request stream parameter in the service method
+        /// signature. <c>null</c> for non client-streaming operations.
+        /// </summary>
+        public int? RequestStreamParameterIndex { get; }
 
         /// <summary>
         /// Type of the result, when wrapped in an RpcResponse.

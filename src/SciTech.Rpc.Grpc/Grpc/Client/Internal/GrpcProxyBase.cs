@@ -73,6 +73,8 @@ namespace SciTech.Rpc.Grpc.Client.Internal
                 case RpcMethodType.ServerStreaming:
                     grpcMethodType = GrpcCore.MethodType.ServerStreaming;
                     break;
+                case RpcMethodType.ClientStreaming:
+                    throw new NotImplementedException("Client-streaming is not yet implemented for the gRPC backend.");
                 case RpcMethodType.EventAdd:
                     grpcMethodType = GrpcCore.MethodType.ServerStreaming;
                     break;
@@ -102,6 +104,11 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             return new ValueTask<IAsyncStreamingServerCall<TResponse>>(
                 new GrpcAsyncServerStreamingCall<TResponse>(this.grpcInvoker.AsyncServerStreamingCall(typedMethod, null, callOptions, request)));
 #pragma warning restore CA2000 // Dispose objects before losing scope
+        }
+
+        protected override Task<TResponse> CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, TResponse>(GrpcProxyMethod method, TRequest request, IAsyncEnumerable<TStreamItem> requestStream, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException("Client-streaming is not yet implemented for the gRPC backend.");
         }
 
         protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)

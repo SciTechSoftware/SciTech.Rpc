@@ -119,6 +119,10 @@ namespace SciTech.Rpc.Client.Internal
 
         internal const string CallAsyncEnumerableMethodName = nameof(CallAsyncEnumerableMethod);
 
+        internal const string CallClientStreamingMethodAsyncName = nameof(CallClientStreamingMethodAsync);
+
+        internal const string CallClientStreamingVoidMethodAsyncName = nameof(CallClientStreamingVoidMethodAsync);
+
         internal const string CallCallbackMethodAsyncName = nameof(CallCallbackMethodAsync);
 
         internal const string CallCallbackMethodName = nameof(CallCallbackMethod);
@@ -460,6 +464,55 @@ namespace SciTech.Rpc.Client.Internal
 
 
         protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken cancellationToken)
+            where TRequest : class
+            where TResponse : class;
+
+        protected async Task<TReturnType> CallClientStreamingMethodAsync<TRequest, TStreamItem, TResponseType, TReturnType>(
+            TMethodDef method,
+            TRequest request,
+            IAsyncEnumerable<TStreamItem> requestStream,
+            Func<IRpcProxy, object?, object?> responseConverter,
+            CancellationToken cancellationToken)
+            where TRequest : class
+        {
+            if (method is null) throw new ArgumentNullException(nameof(method));
+
+            RpcResponse<TResponseType> response;
+            try
+            {
+                response = await this.CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, RpcResponse<TResponseType>>(method, request, requestStream, cancellationToken).ContextFree();
+            }
+            catch (Exception e)
+            {
+                this.HandleCallException(method, e);
+                throw;
+            }
+
+            return this.ConvertResult<TResponseType, TReturnType>(responseConverter, response.Result);
+        }
+
+        protected async Task CallClientStreamingVoidMethodAsync<TRequest, TStreamItem>(
+            TMethodDef method,
+            TRequest request,
+            IAsyncEnumerable<TStreamItem> requestStream,
+            CancellationToken cancellationToken)
+            where TRequest : class
+        {
+            if (method is null) throw new ArgumentNullException(nameof(method));
+
+            try
+            {
+                await this.CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, RpcResponse>(method, request, requestStream, cancellationToken).ContextFree();
+            }
+            catch (Exception e)
+            {
+                this.HandleCallException(method, e);
+                throw;
+            }
+        }
+
+        protected abstract Task<TResponse> CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, TResponse>(
+            TMethodDef method, TRequest request, IAsyncEnumerable<TStreamItem> requestStream, CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 

@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Security.Principal;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Lightweight.Server.Internal
@@ -104,10 +105,54 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public abstract Type ResponseType { get; }
 
+        /// <summary>
+        /// Gets a value indicating whether this stub handles a client-streaming operation, i.e.
+        /// the client uploads a stream of items using <see cref="RpcFrameType.StreamingData"/> frames.
+        /// </summary>
+        public virtual bool IsClientStreaming => false;
+
         public abstract Task HandleMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context);
 
         public abstract Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context);
+
+        /// <summary>
+        /// Begins handling a client-streaming request. Only valid when <see cref="IsClientStreaming"/> is <c>true</c>.
+        /// The returned feed is used by the pipeline to push subsequent <see cref="RpcFrameType.StreamingData"/> and
+        /// <see cref="RpcFrameType.StreamingEnd"/> frames to the running handler.
+        /// </summary>
+        public virtual IClientStreamFeed BeginClientStreaming(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
+        {
+            throw new NotSupportedException("This method stub does not support client-streaming.");
+        }
     }
+
+    /// <summary>
+    /// Feed used by the server pipeline to push uploaded stream data to a running client-streaming handler.
+    /// </summary>
+    internal interface IClientStreamFeed
+    {
+        /// <summary>
+        /// The task representing the running operation handler. Completes when the handler has produced its response.
+        /// </summary>
+        Task HandlerTask { get; }
+
+        /// <summary>
+        /// Deserializes a stream item from the supplied <see cref="RpcFrameType.StreamingData"/> frame and writes
+        /// it to the request stream.
+        /// </summary>
+        void WriteData(in LightweightRpcFrame frame);
+
+        /// <summary>
+        /// Marks the request stream as completed, in response to a <see cref="RpcFrameType.StreamingEnd"/> frame.
+        /// </summary>
+        void CompleteData();
+
+        /// <summary>
+        /// Faults the request stream, e.g. if the connection is lost before the stream is completed.
+        /// </summary>
+        void Fault(Exception exception);
+    }
+
 
     internal class LightweightMethodStub<TRequest, TResponse> : LightweightMethodStub
         where TRequest : class, IObjectRequest
@@ -354,6 +399,175 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             //            }
             //#pragma warning restore CA1031 // Do not catch general exception types
+        }
+    }
+
+    internal class LightweightClientStreamingMethodStub<TRequest, TStreamItem, TResponse> : LightweightMethodStub
+        where TRequest : class, IObjectRequest
+        where TResponse : class
+    {
+        private readonly IRpcSerializer<TRequest> requestSerializer;
+
+        private readonly IRpcSerializer<TStreamItem> streamItemSerializer;
+
+        private readonly IRpcSerializer<TResponse> responseSerializer;
+
+        /// <summary>
+        /// Creates a method stub that will handle client-streaming requests.
+        /// </summary>
+        /// <param name="fullName">Full name of the client-streaming operation.</param>
+        /// <param name="handler">Delegate that will be invoked to handle the request, receiving the uploaded stream.</param>
+        public LightweightClientStreamingMethodStub(
+            string fullName,
+            Func<TRequest, IServiceProvider?, IAsyncEnumerable<TStreamItem>, LightweightCallContext, ValueTask<TResponse>> handler,
+            IRpcSerializer serializer, RpcServerFaultHandler? faultHandler)
+            : base(fullName, serializer, faultHandler)
+        {
+            this.Handler = handler;
+            this.requestSerializer = this.Serializer.CreateTyped<TRequest>();
+            this.streamItemSerializer = this.Serializer.CreateTyped<TStreamItem>();
+            this.responseSerializer = this.Serializer.CreateTyped<TResponse>();
+        }
+
+        public override Type RequestType => typeof(TRequest);
+
+        public override Type ResponseType => typeof(TResponse);
+
+        public override bool IsClientStreaming => true;
+
+        /// <summary>
+        /// Gets the handler for a client-streaming request.
+        /// </summary>
+        internal Func<TRequest, IServiceProvider?, IAsyncEnumerable<TStreamItem>, LightweightCallContext, ValueTask<TResponse>> Handler { get; }
+
+        public override Task HandleMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
+        {
+            throw new NotSupportedException("Client-streaming operations must be handled using BeginClientStreaming.");
+        }
+
+        public override Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
+        {
+            throw new NotSupportedException("Client-streaming operations must be handled using BeginClientStreaming.");
+        }
+
+        public override IClientStreamFeed BeginClientStreaming(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
+        {
+            TRequest? request;
+            try
+            {
+                request = this.requestSerializer.Deserialize(frame.Payload, null);
+            }
+            catch (Exception ex)
+            {
+                throw new RpcFailureException(RpcFailure.InvalidData, $"Payload deserialization failed. {ex.Message}", ex);
+            }
+
+            if (request == null) throw new RpcFailureException(RpcFailure.InvalidData, "Payload deserialization failed");
+
+            var feed = new ClientStreamFeed(this, pipeline, frame.MessageNumber, frame.RpcOperation, request, serviceProvider, context);
+            feed.Start();
+            return feed;
+        }
+
+        private Task WriteResponse(int messageNumber, string operation, ILightweightRpcFrameWriter frameWriter, TResponse response)
+        {
+            var headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
+            var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
+
+            var writeState = frameWriter.BeginWrite(responseHeader);
+            BufferWriterStream responseStream = writeState.Writer;
+            try
+            {
+                this.responseSerializer.Serialize(responseStream, response);
+            }
+            catch
+            {
+                frameWriter.AbortWrite(writeState);
+                throw;
+            }
+
+            var endWriteTask = frameWriter.EndWriteAsync(writeState, false);
+            return endWriteTask.IsCompletedSuccessfully ? Task.CompletedTask : endWriteTask.AsTask();
+        }
+
+        private sealed class ClientStreamFeed : IClientStreamFeed
+        {
+            private readonly LightweightClientStreamingMethodStub<TRequest, TStreamItem, TResponse> stub;
+
+            private readonly ILightweightRpcFrameWriter frameWriter;
+
+            private readonly int messageNumber;
+
+            private readonly string operation;
+
+            private readonly TRequest request;
+
+            private readonly IServiceProvider? serviceProvider;
+
+            private readonly LightweightCallContext context;
+
+            private readonly Channel<TStreamItem> channel;
+
+            public ClientStreamFeed(
+                LightweightClientStreamingMethodStub<TRequest, TStreamItem, TResponse> stub,
+                ILightweightRpcFrameWriter frameWriter,
+                int messageNumber, string operation, TRequest request,
+                IServiceProvider? serviceProvider, LightweightCallContext context)
+            {
+                this.stub = stub;
+                this.frameWriter = frameWriter;
+                this.messageNumber = messageNumber;
+                this.operation = operation;
+                this.request = request;
+                this.serviceProvider = serviceProvider;
+                this.context = context;
+                // Unbounded buffering of uploaded stream items is acceptable for the current implementation.
+                this.channel = Channel.CreateUnbounded<TStreamItem>(new UnboundedChannelOptions
+                {
+                    SingleReader = true,
+                    SingleWriter = true
+                });
+            }
+
+            public Task HandlerTask { get; private set; } = Task.CompletedTask;
+
+            public void Start()
+            {
+                this.HandlerTask = this.RunAsync();
+            }
+
+            public void WriteData(in LightweightRpcFrame frame)
+            {
+                TStreamItem? item;
+                try
+                {
+                    item = this.stub.streamItemSerializer.Deserialize(frame.Payload, null);
+                }
+                catch (Exception ex)
+                {
+                    throw new RpcFailureException(RpcFailure.InvalidData, $"Stream payload deserialization failed. {ex.Message}", ex);
+                }
+
+                this.channel.Writer.TryWrite(item!);
+            }
+
+            public void CompleteData()
+            {
+                this.channel.Writer.TryComplete();
+            }
+
+            public void Fault(Exception exception)
+            {
+                this.channel.Writer.TryComplete(exception);
+            }
+
+            private async Task RunAsync()
+            {
+                var response = await this.stub.Handler(
+                    this.request, this.serviceProvider, this.channel.Reader.ReadAllAsync(this.context.CancellationToken), this.context).ContextFree();
+
+                await this.stub.WriteResponse(this.messageNumber, this.operation, this.frameWriter, response).ContextFree();
+            }
         }
     }
 }

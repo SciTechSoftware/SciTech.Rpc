@@ -4,6 +4,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace SciTech.IO
 {
@@ -12,7 +13,16 @@ namespace SciTech.IO
         public static Stream AsStream(this ReadOnlySequence<byte> sequence)
         {
             return new ReadOnlySequenceStream(sequence);
+        }
 
+        public static async Task WriteAsync(this Stream s, IAsyncEnumerable<byte[]> enumerableData )
+        {
+            ArgumentNullException.ThrowIfNull(s);
+
+            await foreach (var item in enumerableData.ConfigureAwait(false))
+            {
+                await s.WriteAsync(item).ContextFree();
+            }
         }
 
         public static async IAsyncEnumerable<byte[]> EnumerateChunksAsync(this Stream s, int bufferSize)

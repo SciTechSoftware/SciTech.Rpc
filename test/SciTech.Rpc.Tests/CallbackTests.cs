@@ -1,21 +1,12 @@
 ﻿using NUnit.Framework;
-using SciTech.Collections;
-using SciTech.Rpc.Server;
 using SciTech.Rpc.Client;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Threading.Tasks;
-using System.Threading;
-using System.Runtime.CompilerServices;
 using SciTech.Rpc.Serialization;
-using SciTech.Rpc.Internal;
-using SciTech.Rpc.Client.Internal;
-using SciTech.Rpc.Lightweight.Client.Internal;
-using SciTech.Rpc.Lightweight.Server.Internal;
-using SciTech.Rpc.Tests.Lightweight;
-using SciTech.Rpc.Lightweight.Server;
+using SciTech.Rpc.Server;
+using SciTech.Threading;
+using System;
+using System.Runtime.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Tests
 {
@@ -24,12 +15,12 @@ namespace SciTech.Rpc.Tests
     public interface ICallbackService
     {
         Task PerformActionCallbacksAsync(int value, int count, Action<CallbackData> callback);
-        
+
         void PerformSyncActionCallbacks(int value, int count, Action<CallbackData> callback);
 
         Task PerformDelayedCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback);
 
-        Task PerformCancellableCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback, CancellationToken cancellationToken );
+        Task PerformCancellableCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback, CancellationToken cancellationToken);
 
 
         // Task PerformSimpleDelegateCallbacksAsync(int value, int count, SimpleDelegate callback);
@@ -50,7 +41,7 @@ namespace SciTech.Rpc.Tests
     [RpcService]
     public interface IUnsupportCallbackService2
     {
-        Task PerformActionCallbacksAsync(int value, int count, Action<int,int> callback);
+        Task PerformActionCallbacksAsync(int value, int count, Action<int, int> callback);
     }
 
     [RpcService]
@@ -67,7 +58,7 @@ namespace SciTech.Rpc.Tests
     [DataContract]
     public class CallbackData
     {
-        [DataMember(Order =1)]
+        [DataMember(Order = 1)]
         public int Value { get; set; }
 
     }
@@ -105,7 +96,7 @@ namespace SciTech.Rpc.Tests
                     {
                         Assert.AreEqual(2 + callCount, v.Value);
                         callCount++;
-                     });
+                    });
 
 
                     Assert.AreEqual(callCount, 10);
@@ -246,13 +237,14 @@ namespace SciTech.Rpc.Tests
             }
         }
 
-        [Test]
-        public async Task CallbackWithCancellationTest()
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task CallbackWithCancellationTest(bool silentCancellation)
         {
             var builder = new RpcServiceDefinitionsBuilder();
             builder.RegisterService<ICallbackService>();
 
-            var (server, connection) = this.CreateServerAndConnection(builder);
+            var (server, connection) = this.CreateServerAndConnection(builder, null, o => o.SilentStreamingCancellation = silentCancellation);
             var callbackServiceImpl = new CallbackServiceImpl();
             using (var publishedService = server.ServicePublisher.PublishSingleton<ICallbackService>(callbackServiceImpl))
             {
@@ -265,19 +257,27 @@ namespace SciTech.Rpc.Tests
                     int lastNo = 0;
                     CancellationTokenSource cts = new CancellationTokenSource();
 
-                    Assert.CatchAsync<OperationCanceledException>(async () =>
-                   {
-                       await callbackService.PerformCancellableCallbacksAsync(1000, TimeSpan.FromMilliseconds(20), 10, true,
-                           callbackData =>
-                           {
-                               Assert.AreEqual(lastNo + 1, callbackData.Value);
-                               lastNo = callbackData.Value;
-                               if (lastNo == 3)
-                               {
-                                   cts.Cancel();
-                               }
-                           }, cts.Token);
-                   });
+                    Func<Task> f = async () => {
+                        await callbackService.PerformCancellableCallbacksAsync(1000, TimeSpan.FromMilliseconds(20), 10, true,
+                            callbackData =>
+                            {
+                                Assert.AreEqual(lastNo + 1, callbackData.Value);
+                                lastNo = callbackData.Value;
+                                if (lastNo == 3)
+                                {
+                                    cts.Cancel();
+                                }
+                            }, cts.Token);
+                    };
+
+                    if (silentCancellation)
+                    {
+                        await f().ContextFree();
+                    }
+                    else
+                    {
+                        Assert.CatchAsync<OperationCanceledException>(() => f());
+                    }
 
                     if (this.RoundTripCancellation)
                     {
@@ -427,7 +427,7 @@ namespace SciTech.Rpc.Tests
         internal Task<bool> GetIsCancelledAsync() => this.cancelledTcs.Task;
 
 
-        public void SimpleCall() 
+        public void SimpleCall()
         {
         }
 
@@ -475,7 +475,7 @@ namespace SciTech.Rpc.Tests
         public Task PerformCancellableCallbacksAsync(int count, TimeSpan delay, int delayFrequency, bool initialDelay, Action<CallbackData> callback, CancellationToken cancellationToken)
         {
             return StaticPerformCancellableCallbacksAsync(count, delay, delayFrequency, initialDelay, this.cancelledTcs, callback, cancellationToken);
-            
+
             static async Task StaticPerformCancellableCallbacksAsync(
                 int count, TimeSpan delay, int delayFrequency, bool initialDelay, TaskCompletionSource<bool> cancelledTcs,
                 Action<CallbackData> callback, CancellationToken cancellationToken)

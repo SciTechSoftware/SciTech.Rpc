@@ -98,10 +98,10 @@ namespace SciTech.Rpc.Tests
         /// <param name="proxyDefinitionsProvider"></param>
         /// <returns></returns>
         protected (IRpcServerHost, IRpcChannel) CreateServerAndConnection(
-            IRpcServiceDefinitionsProvider serviceDefinitionsProvider = null,
-            Action<RpcServerOptions> configServerOptions = null,
-            Action<RpcClientOptions> configClientOptions = null,
-            Action<IServiceCollection> configureServices = null )
+            IRpcServiceDefinitionsProvider? serviceDefinitionsProvider = null,
+            Action<RpcServerOptions>? configServerOptions = null,
+            Action<RpcClientOptions>? configClientOptions = null,
+            Action<IServiceCollection>? configureServices = null )
         {
             var rpcServerId = RpcServerId.NewId();
 
@@ -210,9 +210,9 @@ namespace SciTech.Rpc.Tests
             throw new NotSupportedException();
         }
 
-        private static IServiceProvider GetServiceProvider(Action<IServiceCollection> configureServices)
+        private static IServiceProvider GetServiceProvider(Action<IServiceCollection>? configureServices)
         {
-            IServiceProvider services = null;
+            IServiceProvider? services = null;
             var serviceBuilder = new ServiceCollection();
 
             serviceBuilder.AddLogging();

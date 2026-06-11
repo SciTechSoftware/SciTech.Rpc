@@ -148,12 +148,15 @@ namespace SciTech.Rpc.Server.Internal
 
         private readonly bool hasContextAccessor;
 
+        private readonly bool silentStreamingCancellation;
+
         public RpcStub(IRpcServerCore server, ImmutableRpcServerOptions options) : base(server, options)
         {
             this.logger = server.LoggerFactory?.CreateLogger<RpcStub<TService>>() ?? RpcLogger.CreateLogger<RpcStub<TService>>();
 
             this.serviceActivator = server.ServiceActivator;
             this.hasContextAccessor = server.HasContextAccessor;
+            this.silentStreamingCancellation = options?.SilentStreamingCancellation ?? false;
         }
 
         public IServiceProvider? ServiceProvider { get; }
@@ -555,9 +558,16 @@ namespace SciTech.Rpc.Server.Internal
                             enumCts.Cancel();
 
                             taskHasNext.ContinueWith(t =>
-                               {
-                                   CleanupAsyncEnum().Forget();
-                               }, TaskScheduler.Default).Forget();
+                            {
+                                CleanupAsyncEnum().Forget();
+                            }, TaskScheduler.Default).Forget();
+
+                            // If the caller cancelled the call, let's propagate the cancellation to the caller right away,
+                            // instead of waiting for the current MoveNextAsync to finish (unless silent cancellation is desired).
+                            if (!this.silentStreamingCancellation)
+                            {
+                                context.CancellationToken.ThrowIfCancellationRequested();
+                            }
                         }
                         else
                         {

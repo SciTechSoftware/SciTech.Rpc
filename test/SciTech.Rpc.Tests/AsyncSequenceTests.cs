@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Runtime.CompilerServices;
 using SciTech.Rpc.Serialization;
+using SciTech.Threading;
 
 namespace SciTech.Rpc.Tests
 {
@@ -131,13 +132,14 @@ namespace SciTech.Rpc.Tests
             }
         }
 
-        [Test]
-        public async Task SequenceEnumerableWithCancellationTest()
+        [TestCase(true)]
+        [TestCase(false)]
+        public async Task SequenceEnumerableWithCancellationTest(bool silentCancellation)
         {
             var builder = new RpcServiceDefinitionsBuilder();
             builder.RegisterService<ISequenceService>();
 
-            var (server, connection) = this.CreateServerAndConnection(builder);
+            var (server, connection) = this.CreateServerAndConnection(builder, null, o=>o.SilentStreamingCancellation = silentCancellation);
             var sequenceServiceImpl = new SequenceServiceImpl();
             using (var publishedService = server.ServicePublisher.PublishSingleton<ISequenceService>(sequenceServiceImpl))
             {
@@ -150,9 +152,9 @@ namespace SciTech.Rpc.Tests
                     int lastNo = 0;
                     CancellationTokenSource cts = new CancellationTokenSource();
 
-                    Assert.CatchAsync<OperationCanceledException>( async ()=>
+                    Func<Task> f = async () =>
                     {
-                        await foreach (var sequenceData in sequenceService.GetSequenceAsCancellableEnumerable(1000,  TimeSpan.FromMilliseconds(20), 10, true, cts.Token))
+                        await foreach (var sequenceData in sequenceService.GetSequenceAsCancellableEnumerable(1000, TimeSpan.FromMilliseconds(20), 10, true, cts.Token))
                         {
                             Assert.AreEqual(lastNo + 1, sequenceData.SequenceNo);
                             lastNo = sequenceData.SequenceNo;
@@ -161,7 +163,15 @@ namespace SciTech.Rpc.Tests
                                 cts.Cancel();
                             }
                         }
-                    });
+                    };
+                    if (silentCancellation)
+                    {
+                        await f().ContextFree();
+                    }
+                    else
+                    {
+                        Assert.CatchAsync<OperationCanceledException>(() => f());
+                    }
 
                     if (this.RoundTripCancellation)
                     {

@@ -35,6 +35,8 @@ namespace SciTech.Rpc.Server
 
         public bool? AllowDiscovery { get; private set; }
 
+        public bool? SilentStreamingCancellation { get; private set; }
+
         public ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; private set; } = ImmutableArray<IRpcServerExceptionConverter>.Empty;
 
         public ImmutableArray<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
@@ -48,7 +50,8 @@ namespace SciTech.Rpc.Server
                 && this.Serializer == null
                 && this.ReceiveMaxMessageSize == null
                 && this.SendMaxMessageSize == null
-                && this.Serializer != null;
+                && this.Serializer == null
+                && this.SilentStreamingCancellation == null;
         }
 
 
@@ -97,6 +100,7 @@ namespace SciTech.Rpc.Server
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;
+                this.SilentStreamingCancellation = options.SilentStreamingCancellation ?? this.SilentStreamingCancellation;
             }
         }
     }

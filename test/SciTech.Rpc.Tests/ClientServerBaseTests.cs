@@ -24,7 +24,7 @@ namespace SciTech.Rpc.Tests
             var serverBuilder = new RpcServiceDefinitionsBuilder();
             serverBuilder.RegisterService<ISimpleServiceWithEvents>();
 
-            var (host, connection) = this.CreateServerAndConnection(serverBuilder);
+            var (host, connection) = this.CreateServerAndConnection(serverBuilder, null, o=>o.SilentStreamingCancellation = true);
             var servicePublisher = host.ServicePublisher;
             host.Start();
 

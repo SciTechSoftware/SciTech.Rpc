@@ -91,7 +91,10 @@ namespace SciTech.Rpc.Grpc.Client.Internal
             return new GrpcProxyMethod<TRequest, TResponse>(grpcMethodType, serviceName, methodName, serializerOverride, faultHandler);
         }
 
-        protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, GrpcProxyMethod method, CancellationToken cancellationToken)
+        protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request,
+                                                                                                                         GrpcProxyMethod method,
+                                                                                                                         bool silentCancellation,
+                                                                                                                         CancellationToken cancellationToken)
         {
             if (method is null) throw new ArgumentNullException(nameof(method));
 

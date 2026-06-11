@@ -83,7 +83,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Not owner")]
         protected override ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(
-            TRequest request, LightweightMethodDef method, CancellationToken cancellationToken)
+            TRequest request, LightweightMethodDef method, bool silentCancellation, CancellationToken cancellationToken)
         {
             var context = this.CreateCallHeaders(cancellationToken);
 
@@ -100,7 +100,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     context,
                     request,
                     actualSerializers,
-                    this.streamingCallTimeout);
+                    this.streamingCallTimeout,
+                    silentCancellation);
 
                 return new ValueTask<IAsyncStreamingServerCall<TResponse>>(streamingCall);
             }
@@ -114,7 +115,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     context,
                     request,
                     actualSerializers,
-                    this.streamingCallTimeout);
+                    this.streamingCallTimeout,
+                    silentCancellation);
 
                 return streamingCall;
             }

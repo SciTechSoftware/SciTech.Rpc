@@ -65,11 +65,12 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             RpcRequestContext? context,
             TRequest request,
             LightweightSerializers<TRequest, TResponse> serializers,
-            int callTimeout)
+            int callTimeout,
+            bool silentCancellation)
             where TRequest : class
             where TResponse : class
         {
-            var streamingCall = new AsyncStreamingServerCall<TResponse>(serializers.Serializer, serializers.ResponseSerializer);
+            var streamingCall = new AsyncStreamingServerCall<TResponse>(serializers.Serializer, serializers.ResponseSerializer, silentCancellation);
             int messageId = this.AddAwaitingResponse(streamingCall);
 
             try
@@ -542,11 +543,11 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             /// called from the receive loop).
             /// </summary>
             /// <param name="serializer"></param>
-            internal AsyncStreamingServerCall(IRpcSerializer serializer, IRpcSerializer<TResponse> responseSerializer)
+            internal AsyncStreamingServerCall(IRpcSerializer serializer, IRpcSerializer<TResponse> responseSerializer, bool silentStreamingCancellation)
             {
                 this.serializer = serializer;
                 this.responseSerializer = responseSerializer;
-                this.responseStream = new StreamingResponseStream<TResponse>();
+                this.responseStream = new StreamingResponseStream<TResponse>(silentStreamingCancellation);
             }
 
             public IAsyncEnumerator<TResponse> ResponseStream => this.responseStream;
@@ -695,6 +696,13 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
             private TaskCompletionSource<bool>? responseTcs;
 
+            private bool silentStreamingCancellation;
+
+            public StreamingResponseStream(bool silentStreamingCancellation)
+            {
+                this.silentStreamingCancellation = silentStreamingCancellation;
+            }
+
             public TResponse Current
             {
                 get
@@ -785,11 +793,24 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     }
                     else
                     {
-                        this.completedTask = Task.FromCanceled<bool>(new CancellationToken(true));
+                        if (this.silentStreamingCancellation)
+                        {
+                            this.completedTask = Task.FromResult(false);
+                        }
+                        else
+                        {
+                            this.completedTask = Task.FromCanceled<bool>(new CancellationToken(true));
+                        }
                     }
                 }
 
-                responseTcs?.TrySetResult(false);
+                if (this.silentStreamingCancellation)
+                {
+                    responseTcs?.TrySetResult(false);
+                } else
+                {
+                    responseTcs?.TrySetCanceled();
+                }
             }
 
 

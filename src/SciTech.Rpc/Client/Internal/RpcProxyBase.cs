@@ -365,7 +365,11 @@ namespace SciTech.Rpc.Client.Internal
             where TRequest : class
             where TResponseReturn : class
         {
-            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
+            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request,
+                                                                                               method,
+                                                                                               this.Channel.Options.SilentStreamingCancellation ?? false,
+                                                                                               cancellationToken).ContextFree();
+
             await using (streamingCall.ContextFree())
             {
                 var sequence = streamingCall.ResponseStream;
@@ -417,7 +421,10 @@ namespace SciTech.Rpc.Client.Internal
                 where TRequest : class
                 where TResponseReturn : class
         {
-            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request, method, cancellationToken).ContextFree();
+            var streamingCall = await this.CallStreamingMethodAsync<TRequest, TResponseReturn>(request,
+                                                                                               method,
+                                                                                               this.Channel.Options.SilentStreamingCancellation ?? false,
+                                                                                               cancellationToken).ContextFree();
             await using (streamingCall.ContextFree())
             {
                 var sequence = streamingCall.ResponseStream;
@@ -463,7 +470,10 @@ namespace SciTech.Rpc.Client.Internal
         }
 
 
-        protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request, TMethodDef method, CancellationToken cancellationToken)
+        protected abstract ValueTask<IAsyncStreamingServerCall<TResponse>> CallStreamingMethodAsync<TRequest, TResponse>(TRequest request,
+                                                                                                                         TMethodDef method,
+                                                                                                                         bool silentCancellation,
+                                                                                                                         CancellationToken cancellationToken)
             where TRequest : class
             where TResponse : class;
 
@@ -856,7 +866,7 @@ namespace SciTech.Rpc.Client.Internal
             try
             {
                 var streamingCallTask = this.CallStreamingMethodAsync<RpcObjectRequest, TEventArgs>(
-                    request, beginMethod, eventData.cancellationSource.Token);
+                    request, beginMethod, true, eventData.cancellationSource.Token);
 
                 var streamingCall = await streamingCallTask.ContextFree();
                 await using (streamingCall.ContextFree())

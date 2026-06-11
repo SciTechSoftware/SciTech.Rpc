@@ -61,7 +61,8 @@ namespace SciTech.Rpc.Client
                     && this.SendMaxMessageSize == null
                     && this.CallTimeout == null
                     && this.StreamingCallTimeout == null
-                    && this.Serializer == null;
+                    && this.Serializer == null
+                    && this.SilentStreamingCancellation == null;
             }
         }
 
@@ -76,6 +77,8 @@ namespace SciTech.Rpc.Client
 
         /// <inheritdoc/>
         public TimeSpan? StreamingCallTimeout { get; private set; }
+
+        public bool? SilentStreamingCancellation { get; private set; }
 
         /// <inheritdoc/>
         IReadOnlyList<IRpcClientExceptionConverter> IRpcClientOptions.ExceptionConverters => this.ExceptionConverters;
@@ -127,6 +130,7 @@ namespace SciTech.Rpc.Client
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;
+                this.SilentStreamingCancellation = options?.SilentStreamingCancellation ?? this.SilentStreamingCancellation;
             }
         }
 

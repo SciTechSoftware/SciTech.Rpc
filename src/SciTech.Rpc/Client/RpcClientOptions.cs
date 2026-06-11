@@ -25,6 +25,8 @@ namespace SciTech.Rpc.Client
     /// </summary>
     public interface IRpcClientOptions
     {
+        bool? SilentStreamingCancellation { get; }
+
         /// <summary>
         /// Gets the call timeout of RPC operations. If not specifed, the
         /// default timeout of the RPC channel implementation will be used, which is normally infinite.
@@ -173,7 +175,8 @@ namespace SciTech.Rpc.Client
                     && this.SendMaxMessageSize == null
                     && this.CallTimeout == null
                     && this.StreamingCallTimeout == null
-                    && this.Serializer == null;
+                    && this.Serializer == null
+                    && this.SilentStreamingCancellation == null;
             }
         }
 
@@ -210,6 +213,8 @@ namespace SciTech.Rpc.Client
 
         /// <inheritdoc/>
         IReadOnlyList<Type> IRpcClientOptions.KnownServiceTypes => this.KnownServiceTypes;
+
+        public bool? SilentStreamingCancellation { get; set; }
 
         public void AddAssemblyServiceTypes(Assembly servicesAssembly)
         {

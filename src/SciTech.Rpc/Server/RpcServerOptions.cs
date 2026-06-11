@@ -83,6 +83,8 @@ namespace SciTech.Rpc.Server
         /// </summary>
         int? SendMaxMessageSize { get; }
 
+        bool? SilentStreamingCancellation { get; }
+
         IRpcSerializer? Serializer { get; }
 
         ImmutableRpcServerOptions AsImmutable();
@@ -136,6 +138,8 @@ namespace SciTech.Rpc.Server
         /// </summary>
         public bool? AllowDiscovery { get; set; }
 
+        public bool? SilentStreamingCancellation { get; set; }
+
         public List<IRpcServerExceptionConverter> ExceptionConverters
         {
             get
@@ -170,7 +174,8 @@ namespace SciTech.Rpc.Server
                 && this.Serializer == null
                 && this.ReceiveMaxMessageSize == null
                 && this.SendMaxMessageSize == null
-                && this.Serializer == null;
+                && this.Serializer == null
+                && this.SilentStreamingCancellation == null;
         }
 
         /// <summary>

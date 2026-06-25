@@ -219,7 +219,7 @@ namespace SciTech.Rpc.Server
                     return OwnedObject.CreateUnowned(service);
                 }
 
-                service = (TService)Factory.Value(services, Array.Empty<object>());
+                service = (TService)Factory.Value(services, []);
                 return OwnedObject.Create(service);
             }
         }

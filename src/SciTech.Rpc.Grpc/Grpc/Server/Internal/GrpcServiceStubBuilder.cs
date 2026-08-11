@@ -35,12 +35,12 @@ namespace SciTech.Rpc.Grpc.Server.Internal
     /// </summary>
     internal class GrpcServiceStubBuilder<TService> : RpcServiceStubBuilder<TService, IGrpcMethodBinder>, IGrpcServiceStubBuilder where TService : class
     {
-        public GrpcServiceStubBuilder(RpcServiceOptions<TService>? options) :
+        internal GrpcServiceStubBuilder(IRpcServerOptions? options) :
             this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options)
         {
         }
 
-        public GrpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options) : base(serviceInfo, options)
+        internal GrpcServiceStubBuilder(RpcServiceInfo serviceInfo, IRpcServerOptions? options) : base(serviceInfo, options)
         {
         }
 

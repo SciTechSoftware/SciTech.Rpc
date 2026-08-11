@@ -209,9 +209,17 @@ namespace SciTech.Rpc.Grpc.Server
         {
             // TODO: Try to abstract IOptions away somehow. My idea was that SciTech.Rpc should not depend 
             // on Microsoft.Extensions (except SciTech.Rpc.NetGrpc and SciTech.Rpc.DependencyInjection (of course)).
+            IRpcServerOptions? actualOptions;
             IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
-
-            return new GrpcServiceStubBuilder<TService>(options?.Value);
+            if (options?.Value is IRpcServerOptions optionsValue)
+            {
+                actualOptions = ImmutableRpcServerOptions.Combine(this.Options, optionsValue);
+            }
+            else
+            {
+                actualOptions = this.Options;
+            }
+            return new GrpcServiceStubBuilder<TService>(actualOptions);
         }
 
         protected override void HandleCallException(Exception exception, IRpcSerializer? serializer )

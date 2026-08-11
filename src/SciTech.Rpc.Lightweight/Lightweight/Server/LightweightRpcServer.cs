@@ -117,7 +117,7 @@ namespace SciTech.Rpc.Lightweight.Server
         }
 
         public int ClientCount => this.clients.Count;
-
+         
         public bool KeepSizeLimitedConnectionAlive { get; }
 
         public int MaxRequestSize { get; }
@@ -387,8 +387,17 @@ namespace SciTech.Rpc.Lightweight.Server
         {
             // TODO: Try to abstract IOptions away somehow. My idea was that SciTech.Rpc should not depend 
             // on Microsoft.Extensions (except SciTech.Rpc.NetGrpc and SciTech.Rpc.DependencyInjection (of course)).
+            IRpcServerOptions? actualOptions;
             IOptions<RpcServiceOptions<TService>>? options = this.ServiceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
-            return new LightweightServiceStubBuilder<TService>(options?.Value);
+            if( options?.Value is IRpcServerOptions optionsValue )
+            {
+                actualOptions = ImmutableRpcServerOptions.Combine(this.Options, optionsValue); 
+            } else
+            {
+                actualOptions = this.Options;
+            }
+
+            return new LightweightServiceStubBuilder<TService>(actualOptions);
         }
 
         private void RemoveClient(ClientPipeline client)

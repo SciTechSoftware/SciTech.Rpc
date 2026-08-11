@@ -58,7 +58,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
         : RpcServiceStubBuilder<TService, INetGrpcBinder<TService>> where TService : class
 #pragma warning restore CA1812
     {
-        public NetGrpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
+        internal NetGrpcServiceStubBuilder(RpcServiceInfo serviceInfo, IRpcServerOptions? options)
             : base(serviceInfo, options)
         {
         }

@@ -55,12 +55,12 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         : RpcServiceStubBuilder<TService, ILightweightMethodBinder>, ILightweightServiceStubBuilder
         where TService : class
     {
-        public LightweightServiceStubBuilder(RpcServiceOptions<TService>? options) :
+        internal LightweightServiceStubBuilder(IRpcServerOptions? options) :
             this(RpcBuilderUtil.GetServiceInfoFromType(typeof(TService)), options)
         {
         }
 
-        public LightweightServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
+        internal LightweightServiceStubBuilder(RpcServiceInfo serviceInfo, IRpcServerOptions? options)
             : base(serviceInfo, options)
         {
 

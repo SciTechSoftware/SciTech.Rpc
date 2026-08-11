@@ -123,6 +123,7 @@ namespace SciTech.Rpc.Client
             this.ReceiveMaxMessageSize = o.ReceiveMaxMessageSize;
             this.SendMaxMessageSize = o.SendMaxMessageSize;
             this.Serializer = o.Serializer;
+            this.SilentStreamingCancellation = o.SilentStreamingCancellation;
         }
 
         public RpcClientOptions()

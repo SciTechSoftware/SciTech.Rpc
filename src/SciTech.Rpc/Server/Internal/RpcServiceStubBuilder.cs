@@ -36,11 +36,11 @@ namespace SciTech.Rpc.Server.Internal
         private RpcServerFaultHandler FaultHandler;
         private RpcStub<TService>? serviceStub;
 
-        protected RpcServiceStubBuilder(RpcServiceInfo serviceInfo, RpcServiceOptions<TService>? options)
+        protected RpcServiceStubBuilder(RpcServiceInfo serviceInfo, IRpcServerOptions? options)
         {
             this.ServiceInfo = serviceInfo ?? throw new ArgumentNullException(nameof(serviceInfo));
 
-            this.Options = options;
+            this.Options = options?.AsImmutable();
 
             var converterAttributes = serviceInfo.Type.GetCustomAttributes<RpcFaultConverterAttribute>();
             var exceptionConverters = RetrieveServerExceptionConverters(converterAttributes);
@@ -58,7 +58,7 @@ namespace SciTech.Rpc.Server.Internal
             }
         }
 
-        protected RpcServiceOptions<TService>? Options { get; }
+        protected IRpcServerOptions? Options { get; }
 
         protected RpcServiceInfo ServiceInfo { get; }
 

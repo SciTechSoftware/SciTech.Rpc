@@ -71,6 +71,8 @@ namespace SciTech.Rpc.Server
 
                 this.CallInterceptors = options.Interceptors.ToImmutableArrayList();
                 this.ExceptionConverters = options.ExceptionConverters.ToImmutableArrayList();
+
+                this.Options = options.AsImmutable();
             }
 
             if (this.ExceptionConverters.Count > 0)
@@ -120,6 +122,8 @@ namespace SciTech.Rpc.Server
 
         /// <inheritdoc/>
         public RpcServerId ServerId => this.ServicePublisher.ServerId;
+
+        public ImmutableRpcServerOptions? Options { get; }
 
         IServiceProvider? IRpcServerCore.ServiceProvider => this.ServiceProvider;
 

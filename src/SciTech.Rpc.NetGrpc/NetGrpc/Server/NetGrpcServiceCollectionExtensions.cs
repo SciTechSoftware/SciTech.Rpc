@@ -144,9 +144,20 @@ namespace SciTech.Rpc.NetGrpc.Server
                 throw new InvalidOperationException($"Service '{typeof(TService)}' not registered.");
             }
 
+            IRpcServerOptions? actualOptions;
+            IOptions<RpcServiceOptions<TService>>? options = this.serviceProvider?.GetService<IOptions<RpcServiceOptions<TService>>>();
+            if (options?.Value is IRpcServerOptions optionsValue)
+            {
+                actualOptions = ImmutableRpcServerOptions.Combine(this.rpcServer.Options, optionsValue);
+            }
+            else
+            {
+                actualOptions = this.rpcServer.Options;
+            }
+
             var stubBuilder = new NetGrpcServiceStubBuilder<TService>(
                 serviceInfo, 
-                this.serviceProvider.GetService<IOptions<RpcServiceOptions<TService>>>()?.Value);
+                actualOptions);
             stubBuilder.Bind(this.rpcServer, typedContext);
         }
     }

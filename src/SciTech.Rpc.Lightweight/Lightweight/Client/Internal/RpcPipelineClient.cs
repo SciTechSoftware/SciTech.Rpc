@@ -1,4 +1,4 @@
-﻿#region Copyright notice and license
+#region Copyright notice and license
 // Copyright (c) 2019-2021, SciTech Software AB
 // All rights reserved.
 //
@@ -318,7 +318,9 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
         protected override ValueTask OnEndReceiveLoopAsync()
         {
-            return new ValueTask(this.CloseAsync());
+            // Called from the receive loop, which awaits the returned task, so the close must not wait for the
+            // receive loop to finish.
+            return new ValueTask(this.CloseFromReceiveLoopAsync());
         }
 
         protected override ValueTask OnReceiveAsync(in LightweightRpcFrame frame)

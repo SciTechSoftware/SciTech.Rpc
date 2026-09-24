@@ -87,8 +87,21 @@ namespace SciTech.Rpc.Lightweight.Internal
             return this.receiveLoopTask ?? Task.CompletedTask;
         }
 
+        /// <summary>
+        /// Closes the pipeline and waits for the receive loop to finish.
+        /// </summary>
+        public Task CloseAsync(Exception? ex = null) => this.CloseCoreAsync(ex, waitForReceiveLoop: true);
+
+        /// <summary>
+        /// Closes the pipeline without waiting for the receive loop to finish. Must be used instead of
+        /// <see cref="CloseAsync"/> by code that the receive loop itself awaits, such as <see cref="OnEndReceiveLoopAsync"/>:
+        /// waiting for the receive loop there would wait for itself and never complete. Anyone else waiting
+        /// for the pipeline, e.g. through <see cref="WaitFinishedAsync"/>, would then hang as well.
+        /// </summary>
+        protected Task CloseFromReceiveLoopAsync(Exception? ex = null) => this.CloseCoreAsync(ex, waitForReceiveLoop: false);
+
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup")]
-        public async Task CloseAsync(Exception? ex = null)
+        private async Task CloseCoreAsync(Exception? ex, bool waitForReceiveLoop)
         {
             IDuplexPipe? pipe;
             CancellationTokenSource? receiveLoopCts;
@@ -130,7 +143,10 @@ namespace SciTech.Rpc.Lightweight.Internal
 
                 receiveLoopCts?.Cancel();
 
-                await this.WaitFinishedAsync().ContextFree();
+                if (waitForReceiveLoop)
+                {
+                    await this.WaitFinishedAsync().ContextFree();
+                }
 
 
 

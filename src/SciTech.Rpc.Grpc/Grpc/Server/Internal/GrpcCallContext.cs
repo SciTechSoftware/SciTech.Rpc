@@ -30,7 +30,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             for (int i = 0; i < metadata.Count; i++)
             {
                 var entry = metadata[i];
-                if (entry.Key == key)
+                // gRPC metadata keys are case-insensitive (and normalized to lower case).
+                if (string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
                 {
                     return entry.Value;
                 }
@@ -46,7 +47,8 @@ namespace SciTech.Rpc.Grpc.Server.Internal
             for (int i = 0; i < metadata.Count; i++)
             {
                 var entry = metadata[i];
-                if (entry.Key == key)
+                // gRPC metadata keys are case-insensitive (and normalized to lower case).
+                if (string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
                 {
                     return entry.ValueBytes.ToImmutableArray();
                 }

@@ -28,8 +28,10 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
     /// </summary>
     internal sealed class NetGrpcServer : RpcServerBase
     {
-        public NetGrpcServer(RpcServicePublisher servicePublisher, IOptions<RpcServerOptions> options, ILoggerFactory? loggerFactory)
-            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, options.Value, loggerFactory)
+        private readonly IServiceProvider? serviceProvider;
+
+        public NetGrpcServer(RpcServicePublisher servicePublisher, IServiceProvider serviceProvider, IOptions<RpcServerOptions> options, ILoggerFactory? loggerFactory)
+            : this(servicePublisher, servicePublisher, servicePublisher.DefinitionsProvider, serviceProvider, options.Value, loggerFactory)
         {
         }
 
@@ -37,12 +39,19 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             IRpcServicePublisher servicePublisher,
             IRpcServiceActivator serviceImplProvider,
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
-            //ServiceMethodProviderContext<NetGrpcServiceActivator>? context,
+            IServiceProvider? serviceProvider,
             RpcServerOptions? options,
             ILoggerFactory? loggerFactory)
             : base(servicePublisher, serviceImplProvider, serviceDefinitionsProvider, options, loggerFactory)
         {
+            this.serviceProvider = serviceProvider;
         }
+
+        /// <summary>
+        /// Gets the application service provider, e.g. used to check whether an <see cref="IRpcContextAccessor"/> has been
+        /// registered (see <see cref="ServiceCollectionExtensions.AddRpcContextAccessor"/>).
+        /// </summary>
+        protected override IServiceProvider? ServiceProvider => this.serviceProvider;
 
 
         internal static Task<RpcServicesQueryResponse> QueryServices(NetGrpcServer server, RpcObjectRequest request, GrpcCore.ServerCallContext _)

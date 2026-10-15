@@ -49,7 +49,7 @@ namespace SciTech.Rpc.Serialization
             return (T?)serializer.Deserialize(input, typeof(T));
         }
 
-        public static byte[]? Serialize<T>(this IRpcSerializer<T> serializer, [AllowNull]T input)
+        public static byte[] Serialize<T>(this IRpcSerializer<T> serializer, [AllowNull]T input)
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
 
@@ -58,8 +58,7 @@ namespace SciTech.Rpc.Serialization
             return ms.ToArray();
         }
 
-        [return:NotNullIfNotNull("input")]
-        public static byte[]? Serialize<T>(this IRpcSerializer serializer, [AllowNull]T input)
+        public static byte[] Serialize<T>(this IRpcSerializer serializer, [AllowNull]T input)
         {
             if (serializer is null) throw new ArgumentNullException(nameof(serializer));
 

@@ -35,7 +35,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.AspNetCore.Server" Version="2.24.0" />
+    <PackageReference Include="Grpc.AspNetCore.Server" Version="2.84.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -47,6 +47,10 @@ This package contains the communication layer for the fully managed ASP.NET Core
   <ItemGroup>
     <Folder Include="Grpc\Internal\" />
     <Folder Include="Grpc\Server\Internal\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.402" />
   </ItemGroup>
 
 </Project>

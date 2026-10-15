@@ -72,7 +72,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 if (serializer != null)
                 {
                     var serializedError = serializer.Serialize(rpcError);
-                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message),
+                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message ?? ""),
                         new GrpcCore.Metadata
                         {
                             {WellKnownHeaderKeys.ErrorInfo, serializedError }
@@ -82,9 +82,9 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                 {
                     var metadata = new GrpcCore.Metadata
                     {
-                        { WellKnownHeaderKeys.ErrorType, rpcError.ErrorType },
-                        { WellKnownHeaderKeys.ErrorMessage, rpcError.Message },
-                        { WellKnownHeaderKeys.ErrorCode, rpcError.ErrorCode }
+                        { WellKnownHeaderKeys.ErrorType, rpcError.ErrorType ?? ""},
+                        { WellKnownHeaderKeys.ErrorMessage, rpcError.Message ?? "" },
+                        { WellKnownHeaderKeys.ErrorCode, rpcError.ErrorCode ?? "" }
                     };
 
                     if (rpcError.ErrorDetails != null)
@@ -92,7 +92,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
                         metadata.Add(new GrpcCore.Metadata.Entry(WellKnownHeaderKeys.ErrorDetails, rpcError.ErrorDetails));
                     }
 
-                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message), metadata);
+                    throw new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.Unknown, rpcError.Message ?? ""), metadata);
                 }
             }
         }

@@ -54,10 +54,7 @@ namespace SciTech.Rpc.NetGrpc.Server
 
             services.TryAddTransient<IServiceMethodProvider<NetGrpcServer>, RpcCoreServiceMethodProvider>();
 
-            // Use reflection to get NetGrpcServiceMethodProvider<> type. For some reason using typeof(NetGrpcServiceMethodProvider<>)
-            // causes a BadImageFormatException in .NET Core 3.0 Preview 9. Hopefully this hack can be removed soon.
-            var providerType = typeof(NetGrpcServiceCollectionExtensions).Assembly.GetType("SciTech.Rpc.NetGrpc.Server.NetGrpcServiceMethodProvider`1");
-            //var providerType = typeof(NetGrpcServiceMethodProvider<>);
+            var providerType = typeof(NetGrpcServiceMethodProvider<>);
 
             services.TryAddEnumerable(ServiceDescriptor.Transient(typeof(IServiceMethodProvider<>), providerType));
 

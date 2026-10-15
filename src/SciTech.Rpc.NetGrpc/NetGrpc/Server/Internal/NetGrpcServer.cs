@@ -49,7 +49,7 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 
         /// <summary>
         /// Gets the application service provider, e.g. used to check whether an <see cref="IRpcContextAccessor"/> has been
-        /// registered (see <see cref="ServiceCollectionExtensions.AddRpcContextAccessor"/>).
+        /// registered (see <see cref="Rpc.Server.ServiceCollectionExtensions.AddRpcContextAccessor"/>).
         /// </summary>
         protected override IServiceProvider? ServiceProvider => this.serviceProvider;
 

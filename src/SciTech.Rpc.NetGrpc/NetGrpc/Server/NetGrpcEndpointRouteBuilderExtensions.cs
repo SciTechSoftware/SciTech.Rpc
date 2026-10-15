@@ -42,12 +42,10 @@ namespace SciTech.Rpc.NetGrpc.Server
     /// </summary>
     public static class NetGrpcEndpointRouteBuilderExtensions
     {
+        // Resolved from a method group, since MapGrpcService has non-generic overloads as well.
         private static readonly MethodInfo MapGrpcServiceMethod =
-            typeof(GrpcEndpointRouteBuilderExtensions).GetMethod(
-                nameof(GrpcEndpointRouteBuilderExtensions.MapGrpcService),
-                BindingFlags.Static | BindingFlags.Public)
-                ?? throw new NotImplementedException(
-                $"{nameof(GrpcEndpointRouteBuilderExtensions.MapGrpcService)} not implemented as expected on {nameof(GrpcEndpointRouteBuilderExtensions)}");
+            new Func<IEndpointRouteBuilder, GrpcServiceEndpointConventionBuilder>(
+                GrpcEndpointRouteBuilderExtensions.MapGrpcService<object>).Method.GetGenericMethodDefinition();
 
         /// <summary>
         /// Maps incoming requests to registered SciTech.Rpc gRPC services.

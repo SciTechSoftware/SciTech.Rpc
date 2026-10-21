@@ -21,7 +21,7 @@ using SciTech.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using SciTech.Threading;
 
-#if PLAT_NET_GRPC
+#if NET
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.NetGrpc.Client;
 using SciTech.Rpc.NetGrpc.Server;
@@ -55,6 +55,11 @@ namespace SciTech.Rpc.Tests
     public class ClientServerTestsBase
     {
         internal const int TcpTestPort = 15959;
+
+        /// <summary>
+        /// Tolerance for timing assertions, since timers may complete slightly before the requested time.
+        /// </summary>
+        internal static readonly TimeSpan TimingTolerance = TimeSpan.FromMilliseconds(50);
 
         private readonly IRpcSerializer serializer;
 
@@ -179,7 +184,7 @@ namespace SciTech.Rpc.Tests
                             TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable());
                         return (host, connection);
                     }
-#if PLAT_NET_GRPC
+#if NET
                 case RpcConnectionType.NetGrpc:
                     {
                         var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, serverOptions, configureServices);
@@ -246,7 +251,7 @@ namespace SciTech.Rpc.Tests
             public IServiceCollection Services { get; }
         }
 
-#if PLAT_NET_GRPC
+#if NET
         private static IRpcServerHost CreateNetGrpcServer(
             IRpcServiceDefinitionsProvider serviceDefinitionsProvider,
             RpcServerId serverId,
@@ -309,7 +314,7 @@ namespace SciTech.Rpc.Tests
         }
     }
 
-#if PLAT_NET_GRPC
+#if NET
     internal class NetGrpcTestServer : IRpcServerHost
     {
         private IWebHost webHost;

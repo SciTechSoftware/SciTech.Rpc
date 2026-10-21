@@ -284,10 +284,13 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var discoveryClient = new LightweightDiscoveryClient(loggerFactory.CreateLogger<LightweightDiscoveryClient>());
 
+            // Other discovery servers may be running on the network, so only consider services from the test server.
+            bool IsTestService(DiscoveredService service) => service.ConnectionInfo.ServerId == server.ServerId;
+
             var eventDiscoveredServices = new List<DiscoveredService>();
             bool serviceLost = false;
-            discoveryClient.ServiceDiscovered += (s, e) => eventDiscoveredServices.Add(e.DiscoveredService);
-            discoveryClient.ServiceLost += (s, e) => serviceLost = true;
+            discoveryClient.ServiceDiscovered += (s, e) => { if (IsTestService(e.DiscoveredService)) eventDiscoveredServices.Add(e.DiscoveredService); };
+            discoveryClient.ServiceLost += (s, e) => { if (IsTestService(e.DiscoveredService)) serviceLost = true; };
 
             using var discoveryCts = new CancellationTokenSource();
             var discoveryTask = discoveryClient.FindServicesAsync(discoveryCts.Token);
@@ -301,7 +304,7 @@ namespace SciTech.Rpc.Tests.Lightweight
                     await Task.Delay(2000);
 
                     Assert.IsFalse(serviceLost);
-                    var discoveredServices = discoveryClient.DiscoveredServices;
+                    var discoveredServices = discoveryClient.DiscoveredServices.Where(IsTestService).ToList();
                     Assert.AreEqual(2, discoveredServices.Count);
                     Assert.AreEqual(2, eventDiscoveredServices.Count);
 
@@ -339,10 +342,14 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             var discoveryClient = new LightweightDiscoveryClient(loggerFactory.CreateLogger<LightweightDiscoveryClient>());
 
+            // Other discovery servers may be running on the network, so only consider services from the test servers.
+            bool IsTestService(DiscoveredService service)
+                => service.ConnectionInfo.ServerId == server.ServerId || service.ConnectionInfo.ServerId == server2.ServerId;
+
             var eventDiscoveredServices = new List<DiscoveredService>();
             bool serviceLost = false;
-            discoveryClient.ServiceDiscovered += (s, e) => eventDiscoveredServices.Add(e.DiscoveredService);
-            discoveryClient.ServiceLost += (s, e) => serviceLost = true;
+            discoveryClient.ServiceDiscovered += (s, e) => { if (IsTestService(e.DiscoveredService)) eventDiscoveredServices.Add(e.DiscoveredService); };
+            discoveryClient.ServiceLost += (s, e) => { if (IsTestService(e.DiscoveredService)) serviceLost = true; };
 
             using var discoveryCts = new CancellationTokenSource();
             var discoveryTask = discoveryClient.FindServicesAsync(discoveryCts.Token);
@@ -355,7 +362,7 @@ namespace SciTech.Rpc.Tests.Lightweight
                 await Task.Delay(2000);
 
                 Assert.IsFalse(serviceLost);
-                var discoveredServices = discoveryClient.DiscoveredServices;
+                var discoveredServices = discoveryClient.DiscoveredServices.Where(IsTestService).ToList();
                 Assert.AreEqual(2, discoveredServices.Count);
                 Assert.AreEqual(2, eventDiscoveredServices.Count);
 

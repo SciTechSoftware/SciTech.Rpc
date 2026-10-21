@@ -122,7 +122,8 @@ namespace SciTech.Rpc.Tests
                 });
 
                 TimeSpan duration = DateTime.UtcNow - start;
-                Assert.GreaterOrEqual(duration, TimeSpan.FromSeconds(1));
+                // Timers may fire slightly early, so allow some tolerance on the lower bound.
+                Assert.GreaterOrEqual(duration, TimeSpan.FromSeconds(1) - TimingTolerance);
                 Assert.Less(duration, TimeSpan.FromSeconds(2));
                 Assert.Greater(lastNo, 10);
             }

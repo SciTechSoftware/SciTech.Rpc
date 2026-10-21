@@ -49,9 +49,11 @@ namespace SciTech.Rpc.Tests.Lightweight
             string userPw = Environment.GetEnvironmentVariable(FormattableString.Invariant($"RPC_{accountKey}_PASSWORD"));
             string expectedIdentity = Environment.GetEnvironmentVariable(FormattableString.Invariant($"RPC_{accountKey}_IDENTITY"));
 
-            Assert.IsNotEmpty(userName);
-            Assert.IsNotEmpty(userPw);
-            Assert.IsNotEmpty(expectedIdentity);
+            if (string.IsNullOrEmpty(userName) || string.IsNullOrEmpty(userPw) || string.IsNullOrEmpty(expectedIdentity))
+            {
+                Assert.Ignore(FormattableString.Invariant(
+                    $"Test account not configured. Set the RPC_{accountKey}_NAME, RPC_{accountKey}_PASSWORD and RPC_{accountKey}_IDENTITY environment variables."));
+            }
 
             LightweightRpcServer server = CreateServer();
 

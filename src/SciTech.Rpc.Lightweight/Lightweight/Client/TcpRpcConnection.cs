@@ -152,7 +152,7 @@ namespace SciTech.Rpc.Lightweight.Client
                 {
                     SetRecommendedClientOptions(socket);
 
-#if PLAT_CONNECT_CANCELLATION
+#if NET
                     await socket.ConnectAsync(endPoint, cancellationToken).ContextFree();
 #else
                     await socket.ConnectAsync(endPoint).ContextFree();
@@ -179,7 +179,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
                         workStream = authenticatedStream = sslStream;
 
-#if PLAT_CONNECT_CANCELLATION
+#if NET
                         var authOptions = new SslClientAuthenticationOptions()
                         {                            
                             TargetHost = sslHost,

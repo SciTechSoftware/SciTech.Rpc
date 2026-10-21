@@ -247,7 +247,7 @@ namespace SciTech.Rpc.Serialization
             }
         }
 
-#if PLAT_SPAN_OVERLOADS
+#if NET
 
         /// <inheritdoc />
         public override sealed ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)

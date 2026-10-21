@@ -1,19 +1,13 @@
 ﻿<Project>
-    <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
-        <!--<TargetFrameworks>netstandard2.0;netstandard2.1;net461;net472;netcoreapp3.1;net5.0;net6.0</TargetFrameworks>-->
 
-        <Nullable>enable</Nullable>
-        <EnableSourceLink Condition=" $(EnableSourceLink)=='' ">false</EnableSourceLink>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
 
-        <!--<AnalysisLevel>latest-all</AnalysisLevel>
-        <WarningLevel>9999</WarningLevel>
-
-        <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>-->
-    </PropertyGroup>
-
-    <ItemGroup>
-        <InternalsVisibleTo Include="$(AssemblyName).Tests" />
-    </ItemGroup>
+  <!-- Deterministic paths in CI builds only, so that local builds keep local source paths for debugging. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
 
 </Project>

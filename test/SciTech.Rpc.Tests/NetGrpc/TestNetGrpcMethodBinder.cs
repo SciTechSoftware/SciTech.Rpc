@@ -1,4 +1,4 @@
-﻿#if PLAT_NET_GRPC
+﻿#if NET
 using Grpc.AspNetCore.Server.Model;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Tests.Grpc;

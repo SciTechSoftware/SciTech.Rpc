@@ -1,0 +1,7 @@
+# Normalize line endings in the repository; files are checked out with the platform's line endings.
+* text=auto
+
+*.pfx binary
+*.snk binary
+*.png binary
+*.ico binary

@@ -424,7 +424,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             if (input.First.Length >= length)
             {
                 var memory = input.First.Slice(0, (int)length);
-#if PLAT_SPAN_OVERLOADS
+#if NET
                 value = Encoding.UTF8.GetString(memory.Span);
 #else
                 using (var ownedArray = OwnedArraySegment.Create<byte>(memory))
@@ -433,7 +433,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                 }
 #endif
             }
-#if PLAT_SPAN_OVERLOADS
+#if NET
             else if (length <= 256)
             {
                 Span<byte> local = stackalloc byte[(int)length];
@@ -468,7 +468,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             }
 
             var stringData = data.Slice(readPos, (int)length);
-#if PLAT_SPAN_OVERLOADS
+#if NET
             value = Encoding.UTF8.GetString(stringData.Span);
 #else
             using (var ownedArray = OwnedArraySegment.Create<byte>(stringData))
@@ -579,7 +579,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         private static int WriteString(IBufferWriter<byte> writer, string value)
         {
             var encoding = Encoding.UTF8;
-#if PLAT_SPAN_OVERLOADS
+#if NET
             ReadOnlySpan<char> stringSpan = value;
             int nEncodedBytes = encoding.GetByteCount(stringSpan);
             int nTotalBytes = WriteUInt32Varint(writer, (uint)nEncodedBytes);

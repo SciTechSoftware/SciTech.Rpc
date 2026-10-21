@@ -1,4 +1,4 @@
-﻿#if PLAT_NET_GRPC
+﻿#if NET
 using System;
 using System.Collections.Generic;
 using System.Linq;

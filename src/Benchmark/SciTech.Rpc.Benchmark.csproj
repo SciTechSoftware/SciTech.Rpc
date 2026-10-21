@@ -5,9 +5,9 @@
     <TargetFrameworks>net472;net5.0</TargetFrameworks>
     <AssemblyName>SciTech.Rpc.Benchmark</AssemblyName>
     <RootNamespace>SciTech.Rpc.Benchmark</RootNamespace>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <Import Project="..\Platform.props" />
 
   <ItemGroup>
     <None Remove="SimpleService.proto" />
@@ -43,10 +43,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
-    <PackageReference Include="Google.Protobuf" Version="3.10.0" />
-    <PackageReference Include="Grpc.Core" Version="2.24.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.24.0">
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Core" />
+    <PackageReference Include="Grpc.Tools">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

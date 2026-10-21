@@ -1,4 +1,4 @@
-﻿#if PLAT_NET_GRPC
+﻿#if NET
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Server.Internal;

@@ -39,7 +39,7 @@ namespace SciTech.Rpc.Client
         {
             if( !value.IsDefaultOrEmpty)
             {
-#if PLAT_SPAN_OVERLOADS
+#if NET
                 return Encoding.UTF8.GetString(value.AsSpan());
 #else
                 return Encoding.UTF8.GetString(value.ToArray());

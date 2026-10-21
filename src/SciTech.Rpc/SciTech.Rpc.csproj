@@ -1,8 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="..\Package.props" />
-  <Import Project="..\Platform.props" />
-
   <PropertyGroup>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
@@ -12,13 +9,9 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
     </Description>
   </PropertyGroup>
 
-<PropertyGroup>
-  <EnableNETAnalyzers>true</EnableNETAnalyzers>
-  <AnalysisMode>AllEnabledByDefault</AnalysisMode>
-</PropertyGroup>
-
   <ItemGroup>
     <Compile Remove="Client\RpcProxyDefinitionsBuilder.cs" />
+    <None Include="Client\RpcProxyDefinitionsBuilder.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,45 +19,15 @@ Use one of the SciTech.Rpc implementation packages: SciTech.Rpc.Grpc, SciTech.Rp
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\LICENSE">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
-    <None Include="Client\RpcProxyDefinitionsBuilder.cs" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="System.Text.Json" />
+    <PackageReference Include="System.Threading.Channels" />
   </ItemGroup>
-
-  <ItemGroup>
-    <!--<PackageReference Include="GitVersionTask" Version="5.3.7">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>-->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
-    <!--<PackageReference Include="System.ServiceModel.Primitives" Version="4.6.0" />-->
-  </ItemGroup>
-  
-  <ItemGroup Condition="$(TargetFramework)!='netcoreapp3.0'">
-    <PackageReference Include="System.Text.Json" Version="8.0.6" />
-  </ItemGroup>
-  
-  <ItemGroup Condition="$(TargetFramework)=='netstandard2.0' Or $(TargetFramework)=='netstandard2.1'">
-    <PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
-  </ItemGroup>
-
-
 
   <ItemGroup>
     <ProjectReference Include="..\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
     <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
   </ItemGroup>
 
-
-
-  <ItemGroup>
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.402" />
-  </ItemGroup>
 </Project>

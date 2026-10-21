@@ -1,68 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <Import Project="..\Package.props" />
-    <Import Project="..\Platform.props" />
+  <PropertyGroup>
+    <RootNamespace>SciTech.Rpc</RootNamespace>
+    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
-    <PropertyGroup>
-        <Description>
-            SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
-            From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+This package contains the communication layer for the lightweight implementation of SciTech.Rpc.
+    </Description>
+  </PropertyGroup>
 
-            This package contains the communication layer for the lightweight implementation of SciTech.Rpc.
-        </Description>
-    </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" />
+    <PackageReference Include="System.IO.FileSystem.AccessControl" />
+    <PackageReference Include="System.IO.Pipelines" />
+    <PackageReference Include="System.IO.Pipes.AccessControl" />
+  </ItemGroup>
 
-    <PropertyGroup>
-        <RootNamespace>SciTech.Rpc</RootNamespace>
-        <EnableNETAnalyzers>true</EnableNETAnalyzers>
-        <AnalysisMode>AllEnabledByDefault</AnalysisMode>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <None Include="..\..\LICENSE">
-            <Pack>True</Pack>
-            <PackagePath></PackagePath>
-        </None>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="8.0.32" />
-        <PackageReference Include="System.IO.FileSystem.AccessControl" Version="5.0.0" />
-        <!--<PackageReference Include="Pipelines.Sockets.Unofficial" Version="2.1.1" />-->
-
-        <PackageReference Include="System.IO.Pipelines" Version="8.0.0" />
-        <PackageReference Include="System.IO.Pipes.AccessControl" Version="5.0.0" />
-        <!--<PackageReference Include="System.Collections.Immutable" Version="1.6.0" />
-
-    <PackageReference Include="System.Memory" Version="4.5.3" />
-    <PackageReference Include="System.Buffers" Version="4.5.0" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
-    <PackageReference Include="System.Reflection.Emit" Version="4.6.0" />-->
-
-    </ItemGroup>
-
-
-    <ItemGroup Condition="'$(HasPlatformSpans)' != 'true' and '$(PlatformSpans)' == 'true'">
-        <!--<PackageReference Include="System.Memory" Version="4.5.1" />
-    <PackageReference Include="System.Buffers" Version="4.5.0" />-->
-    </ItemGroup>
-
-    <!--<ItemGroup Condition=" '$(HasReflectionEmit)' != 'true'">
-  </ItemGroup>-->
-
-
-
-
-    <ItemGroup>
-        <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
-        <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
-    </ItemGroup>
-
-
-
-
-    <ItemGroup>
-        <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.402" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
+    <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
 
 </Project>

@@ -82,7 +82,7 @@ namespace SciTech.Buffers
         {
             foreach (var segment in this.readOnlySequence)
             {
-#if PLAT_SPAN_OVERLOADS
+#if NET
                 await destination.WriteAsync(segment, cancellationToken).ContextFree();
 #else
                 using var blob = OwnedArraySegment.Create(segment);
@@ -204,7 +204,7 @@ namespace SciTech.Buffers
         /// <inheritdoc/>
         public override void WriteByte(byte value) => this.ThrowDisposedOr(new NotSupportedException());
 
-#if PLAT_SPAN_OVERLOADS
+#if NET
         /// <inheritdoc/>
         public override int Read(Span<byte> buffer)
         {

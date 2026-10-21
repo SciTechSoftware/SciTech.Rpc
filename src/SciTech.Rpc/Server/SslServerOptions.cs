@@ -8,15 +8,8 @@ namespace SciTech.Rpc.Server
 
     public class SslServerOptions : AuthenticationServerOptions
     {
-#if !PLAT_SYSTEM_SSL_PROTOCOLS
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5397:Do not use deprecated SslProtocols values", Justification = "Not available")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5398:Avoid hardcoded SslProtocols values", Justification = "Not available")]
-#endif
         public SslServerOptions() : base( "ssl" )
         {
-#if !PLAT_SYSTEM_SSL_PROTOCOLS
-            this.EnabledSslProtocols = SslProtocols.Tls11 | SslProtocols.Tls12;
-#endif
         }
 
         public SslServerOptions(X509Certificate serverCertificate) : this()

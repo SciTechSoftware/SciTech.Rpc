@@ -1,0 +1,63 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="NuGet.config" />
+    <File Path="README.md" />
+    <File Path="LICENSE" />
+    <File Path="CONTRIBUTORS.md" />
+    <File Path="THIRD-PARTY-NOTICES.md" />
+  </Folder>
+  <Folder Name="/Certs/">
+    <File Path="Certs/ca.crt" />
+    <File Path="Certs/ca.key" />
+    <File Path="Certs/client.crt" />
+    <File Path="Certs/client.key" />
+    <File Path="Certs/server.crt" />
+    <File Path="Certs/server.key" />
+    <File Path="Certs/server.pfx" />
+    <File Path="Certs/TestCertificates.Client.cs" />
+    <File Path="Certs/TestCertificates.Server.cs" />
+  </Folder>
+  <Folder Name="/src/">
+    <File Path="src/Directory.Build.props" />
+    <Project Path="src/SciTech.Core/SciTech.Core.csproj" />
+    <Project Path="src/SciTech.Rpc/SciTech.Rpc.csproj" />
+    <Project Path="src/SciTech.Rpc.DataContract/SciTech.Rpc.DataContract.csproj" />
+    <Project Path="src/SciTech.Rpc.Grpc/SciTech.Rpc.Grpc.csproj" />
+    <Project Path="src/SciTech.Rpc.Lightweight/SciTech.Rpc.Lightweight.csproj" />
+    <Project Path="src/SciTech.Rpc.NetGrpc/SciTech.Rpc.NetGrpc.csproj" />
+    <Project Path="src/SciTech.Rpc.NetGrpc.Client/SciTech.Rpc.NetGrpc.Client.csproj" />
+    <Project Path="src/SciTech.Rpc.Protobuf/SciTech.Rpc.Protobuf.csproj" />
+  </Folder>
+  <Folder Name="/src/analyzer/">
+    <Project Path="src/analyzer/SciTech.Rpc.Analyzer/SciTech.Rpc.Analyzer.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <File Path="test/Directory.Build.props" />
+    <Project Path="test/SciTech.Rpc.Tests/SciTech.Rpc.Tests.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <File Path="examples/Directory.Build.props" />
+  </Folder>
+  <Folder Name="/examples/Common/">
+    <File Path="examples/Common/IGreeterService.cs" />
+    <File Path="examples/Common/IMailBoxManager.cs" />
+    <File Path="examples/Common/ITicketerService.cs" />
+  </Folder>
+  <Folder Name="/examples/Clients/">
+    <Project Path="examples/Clients/GreeterClient/GreeterClient.csproj" />
+    <Project Path="examples/Clients/MailerClient/MailerClient.csproj" />
+    <Project Path="examples/Clients/Ticketer/TicketerClient.csproj" />
+  </Folder>
+  <Folder Name="/examples/Clients/Common/">
+    <File Path="examples/Clients/Common/RpcExamplesHelper.cs" />
+  </Folder>
+  <Folder Name="/examples/Server/">
+    <Project Path="examples/Server/GrpcAndLightweightServer/GrpcAndLightweightServer.csproj" />
+    <Project Path="examples/Server/NetGrpcServer/NetGrpcServer.csproj" />
+  </Folder>
+</Solution>

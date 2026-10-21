@@ -51,7 +51,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             finally
             {
                 // I don't expect any exceptions in CompleteAsync, but let's make sure the stream is disposed.
-#if PLAT_ASYNC_DISPOSE
+#if NET
                 await this.stream.DisposeAsync().ContextFree();
 #else
                 this.stream.Dispose();

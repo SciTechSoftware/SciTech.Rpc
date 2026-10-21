@@ -26,7 +26,7 @@ using System.ServiceModel;
 using System.Threading.Tasks;
 using SciTech.Collections.Immutable;
 
-#if COREFX
+#if !NETFRAMEWORK
 using GrpcNet = Grpc.Net;
 using Grpc.Net.Client;
 using SciTech.Rpc.NetGrpc.Client;
@@ -136,7 +136,7 @@ namespace SciTech.Rpc.Benchmark
         private GrpcCore.ChannelBase channel;
         private SimpleService.SimpleServiceClient clientService;
         private GrpcCore.Server server;
-#if COREFX
+#if !NETFRAMEWORK
         private IWebHost host;
 #endif
 
@@ -158,7 +158,7 @@ namespace SciTech.Rpc.Benchmark
                     this.channel = new GrpcCore.Channel("127.0.0.1:50051", GrpcCore.ChannelCredentials.Insecure);
                     this.clientService = new SimpleService.SimpleServiceClient(this.channel);
                     break;
-#if COREFX
+#if !NETFRAMEWORK
                 case RpcConnectionType.NetGrpc:
                     this.host = CreateNetGrpcHost();
                     host.Start();
@@ -183,7 +183,7 @@ namespace SciTech.Rpc.Benchmark
             }
         }
 
-#if COREFX
+#if !NETFRAMEWORK
         private static IWebHost CreateNetGrpcHost()
         {
             var hostBuilder = new WebHostBuilder()
@@ -228,7 +228,7 @@ namespace SciTech.Rpc.Benchmark
         [GlobalCleanup]
         public void GlobalCleanup()
         {
-#if COREFX
+#if !NETFRAMEWORK
             if (this.ConnectionType == RpcConnectionType.NetGrpc)
             {
                 this.host.StopAsync().Wait();
@@ -380,7 +380,7 @@ namespace SciTech.Rpc.Benchmark
 
         const int MaxClientConnections = 8;
 
-#if COREFX
+#if !NETFRAMEWORK
         //[Params(RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightNamedPipe)]
         [Params(RpcConnectionType.Grpc, RpcConnectionType.NetGrpc, RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightInproc, RpcConnectionType.LightweightNamedPipe)]
 #else
@@ -464,7 +464,7 @@ namespace SciTech.Rpc.Benchmark
                         }
                         break;
                     }
-#if COREFX
+#if !NETFRAMEWORK
                 case RpcConnectionType.NetGrpc:
                     {
                         this.server = CreateNetGrpcServer(definitionsProvider, serverId, serverOptions);
@@ -509,7 +509,7 @@ namespace SciTech.Rpc.Benchmark
         }
 
 
-#if COREFX
+#if !NETFRAMEWORK
         private static IRpcServerHost CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
         {
             var hostBuilder = new WebHostBuilder()
@@ -559,7 +559,7 @@ namespace SciTech.Rpc.Benchmark
         }
 #endif
 
-#if COREFX
+#if !NETFRAMEWORK
         internal class NetGrpcTestServer : IRpcServerHost
         {
             private IWebHost webHost;

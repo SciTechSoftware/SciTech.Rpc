@@ -5,7 +5,7 @@ using System;
 
 namespace SciTech.Rpc.Tests.NetGrpc
 {
-#if PLAT_NET_GRPC
+#if NET
     [TestFixtureSource(nameof(DefaultGrpcClientHostFixtureArgs))]
     public class NetGrpcClientServerTests : ClientServerBaseTests
     {

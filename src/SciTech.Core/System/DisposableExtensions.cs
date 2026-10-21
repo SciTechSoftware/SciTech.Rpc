@@ -16,7 +16,7 @@ namespace System
 {
     public static class DisposableExtensions
     {
-#if !PLAT_ASYNC_DISPOSE
+#if !NET
         public static ValueTask DisposeAsync(this Stream disposable)
         {
             disposable?.Dispose();

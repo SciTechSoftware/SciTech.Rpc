@@ -25,7 +25,7 @@ using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
-#if COREFX
+#if !NETFRAMEWORK
     using Microsoft.Win32.SafeHandles;
     #if NET5_0_OR_GREATER
         using System.Runtime.Versioning;
@@ -78,7 +78,7 @@ namespace SciTech.Rpc.Lightweight.Internal
                     string sharedMemoryName = CreateSharedMemoryName(path, useGlobal);
                     try
                     {
-#if COREFX
+#if !NETFRAMEWORK
                         mappedFile = MemoryMappedFile.CreateNew(sharedMemoryName, Marshal.SizeOf<PipeNameData>(), MemoryMappedFileAccess.ReadWrite);
                         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                         {
@@ -259,7 +259,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         }
 
 
-#if COREFX
+#if !NETFRAMEWORK
 #if NET5_0_OR_GREATER
         [SupportedOSPlatform("windows")]
 #endif

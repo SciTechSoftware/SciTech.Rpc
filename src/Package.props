@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Copyright>Copyright 2020-2023. SciTech Software AB and TA Instruments, Inc.</Copyright>
+    <Copyright>Copyright (c) 2019-2026 SciTech Software AB and contributors</Copyright>
     <Company>SciTech Software AB</Company>
     <Authors>SciTechSoftware</Authors>
     <Version>1.0.0-beta.28</Version>

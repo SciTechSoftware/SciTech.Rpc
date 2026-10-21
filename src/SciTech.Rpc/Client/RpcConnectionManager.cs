@@ -1,6 +1,6 @@
 ﻿#region Copyright notice and license
 
-// Copyright (c) 2019-2025, SciTech Software AB and contributors.
+// Copyright (c) SciTech Software AB and contributors.
 // All rights reserved.
 //
 // Licensed under the BSD 3-Clause License.

@@ -213,7 +213,7 @@ namespace SciTech.Rpc.Server
                     throw new RpcFailureException(RpcFailure.RemoteDefinitionError, "An IServiceProvider must be supplied when services are published using IServiceProvider factories.");
                 }
 
-                TService service = services.GetService<TServiceImpl>();
+                TService? service = services.GetService<TServiceImpl>();
                 if (service != null)
                 {
                     return OwnedObject.CreateUnowned(service);

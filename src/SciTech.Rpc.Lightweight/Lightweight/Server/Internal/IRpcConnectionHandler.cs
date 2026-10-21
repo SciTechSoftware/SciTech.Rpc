@@ -29,7 +29,8 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
         /// the duplex pipe. However, caller will also complete and dispose the pipes on return. It is expected that multiple complete/dispose calls do not cause any errors.</note></para>
         /// </summary>
         /// <param name="clientPipe">Duplex pipe to use for communication with the other party.</param>
-        /// <param name="user">The connected user; <c>null</c> if not available.</param>
+        /// <param name="endPoint">The end point that accepted the connection.</param>
+        /// <param name="establishedConnection">Information about the established connection, if available.</param>
         /// <returns></returns>
         Task RunPipelineClientAsync(IDuplexPipe clientPipe, LightweightRpcEndPoint endPoint, EstablishedConnection? establishedConnection);
 

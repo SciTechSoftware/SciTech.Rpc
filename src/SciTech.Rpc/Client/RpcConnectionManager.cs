@@ -246,7 +246,7 @@ namespace SciTech.Rpc.Client
             await Task.WhenAll(shutdownTasks).ContextFree();
         }
 
-        private bool CanUseChannel(IRpcChannel channel)
+        private static bool CanUseChannel(IRpcChannel channel)
         {
             if( channel is IRpcConnection connection )
             {
@@ -270,7 +270,7 @@ namespace SciTech.Rpc.Client
 
                 if (this.idToConnection.TryGetValue(connectionInfo.ServerId, out var wrIdChannel)
                     && wrIdChannel.TryGetTarget(out var idChannel)
-                    && this.CanUseChannel(idChannel)
+                    && CanUseChannel(idChannel)
                     && idChannel.ConnectionInfo.HasHigherPriority(candidateConnection?.ConnectionInfo))
                 {
                     candidateConnection = idChannel;
@@ -288,7 +288,7 @@ namespace SciTech.Rpc.Client
 
                 if (this.urlToConnection.TryGetValue(connectionInfo.HostUrl, out var wrUrlChannel)
                     && wrUrlChannel.TryGetTarget(out var urlChannel)
-                    && this.CanUseChannel(urlChannel)
+                    && CanUseChannel(urlChannel)
                     && (connectionInfo.ServerId == RpcServerId.Empty || urlChannel.ConnectionInfo.ServerId == connectionInfo.ServerId)
                     && urlChannel.ConnectionInfo.HasHigherPriority(candidateConnection?.ConnectionInfo))
                 {

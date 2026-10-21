@@ -23,7 +23,7 @@ namespace SciTech.Rpc.Client.Options
             this.Configure(MSOptions.DefaultName, options);
         }
 
-        public void Configure(string name, RpcClientOptions options)
+        public void Configure(string? name, RpcClientOptions options)
         {
             if (options == null) throw new ArgumentNullException(nameof(options));
 

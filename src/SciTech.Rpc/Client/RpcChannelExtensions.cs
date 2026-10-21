@@ -103,9 +103,9 @@ namespace SciTech.Rpc.Client
             throw new RpcFailureException(RpcFailure.ServerMismatch, "Invalid serviceRef connection.");
         }
 
-        [return: NotNullIfNotNull("serviceRef")]
-        /// <exception cref="RpcFailureException">>Thrown if the server id of the <paramref name="connection"/> 
+        /// <exception cref="RpcFailureException">>Thrown if the server id of the <paramref name="connection"/>
         /// does not match the server id of the <paramref name="serviceRef"/></exception>
+        [return: NotNullIfNotNull(nameof(serviceRef))]
         public static TService? GetServiceInstance<TService>(this IRpcChannel connection, RpcObjectRef serviceRef, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));
@@ -150,7 +150,7 @@ namespace SciTech.Rpc.Client
         }
 
         /// <exception cref="RpcFailureException">>Thrown if the server id of the <paramref name="connection"/> 
-        /// does not match the server id of the <paramref name="serviceRef"/></exception>
+        /// does not match the server id of the <paramref name="singletonRef"/></exception>
         public static TService GetServiceSingleton<TService>(this IRpcChannel connection, RpcSingletonRef<TService> singletonRef, bool useSyncContext = true) where TService : class
         {
             if (connection is null) throw new ArgumentNullException(nameof(connection));

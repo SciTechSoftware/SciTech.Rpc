@@ -140,6 +140,8 @@ namespace SciTech.Collections.Immutable
 
         public Enumerator GetEnumerator() => new Enumerator(this.data);
 
+        public int FindIndex(Predicate<T> match) => this.data.FindIndex(match);
+
         public int IndexOf(T item, int index, int count, IEqualityComparer<T>? equalityComparer)
             => this.data.IndexOf(item, index, count, equalityComparer);
 

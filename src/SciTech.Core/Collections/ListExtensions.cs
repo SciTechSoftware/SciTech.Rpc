@@ -65,7 +65,7 @@ namespace SciTech.Collections
             return -1;
         }
 
-        public static int FindIndex<T>(this IReadOnlyList<T> list, Predicate<T> predicate )
+        public static int FindReadOnlyIndex<T>(this IReadOnlyList<T> list, Predicate<T> predicate )
         {
             if (list is null) throw new ArgumentNullException(nameof(list));
             if (predicate is null) throw new ArgumentNullException(nameof(predicate));

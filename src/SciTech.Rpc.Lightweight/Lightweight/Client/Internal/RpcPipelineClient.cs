@@ -177,7 +177,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 throw;
             }
 
-#if NET8_0_OR_GREATER
+#if NET
             async Task<TResponse> AwaitTimeoutResponse(Task<TResponse> responseTask, string operation, int timeout)
             {
                 try
@@ -272,7 +272,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 return await tcs.Task.ContextFree();
             }
 
-#if NET8_0_OR_GREATER
+#if NET
             try
             {
                 return await tcs.Task.WaitAsync(TimeSpan.FromMilliseconds(timeout)).ContextFree();

@@ -130,23 +130,15 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             NamedPipeServerStream? pipeServerStream;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-#if NET5_0_OR_GREATER
+#if NET
                 var pipeSecurity = CreateDefaultSecurity();
                 pipeServerStream = NamedPipeServerStreamAcl.Create(pipeName, PipeDirection.InOut, listenBacklog, PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous,0,0,pipeSecurity);
-#elif NETFRAMEWORK
+#else
                 var pipeSecurity = CreateDefaultSecurity();
                 pipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, listenBacklog,
                     PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous,
                     0, 0,
                     pipeSecurity);
-#else
-                pipeServerStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, listenBacklog, PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
-
-                // Is there a race here? The pipe is created with default access before updating security. On the other hand, nobody's listening yet.
-                
-                // Previously pipeServerStream.SetAccessControl(pipeSecurity) was used, but that caused communication to hang (i.e. connection was allowed, but pipe communication failed).
-                // I have not investigated this further.
-                pipeServerStream.GetAccessControl().AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
 #endif
             }
             else
@@ -157,7 +149,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             return pipeServerStream;
         }
 
-#if NET5_0_OR_GREATER
+#if NET
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
 #endif
         private static PipeSecurity CreateDefaultSecurity()

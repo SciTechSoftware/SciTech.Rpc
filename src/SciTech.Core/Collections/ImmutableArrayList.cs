@@ -31,12 +31,10 @@ namespace SciTech.Collections.Immutable
 
             return new ImmutableArrayList<T>(ImmutableArray.CreateRange(items));
         }
-#if NET8_0_OR_GREATER
         public static ImmutableArrayList<T> Create<T>(ReadOnlySpan<T> items)
         {
             return new ImmutableArrayList<T>(ImmutableArray.Create(items));
         }
-#endif
     }
 
     public static class ImmutableArrayExtensions
@@ -108,9 +106,7 @@ namespace SciTech.Collections.Immutable
     /// </para>
     /// </summary>
     /// <typeparam name="T"></typeparam>
-#if NET8_0_OR_GREATER
     [CollectionBuilder(typeof(ImmutableArrayList), "Create")]
-#endif
     public sealed class ImmutableArrayList<T> : IImmutableList<T>
     {
         public static readonly ImmutableArrayList<T> Empty = new ImmutableArrayList<T>(ImmutableArray<T>.Empty);

@@ -9,10 +9,6 @@ This package contains a Protobuf serializer (SciTech.Rpc.Serialization.ProtobufS
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\SciTech.Core\System\Diagnostics\CodeAnalysis\NullableAttributes.cs" Link="System\Diagnostics\CodeAnalysis\NullableAttributes.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="protobuf-net" />
   </ItemGroup>
 

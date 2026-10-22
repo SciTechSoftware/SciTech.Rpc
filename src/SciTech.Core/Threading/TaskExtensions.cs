@@ -173,7 +173,7 @@ namespace SciTech.Threading
             return task.GetAwaiter().GetResult();
         }
 
-#if NET6_0_OR_GREATER
+#if !NET
         /// <summary>
         /// Asynchronously waits for the task to complete, or for the cancellation token to be canceled.
         /// </summary>

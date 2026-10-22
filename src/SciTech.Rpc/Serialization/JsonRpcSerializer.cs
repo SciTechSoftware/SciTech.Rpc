@@ -31,7 +31,7 @@ namespace SciTech.Rpc.Serialization
             this.logger = logger;
             this.TraceEnabled = this.logger?.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Trace) ?? false;
 
-#if NET6_0_OR_GREATER
+#if NET
             this.Options = options ?? new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 #else
             this.Options = options ?? new JsonSerializerOptions { IgnoreNullValues = true };

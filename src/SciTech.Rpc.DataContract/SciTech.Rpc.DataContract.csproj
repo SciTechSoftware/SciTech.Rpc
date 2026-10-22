@@ -9,10 +9,6 @@ This package contains a DataContract serializer for SciTech.Rpc.
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.ServiceModel.Primitives" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 

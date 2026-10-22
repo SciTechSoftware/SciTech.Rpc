@@ -606,7 +606,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 try
                 {
                     var response = await this.stub.Handler(
-                        this.request, this.serviceProvider, this.channel.Reader.ReadAllAsync(this.context.CancellationToken), this.context).ContextFree();
+                        this.request, this.serviceProvider, ReadAllAsync(this.channel.Reader, this.context.CancellationToken), this.context).ContextFree();
 
                     await this.stub.WriteResponse(this.messageNumber, this.operation, this.frameWriter, response).ContextFree();
                 }
@@ -615,7 +615,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     // Release any pending or subsequent uploaded items so that the receive
                     // loop is never blocked waiting to write to a channel that the handler
                     // is no longer reading.
+#if NET
                     await this.handlerCompletedCts.CancelAsync().ContextFree();
+#else
+                    this.handlerCompletedCts.Cancel();
+#endif
                     this.channel.Writer.TryComplete();
                 }
             }
@@ -624,6 +628,26 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             {
                 Debug.Assert(this.handlerCompletedCts.IsCancellationRequested);
                 this.handlerCompletedCts.Dispose();
+            }
+
+            private static IAsyncEnumerable<TStreamItem> ReadAllAsync(ChannelReader<TStreamItem> reader, CancellationToken cancellationToken)
+            {
+#if NET
+                return reader.ReadAllAsync(cancellationToken);
+#else
+                return ReadAllCoreAsync(reader, cancellationToken);
+
+                static async IAsyncEnumerable<TStreamItem> ReadAllCoreAsync(ChannelReader<TStreamItem> reader, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+                {
+                    while (await reader.WaitToReadAsync(cancellationToken).ContextFree())
+                    {
+                        while (reader.TryRead(out var item))
+                        {
+                            yield return item;
+                        }
+                    }
+                }
+#endif
             }
         }
     }

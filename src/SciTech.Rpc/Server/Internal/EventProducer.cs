@@ -49,7 +49,7 @@ namespace SciTech.Rpc.Server.Internal
             {
                 // Write an empty EventArgs to notify client that we have added the event handler
                 TEventArgs emptyArgs;
-#if NET5_0_OR_GREATER
+#if NET
                 emptyArgs = (TEventArgs)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(TEventArgs));
 #else
                 emptyArgs = (TEventArgs)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(TEventArgs));

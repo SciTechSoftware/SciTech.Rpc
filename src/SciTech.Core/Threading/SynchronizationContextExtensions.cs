@@ -28,14 +28,14 @@ namespace SciTech.Threading
 
         public static void Post(this SynchronizationContext? syncContext, Action action)
         {
-            ArgumentNullException.ThrowIfNull(syncContext);
+            if (syncContext is null) throw new ArgumentNullException(nameof(syncContext));
             syncContext.Post(new SendOrPostCallback(_ => action()), null);
         }
 
 
         public static void Post(this SynchronizationContext? syncContext, Action<object?> action, object? state)
         {
-            ArgumentNullException.ThrowIfNull(syncContext);
+            if (syncContext is null) throw new ArgumentNullException(nameof(syncContext));
             syncContext.Post(new SendOrPostCallback(s => action(s)), state);
         }
 

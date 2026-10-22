@@ -206,7 +206,7 @@ namespace SciTech.Rpc.Lightweight.Server
                                         var udpClient = udpClients[index];
                                         this.logger?.LogTrace("Begin receive discovery UDP at {EndPoint}.", udpClient.Client?.LocalEndPoint);
 
-#if NET6_0_OR_GREATER
+#if NET
                                         receiveTasks[index] = udpClient.ReceiveAsync(cancellationToken).AsTask();
 #else
                                         receiveTasks[index] = udpClient.ReceiveAsync();

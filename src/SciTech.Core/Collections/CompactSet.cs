@@ -97,7 +97,7 @@ namespace SciTech.Collections
 
         public void UnionWith(IEnumerable<T> other)
         {
-            ArgumentNullException.ThrowIfNull(other);
+            if (other is null) throw new ArgumentNullException(nameof(other));
 
             foreach (T item in other)
             {

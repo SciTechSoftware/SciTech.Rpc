@@ -27,7 +27,7 @@ using System.Security.Principal;
 using System.Text;
 #if !NETFRAMEWORK
     using Microsoft.Win32.SafeHandles;
-    #if NET5_0_OR_GREATER
+#if NET
         using System.Runtime.Versioning;
     #endif
 #endif
@@ -120,7 +120,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         internal static string CreateSharedMemoryName(string absolutePath, bool? useGlobal)
         {
             byte[] hash;
-#if NET5_0_OR_GREATER
+#if NET
             hash = SHA256.HashData(Encoding.UTF8.GetBytes(absolutePath));
 #else
             using (var hashAlgorithm = SHA256.Create())
@@ -260,7 +260,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
 
 #if !NETFRAMEWORK
-#if NET5_0_OR_GREATER
+#if NET
         [SupportedOSPlatform("windows")]
 #endif
         private class MemoryMappedFileSecurity : ObjectSecurity<MemoryMappedFileRights>
@@ -282,7 +282,7 @@ namespace SciTech.Rpc.Lightweight.Internal
         }
 #endif
 
-#if NET5_0_OR_GREATER
+#if NET
         [SupportedOSPlatform("windows")]
 #endif
         private static MemoryMappedFileSecurity CreateDefaultSecurity()

@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- ASP.NET Core based, so only .NET (Core) targets. -->
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 

@@ -213,7 +213,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                         var sslStream = new SslStream(socketStream);
                                         try
                                         {
-#if NETCOREAPP2_1_OR_GREATER
+#if NET
                                             var streamAuthenticationOptions = new SslServerAuthenticationOptions
                                             {
                                                 ServerCertificate = sslOptions.ServerCertificate,

@@ -30,7 +30,7 @@ namespace SciTech.Rpc.NetGrpc.Client
             {
                 var proxyGenerator = GrpcProxyGenerator.Default;
 
-                return new NetGrpcConnection(connectionInfo, ImmutableRpcClientOptions.Combine(this.options, options), proxyGenerator, this.channelOptions);
+                return new NetGrpcConnection(connectionInfo, ImmutableRpcClientOptions.Combine(options, this.options), proxyGenerator, this.channelOptions);
             }
 
             throw new ArgumentException("Unsupported connection info. Use CanCreateConnection to check whether a connection can be created.");

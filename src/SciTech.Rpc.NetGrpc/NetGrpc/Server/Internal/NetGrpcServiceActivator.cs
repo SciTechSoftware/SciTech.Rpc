@@ -54,4 +54,26 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             options.MaxSendMessageSize = this.rpcOptions.SendMaxMessageSize ?? options.MaxSendMessageSize;
         }
     }
+
+    /// <summary>
+    /// An <see cref="IConfigureOptions{TOptions}"/> implementation that is used to forward suitable server wide <see cref="RpcServerOptions"/>
+    /// options to the global <see cref="GrpcServiceOptions"/>.
+    /// </summary>
+#pragma warning disable CA1812 // Internal class is apparently never instantiated.
+    internal class NetGrpcServerOptionsConfig : IConfigureOptions<GrpcServiceOptions>
+#pragma warning restore CA1812 // Internal class is apparently never instantiated.
+    {
+        private RpcServerOptions rpcOptions;
+
+        public NetGrpcServerOptionsConfig(IOptions<RpcServerOptions> options)
+        {
+            this.rpcOptions = options.Value;
+        }
+
+        public void Configure(GrpcServiceOptions options)
+        {
+            options.MaxReceiveMessageSize = this.rpcOptions.ReceiveMaxMessageSize ?? options.MaxReceiveMessageSize;
+            options.MaxSendMessageSize = this.rpcOptions.SendMaxMessageSize ?? options.MaxSendMessageSize;
+        }
+    }
 }

@@ -52,6 +52,8 @@ namespace SciTech.Rpc.NetGrpc.Server
         {
             services.AddGrpc();
 
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<GrpcServiceOptions>, NetGrpcServerOptionsConfig>());
+
             services.TryAddTransient<IServiceMethodProvider<NetGrpcServer>, RpcCoreServiceMethodProvider>();
 
             var providerType = typeof(NetGrpcServiceMethodProvider<>);

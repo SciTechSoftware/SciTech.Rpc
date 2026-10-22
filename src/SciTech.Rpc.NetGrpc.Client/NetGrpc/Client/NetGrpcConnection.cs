@@ -15,6 +15,7 @@ using SciTech.Rpc.NetGrpc.Client.Internal;
 using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using GrpcCore = Grpc.Core;
@@ -24,6 +25,8 @@ namespace SciTech.Rpc.NetGrpc.Client
 {
     public class NetGrpcConnection : RpcChannel, IGrpcRpcChannel
     {
+        private static readonly GrpcNet.Client.GrpcChannelOptions DefaultChannelOptions = new GrpcNet.Client.GrpcChannelOptions();
+
         private bool isSecure;
 
         public NetGrpcConnection(
@@ -161,47 +164,43 @@ namespace SciTech.Rpc.NetGrpc.Client
                 return channelOptions;
             }
 
-            var extractedOptions = new GrpcNet.Client.GrpcChannelOptions();
+            var extractedOptions = channelOptions != null
+                ? CopyChannelOptions(channelOptions)
+                : new GrpcNet.Client.GrpcChannelOptions();
 
-            if (channelOptions != null)
+            // Message sizes in RpcClientOptions are only used if the channel options don't already
+            // specify a (non-default) size. Note that the default receive size is not null (4 MB).
+            if (options?.SendMaxMessageSize != null
+                && extractedOptions.MaxSendMessageSize == DefaultChannelOptions.MaxSendMessageSize)
             {
-                var o = extractedOptions;
-
-                o.CompressionProviders = channelOptions.CompressionProviders;
-                o.Credentials = channelOptions.Credentials;
-                o.DisposeHttpClient = channelOptions.DisposeHttpClient;
-                o.HttpClient = channelOptions.HttpClient;
-                o.LoggerFactory = channelOptions.LoggerFactory;
-                o.MaxReceiveMessageSize = channelOptions.MaxReceiveMessageSize;
-                o.MaxSendMessageSize = channelOptions.MaxSendMessageSize;
-                o.ThrowOperationCanceledOnCancellation = channelOptions.ThrowOperationCanceledOnCancellation;
+                extractedOptions.MaxSendMessageSize = options.SendMaxMessageSize;
             }
 
-            if (options?.SendMaxMessageSize != null)
+            if (options?.ReceiveMaxMessageSize != null
+                && extractedOptions.MaxReceiveMessageSize == DefaultChannelOptions.MaxReceiveMessageSize)
             {
-                if (extractedOptions.MaxSendMessageSize == null)
-                {
-                    extractedOptions.MaxSendMessageSize = options.SendMaxMessageSize;
-                }
-                else
-                {
-                    // TODO: Logger.Warn($"MaxSendMessageLength is already specified by ChannelOptions, ignoring {nameof(options.SendMaxMessageSize)} in {nameof(RpcClientOptions)}.");
-                }
-            }
-
-            if (options?.ReceiveMaxMessageSize != null)
-            {
-                if (extractedOptions.MaxReceiveMessageSize == null)
-                {
-                    extractedOptions.MaxReceiveMessageSize = options.ReceiveMaxMessageSize;
-                }
-                else
-                {
-                    // TODO: Logger.Warn($"MaxReceiveMessageLength is already specified by ChannelOptions, ignoring {nameof(options.ReceiveMaxMessageSize)} in {nameof(RpcClientOptions)}.");
-                }
+                extractedOptions.MaxReceiveMessageSize = options.ReceiveMaxMessageSize;
             }
 
             return extractedOptions;
+        }
+
+        /// <summary>
+        /// Creates a copy of <paramref name="channelOptions"/>. <see cref="GrpcNet.Client.GrpcChannelOptions"/> has no
+        /// copy method and new options are added in Grpc.Net.Client releases, so all public settable properties are copied.
+        /// </summary>
+        private static GrpcNet.Client.GrpcChannelOptions CopyChannelOptions(GrpcNet.Client.GrpcChannelOptions channelOptions)
+        {
+            var copy = new GrpcNet.Client.GrpcChannelOptions();
+            foreach (var property in typeof(GrpcNet.Client.GrpcChannelOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (property.CanRead && property.CanWrite && property.GetIndexParameters().Length == 0)
+                {
+                    property.SetValue(copy, property.GetValue(channelOptions));
+                }
+            }
+
+            return copy;
         }
 
     }

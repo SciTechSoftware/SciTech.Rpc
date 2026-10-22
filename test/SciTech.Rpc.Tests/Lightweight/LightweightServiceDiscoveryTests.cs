@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -327,9 +328,15 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             byte[] requestData = LightweightStubHelper.GetRequestData(ServiceDiscoveryOperations.GetPublishedSingletons, 0, new RpcRequest(), this.serializer);
 
+            // Send the request on each interface the discovery servers listen on. Using only the default
+            // multicast interface fails if, e.g., a VPN adapter is preferred.
             var discoveryEp = new IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddress, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
-            var bytesSent = await client.SendAsync(requestData, requestData.Length, discoveryEp);
-            Assert.AreEqual(requestData.Length, bytesSent);
+            foreach (var interfaceAddress in GetMulticastInterfaceAddresses())
+            {
+                client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface, interfaceAddress.GetAddressBytes());
+                var bytesSent = await client.SendAsync(requestData, requestData.Length, discoveryEp);
+                Assert.AreEqual(requestData.Length, bytesSent);
+            }
 
             var responses = new Dictionary<RpcServerId, RpcPublishedSingletonsResponse>();
             while (responses.Count < serverIds.Length)
@@ -344,6 +351,21 @@ namespace SciTech.Rpc.Tests.Lightweight
             }
 
             return responses;
+        }
+
+        /// <summary>
+        /// Gets the IPv4 address of each interface that <see cref="LightweightDiscoveryEndPoint"/> joins the multicast group on.
+        /// </summary>
+        private static IEnumerable<IPAddress> GetMulticastInterfaceAddresses()
+        {
+            return NetworkInterface.GetAllNetworkInterfaces()
+                .Where(ni => ni.OperationalStatus == OperationalStatus.Up
+                    && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                    && ni.SupportsMulticast)
+                .Select(ni => ni.GetIPProperties())
+                .Where(p => p.MulticastAddresses.Count > 0)
+                .Select(p => p.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)?.Address)
+                .Where(a => a != null);
         }
     }
 

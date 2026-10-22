@@ -23,14 +23,7 @@ namespace MailerClient
         {
             var mailboxName = GetMailboxName(args);
 
-            var credentials = TestCertificates.GrpcSslCredentials;
-            var sslOptions = TestCertificates.SslClientOptions;
-            
-            var connectionManager = new RpcConnectionManager(
-                new IRpcConnectionProvider[] {
-                    new SciTech.Rpc.Grpc.Client.GrpcConnectionProvider(credentials),
-                    new SciTech.Rpc.Lightweight.Client.LightweightConnectionProvider(sslOptions)
-                });
+            var connectionManager = Client.RpcExamplesHelper.CreateConnectionManager();
 
             var connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
 

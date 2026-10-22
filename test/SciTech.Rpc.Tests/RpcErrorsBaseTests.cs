@@ -278,7 +278,7 @@ namespace SciTech.Rpc.Tests
 
                     // TODO: gRPC keeps the connection alive. Should the Lightweight connection
                     // also be kept alive (far from trivial)?
-                    if (this.ConnectionType == RpcConnectionType.Grpc)
+                    if (this.ConnectionType == RpcConnectionType.NetGrpc)
                     {
                         // Verify that service is still available.
                         int res = simpleService.AddAsync(5, 6).AwaiterResult();

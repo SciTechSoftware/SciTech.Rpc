@@ -31,7 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\SciTech.Rpc.Grpc\SciTech.Rpc.Grpc.csproj" />
+    <ProjectReference Include="..\..\..\src\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
     <ProjectReference Include="..\..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
   </ItemGroup>
 

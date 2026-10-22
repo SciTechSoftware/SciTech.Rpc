@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- BenchmarkDotNet requires optimized builds. -->
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Certs\TestCertificates.Client.cs" Link="TestCertificates.Client.cs" />
+    <Compile Include="..\..\Certs\TestCertificates.Server.cs" Link="TestCertificates.Server.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\Certs\server.pfx" Link="server.pfx" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc.Client\SciTech.Rpc.NetGrpc.Client.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc.NetGrpc\SciTech.Rpc.NetGrpc.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="SimpleService.proto" />
+  </ItemGroup>
+
+</Project>

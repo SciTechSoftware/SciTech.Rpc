@@ -1,7 +1,5 @@
 ﻿using NUnit.Framework;
 using SciTech.Rpc.Client;
-using SciTech.Rpc.Grpc.Client;
-using SciTech.Rpc.Grpc.Server;
 using SciTech.Rpc.Lightweight;
 using SciTech.Rpc.Lightweight.Client;
 using SciTech.Rpc.Lightweight.Server;
@@ -13,7 +11,6 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
-using SciTech.Rpc.Tests.Grpc;
 using SciTech.Rpc.Serialization;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,7 +38,6 @@ namespace SciTech.Rpc.Tests
         LightweightSslTcp,
         LightweightNegotiateTcp,
         LightweightNamedPipe,
-        Grpc,
         NetGrpc
     }
 
@@ -55,6 +51,8 @@ namespace SciTech.Rpc.Tests
     public class ClientServerTestsBase
     {
         internal const int TcpTestPort = 15959;
+
+        internal const int GrpcTestPort = 15959;
 
         /// <summary>
         /// Tolerance for timing assertions, since timers may complete slightly before the requested time.
@@ -174,22 +172,10 @@ namespace SciTech.Rpc.Tests
                             new DirectDuplexPipe(responsePipe.Reader, requestPipe.Writer), clientOptions.AsImmutable(), null, false);
                         return (host, connection);
                     }
-                case RpcConnectionType.Grpc:
-                    {
-                        var host = new GrpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions);
-                        host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
-
-                        var connection = new GrpcConnection(
-                            new RpcConnectionInfo("TCP", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
-                            TestCertificates.GrpcSslCredentials, clientOptions.AsImmutable());
-                        return (host, connection);
-                    }
 #if NET
                 case RpcConnectionType.NetGrpc:
                     {
                         var server = CreateNetGrpcServer(serviceDefinitionsProvider, rpcServerId, serverOptions, configureServices);
-                        //var host = new GrpcServer(rpcServerId, serviceDefinitionsBuilder, null, options);
-                        //host.AddEndPoint(GrpcCoreFullStackTestsBase.CreateEndPoint());
 
                         var handler = new System.Net.Http.HttpClientHandler();
                         handler.ServerCertificateCustomValidationCallback =
@@ -205,7 +191,7 @@ namespace SciTech.Rpc.Tests
 
                             
                         var connection = new NetGrpcConnection(
-                            new RpcConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcCoreFullStackTestsBase.GrpcTestPort}"), rpcServerId),
+                            new RpcConnectionInfo("net-grpc", new Uri($"grpc://localhost:{GrpcTestPort}"), rpcServerId),
                             clientOptions.AsImmutable(), channelOptions);
                         return (server, connection);
                     }
@@ -261,7 +247,7 @@ namespace SciTech.Rpc.Tests
             var hostBuilder = WebHost.CreateDefaultBuilder()
                 .ConfigureKestrel(options =>
                 {
-                    options.ListenLocalhost(GrpcCoreFullStackTestsBase.GrpcTestPort, listenOptions =>
+                    options.ListenLocalhost(GrpcTestPort, listenOptions =>
                     {
                         listenOptions.UseHttps(TestCertificates.ServerPFXPath, "1111");
                         //listenOptions.UseHttps(certPath, "1111", o =>

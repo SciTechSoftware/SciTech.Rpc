@@ -30,20 +30,12 @@ using SciTech.Rpc.Client;
 using System;
 using System.IO;
 using System.Security.Cryptography.X509Certificates;
-using GrpcCore=Grpc.Core;
 
 namespace SciTech.Rpc
 {
     public static partial class TestCertificates
     {
         public static readonly string ClientCertDir = AppContext.BaseDirectory;// Path.Combine(GetSolutionDirectory(), "examples", "Certs");
-
-        public static readonly GrpcCore.SslCredentials GrpcSslCredentials
-            = new GrpcCore.SslCredentials(
-                File.ReadAllText(Path.Combine(ClientCertDir, "ca.crt")),
-                new GrpcCore.KeyCertificatePair(
-                    File.ReadAllText(Path.Combine(ClientCertDir, "client.crt")),
-                    File.ReadAllText(Path.Combine(ClientCertDir, "client.key"))));
 
         public static readonly SslClientOptions SslClientOptions = new SslClientOptions
         {

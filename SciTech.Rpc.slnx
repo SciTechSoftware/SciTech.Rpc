@@ -27,7 +27,6 @@
     <Project Path="src/SciTech.Core/SciTech.Core.csproj" />
     <Project Path="src/SciTech.Rpc/SciTech.Rpc.csproj" />
     <Project Path="src/SciTech.Rpc.DataContract/SciTech.Rpc.DataContract.csproj" />
-    <Project Path="src/SciTech.Rpc.Grpc/SciTech.Rpc.Grpc.csproj" />
     <Project Path="src/SciTech.Rpc.Lightweight/SciTech.Rpc.Lightweight.csproj" />
     <Project Path="src/SciTech.Rpc.NetGrpc/SciTech.Rpc.NetGrpc.csproj" />
     <Project Path="src/SciTech.Rpc.NetGrpc.Client/SciTech.Rpc.NetGrpc.Client.csproj" />
@@ -39,6 +38,10 @@
   <Folder Name="/test/">
     <File Path="test/Directory.Build.props" />
     <Project Path="test/SciTech.Rpc.Tests/SciTech.Rpc.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <File Path="benchmarks/Directory.Build.props" />
+    <Project Path="benchmarks/SciTech.Rpc.Benchmark/SciTech.Rpc.Benchmark.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <File Path="examples/Directory.Build.props" />
@@ -57,7 +60,7 @@
     <File Path="examples/Clients/Common/RpcExamplesHelper.cs" />
   </Folder>
   <Folder Name="/examples/Server/">
-    <Project Path="examples/Server/GrpcAndLightweightServer/GrpcAndLightweightServer.csproj" />
+    <Project Path="examples/Server/LightweightServer/LightweightServer.csproj" />
     <Project Path="examples/Server/NetGrpcServer/NetGrpcServer.csproj" />
   </Folder>
 </Solution>

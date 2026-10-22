@@ -2,7 +2,6 @@
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.Server.Internal;
-using SciTech.Rpc.Tests.Grpc;
 using System;
 using System.Collections.Generic;
 using System.Linq;

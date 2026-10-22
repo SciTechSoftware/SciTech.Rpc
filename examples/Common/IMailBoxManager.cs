@@ -1,9 +1,9 @@
-﻿using ProtoBuf;
 using SciTech.Rpc;
 using SciTech.Rpc.Client;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Threading.Tasks;
 
 namespace Mailer
@@ -14,7 +14,7 @@ namespace Mailer
         Forwarded
     }
 
-    [ProtoContract]
+    [DataContract]
     public class MailboxMessage
     {
         public MailboxMessage()
@@ -28,13 +28,13 @@ namespace Mailer
             this.Reason = reason;
         }
 
-        [ProtoMember(1)]
+        [DataMember(Order = 1)]
         public int New { get; set; }
 
-        [ProtoMember(2)]
+        [DataMember(Order = 2)]
         public int Forwarded { get; set; }
 
-        [ProtoMember(3)]
+        [DataMember(Order = 3)]
         public Reason Reason { get; set; }
     }
 

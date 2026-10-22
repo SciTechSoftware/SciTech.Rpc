@@ -1,7 +1,6 @@
 ﻿#if NET
 using Grpc.AspNetCore.Server.Model;
 using SciTech.Rpc.NetGrpc.Server.Internal;
-using SciTech.Rpc.Tests.Grpc;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -34,6 +33,25 @@ namespace SciTech.Rpc.Tests.NetGrpc
         {
             this.stubs.Add(new TestGrpcMethodStub(method, typeof(TRequest), typeof(TResponse),metadata));
         }
+    }
+
+    internal class TestGrpcMethodStub
+    {
+        public TestGrpcMethodStub(GrpcCore.IMethod method, Type requestType, Type responseType, IList<object> metadata)
+        {
+            this.Method = method;
+            this.RequestType = requestType;
+            this.ResponseType = responseType;
+            this.Metadata = metadata;
+        }
+
+        internal GrpcCore.IMethod Method { get; }
+
+        internal Type RequestType { get; }
+
+        internal Type ResponseType { get; }
+
+        internal IList<object> Metadata { get; }
     }
 }
 #endif

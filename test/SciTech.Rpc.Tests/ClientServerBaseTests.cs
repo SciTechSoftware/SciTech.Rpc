@@ -98,6 +98,39 @@ namespace SciTech.Rpc.Tests
         }
 
         [Test]
+        public async Task DerivedServiceInterface_Should_ReachBaseServiceMembers()
+        {
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
+            serverBuilder.RegisterService<IThermostatService>();
+
+            var (host, connection) = this.CreateServerAndConnection(serverBuilder);
+            host.Start();
+            try
+            {
+                var serviceImpl = new ThermostatServiceImpl();
+                using (var publishScope = host.ServicePublisher.PublishInstance(serviceImpl))
+                {
+                    var objectId = publishScope.Value.ObjectId;
+
+                    var clientService = connection.GetServiceInstance<IThermostatServiceClient>(objectId);
+                    var acoId = clientService.DeviceAcoId;
+
+                    var baseClientService = (IDeviceServiceClient)clientService;
+                    Assert.AreEqual(acoId, baseClientService.DeviceAcoId);
+
+                    // Base service proxy first, then the derived one, for the same object.
+                    var deviceService = connection.GetServiceInstance<IDeviceServiceClient>(objectId);
+                    var thermostatService = connection.GetServiceInstance<IThermostatServiceClient>(objectId);
+                    Assert.AreEqual(deviceService.DeviceAcoId, thermostatService.DeviceAcoId);
+                }
+            }
+            finally
+            {
+                await host.ShutdownAsync();
+            }
+        }
+
+        [Test]
         public async Task DirectServiceProviderServiceCallTest()
         {
             var serverBuilder = new RpcServiceDefinitionsBuilder();

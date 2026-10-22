@@ -11,6 +11,7 @@ namespace SciTech.Rpc.Tests.NetGrpc
     {
         protected static readonly object[] DefaultGrpcClientHostFixtureArgs = {
             new object[] { new ProtobufRpcSerializer(), RpcConnectionType.NetGrpc},
+            new object[] { new DataContractRpcSerializer(), RpcConnectionType.NetGrpc},
             new object[] { new JsonRpcSerializer(), RpcConnectionType.NetGrpc}
         };
 

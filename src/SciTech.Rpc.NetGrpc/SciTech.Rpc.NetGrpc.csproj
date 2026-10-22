@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <DefineConstants>$(DefineConstants);FEATURE_NET_GRPC</DefineConstants>
     <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
 From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
 
@@ -10,8 +9,7 @@ This package contains the communication layer for the fully managed ASP.NET Core
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Server\Internal\GrpcCallContext.cs" Link="Grpc\Server\Internal\GrpcCallContext.cs" />
-    <Compile Include="..\SciTech.Rpc.Grpc\Grpc\Internal\GrpcMethodDefinition.cs" Link="Grpc\Internal\GrpcMethodDefinition.cs" />
+    <Compile Include="..\Shared\Grpc\GrpcMethodDefinition.cs" Link="Shared\Grpc\GrpcMethodDefinition.cs" />
   </ItemGroup>
 
   <ItemGroup>

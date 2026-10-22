@@ -169,30 +169,9 @@ namespace SciTech.Rpc.Tests.Lightweight
             server.Start();
             try
             {
-                using var client = new UdpClient(AddressFamily.InterNetwork);
-                client.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
-                client.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress);
+                var responses = await this.MulticastGetPublishedSingletonsAsync(server.ServerId);
 
-                // Receive early
-                var receiveTask = client.ReceiveAsync();
-
-                // Build request
-                byte[] requestData = LightweightStubHelper.GetRequestData(ServiceDiscoveryOperations.GetPublishedSingletons, 0, new RpcRequest(), this.serializer);
-
-                // Send it
-                var discoveryEp = new System.Net.IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddress, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
-                var bytesSent = await client.SendAsync(requestData, requestData.Length, discoveryEp);
-                Assert.AreEqual(requestData.Length, bytesSent);
-
-                // Wait for response
-                var receiveRes = await receiveTask.DefaultTimeout();
-
-                var response = LightweightStubHelper.GetResponseFromData<RpcPublishedSingletonsResponse>(serializer, receiveRes.Buffer);
-                Assert.NotNull(response);
-
-                // And check it
-                Assert.NotNull(response);
-                Assert.AreEqual(2, response.Services.Length);
+                Assert.AreEqual(2, responses[server.ServerId].Services.Length);
             }
             finally
             {
@@ -217,51 +196,10 @@ namespace SciTech.Rpc.Tests.Lightweight
             server2.Start();
             try
             {
-                using var client = new UdpClient(AddressFamily.InterNetwork);
-                client.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
-                client.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress);
+                var responses = await this.MulticastGetPublishedSingletonsAsync(server.ServerId, server2.ServerId);
 
-                // Receive early
-                var receiveTask = client.ReceiveAsync();
-
-                // Build request
-                byte[] requestData = LightweightStubHelper.GetRequestData(ServiceDiscoveryOperations.GetPublishedSingletons, 0, new RpcRequest(), this.serializer);
-
-                // Send it
-                var discoveryEp = new IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddress, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
-                var bytesSent = await client.SendAsync(requestData, requestData.Length, discoveryEp);
-                Assert.AreEqual(requestData.Length, bytesSent);
-
-                // Wait for response
-                var receiveRes = await receiveTask.DefaultTimeout();
-                var receiveRes2 = await client.ReceiveAsync().DefaultTimeout();
-
-                var response = LightweightStubHelper.GetResponseFromData<RpcPublishedSingletonsResponse>(serializer, receiveRes.Buffer);
-                Assert.NotNull(response);
-                var response2 = LightweightStubHelper.GetResponseFromData<RpcPublishedSingletonsResponse>(serializer, receiveRes2.Buffer);
-                Assert.NotNull(response2);
-
-                // And check it
-                Assert.NotNull(response);
-                Assert.NotNull(response2);
-
-                RpcPublishedSingletonsResponse server1Response;
-                RpcPublishedSingletonsResponse server2Response;
-                if (response.ConnectionInfo.ServerId == server.ServerId)
-                {
-                    server1Response = response;
-                    server2Response = response2;
-                } else
-                {
-                    server1Response = response2;
-                    server2Response = response;
-                }
-
-                Assert.AreEqual(server.ServerId, server1Response.ConnectionInfo.ServerId);
-                Assert.AreEqual(1, server1Response.Services.Length);
-
-                Assert.AreEqual(server2.ServerId, server2Response.ConnectionInfo.ServerId);
-                Assert.AreEqual(1, server2Response.Services.Length);
+                Assert.AreEqual(1, responses[server.ServerId].Services.Length);
+                Assert.AreEqual(1, responses[server2.ServerId].Services.Length);
             }
             finally
             {
@@ -374,6 +312,38 @@ namespace SciTech.Rpc.Tests.Lightweight
                 await server.ShutdownAsync();
                 await server2.ShutdownAsync();
             }
+        }
+
+        /// <summary>
+        /// Multicasts a GetPublishedSingletons request and waits for a response from each of the
+        /// specified servers. Responses from other discovery servers on the network, and duplicate
+        /// responses (e.g. received on several interfaces), are ignored.
+        /// </summary>
+        private async Task<Dictionary<RpcServerId, RpcPublishedSingletonsResponse>> MulticastGetPublishedSingletonsAsync(params RpcServerId[] serverIds)
+        {
+            using var client = new UdpClient(AddressFamily.InterNetwork);
+            client.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+            client.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress);
+
+            byte[] requestData = LightweightStubHelper.GetRequestData(ServiceDiscoveryOperations.GetPublishedSingletons, 0, new RpcRequest(), this.serializer);
+
+            var discoveryEp = new IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddress, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
+            var bytesSent = await client.SendAsync(requestData, requestData.Length, discoveryEp);
+            Assert.AreEqual(requestData.Length, bytesSent);
+
+            var responses = new Dictionary<RpcServerId, RpcPublishedSingletonsResponse>();
+            while (responses.Count < serverIds.Length)
+            {
+                var receiveRes = await client.ReceiveAsync().DefaultTimeout();
+                var response = LightweightStubHelper.GetResponseFromData<RpcPublishedSingletonsResponse>(this.serializer, receiveRes.Buffer);
+                var serverId = response?.ConnectionInfo?.ServerId;
+                if (serverId is RpcServerId id && Array.IndexOf(serverIds, id) >= 0 && !responses.ContainsKey(id))
+                {
+                    responses.Add(id, response);
+                }
+            }
+
+            return responses;
         }
     }
 

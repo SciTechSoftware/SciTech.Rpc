@@ -14,6 +14,8 @@
   <!-- Package metadata -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <!-- Checks API compatibility between the target frameworks in each package. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
     <Authors>SciTech Software AB</Authors>
     <Company>SciTech Software AB</Company>
     <Copyright>Copyright (c) 2019-2026 SciTech Software AB and contributors</Copyright>

@@ -148,7 +148,7 @@ namespace SciTech.Rpc.Tests
         ISimpleService[] GetSimpleServices();
     }
 
-    [RpcService(Name = "ImplicitServiceProviderService")]
+    [RpcService(ServerDefinitionType = typeof(IImplicitServiceProviderService))]
     public interface IImplicitServiceProviderServiceClient : IImplicitServiceProviderService
     {
         new IBlockingServiceClient GetBlockingService(int index);

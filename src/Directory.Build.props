@@ -46,6 +46,17 @@
     <None Include="$(MSBuildThisFileDirectory)..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
+  <!--
+    Let all assets of project dependencies flow to consumers. The default (PrivateAssets="contentfiles;analyzers;build")
+    adds exclude="Build,Analyzers" to the package dependencies, which would stop SciTech.Rpc.Analyzer from reaching
+    consumers of e.g. SciTech.Rpc.Lightweight.
+  -->
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <PrivateAssets>none</PrivateAssets>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="$(AssemblyName).Tests" />
   </ItemGroup>

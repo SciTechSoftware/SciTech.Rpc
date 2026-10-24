@@ -27,8 +27,8 @@ namespace SciTech.Rpc.Analyzer
 
         public static DiagnosticDescriptor RpcDuplicateOperationRule = new DiagnosticDescriptor(
             RpcDuplicateOperationRuleId,
-            "Operation has already been defined.",
-            "Operation '{0}' has been defined more than once in server side RPC definition.",
+            "Operation has already been defined",
+            "Operation '{0}' has been defined more than once in server side RPC definition",
             Category,
             DiagnosticSeverity.Error,
             isEnabledByDefault: true,
@@ -36,8 +36,8 @@ namespace SciTech.Rpc.Analyzer
 
         private static DiagnosticDescriptor RpcMissingServerOperationRule = new DiagnosticDescriptor(
             RpcMissingServerOperationRuleId,
-            "Operation does not exist in server side RPC definition.",
-            "Operation '{0}' does not exist in server side RPC definition.",
+            "Operation does not exist in server side RPC definition",
+            "Operation '{0}' does not exist in server side RPC definition",
             Category,
             DiagnosticSeverity.Error,
             isEnabledByDefault: true,
@@ -45,8 +45,8 @@ namespace SciTech.Rpc.Analyzer
 
         private static DiagnosticDescriptor RpcOperationMbrArgumentRule = new DiagnosticDescriptor(
             RpcOperationMbrArgumentId,
-            "MarshalByRefObject cannot be used as parameter in RPC operation.",
-            "MarshalByRefObject '{0}' cannot be used as parameter in RPC operation.",
+            "MarshalByRefObject cannot be used as parameter in RPC operation",
+            "MarshalByRefObject '{0}' cannot be used as parameter in RPC operation",
             Category,
             DiagnosticSeverity.Error,
             isEnabledByDefault: true,
@@ -54,8 +54,8 @@ namespace SciTech.Rpc.Analyzer
 
         private static DiagnosticDescriptor RpcOperationMbrReturnRule = new DiagnosticDescriptor(
             RpcOperationMbrReturnId,
-            "MarshalByRefObject cannot be returned from an RPC operation.",
-            "MarshalByRefObject '{0}' cannot be returned from RPC operation.",
+            "MarshalByRefObject cannot be returned from an RPC operation",
+            "MarshalByRefObject '{0}' cannot be returned from RPC operation",
             Category,
             DiagnosticSeverity.Error,
             isEnabledByDefault: true,
@@ -63,8 +63,8 @@ namespace SciTech.Rpc.Analyzer
 
         private static DiagnosticDescriptor RpcOperationRefArgumentRule = new DiagnosticDescriptor(
             RpcOperationRefArgumentId,
-            "An RPC operation parameter cannot be passed as reference (ref/in/out).",
-            "RPC operation parameter '{0}' cannot be passed as reference.",
+            "An RPC operation parameter cannot be passed as reference (ref/in/out)",
+            "RPC operation parameter '{0}' cannot be passed as reference",
             Category,
             DiagnosticSeverity.Error,
             isEnabledByDefault: true,
@@ -72,8 +72,8 @@ namespace SciTech.Rpc.Analyzer
 
         private static DiagnosticDescriptor RpcOperationServiceArgumentRule = new DiagnosticDescriptor(
             RpcOperationServiceArgumentId,
-            "RPC service cannot be used as parameter in RPC operation.",
-            "Rpc service '{0}' cannot be used as parameter in RPC operation.",
+            "RPC service cannot be used as parameter in RPC operation",
+            "RPC service '{0}' cannot be used as parameter in RPC operation",
             Category,
             DiagnosticSeverity.Error,
             isEnabledByDefault: true,
@@ -107,7 +107,7 @@ namespace SciTech.Rpc.Analyzer
                 var serverTypeMembers = serverTypeSymbol.GetMembers();
 
                 // TODO: Operation type, request type and response type should also be retrieved
-                HashSet<ISymbol> handledMembers = new HashSet<ISymbol>();
+                HashSet<ISymbol> handledMembers = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
                 foreach (var member in serverTypeMembers)
                 {

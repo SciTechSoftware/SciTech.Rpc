@@ -2,18 +2,12 @@
 
   <PropertyGroup>
     <!-- Roslyn components must target netstandard2.0. -->
-    <!-- Single target framework, since the packed analyzer is located through $(OutputPath). -->
     <TargetFrameworks></TargetFrameworks>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <IncludeSymbols>false</IncludeSymbols>
-    <NoPackageAnalysis>true</NoPackageAnalysis>
+    <!-- Packed into the SciTech.Rpc package (analyzers/dotnet/cs), not a package of its own. -->
+    <IsPackable>false</IsPackable>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <AnalysisMode>Default</AnalysisMode>
-    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
-From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
-
-This package contains a Roslyn analyzer that detects incorrect RPC service definitions at compile time.
-    </Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,18 +17,14 @@ This package contains a Roslyn analyzer that detects incorrect RPC service defin
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+    <!-- The lowest supported compiler version: the analyzer is not loaded by older compilers. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
     <PackageReference Update="NETStandard.Library" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Update="Resources.Designer.cs" DesignTime="True" AutoGen="True" DependentUpon="Resources.resx" />
     <EmbeddedResource Update="Resources.resx" Generator="ResXFileCodeGenerator" LastGenOutput="Resources.Designer.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="tools\*.ps1" CopyToOutputDirectory="PreserveNewest" Pack="true" PackagePath="" />
-    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 
 </Project>

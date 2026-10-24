@@ -33,7 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" />
+    <ProjectReference Include="..\..\src\analyzer\SciTech.Rpc.Analyzer\SciTech.Rpc.Analyzer.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.DataContract\SciTech.Rpc.DataContract.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />

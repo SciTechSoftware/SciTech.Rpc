@@ -101,7 +101,7 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 
 #pragma warning disable CA2000 // Dispose objects before losing scope
             return new ValueTask<IAsyncStreamingServerCall<TResponse>>(
-                new GrpcAsyncServerStreamingCall<TResponse>(this.grpcInvoker.AsyncServerStreamingCall(typedMethod, null, callOptions, request)));
+                new GrpcAsyncServerStreamingCall<TResponse>(this.grpcInvoker.AsyncServerStreamingCall(typedMethod, null, callOptions, request), silentCancellation ? cancellationToken : CancellationToken.None));
 #pragma warning restore CA2000 // Dispose objects before losing scope
         }
 
@@ -260,10 +260,10 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 
             private GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall;
 
-            internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall)
+            internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall, CancellationToken silentCancellationToken)
             {
                 this.grpcCall = grpcCall;
-                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream);
+                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream, silentCancellationToken);
             }
 
             public IAsyncEnumerator<TResponse> ResponseStream { get; }
@@ -278,9 +278,16 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
             {
                 private GrpcCore.IAsyncStreamReader<TResponse> reader;
 
-                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader)
+                /// <summary>
+                /// Cancelling this token ends the stream instead of throwing. Only the caller's cancellation is silent, so that
+                /// e.g. an authorization failure, which is also reported as Cancelled, still surfaces as an error.
+                /// </summary>
+                private CancellationToken silentCancellationToken;
+
+                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader, CancellationToken silentCancellationToken)
                 {
                     this.reader = reader;
+                    this.silentCancellationToken = silentCancellationToken;
                 }
 
                 public TResponse Current => this.reader.Current;
@@ -296,10 +303,25 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
                         return new ValueTask<bool>(task.Result);
                     }
 
-                    async ValueTask<bool> AwaitNext() => await task.ContextFree();
+                    async ValueTask<bool> AwaitNext()
+                    {
+                        try
+                        {
+                            return await task.ContextFree();
+                        }
+                        catch (Exception e) when (this.silentCancellationToken.IsCancellationRequested && IsCancellation(e))
+                        {
+                            // A silently cancelled stream just ends, like the Lightweight implementation.
+                            return false;
+                        }
+                    }
 
                     return AwaitNext();
                 }
+
+                private static bool IsCancellation(Exception e)
+                    => e is OperationCanceledException
+                    || (e is GrpcCore.RpcException rpcException && rpcException.StatusCode == GrpcCore.StatusCode.Cancelled);
             }
         }
     }

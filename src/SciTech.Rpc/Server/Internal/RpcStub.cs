@@ -214,6 +214,13 @@ namespace SciTech.Rpc.Server.Internal
                     }
                 }
             }
+            catch (Exception e) when (e is not OperationCanceledException)
+            {
+                // Give the server an opportunity to convert the exception to a suitable type
+                // to be "returned" to client (e.g. RpcServiceUnavailableException when unpublished).
+                this.Server.HandleCallException(e, this.Serializer);
+                throw;
+            }
             finally
             {
                 this.serviceActivator.ServiceUnpublished -= serviceUnpublishedHandler;

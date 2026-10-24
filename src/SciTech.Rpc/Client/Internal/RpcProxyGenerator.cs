@@ -85,7 +85,11 @@ namespace SciTech.Rpc.Client.Internal
             if (this.moduleBuilder == null)
             {
                 var assemblyName = Guid.NewGuid().ToString();
-                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.RunAndCollect);
+                // Not RunAndCollect: the generators are static and keep the module builder and the generated
+                // factories alive, so the assembly could never be collected anyway. And on .NET Framework x64,
+                // exceptions propagated through methods in collectible assemblies can fail to unwind and
+                // terminate the process (seen with RpcFaultExceptions from blocking proxy calls).
+                var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.Run);
                 this.moduleBuilder = assemblyBuilder.DefineDynamicModule(assemblyName);
                 this.definedProxyTypes = new Dictionary<string, int>();
             }

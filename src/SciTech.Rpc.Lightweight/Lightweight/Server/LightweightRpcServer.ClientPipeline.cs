@@ -496,7 +496,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                     if (rpcError.ErrorDetails != null)
                     {
-                        headers.Add(new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.ErrorMessage, rpcError.ErrorDetails.ToImmutableArray()));
+                        headers.Add(new KeyValuePair<string, ImmutableArray<byte>>(WellKnownHeaderKeys.ErrorDetails, rpcError.ErrorDetails.ToImmutableArray()));
                     }
                 }
 

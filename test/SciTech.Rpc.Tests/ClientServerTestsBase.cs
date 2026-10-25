@@ -23,7 +23,7 @@ using SciTech.Rpc.NetGrpc.Server.Internal;
 using SciTech.Rpc.NetGrpc.Client;
 using SciTech.Rpc.NetGrpc.Server;
 using GrpcNet = Grpc.Net;
-using Microsoft.AspNetCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Builder;
@@ -127,7 +127,7 @@ namespace SciTech.Rpc.Tests
                         SslServerOptions sslServerOptions = null;
                         if (this.ConnectionType == RpcConnectionType.LightweightSslTcp)
                         {
-                            sslServerOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
+                            sslServerOptions = new SslServerOptions(TestCertificates.LoadServerCertificate());
                         }
 
                         host.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", TcpTestPort, false, sslServerOptions ));
@@ -244,19 +244,21 @@ namespace SciTech.Rpc.Tests
             RpcServerOptions options,
             Action<IServiceCollection> configureServices)
         {
-            var hostBuilder = WebHost.CreateDefaultBuilder()
-                .ConfigureKestrel(options =>
-                {
-                    options.ListenLocalhost(GrpcTestPort, listenOptions =>
+            var hostBuilder = Host.CreateDefaultBuilder()
+                .ConfigureWebHostDefaults(webBuilder => webBuilder
+                    .ConfigureKestrel(options =>
                     {
-                        listenOptions.UseHttps(TestCertificates.ServerPFXPath, "1111");
-                        //listenOptions.UseHttps(certPath, "1111", o =>
-                        //{
-                        //    o.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
-                        //});
-                        listenOptions.Protocols = HttpProtocols.Http2;
-                    });
-                })
+                        options.ListenLocalhost(GrpcTestPort, listenOptions =>
+                        {
+                            listenOptions.UseHttps(TestCertificates.ServerPFXPath, "1111");
+                            //listenOptions.UseHttps(certPath, "1111", o =>
+                            //{
+                            //    o.ClientCertificateMode = ClientCertificateMode.AllowCertificate;
+                            //});
+                            listenOptions.Protocols = HttpProtocols.Http2;
+                        });
+                    })
+                    .UseStartup<NetStartup>())
                 .ConfigureLogging(b=>ConfigureLogging(b))
                 .ConfigureServices(s =>
                 {
@@ -265,8 +267,7 @@ namespace SciTech.Rpc.Tests
                     s.AddSingleton<IOptions<RpcServerOptions>>(new OptionsWrapper<RpcServerOptions>(options));
 
                     configureServices?.Invoke(s);
-                })
-                .UseStartup<NetStartup>();
+                });
 
             var host = hostBuilder.Build();
 
@@ -303,10 +304,10 @@ namespace SciTech.Rpc.Tests
 #if NET
     internal class NetGrpcTestServer : IRpcServerHost
     {
-        private IWebHost webHost;
+        private IHost webHost;
         NetGrpcServer server;
 
-        internal NetGrpcTestServer(IWebHost webHost, NetGrpcServer server )
+        internal NetGrpcTestServer(IHost webHost, NetGrpcServer server )
         {
             this.webHost = webHost;
             this.server = server;

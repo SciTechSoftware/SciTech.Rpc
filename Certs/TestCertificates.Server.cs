@@ -36,7 +36,16 @@ namespace SciTech.Rpc
     {
         public static readonly string ServerCertDir = AppContext.BaseDirectory;// Path.Combine(GetSolutionDirectory(), "examples", "Certs");
         public static readonly string ServerPFXPath = Path.Combine(ServerCertDir, "server.pfx");
-        public static X509Certificate ServerCertificate { get; } = new X509Certificate2(TestCertificates.ServerPFXPath, "1111");
+        public static X509Certificate ServerCertificate { get; } = LoadServerCertificate();
+
+        public static X509Certificate2 LoadServerCertificate()
+        {
+#if NET9_0_OR_GREATER
+            return X509CertificateLoader.LoadPkcs12FromFile(ServerPFXPath, "1111");
+#else
+            return new X509Certificate2(ServerPFXPath, "1111");
+#endif
+        }
 
     }
 }

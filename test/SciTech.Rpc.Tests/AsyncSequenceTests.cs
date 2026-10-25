@@ -284,9 +284,7 @@ namespace SciTech.Rpc.Tests
                 // Unpublish the server side service after the first data has been received
                 providerImpl.ReleaseServices();
                 // Make sure that the auto-published instance is GCed (and thus unpublished).
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
+                await GCTestHelper.CollectAsync(providerImpl.wrSequenceService);
 
                 Assert.NotNull(first);
 

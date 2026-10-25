@@ -2,10 +2,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 
 namespace SciTech.Threading
 {
+    [SuppressMessage("Naming", "CA1716:Identifiers should not match keywords", Justification = "Suspend/Resume is the natural pairing, and the API is already published.")]
     public interface ISuspendableSynchronizationContext
     {
         void PostImmediate(SendOrPostCallback d, object? state);

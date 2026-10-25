@@ -6,8 +6,12 @@ dotnet_style_qualification_for_field = true
 dotnet_style_qualification_for_method = true
 dotnet_style_qualification_for_property = true
 
+# CA1873: Avoid potentially expensive logging. The flagged log calls are on cold paths (connections, discovery,
+# service registration) or already guarded by an IsEnabled check.
+dotnet_diagnostic.CA1873.severity = none
+
 [*.{cs,resx,xaml,c,cpp,h,hpp,vb}]
-charset = utf-8-bom
+charset = utf-8
 end_of_line = crlf
 
 

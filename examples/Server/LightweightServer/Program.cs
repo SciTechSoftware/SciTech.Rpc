@@ -39,7 +39,7 @@ namespace LightweightServer
 
             var lightweightServer = new LightweightRpcServer(rpcPublisher, serviceProvider);
 
-            var sslOptions = new SslServerOptions(new X509Certificate2(TestCertificates.ServerPFXPath, "1111"));
+            var sslOptions = new SslServerOptions(TestCertificates.LoadServerCertificate());
             lightweightServer.AddEndPoint(
                 new TcpRpcEndPoint("127.0.0.1", 50052, false, sslOptions ));
 

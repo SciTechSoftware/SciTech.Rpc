@@ -231,7 +231,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     this.HandleRpcError(methodDef, fre.Error);
                     break;
                 default:
-                    throw new RpcFailureException(RpcFailure.Unknown, $"Unexepected exception when calling RPC method. {e.Message}", e);
+                    throw new RpcFailureException(RpcFailure.Unknown, $"Unexpected exception when calling RPC method. {e.Message}", e);
             }
         }
 

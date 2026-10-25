@@ -286,7 +286,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                                 }
                                 else
                                 {
-                                    throw new InvalidOperationException($"Unexepected authentication options: '{authenticationOptions?.Name}' ({authenticationOptions?.GetType()})'");
+                                    throw new InvalidOperationException($"Unexpected authentication options: '{authenticationOptions?.Name}' ({authenticationOptions?.GetType()})'");
                                 }
                             }
 

@@ -126,10 +126,10 @@ namespace SciTech.Rpc.Server.Internal
             }
 
             // TODO: Cache.
-            var addEventHandlerDelegate = (Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>)
+            var addEventHandlerDelegate =
                 GetBuilderMethod(nameof(this.AddGenericEventHandler))
                 .MakeGenericMethod(eventInfo.EventArgsType)
-                .CreateDelegate(typeof(Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>), this);
+                .CreateDelegate<Action<RpcStub<TService>, RpcEventInfo, TMethodBinder>>(this);
 
             addEventHandlerDelegate(serviceStub, eventInfo, binder);
         }
@@ -625,14 +625,14 @@ namespace SciTech.Rpc.Server.Internal
         private void AddCallbackMethod(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
         {
             // TODO: Cache.
-            var addCallbackMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+            var addCallbackMethodDelegate =
                 GetBuilderMethod(nameof(this.AddGenericCallbackMethod))
                 .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
-                .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
-            var addCallbackMethodDelegate2 = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                .CreateDelegate<Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>>(this);
+            var addCallbackMethodDelegate2 =
                 GetBuilderMethod(nameof(this.AddGenericCallbackMethod))
                 .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
-                .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+                .CreateDelegate<Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>>(this);
             addCallbackMethodDelegate(serviceStub, opInfo, binder);
         }
 
@@ -683,10 +683,10 @@ namespace SciTech.Rpc.Server.Internal
         private void AddServerStreamingMethod(RpcStub<TService> serviceStub, RpcOperationInfo opInfo, TMethodBinder binder)
         {
             // TODO: Cache.
-            var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+            var addUnaryMethodDelegate =
                 GetBuilderMethod(nameof(this.AddGenericServerStreamingMethod))
                 .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
-                .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+                .CreateDelegate<Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>>(this);
 
             addUnaryMethodDelegate(serviceStub, opInfo, binder);
         }
@@ -708,20 +708,20 @@ namespace SciTech.Rpc.Server.Internal
             if (!opInfo.ReturnType.Equals(typeof(void)))
             {
                 // TODO: Cache.
-                var addMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                var addMethodDelegate =
                     GetBuilderMethod(nameof(this.AddGenericClientStreamingMethod))
                     .MakeGenericMethod(opInfo.RequestType, streamItemType, opInfo.ReturnType, opInfo.ResponseReturnType)
-                    .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+                    .CreateDelegate<Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>>(this);
 
                 addMethodDelegate(serviceStub, opInfo, binder);
             }
             else
             {
                 // TODO: Cache.
-                var addMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                var addMethodDelegate =
                     GetBuilderMethod(nameof(this.AddGenericVoidClientStreamingMethod))
                     .MakeGenericMethod(opInfo.RequestType, streamItemType)
-                    .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+                    .CreateDelegate<Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>>(this);
 
                 addMethodDelegate(serviceStub, opInfo, binder);
             }
@@ -732,20 +732,20 @@ namespace SciTech.Rpc.Server.Internal
             if (!opInfo.ReturnType.Equals(typeof(void)))
             {
                 // TODO: Cache.
-                var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                var addUnaryMethodDelegate =
                     GetBuilderMethod(nameof(this.AddGenericBlockingMethod))
                     .MakeGenericMethod(opInfo.RequestType, opInfo.ReturnType, opInfo.ResponseReturnType)
-                    .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+                    .CreateDelegate<Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>>(this);
 
                 addUnaryMethodDelegate(serviceStub, opInfo, binder);
             }
             else
             {
                 // TODO: Cache.
-                var addUnaryMethodDelegate = (Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>)
+                var addUnaryMethodDelegate =
                     GetBuilderMethod(nameof(this.AddGenericVoidUnaryMethod))
                     .MakeGenericMethod(opInfo.RequestType)
-                    .CreateDelegate(typeof(Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>), this);
+                    .CreateDelegate<Action<RpcStub<TService>, RpcOperationInfo, TMethodBinder>>(this);
 
                 addUnaryMethodDelegate(serviceStub, opInfo, binder);
             }
@@ -817,9 +817,7 @@ namespace SciTech.Rpc.Server.Internal
                         var method = GetStubMethod(nameof(RpcStub.ConvertServiceResponse))
                             .MakeGenericMethod(typeof(TReturn));
 
-                        var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>), this.serviceStub);
-
-                        responseCreator = (Func<TReturn, TResponseReturn>)func;
+                        responseCreator = method.CreateDelegate<Func<TReturn, TResponseReturn>>(this.serviceStub);
 
                         break;
                     }
@@ -831,9 +829,7 @@ namespace SciTech.Rpc.Server.Internal
                         var method = GetStubMethod(nameof(RpcStub.ConvertServiceArrayResponse))
                             .MakeGenericMethod(elementType);
 
-                        var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>), this.serviceStub);
-
-                        responseCreator = (Func<TReturn, TResponseReturn>)func;
+                        responseCreator = method.CreateDelegate<Func<TReturn, TResponseReturn>>(this.serviceStub);
 
                         break;
                     }
@@ -843,9 +839,7 @@ namespace SciTech.Rpc.Server.Internal
                             GetStubMethod(nameof(RpcStub.ConvertServiceRefResponse))
                             .MakeGenericMethod(typeof(TReturn));
 
-                        var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>));
-
-                        responseCreator = (Func<TReturn, TResponseReturn>)func;
+                        responseCreator = method.CreateDelegate<Func<TReturn, TResponseReturn>>();
 
                         break;
                     }
@@ -858,9 +852,7 @@ namespace SciTech.Rpc.Server.Internal
                             GetStubMethod(nameof(RpcStub.ConvertServiceRefArrayResponse))
                             .MakeGenericMethod(elementType);
 
-                        var func = method.CreateDelegate(typeof(Func<TReturn, TResponseReturn>));
-
-                        responseCreator = (Func<TReturn, TResponseReturn>)func;
+                        responseCreator = method.CreateDelegate<Func<TReturn, TResponseReturn>>();
 
                         break;
                     }

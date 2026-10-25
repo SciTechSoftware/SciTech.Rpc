@@ -270,7 +270,7 @@ namespace SciTech.Rpc.Server
         {
             if (singletonService == null) throw new ArgumentNullException(nameof(singletonService));
 
-            var allServices = RpcBuilderUtil.GetAllServices(typeof(TService), false);
+            var allServices = RpcBuilderUtil.GetAllServices<TService>(false);
             this.TryRegisterServiceDefinitions(allServices, null);
 
             var publishedServices = this.VerifyPublishedServices(allServices);

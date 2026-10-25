@@ -1,11 +1,12 @@
 ﻿#nullable enable 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SciTech.Threading
 {
-
+    [SuppressMessage("Design", "CA1030:Use events where appropriate", Justification = "The RaiseEvent methods raise existing events.")]
     public static class SynchronizationContextExtensions
     {
         private static readonly SendOrPostCallback ActionCallback = s => ((Action)s!)();

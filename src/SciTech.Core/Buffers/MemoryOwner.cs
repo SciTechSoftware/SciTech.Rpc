@@ -115,7 +115,7 @@ namespace SciTech.Buffers
 
             ~ArrayPoolOwner() { Interlocked.Increment(ref _leakCount); }
             private static int _leakCount;
-            internal static int LeakCount() => Thread.VolatileRead(ref _leakCount);
+            internal static int LeakCount() => Volatile.Read(ref _leakCount);
         }
     }
     

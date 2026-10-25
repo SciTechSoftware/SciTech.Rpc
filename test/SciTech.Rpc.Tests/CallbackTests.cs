@@ -393,9 +393,7 @@ namespace SciTech.Rpc.Tests
                 providerImpl.ReleaseServices();
 
                 // Make sure that the auto-published instance is GCed (and thus unpublished).
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-                GC.Collect();
+                await GCTestHelper.CollectAsync(providerImpl.wrCallbackService);
 
                 Assert.ThrowsAsync<RpcServiceUnavailableException>(async () =>
                 {

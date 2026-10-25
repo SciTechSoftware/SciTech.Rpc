@@ -26,6 +26,9 @@ namespace SciTech.Rpc
         public bool Second;
     }
 
+    // The derived classes are intentionally not declared as sub-types: they redeclare the base members, so that
+    // they can be serialized without protobuf-net inheritance support.
+#pragma warning disable PBN0013 // Base-type does not declare sub-type
     [ProtoContract]
     public class DerivedProtoClass : BaseProtoClass
     {
@@ -48,6 +51,7 @@ namespace SciTech.Rpc
         [ProtoMember(2)]
         internal new uint b { get => base.b; set => base.b = value; }
     }
+#pragma warning restore PBN0013
 
     /// <summary>
     /// These tests are mainly intended to test assumptions about the Protobuf serializer.

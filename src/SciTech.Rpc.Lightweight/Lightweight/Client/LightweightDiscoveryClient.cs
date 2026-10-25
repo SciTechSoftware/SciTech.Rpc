@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SciTech.Collections.Immutable;
+using SciTech.Diagnostics;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server;
@@ -291,8 +292,10 @@ namespace SciTech.Rpc.Lightweight.Client
                         // includes the host or IP that the server has suggested, but the remoteEndPoint
                         // contains the actual IP used to reach the server.
 
+                        // Only a TCP end point can be reached at the remote address. Other end points, e.g. named pipes
+                        // of a local server, are discovered as suggested by the server.
                         RpcConnectionInfo connectionInfo = response.ConnectionInfo;
-                        if (response.ConnectionInfo.HostUrl is Uri uri )
+                        if (response.ConnectionInfo.HostUrl is Uri uri && uri.Scheme == WellKnownRpcSchemes.LightweightTcp && uri.Port >= 0)
                         {
                             connectionInfo = TcpRpcConnection.CreateConnectionInfo(connectionInfo.DisplayName, new IPEndPoint(remoteEndPoint.Address, uri.Port), connectionInfo.ServerId);
                         }
@@ -428,17 +431,26 @@ namespace SciTech.Rpc.Lightweight.Client
                         if (!cancellationToken.IsCancellationRequested)
                         {
                             var receiveResult = receiveTask.AwaiterResult();
-                            if (LightweightRpcFrame.TryRead(receiveResult.Buffer, MaxDiscoveryFrameSize, out var responseFrame) == RpcFrameState.Full)
+                            try
                             {
-                                switch (responseFrame.RpcOperation)
+                                if (LightweightRpcFrame.TryRead(receiveResult.Buffer, MaxDiscoveryFrameSize, out var responseFrame) == RpcFrameState.Full)
                                 {
-                                    case ServiceDiscoveryOperations.GetPublishedSingletons:
-                                        HandlePublishedSingletons(responseFrame, receiveResult.RemoteEndPoint);
-                                        break;
-                                    case ServiceDiscoveryOperations.GetConnectionInfo:
-                                        // TODO: HandleConnections(clientId, syncContext, responseFrame);
-                                        break;
+                                    switch (responseFrame.RpcOperation)
+                                    {
+                                        case ServiceDiscoveryOperations.GetPublishedSingletons:
+                                            HandlePublishedSingletons(responseFrame, receiveResult.RemoteEndPoint);
+                                            break;
+                                        case ServiceDiscoveryOperations.GetConnectionInfo:
+                                            // TODO: HandleConnections(clientId, syncContext, responseFrame);
+                                            break;
+                                    }
                                 }
+                            }
+                            catch (Exception x) when (!x.IsFatal())
+                            {
+                                // Anyone on the network can send to the multicast group, so an invalid response must
+                                // not end the discovery.
+                                this.logger?.LogInformation(x, "Ignoring invalid discovery response from {RemoteEndPoint}.", receiveResult.RemoteEndPoint);
                             }
                         }
                     }

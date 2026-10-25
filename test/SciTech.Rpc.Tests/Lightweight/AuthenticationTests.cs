@@ -62,7 +62,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             server.Start();
             try
             {
-                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions
+                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri($"lightweight.tcp://localhost:{TestEndPoints.AuthenticationTcpPort}")), new NegotiateClientOptions
                 {
                     Credential = new NetworkCredential(userName, userPw)
                 });
@@ -102,7 +102,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             server.Start();
             try
             {
-                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
+                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri($"lightweight.tcp://localhost:{TestEndPoints.AuthenticationTcpPort}")), new NegotiateClientOptions());
 
                 await connection.ConnectAsync(default).ContextFree();
                 Assert.IsTrue(connection.IsConnected);
@@ -137,10 +137,10 @@ namespace SciTech.Rpc.Tests.Lightweight
         public void MismatchedAuthenication_Should_Throw()
         {
             using var server = new LightweightRpcServer();
-            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
+            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", TestEndPoints.AuthenticationTcpPort, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
             server.Start();
 
-            var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions());
+            var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri($"lightweight.tcp://localhost:{TestEndPoints.AuthenticationTcpPort}")), new NegotiateClientOptions());
 
             var x = Assert.CatchAsync(() => connection.ConnectAsync(CancellationToken.None).DefaultTimeout());
             Assert.IsNotInstanceOf<TimeoutException>(x);
@@ -152,10 +152,10 @@ namespace SciTech.Rpc.Tests.Lightweight
             var server = new LightweightRpcServer();
             try                               
             {
-                server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
+                server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", TestEndPoints.AuthenticationTcpPort, false, new SslServerOptions(TestCertificates.ServerCertificate) ));
                 server.Start();
 
-                await using (var failConnection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), new NegotiateClientOptions()))
+                await using (var failConnection = new TcpRpcConnection(new RpcConnectionInfo(new Uri($"lightweight.tcp://localhost:{TestEndPoints.AuthenticationTcpPort}")), new NegotiateClientOptions()))
                 {
                     try
                     {
@@ -165,7 +165,7 @@ namespace SciTech.Rpc.Tests.Lightweight
                     catch (Exception x) when (!(x is TimeoutException)) { }
                 }
 
-                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")), TestCertificates.SslClientOptions);
+                var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri($"lightweight.tcp://localhost:{TestEndPoints.AuthenticationTcpPort}")), TestCertificates.SslClientOptions);
                 try
                 {
                     Assert.DoesNotThrowAsync(() => connection.ConnectAsync(CancellationToken.None).DefaultTimeout());
@@ -193,7 +193,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             var services = serviceCollection.BuildServiceProvider();
             var server = new LightweightRpcServer(services);
 
-            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", 50052, false, new NegotiateServerOptions() ));
+            server.AddEndPoint(new TcpRpcEndPoint("127.0.0.1", TestEndPoints.AuthenticationTcpPort, false, new NegotiateServerOptions() ));
 
             return server;
         }

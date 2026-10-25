@@ -50,9 +50,9 @@ namespace SciTech.Rpc.Tests
 
     public class ClientServerTestsBase
     {
-        internal const int TcpTestPort = 15959;
+        internal const int TcpTestPort = TestEndPoints.TcpPort;
 
-        internal const int GrpcTestPort = 15959;
+        internal const int GrpcTestPort = TestEndPoints.GrpcPort;
 
         /// <summary>
         /// Tolerance for timing assertions, since timers may complete slightly before the requested time.
@@ -150,10 +150,10 @@ namespace SciTech.Rpc.Tests
                     {
                         var server = new LightweightRpcServer(rpcServerId, serviceDefinitionsProvider, services, serverOptions, this.LightweightOptions,
                             loggerFactory: services.GetService<ILoggerFactory>() );
-                        server.AddEndPoint(new NamedPipeRpcEndPoint("testpipe"));
+                        server.AddEndPoint(new NamedPipeRpcEndPoint(TestEndPoints.PipeName));
 
                         var connection = new NamedPipeRpcConnection(
-                            new RpcConnectionInfo(new Uri("lightweight.pipe://./testpipe")),
+                            new RpcConnectionInfo(new Uri($"lightweight.pipe://./{TestEndPoints.PipeName}")),
                             clientOptions.AsImmutable(),
                             this.LightweightOptions);
 
@@ -244,9 +244,11 @@ namespace SciTech.Rpc.Tests
             RpcServerOptions options,
             Action<IServiceCollection> configureServices)
         {
-            var hostBuilder = Host.CreateDefaultBuilder()
-                .ConfigureWebHostDefaults(webBuilder => webBuilder
-                    .ConfigureKestrel(options =>
+            // Not Host.CreateDefaultBuilder: its configuration files are watched for changes, and every test server
+            // would use an inotify instance on Linux (the default limit is 128 per user).
+            var hostBuilder = new HostBuilder()
+                .ConfigureWebHost(webBuilder => webBuilder
+                    .UseKestrel(options =>
                     {
                         options.ListenLocalhost(GrpcTestPort, listenOptions =>
                         {

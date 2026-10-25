@@ -271,7 +271,7 @@ namespace SciTech.Rpc.Tests.Lightweight
             server.AddEndPoint(discoveryEndPoint);
 
             var server2 = new LightweightRpcServer();
-            var endPoint2 = new TcpRpcEndPoint("localhost", "127.0.0.1", ClientServerTestsBase.TcpTestPort+1, false);
+            var endPoint2 = new TcpRpcEndPoint("localhost", "127.0.0.1", TestEndPoints.TcpPort2, false);
             var discoveryEndPoint2 = new LightweightDiscoveryEndPoint(endPoint2.GetConnectionInfo(server2.ServerId));
             server2.AddEndPoint(endPoint2);
             server2.AddEndPoint(discoveryEndPoint2);

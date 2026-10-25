@@ -229,8 +229,8 @@ namespace SciTech.Rpc.Tests
                     Assert.AreEqual(12, detailedArgs1.NewValue);
                     Assert.AreEqual(0, detailedArgs1.OldValue);
 
-                    // Wait a little to make sure that the event handler has been removed on the server side as well.
-                    await Task.Delay(200);
+                    // The event handler is removed asynchronously on the server side.
+                    await WaitForNoHandlersAsync(serviceImpl1);
                     Assert.IsFalse(serviceImpl1.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl1.HasValueChangedHandler);
 
@@ -242,8 +242,8 @@ namespace SciTech.Rpc.Tests
                     Assert.AreEqual(24, detailedArgs2.NewValue);
                     Assert.AreEqual(0, detailedArgs2.OldValue);
 
-                    // Wait a little to make sure that the event handler has been removed on the server side as well.
-                    await Task.Delay(200);
+                    // The event handler is removed asynchronously on the server side.
+                    await WaitForNoHandlersAsync(serviceImpl2);
                     Assert.IsFalse(serviceImpl2.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl2.HasValueChangedHandler);
                 }
@@ -465,8 +465,8 @@ namespace SciTech.Rpc.Tests
                     await ((IRpcProxy)clientService1).WaitForPendingEventHandlersAsync();
                     clientService1.SetValueAsync(13).Forget();
 
-                    // Wait a little to make sure that the event handler has been removed on the server side as well.
-                    await Task.Delay(200);
+                    // The event handler is removed asynchronously on the server side.
+                    await WaitForNoHandlersAsync(serviceImpl1);
                     Assert.IsFalse(serviceImpl1.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl1.HasValueChangedHandler);
 
@@ -474,8 +474,8 @@ namespace SciTech.Rpc.Tests
                     await ((IRpcProxy)clientService2).WaitForPendingEventHandlersAsync();
                     clientService2.SetValueAsync(25).Forget();
 
-                    // Wait a little to make sure that the event handler has been removed on the server side as well.
-                    await Task.Delay(200);
+                    // The event handler is removed asynchronously on the server side.
+                    await WaitForNoHandlersAsync(serviceImpl2);
                     Assert.IsFalse(serviceImpl2.HasDetailedValueChangedHandler);
                     Assert.IsFalse(serviceImpl2.HasValueChangedHandler);
 
@@ -587,6 +587,19 @@ namespace SciTech.Rpc.Tests
             finally
             {
                 await host.ShutdownAsync();
+            }
+        }
+
+        /// <summary>
+        /// Waits until all event handlers have been removed from <paramref name="serviceImpl"/>, or a timeout has elapsed.
+        /// The caller is expected to assert the outcome.
+        /// </summary>
+        private static async Task WaitForNoHandlersAsync(TestServiceWithEventsImpl serviceImpl)
+        {
+            var timeout = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            while ((serviceImpl.HasDetailedValueChangedHandler || serviceImpl.HasValueChangedHandler) && DateTime.UtcNow < timeout)
+            {
+                await Task.Delay(10);
             }
         }
 

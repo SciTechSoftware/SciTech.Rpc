@@ -22,12 +22,12 @@ namespace SciTech.Rpc.Tests
         public void Test()
         {
             using var server = new LightweightRpcServer();
-            server.AddEndPoint(new NamedPipeRpcEndPoint("Test"));
+            server.AddEndPoint(new NamedPipeRpcEndPoint(TestEndPoints.PipeName));
 
             using var publishedInstance = server.PublishInstance<ISimpleService>(new TestSimpleServiceImpl());
             server.Start();
 
-            using var connection = new NamedPipeRpcConnection("Test");
+            using var connection = new NamedPipeRpcConnection(TestEndPoints.PipeName);
 
             var s1 = connection.GetServiceInstance<ISimpleService>(publishedInstance.Value.ObjectId);
             var s2 = connection.GetServiceInstance<ISimpleService>(publishedInstance.Value.ObjectId);

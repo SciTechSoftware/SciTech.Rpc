@@ -187,7 +187,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
                     var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
 
-                    connectedClient.ReceiveLoopFaulted += this.listener.ReceiveLoopFaulted;
+                    connectedClient.Faulted += this.listener.PipelineFaulted;
 
                     connectedClient.RunAsyncCore().Forget();
 
@@ -271,7 +271,9 @@ namespace SciTech.Rpc.Lightweight.Client
             return null;
         }
 
-        private async Task<RpcPipelineClient?> ResetConnectionAsync(RpcConnectionState state, Exception? ex)
+        /// <param name="faultedClient">The client whose pipeline has faulted, or <c>null</c> to reset the connection
+        /// regardless of the current client.</param>
+        private async Task<RpcPipelineClient?> ResetConnectionAsync(RpcConnectionState state, Exception? ex, RpcPipelineClient? faultedClient = null)
         {
             TaskCompletionSource<RpcPipelineClient>? connectionTcs;
             RpcPipelineClient? connectedClient;
@@ -281,6 +283,13 @@ namespace SciTech.Rpc.Lightweight.Client
                 {
                     // Already disconnected
                     Debug.Assert(this.connectedClient == null);
+                    return null;
+                }
+
+                if (faultedClient != null && this.connectedClient != null && this.connectedClient != faultedClient)
+                {
+                    // A fault from a previous pipeline (e.g. reported by both a failed write and the receive loop)
+                    // must not reset a reconnected client.
                     return null;
                 }
 
@@ -306,7 +315,7 @@ namespace SciTech.Rpc.Lightweight.Client
             // TODO: wait for unfinished frames?
             if (connectedClient != null)
             {
-                connectedClient.ReceiveLoopFaulted -= this.listener.ReceiveLoopFaulted;
+                connectedClient.Faulted -= this.listener.PipelineFaulted;
                 await connectedClient.CloseAsync(TranslateConnectionException(ex, state)).ContextFree();
             }
 
@@ -322,20 +331,24 @@ namespace SciTech.Rpc.Lightweight.Client
                 this.wrConnection = new WeakReference<LightweightRpcConnection>(self);
             }
 
-            internal void ReceiveLoopFaulted(object? sender, ExceptionEventArgs e)
+            internal void PipelineFaulted(object? sender, ExceptionEventArgs e)
             {
                 if (this.wrConnection.TryGetTarget(out var self))
                 {
                     // ResetConnectionAsync will call CloseAsync which will wait for the receive loop to exit.
-                    // Since ReceiveLoopFaulted is invoked from the receive loop, it's important that this
-                    // method does not block.
+                    // Since PipelineFaulted may be invoked from the receive loop, it's important that this
+                    // method does not block. The connected client is cleared synchronously, before the first await,
+                    // so that a failed write is not followed by a new call on the same pipeline.
 
                     ResetAndNotifyAsync().Forget();
 
                     async Task ResetAndNotifyAsync()
                     {
-                        await self.ResetConnectionAsync(RpcConnectionState.ConnectionLost, e.Exception).ContextFree();
-                        self.NotifyConnectionLost();
+                        var prevClient = await self.ResetConnectionAsync(RpcConnectionState.ConnectionLost, e.Exception, sender as RpcPipelineClient).ContextFree();
+                        if (prevClient != null)
+                        {
+                            self.NotifyConnectionLost();
+                        }
                     }
                 }
             }

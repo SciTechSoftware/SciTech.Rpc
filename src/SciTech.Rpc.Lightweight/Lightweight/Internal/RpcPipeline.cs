@@ -56,7 +56,10 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.skipLargeFrames = skipLargeFrames;
         }
 
-        public event EventHandler<ExceptionEventArgs>? ReceiveLoopFaulted;
+        /// <summary>
+        /// Occurs when the receive loop has ended with an error, or when writing to the pipe has failed.
+        /// </summary>
+        public event EventHandler<ExceptionEventArgs>? Faulted;
 
         public bool IsClosed
         {
@@ -202,10 +205,14 @@ namespace SciTech.Rpc.Lightweight.Internal
                 {
                     await flushTask.ContextFree();
                 }
-                finally
+                catch (Exception ex)
                 {
                     self.ReleaseWriteStream(frameWriter);
+                    self.OnWriteFaulted(ex);
+                    throw;
                 }
+
+                self.ReleaseWriteStream(frameWriter);
             }
 
             static ValueTask FinalizeWriteAsync(RpcPipeline self, BufferWriterStream frameWriter)
@@ -232,9 +239,10 @@ namespace SciTech.Rpc.Lightweight.Internal
                         return AwaitWriteAndReleaseAsync(self, flushTask, frameWriter);
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
                     self.ReleaseWriteStream(frameWriter);
+                    self.OnWriteFaulted(ex);
                     throw;
                 }
             }
@@ -271,9 +279,17 @@ namespace SciTech.Rpc.Lightweight.Internal
 
         protected virtual Task OnReceiveLoopFaultedAsync(ExceptionEventArgs e)
         {
-            this.ReceiveLoopFaulted?.Invoke(this, e);
+            this.Faulted?.Invoke(this, e);
 
             return Task.CompletedTask;
+        }
+
+        [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "The write error is propagated by the caller.")]
+        private void OnWriteFaulted(Exception ex)
+        {
+            // Raised before the write error propagates to the caller. Otherwise the caller may make a
+            // new call on this pipeline before the receive loop has noticed that the connection is broken.
+            try { this.Faulted?.Invoke(this, new ExceptionEventArgs(ex)); } catch { }
         }
 
         protected virtual ValueTask OnStartReceiveLoopAsync() => default;

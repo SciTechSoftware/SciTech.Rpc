@@ -234,6 +234,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
             int messageId = this.AddAwaitingResponse(tcs);
             var cancellationToken = context != null ? context.CancellationToken : default;
+            bool requestSent = false;
             try
             {
                 RpcOperationFlags flags = 0;
@@ -247,6 +248,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var requestFrame = new LightweightRpcFrame(RpcFrameType.ClientStreamingRequest, messageId, operation, flags, (uint)timeout, context?.Headers);
                 var requestWriteState = this.BeginWrite(requestFrame);
                 await this.WriteRequestAsync(request, serializers.RequestSerializer, requestWriteState).ContextFree();
+                requestSent = true;
 
                 // Send each uploaded stream item as a separate StreamingData frame.
                 await foreach (var item in requestStream.WithCancellation(cancellationToken).ConfigureAwait(false))
@@ -263,6 +265,14 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             }
             catch (Exception ex)
             {
+                if (requestSent)
+                {
+                    // The server handler is still waiting for the uploaded stream, so it must be told that the
+                    // stream will not be completed. A cancellation callback may already have sent the cancel request,
+                    // but not if the upload failed for another reason, or if the error was handled before the callback.
+                    this.SendCancelRequest(messageId, operation);
+                }
+
                 this.HandleCallError(messageId, ex);
                 throw;
             }
@@ -424,10 +434,15 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     responseHandler.HandleCancellation();
                 }
 
-                var frame = new LightweightRpcFrame(RpcFrameType.CancelRequest, messageId, operation, RpcOperationFlags.None, 0, null);
-                var writeState = this.BeginWrite(frame);
-                this.EndWriteAsync(writeState, false).Forget();
+                this.SendCancelRequest(messageId, operation);
             }
+        }
+
+        private void SendCancelRequest(int messageId, string operation)
+        {
+            var frame = new LightweightRpcFrame(RpcFrameType.CancelRequest, messageId, operation, RpcOperationFlags.None, 0, null);
+            var writeState = this.BeginWrite(frame);
+            this.EndWriteAsync(writeState, false).Forget();
         }
 
         private void HandleCallError(int messageId, Exception e)

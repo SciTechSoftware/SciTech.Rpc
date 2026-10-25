@@ -172,6 +172,17 @@ namespace SciTech.Rpc.Tests.Lightweight
             }
         }
 
+        private static async IAsyncEnumerable<SequenceData> GenerateFailingSequence(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                await Task.Yield();
+                yield return new SequenceData(i + 1);
+            }
+
+            throw new InvalidOperationException("Upload failed.");
+        }
+
         [Test]
         public async Task ClientStreaming_SumValues_ReturnsAggregatedResult()
         {
@@ -302,6 +313,37 @@ namespace SciTech.Rpc.Tests.Lightweight
                 });
 
                 // The server-side handler should observe the cancellation.
+                Assert.IsTrue(await serviceImpl.GetIsCancelledAsync().DefaultTimeout());
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+        [Test]
+        public async Task ClientStreaming_FailedUpload_ThrowsAndCancelsServer()
+        {
+            var builder = new RpcServiceDefinitionsBuilder();
+            builder.RegisterService<IClientStreamingService>();
+
+            var (server, connection) = this.CreateServerAndConnection(builder);
+            var serviceImpl = new ClientStreamingServiceImpl();
+            using var publishedService = server.ServicePublisher.PublishSingleton<IClientStreamingService>(serviceImpl);
+            try
+            {
+                server.Start();
+
+                var clientStreamingService = connection.GetServiceSingleton<IClientStreamingService>();
+
+                var exception = Assert.ThrowsAsync<RpcFailureException>(async () =>
+                {
+                    await clientStreamingService.SumCancellableValues(GenerateFailingSequence(3), CancellationToken.None).DefaultTimeout();
+                });
+                Assert.IsInstanceOf<InvalidOperationException>(exception.InnerException);
+
+                // The call is not cancellable, but the server-side handler must not be left waiting
+                // for the rest of the stream.
                 Assert.IsTrue(await serviceImpl.GetIsCancelledAsync().DefaultTimeout());
             }
             finally

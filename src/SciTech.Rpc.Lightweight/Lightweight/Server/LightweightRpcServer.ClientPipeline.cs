@@ -572,6 +572,10 @@ namespace SciTech.Rpc.Lightweight.Server
                 {
                     this.IsCancellationRequested = true;
                     this.CancellationSource?.Cancel();
+
+                    // A client-streaming handler may be waiting for stream data that will never arrive, even
+                    // if the operation is not cancellable (or the handler ignores the cancellation token).
+                    this.ClientStreamFeed?.Fault(new OperationCanceledException());
                 }
 
                 public void Dispose()

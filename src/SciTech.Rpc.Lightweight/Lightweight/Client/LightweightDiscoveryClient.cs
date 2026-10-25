@@ -146,37 +146,20 @@ namespace SciTech.Rpc.Lightweight.Client
                 Task receiverTask;
 
                 List<UdpClient> udpClients = new List<UdpClient>();
-                var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-                foreach (var networkInterface in networkInterfaces)
+                foreach (var (networkInterface, ipAddress) in LightweightDiscoveryEndPoint.GetDiscoveryInterfaces())
                 {
-                    if (networkInterface.OperationalStatus == OperationalStatus.Up
-                        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                        && networkInterface.SupportsMulticast)
+                    var udpClient = new UdpClient(ipAddress.AddressFamily);
+                    try
                     {
-                        var ipProperties = networkInterface.GetIPProperties();
-                        if (ipProperties != null && ipProperties.MulticastAddresses.Count > 0 && ipProperties.UnicastAddresses.Count > 0)
-                        {
-                            var ipAddress =
-                                (ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
-                                ?? ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6))?.Address;
+                        udpClient.Client.Bind(new IPEndPoint(ipAddress, 0));
+                        LightweightDiscoveryEndPoint.JoinDiscoveryGroup(udpClient, networkInterface, ipAddress);
 
-                            if (ipAddress != null)
-                            {
-                                var udpClient = new UdpClient(ipAddress.AddressFamily);// ;
-                                var socket = udpClient.Client;
-                                socket.Bind(new IPEndPoint(ipAddress, 0));
-                                if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
-                                {
-                                    udpClient.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddress, ipAddress);
-                                }
-                                else
-                                {
-                                    udpClient.JoinMulticastGroup(LightweightDiscoveryEndPoint.DefaultMulticastAddressV6, ipAddress);
-                                }
-                                
-                                udpClients.Add(udpClient);
-                            }
-                        }
+                        udpClients.Add(udpClient);
+                    }
+                    catch (SocketException x)
+                    {
+                        this.logger?.LogInformation(x, "Failed to send discovery requests on network interface {NetworkInterface}.", networkInterface.Name);
+                        udpClient.Dispose();
                     }
                 }
 

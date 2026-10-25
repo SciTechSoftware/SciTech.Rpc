@@ -45,6 +45,50 @@ namespace SciTech.Rpc.Lightweight.Server
             return new DiscoveryRpcListener(this, connectionHandler, this.logger);
         }
 
+        /// <summary>
+        /// Gets the network interfaces that discovery requests are sent and received on, together with the address
+        /// used for each interface (IPv4 if available, otherwise IPv6).
+        /// </summary>
+        /// <remarks>
+        /// <see cref="IPInterfaceProperties.MulticastAddresses"/> must not be used to select the interfaces, since it
+        /// is always empty on Linux.
+        /// </remarks>
+        internal static IEnumerable<(NetworkInterface NetworkInterface, IPAddress Address)> GetDiscoveryInterfaces()
+        {
+            foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (networkInterface.OperationalStatus == OperationalStatus.Up
+                    && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
+                    && networkInterface.SupportsMulticast)
+                {
+                    var unicastAddresses = networkInterface.GetIPProperties()?.UnicastAddresses;
+                    var ipAddress = unicastAddresses != null
+                        ? (unicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
+                            ?? unicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6))?.Address
+                        : null;
+
+                    if (ipAddress != null)
+                    {
+                        yield return (networkInterface, ipAddress);
+                    }
+                }
+            }
+        }
+
+        internal static void JoinDiscoveryGroup(UdpClient udpClient, NetworkInterface networkInterface, IPAddress ipAddress)
+        {
+            if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
+            {
+                udpClient.JoinMulticastGroup(DefaultMulticastAddress, ipAddress);
+            }
+            else
+            {
+                // An IPv6 group is joined on the interface index; the local address overload only supports IPv4.
+                int interfaceIndex = networkInterface.GetIPProperties().GetIPv6Properties().Index;
+                udpClient.JoinMulticastGroup(interfaceIndex, DefaultMulticastAddressV6);
+            }
+        }
+
         private protected class DiscoveryRpcListener : ILightweightRpcListener
         {
             private readonly IRpcConnectionHandler connectionHandler;
@@ -129,47 +173,25 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.udpClients = null;
             }
 
-            private static List<UdpClient> RetrieveUdpClients()
+            private List<UdpClient> RetrieveUdpClients()
             {
                 List<UdpClient> udpClients = new();
-                var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-                foreach (var networkInterface in networkInterfaces)
+                foreach (var (networkInterface, ipAddress) in GetDiscoveryInterfaces())
                 {
-                    if (networkInterface.OperationalStatus == OperationalStatus.Up
-                        && networkInterface.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                        && networkInterface.SupportsMulticast)
+                    var udpClient = new UdpClient(ipAddress.AddressFamily);
+                    try
                     {
-                        var ipProperties = networkInterface.GetIPProperties();
-                        if (ipProperties != null && ipProperties.MulticastAddresses.Count > 0 && ipProperties.UnicastAddresses.Count > 0)
-                        {
-                            var ipAddress =
-                                (ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
-                                ?? ipProperties.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6))?.Address;
+                        var socket = udpClient.Client;
+                        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
+                        socket.Bind(new IPEndPoint(ipAddress.AddressFamily == AddressFamily.InterNetwork ? IPAddress.Any : IPAddress.IPv6Any, DefaultDiscoveryPort));
+                        JoinDiscoveryGroup(udpClient, networkInterface, ipAddress);
 
-                            if (ipAddress != null)
-                            {
-                                if (ipAddress.AddressFamily == AddressFamily.InterNetwork || ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
-                                {
-                                    var udpClient = new UdpClient(ipAddress.AddressFamily);// ;
-                                    var socket = udpClient.Client;
-                                    socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, 1);
-                                    if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
-                                    {
-                                        socket.Bind(new IPEndPoint(IPAddress.Any, DefaultDiscoveryPort));
-
-                                        udpClient.JoinMulticastGroup(DefaultMulticastAddress, ipAddress);
-                                    }
-                                    else
-                                    {
-                                        socket.Bind(new IPEndPoint(IPAddress.IPv6Any, DefaultDiscoveryPort));
-
-                                        udpClient.JoinMulticastGroup(DefaultMulticastAddressV6, ipAddress);
-                                    }
-
-                                    udpClients.Add(udpClient);
-                                }
-                            }
-                        }
+                        udpClients.Add(udpClient);
+                    }
+                    catch (SocketException x)
+                    {
+                        this.logger?.LogInformation(x, "Failed to listen for discovery requests on network interface {NetworkInterface}.", networkInterface.Name);
+                        udpClient.Dispose();
                     }
                 }
 

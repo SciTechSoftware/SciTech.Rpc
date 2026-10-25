@@ -358,14 +358,9 @@ namespace SciTech.Rpc.Tests.Lightweight
         /// </summary>
         private static IEnumerable<IPAddress> GetMulticastInterfaceAddresses()
         {
-            return NetworkInterface.GetAllNetworkInterfaces()
-                .Where(ni => ni.OperationalStatus == OperationalStatus.Up
-                    && ni.NetworkInterfaceType != NetworkInterfaceType.Loopback
-                    && ni.SupportsMulticast)
-                .Select(ni => ni.GetIPProperties())
-                .Where(p => p.MulticastAddresses.Count > 0)
-                .Select(p => p.UnicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)?.Address)
-                .Where(a => a != null);
+            return LightweightDiscoveryEndPoint.GetDiscoveryInterfaces()
+                .Select(i => i.Address)
+                .Where(a => a.AddressFamily == AddressFamily.InterNetwork);
         }
     }
 

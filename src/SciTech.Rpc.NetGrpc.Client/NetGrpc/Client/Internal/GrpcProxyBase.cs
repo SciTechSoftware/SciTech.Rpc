@@ -101,7 +101,8 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 
 #pragma warning disable CA2000 // Dispose objects before losing scope
             return new ValueTask<IAsyncStreamingServerCall<TResponse>>(
-                new GrpcAsyncServerStreamingCall<TResponse>(this.grpcInvoker.AsyncServerStreamingCall(typedMethod, null, callOptions, request), silentCancellation ? cancellationToken : CancellationToken.None));
+                new GrpcAsyncServerStreamingCall<TResponse>(this.grpcInvoker.AsyncServerStreamingCall(typedMethod, null, callOptions, request),
+                    deadline, silentCancellation ? cancellationToken : CancellationToken.None, cancellationToken));
 #pragma warning restore CA2000 // Dispose objects before losing scope
         }
 
@@ -119,8 +120,14 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
 
-            var response = this.grpcInvoker.BlockingUnaryCall(typedMethod, null, callOptions, request);
-            return response;
+            try
+            {
+                return this.grpcInvoker.BlockingUnaryCall(typedMethod, null, callOptions, request);
+            }
+            catch (GrpcCore.RpcException e) when (IsDeadlineFailure(e, deadline, cancellationToken))
+            {
+                throw CreateDeadlineExceededException(e);
+            }
         }
 
         protected override async Task<TResponse> CallUnaryMethodCoreAsync<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)
@@ -133,9 +140,16 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
             var typedMethod = this.grpcMethodsCache.GetGrpcMethod<TRequest, TResponse>(methodDef);
             using (var asyncCall = this.grpcInvoker.AsyncUnaryCall(typedMethod, null, callOptions, request))
             {
-                var response = await asyncCall.ResponseAsync.ContextFree();
-                // TODO: Handle response.Status
-                return response;
+                try
+                {
+                    var response = await asyncCall.ResponseAsync.ContextFree();
+                    // TODO: Handle response.Status
+                    return response;
+                }
+                catch (GrpcCore.RpcException e) when (IsDeadlineFailure(e, deadline, cancellationToken))
+                {
+                    throw CreateDeadlineExceededException(e);
+                }
             }
         }
 
@@ -232,6 +246,28 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
             return base.IsCancellationException(exception);
         }
 
+        /// <summary>
+        /// Gets a value indicating whether <paramref name="e"/> is a transport failure of a call whose deadline has passed.
+        /// When the server enforces the deadline, it may abort the call before the client detects the deadline, and the
+        /// client then reports e.g. <see cref="GrpcCore.StatusCode.Unavailable"/> instead of
+        /// <see cref="GrpcCore.StatusCode.DeadlineExceeded"/>. Which status is reported depends on timing and platform.
+        /// </summary>
+        private static bool IsDeadlineFailure(GrpcCore.RpcException e, DateTime? deadline, CancellationToken cancellationToken)
+        {
+            switch (e.StatusCode)
+            {
+                case GrpcCore.StatusCode.Unavailable:
+                case GrpcCore.StatusCode.Internal:
+                case GrpcCore.StatusCode.Cancelled:
+                    return deadline != null && DateTime.UtcNow >= deadline && !cancellationToken.IsCancellationRequested;
+                default:
+                    return false;
+            }
+        }
+
+        private static GrpcCore.RpcException CreateDeadlineExceededException(GrpcCore.RpcException e)
+            => new GrpcCore.RpcException(new GrpcCore.Status(GrpcCore.StatusCode.DeadlineExceeded, "Deadline exceeded.", e));
+
         private DateTime? GetCallDeadline()
         {
             var callTimeOut = this.Channel.Options.CallTimeout;
@@ -260,10 +296,11 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 
             private GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall;
 
-            internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall, CancellationToken silentCancellationToken)
+            internal GrpcAsyncServerStreamingCall(GrpcCore.AsyncServerStreamingCall<TResponse> grpcCall, DateTime? deadline,
+                CancellationToken silentCancellationToken, CancellationToken cancellationToken)
             {
                 this.grpcCall = grpcCall;
-                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream, silentCancellationToken);
+                this.ResponseStream = new AsyncStreamWrapper(this.grpcCall.ResponseStream, deadline, silentCancellationToken, cancellationToken);
             }
 
             public IAsyncEnumerator<TResponse> ResponseStream { get; }
@@ -284,10 +321,17 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
                 /// </summary>
                 private CancellationToken silentCancellationToken;
 
-                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader, CancellationToken silentCancellationToken)
+                private readonly DateTime? deadline;
+
+                private readonly CancellationToken cancellationToken;
+
+                public AsyncStreamWrapper(GrpcCore.IAsyncStreamReader<TResponse> reader, DateTime? deadline,
+                    CancellationToken silentCancellationToken, CancellationToken cancellationToken)
                 {
                     this.reader = reader;
                     this.silentCancellationToken = silentCancellationToken;
+                    this.deadline = deadline;
+                    this.cancellationToken = cancellationToken;
                 }
 
                 public TResponse Current => this.reader.Current;
@@ -313,6 +357,10 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
                         {
                             // A silently cancelled stream just ends, like the Lightweight implementation.
                             return false;
+                        }
+                        catch (GrpcCore.RpcException e) when (IsDeadlineFailure(e, this.deadline, this.cancellationToken))
+                        {
+                            throw CreateDeadlineExceededException(e);
                         }
                     }
 

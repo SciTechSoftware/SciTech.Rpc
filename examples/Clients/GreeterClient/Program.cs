@@ -1,4 +1,4 @@
-﻿using Greeter;
+using Greeter;
 using SciTech.Rpc;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client;

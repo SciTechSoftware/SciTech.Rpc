@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Tests.Lightweight;
 using SciTech.Rpc.Lightweight.Server;

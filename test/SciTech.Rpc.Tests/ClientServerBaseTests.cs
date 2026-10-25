@@ -1,4 +1,4 @@
-﻿using Moq;
+using Moq;
 using NUnit.Framework;
 using SciTech.NetMemProfiler;
 using SciTech.Rpc.Client;

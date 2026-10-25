@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;

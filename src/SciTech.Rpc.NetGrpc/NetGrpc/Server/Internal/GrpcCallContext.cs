@@ -1,4 +1,4 @@
-﻿using Grpc.Core;
+using Grpc.Core;
 using SciTech.Collections;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;

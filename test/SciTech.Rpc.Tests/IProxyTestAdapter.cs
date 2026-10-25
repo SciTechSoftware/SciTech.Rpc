@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Client.Internal;
 using System;
 using System.Linq;
 

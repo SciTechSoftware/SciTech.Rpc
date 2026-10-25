@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using SciTech.Rpc.Client.Internal;
 using System;
 using System.Linq;

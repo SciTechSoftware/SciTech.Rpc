@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc;
+using SciTech.Rpc;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client;
 using SciTech.Rpc.NetGrpc.Client;

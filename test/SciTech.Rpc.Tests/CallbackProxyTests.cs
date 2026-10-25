@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using SciTech.Rpc.Lightweight.Client.Internal;
 
 namespace SciTech.Rpc.Tests

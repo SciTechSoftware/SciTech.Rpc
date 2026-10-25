@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NUnit.Framework;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Client;

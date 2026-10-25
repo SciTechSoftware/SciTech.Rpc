@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client;

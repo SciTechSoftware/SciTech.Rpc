@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Internal;
+using SciTech.Rpc.Internal;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;

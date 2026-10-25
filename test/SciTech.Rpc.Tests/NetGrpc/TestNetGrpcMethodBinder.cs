@@ -1,4 +1,4 @@
-﻿#if NET
+#if NET
 using Grpc.AspNetCore.Server.Model;
 using SciTech.Rpc.NetGrpc.Server.Internal;
 using System;

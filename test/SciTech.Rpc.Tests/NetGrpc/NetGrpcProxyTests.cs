@@ -1,4 +1,4 @@
-﻿#if NET
+#if NET
 using Moq;
 using NUnit.Framework;
 using SciTech.Rpc.Client;

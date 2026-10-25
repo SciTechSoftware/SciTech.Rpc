@@ -1,4 +1,4 @@
-﻿#region Copyright notice and license
+#region Copyright notice and license
 // Copyright (c) SciTech Software AB and contributors.
 // All rights reserved.
 //

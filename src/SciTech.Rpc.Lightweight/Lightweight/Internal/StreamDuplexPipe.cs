@@ -1,4 +1,4 @@
-﻿using SciTech.Threading;
+using SciTech.Threading;
 using System;
 using System.Collections.Generic;
 using System.IO;

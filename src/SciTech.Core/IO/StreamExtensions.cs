@@ -1,4 +1,4 @@
-﻿using SciTech.Buffers;
+using SciTech.Buffers;
 using SciTech.Threading;
 using System;
 using System.Buffers;

@@ -1,4 +1,4 @@
-﻿using SciTech.Diagnostics;
+using SciTech.Diagnostics;
 using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;

@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc;
+using SciTech.Rpc;
 using SciTech.Rpc.Authorization;
 using SciTech.Rpc.Client;
 using System;

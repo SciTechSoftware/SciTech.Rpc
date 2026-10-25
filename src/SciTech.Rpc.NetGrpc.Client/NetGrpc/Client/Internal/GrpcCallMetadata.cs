@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Client;
+using SciTech.Rpc.Client;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;

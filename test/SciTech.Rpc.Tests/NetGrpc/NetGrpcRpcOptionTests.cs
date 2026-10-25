@@ -1,4 +1,4 @@
-﻿#if NET
+#if NET
 using NUnit.Framework;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.NetGrpc.Client;

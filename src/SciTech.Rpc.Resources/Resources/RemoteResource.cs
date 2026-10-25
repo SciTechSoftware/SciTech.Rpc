@@ -1,4 +1,4 @@
-﻿using SciTech.Diagnostics;
+using SciTech.Diagnostics;
 using SciTech.Rpc.Client;
 
 namespace SciTech.Rpc.Resources

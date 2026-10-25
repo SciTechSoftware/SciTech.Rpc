@@ -1,4 +1,4 @@
-﻿using Greeter;
+using Greeter;
 using Mailer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

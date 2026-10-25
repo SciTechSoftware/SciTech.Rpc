@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Lightweight.Server.Internal;
+using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using System;

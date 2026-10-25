@@ -1,4 +1,4 @@
-﻿namespace SciTech.Rpc.Client
+namespace SciTech.Rpc.Client
 {
     public class AuthenticationClientOptions 
     {

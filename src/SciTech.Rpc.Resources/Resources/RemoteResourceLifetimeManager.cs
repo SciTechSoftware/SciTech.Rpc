@@ -1,4 +1,4 @@
-﻿using SciTech.ComponentModel;
+using SciTech.ComponentModel;
 using SciTech.Rpc.Server;
 using System;
 

@@ -1,4 +1,4 @@
-﻿using ProtoBuf;
+using ProtoBuf;
 using SciTech.ComponentModel;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Server;

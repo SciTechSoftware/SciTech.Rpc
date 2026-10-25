@@ -1,4 +1,4 @@
-﻿using SciTech.Diagnostics;
+using SciTech.Diagnostics;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight.Client.Internal;
 using SciTech.Rpc.Lightweight.Internal;

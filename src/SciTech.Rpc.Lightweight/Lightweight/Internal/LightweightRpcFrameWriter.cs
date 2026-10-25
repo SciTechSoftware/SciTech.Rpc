@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Serialization.Internal;
 using System;
 using System.Threading.Tasks;

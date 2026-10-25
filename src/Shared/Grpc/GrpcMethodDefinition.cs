@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Serialization;
 using System;
 using GrpcCore = Grpc.Core;
 

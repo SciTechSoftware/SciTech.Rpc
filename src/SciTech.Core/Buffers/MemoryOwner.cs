@@ -1,4 +1,4 @@
-﻿//
+//
 // From MemoryOwner in SimplPipelines/SimplSockets by Marc Gravell (https://github.com/mgravell/simplsockets)
 //
 

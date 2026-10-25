@@ -1,4 +1,4 @@
-﻿using SciTech.Threading;
+using SciTech.Threading;
 using System;
 using System.Threading;
 using System.Threading.Tasks;

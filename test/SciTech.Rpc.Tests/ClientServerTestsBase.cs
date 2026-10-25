@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Lightweight;
 using SciTech.Rpc.Lightweight.Client;

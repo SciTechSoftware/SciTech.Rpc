@@ -1,4 +1,4 @@
-﻿#if NET
+#if NET
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.NetGrpc.Client;
 using SciTech.Rpc.NetGrpc.Client.Internal;

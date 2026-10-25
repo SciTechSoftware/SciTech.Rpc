@@ -1,4 +1,4 @@
-﻿using Moq;
+using Moq;
 using NUnit.Framework;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Client.Internal;

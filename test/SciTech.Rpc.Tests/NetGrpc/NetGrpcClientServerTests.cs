@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Tests;
 using System;

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using SciTech.Diagnostics;
 using SciTech.Rpc.Client;
 using SciTech.Rpc.Logging;

@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Client;
+using SciTech.Rpc.Client;
 using SciTech.Rpc.NetGrpc.Client.Internal;
 using System;
 using GrpcNet = Grpc.Net;

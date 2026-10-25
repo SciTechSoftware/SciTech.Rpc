@@ -1,4 +1,4 @@
-﻿using SciTech.Collections;
+using SciTech.Collections;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;

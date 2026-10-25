@@ -1,4 +1,4 @@
-﻿using SciTech.Rpc.Client;
+using SciTech.Rpc.Client;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server;
 using System;

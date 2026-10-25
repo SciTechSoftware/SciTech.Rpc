@@ -1,4 +1,4 @@
-﻿// #define PUBLIC_UTILITIES
+// #define PUBLIC_UTILITIES
 using System;
 using System.Collections;
 using System.Collections.Generic;

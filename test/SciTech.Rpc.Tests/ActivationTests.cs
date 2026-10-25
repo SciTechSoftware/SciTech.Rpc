@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Client;

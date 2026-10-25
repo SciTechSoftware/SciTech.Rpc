@@ -1,4 +1,4 @@
-﻿#region Copyright notice and license
+#region Copyright notice and license
 // Code taken from the AsyncEx library (https://github.com/StephenCleary/AsyncEx)
 // 
 // The MIT License(MIT)

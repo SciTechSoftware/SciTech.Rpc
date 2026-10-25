@@ -1,4 +1,4 @@
-﻿using Mailer;
+using Mailer;
 using SciTech.Rpc;
 using SciTech.Rpc.Client;
 using System;

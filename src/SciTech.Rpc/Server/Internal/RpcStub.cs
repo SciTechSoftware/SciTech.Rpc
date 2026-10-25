@@ -49,7 +49,7 @@ namespace SciTech.Rpc.Server.Internal
             this.AllowAutoPublish = options?.AllowAutoPublish ?? this.Server.AllowAutoPublish;
             this.Serializer = options?.Serializer ?? this.Server.Serializer;
 
-            if (options != null && options.ExceptionConverters.Length > 0)
+            if (options != null && options.ExceptionConverters.Count > 0)
             {
                 this.CustomFaultHandler = new RpcServerFaultHandler(this.Server.CustomFaultHandler, options.ExceptionConverters, null);
             }

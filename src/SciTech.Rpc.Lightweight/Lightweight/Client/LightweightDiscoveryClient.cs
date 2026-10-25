@@ -73,7 +73,7 @@ namespace SciTech.Rpc.Lightweight.Client
         private Guid clientId;
         private bool findingServices;
 
-        private IImmutableList<DiscoveredService>? discoveredServices;
+        private ImmutableArrayList<DiscoveredService>? discoveredServices;
 
         public LightweightDiscoveryClient( ILogger? logger = null)
         {
@@ -109,7 +109,7 @@ namespace SciTech.Rpc.Lightweight.Client
         /// <summary>
         /// Gets the RPC services discovered during the current or last call to <see cref="FindServicesAsync(CancellationToken)"/>.
         /// </summary>
-        public IImmutableList<DiscoveredService> DiscoveredServices
+        public ImmutableArrayList<DiscoveredService> DiscoveredServices
         {
             get
             {
@@ -119,7 +119,7 @@ namespace SciTech.Rpc.Lightweight.Client
                     {
                         var builder = ImmutableArray.CreateBuilder<DiscoveredService>();
                         builder.AddRange(discoveredServers.Values.SelectMany(s => s.Services));
-                        this.discoveredServices = builder.ToImmutableArray();
+                        this.discoveredServices = builder.ToImmutableArrayList();
                     }
 
                     return this.discoveredServices;
@@ -129,7 +129,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public TimeSpan ServiceDiscoveryTimeout { get; set; } = TimeSpan.FromSeconds( 5 );
 
-        public async Task<IImmutableList<DiscoveredService>> FindServicesAsync(CancellationToken cancellationToken)
+        public async Task<ImmutableArrayList<DiscoveredService>> FindServicesAsync(CancellationToken cancellationToken)
         {
             if( this.findingServices)
             {

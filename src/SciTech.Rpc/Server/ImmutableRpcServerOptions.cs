@@ -10,6 +10,7 @@
 #endregion
 
 using SciTech.Rpc.Serialization;
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -37,14 +38,14 @@ namespace SciTech.Rpc.Server
 
         public bool? SilentStreamingCancellation { get; private set; }
 
-        public ImmutableArray<IRpcServerExceptionConverter> ExceptionConverters { get; private set; } = ImmutableArray<IRpcServerExceptionConverter>.Empty;
+        public ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; private set; } = ImmutableArrayList<IRpcServerExceptionConverter>.Empty;
 
-        public ImmutableArray<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArray<RpcServerCallInterceptor>.Empty;
+        public ImmutableArrayList<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
 
         public bool IsEmpty
         {
-            get => this.ExceptionConverters.IsDefaultOrEmpty
-                && this.Interceptors.IsDefaultOrEmpty
+            get => this.ExceptionConverters.Count == 0
+                && this.Interceptors.Count == 0
                 && this.AllowAutoPublish == null
                 && this.AllowDiscovery == null
                 && this.Serializer == null
@@ -95,8 +96,8 @@ namespace SciTech.Rpc.Server
             {
                 this.AllowAutoPublish = options.AllowAutoPublish ?? this.AllowAutoPublish;
                 this.AllowDiscovery = options.AllowDiscovery ?? this.AllowDiscovery;
-                this.ExceptionConverters = options.ExceptionConverters.Concat(this.ExceptionConverters).ToImmutableArray();
-                this.Interceptors = options.Interceptors.Concat(this.Interceptors).ToImmutableArray();
+                this.ExceptionConverters = options.ExceptionConverters.Concat(this.ExceptionConverters).ToImmutableArrayList();
+                this.Interceptors = options.Interceptors.Concat(this.Interceptors).ToImmutableArrayList();
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;

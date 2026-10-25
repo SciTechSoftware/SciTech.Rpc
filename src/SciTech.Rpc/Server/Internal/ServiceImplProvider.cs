@@ -11,6 +11,7 @@
 
 using SciTech.ComponentModel;
 using SciTech.Threading;
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -22,9 +23,9 @@ namespace SciTech.Rpc.Server.Internal
 {
     public interface IRpcServiceActivator
     {
-        ImmutableArray<string> GetPublishedServices(RpcObjectId objectId);
+        ImmutableArrayList<string> GetPublishedServices(RpcObjectId objectId);
 
-        IImmutableList<Type> GetPublishedSingletons();
+        ImmutableArrayList<Type> GetPublishedSingletons();
 
         ActivatedService<TService> GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
 

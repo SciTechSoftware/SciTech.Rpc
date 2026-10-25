@@ -9,7 +9,7 @@ namespace SciTech.Rpc.Client.Options
 {
     public class ConfigureRpcClientExceptionConverters : IConfigureNamedOptions<RpcClientOptions>
     {
-        private readonly IImmutableList<IRpcClientExceptionConverter> exceptionConverters;
+        private readonly ImmutableArrayList<IRpcClientExceptionConverter> exceptionConverters;
         private readonly string? name;
 
         public ConfigureRpcClientExceptionConverters(string? name, IEnumerable<IRpcClientExceptionConverter> exceptionConverters)

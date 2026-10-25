@@ -9,6 +9,7 @@
 //
 #endregion
 
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -24,6 +25,6 @@ namespace SciTech.Rpc.Client.Internal
     {
         RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
             IReadOnlyCollection<string>? implementedServices,
-            IReadOnlyDictionary<string, ImmutableArray<Type>> knownServiceTypes) where TService : class;
+            IReadOnlyDictionary<string, ImmutableArrayList<Type>> knownServiceTypes) where TService : class;
     }
 }

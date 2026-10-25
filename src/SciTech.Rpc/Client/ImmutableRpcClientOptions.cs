@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -39,24 +40,24 @@ namespace SciTech.Rpc.Client
         public TimeSpan? CallTimeout { get; private set; }
 
         /// <inheritdoc cref="IRpcClientOptions.ExceptionConverters"/>
-        public ImmutableArray<IRpcClientExceptionConverter> ExceptionConverters { get; private set; }
-            = ImmutableArray<IRpcClientExceptionConverter>.Empty;
+        public ImmutableArrayList<IRpcClientExceptionConverter> ExceptionConverters { get; private set; }
+            = ImmutableArrayList<IRpcClientExceptionConverter>.Empty;
 
         /// <inheritdoc cref="IRpcClientOptions.Interceptors"/>
-        public ImmutableArray<RpcClientCallInterceptor> Interceptors { get; private set; }
-            = ImmutableArray<RpcClientCallInterceptor>.Empty;
+        public ImmutableArrayList<RpcClientCallInterceptor> Interceptors { get; private set; }
+            = ImmutableArrayList<RpcClientCallInterceptor>.Empty;
 
-        public ImmutableArray<Type> KnownServiceTypes { get; private set; }
-            = ImmutableArray<Type>.Empty;
+        public ImmutableArrayList<Type> KnownServiceTypes { get; private set; }
+            = ImmutableArrayList<Type>.Empty;
 
         /// <inheritdoc/>
         public bool IsEmpty
         {
             get
             {
-                return this.ExceptionConverters.Length == 0
-                    && this.Interceptors.Length == 0
-                    && this.KnownServiceTypes.Length == 0
+                return this.ExceptionConverters.Count == 0
+                    && this.Interceptors.Count == 0
+                    && this.KnownServiceTypes.Count == 0
                     && this.ReceiveMaxMessageSize == null
                     && this.SendMaxMessageSize == null
                     && this.CallTimeout == null
@@ -91,8 +92,8 @@ namespace SciTech.Rpc.Client
         /// <summary>
         /// Gets the <see cref="KnownServiceTypes"/> as a dictionary, with the service name as the key.
         /// </summary>
-        public IReadOnlyDictionary<string, ImmutableArray<Type>> KnownServiceTypesDictionary { get; private set; } 
-            = ImmutableDictionary<string, ImmutableArray<Type>>.Empty;
+        public IReadOnlyDictionary<string, ImmutableArrayList<Type>> KnownServiceTypesDictionary { get; private set; } 
+            = ImmutableDictionary<string, ImmutableArrayList<Type>>.Empty;
 
         /// <inheritdoc/>
         ImmutableRpcClientOptions IRpcClientOptions.AsImmutable() => this;
@@ -162,7 +163,7 @@ namespace SciTech.Rpc.Client
             }
 
             this.KnownServiceTypesDictionary = ImmutableDictionary.CreateRange(knownServices
-                .Select(p => new KeyValuePair<string, ImmutableArray<Type>>(p.Key, p.Value.ToImmutableArray())));
+                .Select(p => new KeyValuePair<string, ImmutableArrayList<Type>>(p.Key, p.Value.ToImmutableArrayList())));
         }
     }
 }

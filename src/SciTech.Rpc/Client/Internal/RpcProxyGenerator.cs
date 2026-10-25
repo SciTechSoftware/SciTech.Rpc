@@ -12,6 +12,7 @@
 using SciTech.Collections.Generic;
 using SciTech.Rpc.Client.Internal;
 using SciTech.Rpc.Internal;
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -48,7 +49,7 @@ namespace SciTech.Rpc.Client.Internal
 
         public RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
             IReadOnlyCollection<string>? implementedServices,
-            IReadOnlyDictionary<string,ImmutableArray<Type>>? knownServiceTypes )
+            IReadOnlyDictionary<string, ImmutableArrayList<Type>>? knownServiceTypes )
             where TService : class
         {
             lock (this.syncRoot)
@@ -106,7 +107,7 @@ namespace SciTech.Rpc.Client.Internal
         /// <returns></returns>
         private static List<RpcServiceInfo> GetAllServices<TService>(
             IReadOnlyCollection<string>? implementedServices, 
-            IReadOnlyDictionary<string, ImmutableArray<Type>>? knownServiceTypes)
+            IReadOnlyDictionary<string, ImmutableArrayList<Type>>? knownServiceTypes)
         {
             var interfaceServices = RpcBuilderUtil.GetAllServices(typeof(TService), RpcServiceDefinitionSide.Client, false);
             if (implementedServices?.Count > 0)

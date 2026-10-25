@@ -201,7 +201,7 @@ namespace SciTech.Rpc.Server
         protected RpcServicesQueryResponse QueryServices(RpcObjectId objectId)
         {
             var servicesList = this.ServiceActivator.GetPublishedServices(objectId);
-            if (!servicesList.IsDefaultOrEmpty)
+            if (servicesList.Count > 0)
             {
                 return new RpcServicesQueryResponse { ImplementedServices = servicesList.ToArray() };
             }

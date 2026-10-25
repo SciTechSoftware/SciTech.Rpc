@@ -1,3 +1,4 @@
+using SciTech.Collections.Immutable;
 using System.Collections.Immutable;
 using System.Runtime.Serialization;
 using System.Text.Json.Serialization;
@@ -25,13 +26,13 @@ namespace SciTech.Rpc.Resources
 
     public class LocksReleasedEventArgs : EventArgs
     {
-        public LocksReleasedEventArgs(ImmutableArray<object> lockDatas, ReaderWriterLockState lockState)
+        public LocksReleasedEventArgs(ImmutableArrayList<object> lockDatas, ReaderWriterLockState lockState)
         {
             this.LockState = lockState;
             this.LockDatas = lockDatas;
         }
 
-        public ImmutableArray<object> LockDatas { get; }
+        public ImmutableArrayList<object> LockDatas { get; }
 
         public ReaderWriterLockState LockState { get; }
     }

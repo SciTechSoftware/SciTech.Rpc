@@ -33,7 +33,7 @@ namespace SciTech.Rpc.Server
 
         private bool isFrozen;
 
-        private IImmutableList<Type>? registeredServicesList;
+        private ImmutableArrayList<Type>? registeredServicesList;
 
         public RpcServiceDefinitionsBuilder(
             IEnumerable<IRpcServiceRegistration>? serviceRegistrations = null)
@@ -69,7 +69,7 @@ namespace SciTech.Rpc.Server
             return null;
         }
 
-        public IImmutableList<Type> GetRegisteredServiceTypes()
+        public ImmutableArrayList<Type> GetRegisteredServiceTypes()
         {
             lock (this.syncRoot)
             {

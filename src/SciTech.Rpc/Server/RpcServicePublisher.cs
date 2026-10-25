@@ -14,6 +14,7 @@ using SciTech.ComponentModel;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -162,7 +163,7 @@ namespace SciTech.Rpc.Server
             return null;
         }
 
-        public ImmutableArray<string> GetPublishedServices(RpcObjectId objectId)
+        public ImmutableArrayList<string> GetPublishedServices(RpcObjectId objectId)
         {
             lock (this.syncRoot)
             {
@@ -171,7 +172,7 @@ namespace SciTech.Rpc.Server
                     return servicesList.ServiceNames;
                 }
 
-                return ImmutableArray<string>.Empty;
+                return ImmutableArrayList<string>.Empty;
             }
         }
 
@@ -624,7 +625,7 @@ namespace SciTech.Rpc.Server
             return publishedServices.ServiceNames;
         }
 
-        private ImmutableArray<string> PublishInstanceFactoryCore_Locked<TService>(IReadOnlyList<RpcServiceInfo> allServices, RpcObjectId objectId, Func<IServiceProvider, RpcObjectId, IOwned<TService>> factory)
+        private ImmutableArrayList<string> PublishInstanceFactoryCore_Locked<TService>(IReadOnlyList<RpcServiceInfo> allServices, RpcObjectId objectId, Func<IServiceProvider, RpcObjectId, IOwned<TService>> factory)
             where TService : class
         {
             Debug.Assert(objectId != RpcObjectId.Empty);
@@ -638,7 +639,7 @@ namespace SciTech.Rpc.Server
             return publishedServices.ServiceNames;
         }
 
-        private ImmutableArray<string> PublishSingletonFactoryCore<TService>(Func<IServiceProvider?, IOwned<TService>> factory)
+        private ImmutableArrayList<string> PublishSingletonFactoryCore<TService>(Func<IServiceProvider?, IOwned<TService>> factory)
             where TService : class
         {
             // Getting the ServiceInfo validates that TService is actually an RPC service interface.
@@ -740,14 +741,14 @@ namespace SciTech.Rpc.Server
             var implementedServices = serviceNamesBuilder.Count == serviceNamesBuilder.Capacity ? serviceNamesBuilder.MoveToImmutable() : serviceNamesBuilder.ToImmutable();
             var serviceTypes = serviceTypesBuilder.MoveToImmutable();
 
-            return new PublishedServices(serviceTypes, implementedServices);
+            return new PublishedServices(serviceTypes, implementedServices.ToImmutableArrayList());
         }
 
-        IImmutableList<Type> IRpcServiceActivator.GetPublishedSingletons()
+        ImmutableArrayList<Type> IRpcServiceActivator.GetPublishedSingletons()
         {
             lock( this.syncRoot)
             {
-                return this.singletonTypeToPublishedServices.Keys.ToImmutableArray();
+                return this.singletonTypeToPublishedServices.Keys.ToImmutableArrayList();
             }
         }
 
@@ -790,9 +791,9 @@ namespace SciTech.Rpc.Server
         {
             internal readonly ImmutableArray<Type> ServiceTypes;
 
-            internal readonly ImmutableArray<string> ServiceNames;
+            internal readonly ImmutableArrayList<string> ServiceNames;
 
-            internal PublishedServices(ImmutableArray<Type> serviceTypes, ImmutableArray<string> serviceNames)
+            internal PublishedServices(ImmutableArray<Type> serviceTypes, ImmutableArrayList<string> serviceNames)
             {
                 this.ServiceTypes = serviceTypes;
                 this.ServiceNames = serviceNames;

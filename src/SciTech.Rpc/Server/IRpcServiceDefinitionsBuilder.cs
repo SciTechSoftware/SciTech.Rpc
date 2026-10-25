@@ -11,6 +11,7 @@
 
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
+using SciTech.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -48,7 +49,7 @@ namespace SciTech.Rpc.Server
         /// </summary>
         void Freeze();
 
-        IImmutableList<Type> GetRegisteredServiceTypes();
+        ImmutableArrayList<Type> GetRegisteredServiceTypes();
 
         IRpcServerOptions? GetServiceOptions(Type serviceType);
 

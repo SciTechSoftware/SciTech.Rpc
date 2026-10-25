@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, 'release/**' ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ windows-latest, ubuntu-latest ]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # MinVer calculates the version from the tags and the commit height.
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          # The SDK from global.json, plus the runtimes of the test target frameworks.
+          global-json-file: global.json
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Restore
+        run: dotnet restore SciTech.Rpc.slnx
+
+      - name: Build
+        run: dotnet build SciTech.Rpc.slnx -c Release --no-restore
+
+      # The target frameworks are tested in parallel. On Windows this includes net472.
+      - name: Test
+        run: dotnet test test/SciTech.Rpc.Tests -c Release --no-build --logger trx --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: TestResults
+          if-no-files-found: ignore
+
+      - name: Pack
+        if: matrix.os == 'windows-latest'
+        run: dotnet pack SciTech.Rpc.slnx -c Release --no-build -o artifacts
+
+      - name: Upload packages
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg
+          if-no-files-found: error
+
+  publish:
+    name: Publish to nuget.org
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: nuget
+    permissions:
+      # Required by NuGet trusted publishing (OIDC).
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: packages
+          path: artifacts
+
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

@@ -37,6 +37,7 @@
     <ProjectReference Include="..\..\src\SciTech.Rpc.DataContract\SciTech.Rpc.DataContract.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.Lightweight\SciTech.Rpc.Lightweight.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
+    <ProjectReference Include="..\..\src\SciTech.Rpc.Resources\SciTech.Rpc.Resources.csproj" />
     <ProjectReference Include="..\..\src\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 

@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
 namespace SciTech.Rpc.Resources
 {
@@ -13,6 +14,7 @@ namespace SciTech.Rpc.Resources
     [DataContract]
     public sealed class AcquiredRemoteLock : AcquiredRemoteResource
     {
+        [JsonConstructor]
         internal AcquiredRemoteLock() { }
 
         internal AcquiredRemoteLock(AcquiredRemoteResource lockResource)

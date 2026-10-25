@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 using System.Text;
 
 namespace SciTech.Rpc
@@ -18,6 +19,11 @@ namespace SciTech.Rpc
         internal RpcSingletonRef(RpcConnectionInfo? connectionInfo) : base(connectionInfo)
         {
         }
+
+        // Redeclared, since the Protobuf serializer ignores the members of the base type (which is not declared as a sub-type).
+        [DataMember(Order = 1)]
+        [JsonInclude]
+        public new RpcConnectionInfo? ServerConnection { get => base.ServerConnection; protected set => base.ServerConnection = value; }
     }
 
     /// <summary>
@@ -35,7 +41,8 @@ namespace SciTech.Rpc
         }
 
         [DataMember(Order = 1)]
-        public RpcConnectionInfo? ServerConnection { get; private set; }
+        [JsonInclude]
+        public RpcConnectionInfo? ServerConnection { get; protected set; }
 
         public RpcSingletonRef<TOtherService> Cast<TOtherService>() where TOtherService : class
         {

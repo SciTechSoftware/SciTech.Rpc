@@ -19,6 +19,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace SciTech.Rpc.Serialization
 {
@@ -31,11 +32,13 @@ namespace SciTech.Rpc.Serialization
             this.logger = logger;
             this.TraceEnabled = this.logger?.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Trace) ?? false;
 
-#if NET
-            this.Options = options ?? new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
-#else
-            this.Options = options ?? new JsonSerializerOptions { IgnoreNullValues = true };
-#endif
+            // The options are copied, since the known types modifier is added to the type info resolver.
+            var actualOptions = options != null
+                ? new JsonSerializerOptions(options)
+                : new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+            actualOptions.TypeInfoResolver = (actualOptions.TypeInfoResolver ?? new DefaultJsonTypeInfoResolver()).WithAddedModifier(AddKnownTypes);
+
+            this.Options = actualOptions;
         }
 
         public JsonRpcSerializer(ILogger? logger = null)
@@ -91,6 +94,33 @@ namespace SciTech.Rpc.Serialization
             JsonSerializer.Serialize(writer, input, type, this.Options);
         }
 
+        /// <summary>
+        /// Adds the known types declared by <see cref="RpcKnownTypeAttribute"/> as derived types of the attributed type.
+        /// </summary>
+        private static void AddKnownTypes(JsonTypeInfo typeInfo)
+        {
+            if (typeInfo.Kind != JsonTypeInfoKind.Object)
+            {
+                return;
+            }
+
+            var knownTypes = RpcKnownTypes.GetDeclaredKnownTypes(typeInfo.Type);
+            if (knownTypes.Count == 0)
+            {
+                return;
+            }
+
+            var polymorphismOptions = typeInfo.PolymorphismOptions ??= new JsonPolymorphismOptions();
+            foreach (var knownType in knownTypes)
+            {
+                // Derived types may also have been declared using JsonDerivedTypeAttribute.
+                if (!polymorphismOptions.DerivedTypes.Any(d => d.DerivedType == knownType.KnownType))
+                {
+                    polymorphismOptions.DerivedTypes.Add(new JsonDerivedType(knownType.KnownType, knownType.Discriminator));
+                }
+            }
+        }
+
         [MethodImpl(MethodImplOptions.NoInlining)]
         [SuppressMessage("Performance", "CA1869:Cache and reuse 'JsonSerializerOptions' instances", Justification = "Tracing only")]
         internal void TraceDeserialize(ReadOnlySequence<byte> input, Type type)
@@ -103,7 +133,7 @@ namespace SciTech.Rpc.Serialization
 
             string text = Encoding.UTF8.GetString(input.ToArray());
             var reader = new Utf8JsonReader(input, readerOptions);
-            var value = JsonSerializer.Deserialize(ref reader, type, new JsonSerializerOptions { AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip });
+            var value = JsonSerializer.Deserialize(ref reader, type, new JsonSerializerOptions(this.Options) { AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip });
             this.logger?.LogTrace("Json deserialized message '{SerializedText}' to '{Value}'", text, value);
         }
 
@@ -114,7 +144,7 @@ namespace SciTech.Rpc.Serialization
             var writerOptions = new JsonWriterOptions();
             writerOptions.Indented = true;
 
-            var text = JsonSerializer.Serialize(input, type, new JsonSerializerOptions { WriteIndented = true });
+            var text = JsonSerializer.Serialize(input, type, new JsonSerializerOptions(this.Options) { WriteIndented = true });
             this.logger?.LogTrace("Json serialized message: {SerializedText}", text);
         }
     }
@@ -145,36 +175,6 @@ namespace SciTech.Rpc.Serialization
             writer.WriteStringValue(value.Id);
         }
     }
-
-    //internal class KnownTypeJsonConverter : JsonConverter<object>
-    //{
-    //    private Dictionary<Type, KnownSerializationType> knownTypes = new Dictionary<Type, KnownSerializationType>();
-
-    //    internal KnownTypeJsonConverter(List<KnownSerializationType> knownTypes)
-    //    {
-    //        foreach( var kt in knownTypes)
-    //        {
-    //            this.knownTypes.Add(kt.KnownType, kt);
-    //        }
-    //    }
-
-    //    public override bool CanConvert(Type typeToConvert)
-    //    {
-    //        return typeToConvert.Name=="BaseClass";
-    //    }
-
-    //    public override object Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    //    {
-    //        throw new NotImplementedException();
-    //    }
-
-    //    public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
-    //    {
-
-    //        throw new NotImplementedException();
-    //    }
-
-    //}
 
     internal class JsonRpcSerializer<T> : IRpcSerializer<T>
     {

@@ -1,4 +1,5 @@
 ﻿using SciTech.Diagnostics;
+using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System;
 using System.Collections.Generic;
@@ -9,8 +10,6 @@ namespace SciTech.Rpc.Resources
 {
     internal static class AcquiredResourceKeepAliveHelper
     {
-        //private static readonly Logger DbgLogger = LoggerManager.GetLogger(typeof(AcquiredResourceKeepAliveHelper));
-
         private static readonly HashSet<AcquiredRemoteResource> pendingKeepAliveResources = new HashSet<AcquiredRemoteResource>();
 
         private static readonly List<WeakReference<AcquiredRemoteResource>> remoteResources = new List<WeakReference<AcquiredRemoteResource>>();
@@ -62,20 +61,15 @@ namespace SciTech.Rpc.Resources
                 {
                     isAlive = await lifetimeService.KeepAliveAsync(acquiredResource.ResourceId, acquiredResource.AcquiredResourceCookie, acquiredResource.OwnerId).ConfigureAwait(false);
                 }
-                catch (Exception e)
+                catch (Exception e) when (!e.IsFatal())
                 {
-                    //if (ExceptionManager.IsFatalException(e))
-                    //{
-                    //    throw;
-                    //}
-
-                    //DbgLogger.Warn("Error in NotifyAlive.", e);
+                    ResourcesLog.KeepAliveFailed(RpcLogger.CreateLogger(typeof(AcquiredResourceKeepAliveHelper)), e);
                 }
             }
 
             if (!isAlive)
             {
-                //DbgLogger.Info("Acquired resource timeout or resource taken over by other client. Removing acquired resource.");
+                ResourcesLog.AcquiredResourceLost(RpcLogger.CreateLogger(typeof(AcquiredResourceKeepAliveHelper)), null);
                 acquiredResource.NotifyReleased();
 
                 // Make sure this resource is removed. There's no need to call Release,
@@ -153,9 +147,10 @@ namespace SciTech.Rpc.Resources
                     }
                 }
             }
-            catch (Exception e) // when (!ExceptionManager.IsFatalException(e))
+            catch (Exception e) when (!e.IsFatal())
             {
-                //ExceptionManager.UnexpectedException(e);
+                // An exception must not propagate out of a timer callback, since it would terminate the process.
+                ResourcesLog.KeepAliveTimerFailed(RpcLogger.CreateLogger(typeof(AcquiredResourceKeepAliveHelper)), e);
             }
         }
     }

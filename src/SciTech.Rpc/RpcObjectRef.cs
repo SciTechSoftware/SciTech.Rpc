@@ -12,6 +12,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
 namespace SciTech.Rpc
 {
@@ -29,15 +30,19 @@ namespace SciTech.Rpc
         {
         }
 
+        // JsonInclude is needed, since System.Text.Json ignores the non-public setters otherwise.
+        [JsonInclude]
         [DataMember(Order = 3)]
 #pragma warning disable CA1819 // Properties should not return arrays
         public new string[]? ImplementedServices { get => base.ImplementedServices; protected set => base.ImplementedServices = value; }
 #pragma warning restore CA1819 // Properties should not return arrays
 
         [DataMember(Order = 1)]
+        [JsonInclude]
         public new RpcObjectId ObjectId { get => base.ObjectId; protected set => base.ObjectId = value; }
 
         [DataMember(Order = 2)]
+        [JsonInclude]
         public new RpcConnectionInfo? ServerConnection { get => base.ServerConnection; protected set => base.ServerConnection = value; }
     }
 

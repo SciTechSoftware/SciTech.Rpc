@@ -3,12 +3,16 @@
   <PropertyGroup>
     <RootNamespace>SciTech.Rpc</RootNamespace>
     <ImplicitUsings>true</ImplicitUsings>
-    <!-- TODO: Enable analyzers when the logging has been restored. -->
-    <AnalysisMode>Default</AnalysisMode>
+    <Description>SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels.
+From internet deployed services over HTTP/2 (based on gRPC), to in-process proxy communication.
+
+This package contains remote resources: resources and services whose lifetime is controlled by the clients that acquire them,
+such as remote reader/writer locks and client-owned services.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SciTech.Rpc.Protobuf\SciTech.Rpc.Protobuf.csproj" />
+    <ProjectReference Include="..\SciTech.Core\SciTech.Core.csproj" />
     <ProjectReference Include="..\SciTech.Rpc\SciTech.Rpc.csproj" />
   </ItemGroup>
 

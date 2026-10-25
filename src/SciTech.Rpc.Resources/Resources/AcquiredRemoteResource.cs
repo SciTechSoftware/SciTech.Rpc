@@ -1,10 +1,12 @@
-﻿using ProtoBuf;
+﻿using Microsoft.Extensions.Logging;
 using SciTech.Diagnostics;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Logging;
 using SciTech.Threading;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.Serialization;
+using System.Text.Json.Serialization;
 
 namespace SciTech.Rpc.Resources
 {
@@ -35,7 +37,7 @@ namespace SciTech.Rpc.Resources
 
     /// <summary>
     /// Represents an acquired remote resource. An instance of this class is returned from a remote service when a resource is requested.
-    /// Once the client receives the AcquiredRemoteResource it should call <see cref="TakeOwnershipAsync"/> to verify to host that the client has received the resource acquisition.
+    /// Once the client receives the AcquiredRemoteResource it should call <see cref="TakeOwnershipAsync(IRpcChannel)"/> to verify to the host that the client has received the resource acquisition.
     /// Calling TakeOwnership makes sure that the resource is kept alive on the server, until <see cref="Release"/> is called or the <see cref="AcquiredRemoteResource"/> is finalized.
     /// An acquired resource can also be transferred to another process. In this case the target process should call TakeOwnership to take over the ownership.
     /// </summary>
@@ -43,18 +45,16 @@ namespace SciTech.Rpc.Resources
     [SuppressMessage("Usage", "CA1816:Dispose methods should call SuppressFinalize", Justification = "<Pending>")]
     [DataContract]
     [Serializable]
-    [ProtoContract]
-    [ProtoInclude(10,typeof(AcquiredRemoteLock))]
+    // The order of AcquiredRemoteLock is part of the wire format (it was previously declared as ProtoInclude(10)).
+    [RpcKnownType(typeof(AcquiredRemoteLock), 10)]
     public class AcquiredRemoteResource : IDisposable
     {
-        //private static readonly Logger DbgLogger = LoggerManager.GetLogger<AcquiredRemoteResource>();
-
         [NonSerialized]
         private bool isReleased;
 
+        [JsonConstructor]
         internal AcquiredRemoteResource()
         {
-
         }
 
         internal AcquiredRemoteResource(RpcObjectRef<IRemoteResourceLifetimeService>? lifetimeServiceRef, Guid resourceId, int acquiredLockId)
@@ -72,7 +72,7 @@ namespace SciTech.Rpc.Resources
                 {
                     if (this.OwnerId != RemoteResourceBase.InvalidOwnerId)
                     {
-                        //DbgLogger.Warn("An unreleased resource has been finalized.");
+                        ResourcesLog.UnreleasedResourceFinalized(RpcLogger.CreateLogger<AcquiredRemoteResource>(), null);
 
                         this.OwnerId = RemoteResourceBase.InvalidOwnerId;
                         this.isReleased = true;
@@ -84,20 +84,24 @@ namespace SciTech.Rpc.Resources
             }
         }
 
+        [JsonIgnore]
         public AcquiredResourceId Id => new AcquiredResourceId(this.ResourceId, this.AcquiredResourceCookie);
 
         [DataMember(Order = 1)]
+        [JsonInclude]
         internal int AcquiredResourceCookie { get; private set; }
 
         [field: NonSerialized]
         internal IRemoteResourceLifetimeServiceClient? LifetimeService { get; private set; }
 
         [DataMember(Order = 2)]
+        [JsonInclude]
         internal RpcObjectRef<IRemoteResourceLifetimeService>? LifetimeServiceRef { get; private set; }
 
         internal int OwnerId { get; private set; } = RemoteResourceBase.InvalidOwnerId;
 
         [DataMember(Order = 3)]
+        [JsonInclude]
         internal Guid ResourceId { get; private set; }
 
         private object SyncRoot => this;
@@ -141,26 +145,20 @@ namespace SciTech.Rpc.Resources
                 {
                     await lifetimeService.ReleaseAsync(this.ResourceId, this.AcquiredResourceCookie, ownerId).ConfigureAwait(false);
                 }
-                catch (Exception e) 
+                catch (Exception e) when (!e.IsFatal())
                 {
-                    //if (ExceptionManager.IsFatalException(e))
-                    //{
-                    //    throw;
-                    //}
-
-                    //DbgLogger.Warn("Failed to release acquired resource.", e);
+                    ResourcesLog.ReleaseFailed(RpcLogger.CreateLogger<AcquiredRemoteResource>(), e);
                 }
             }
         }
 
-        /// <inheritdoc cref="TakeOwnershipAsync(IRpcConnectionManager)(IRpcConnectionManager)"/>
+        /// <inheritdoc cref="TakeOwnershipAsync(IRpcConnectionManager)"/>
         public bool TakeOwnership(IRpcConnectionManager connectionManager)
         {
             return this.TakeOwnershipAsync(connectionManager).AwaiterResult();
         }
 
-        /// <inheritdoc cref="TakeOwnershipAsync(IRpcConnectionManager)(IRpcConnectionManager)"/>
-        /// <param name="connection"></param>
+        /// <inheritdoc cref="TakeOwnershipAsync(IRpcChannel)"/>
         public bool TakeOwnership(IRpcChannel connection)
         {
             return this.TakeOwnershipAsync(connection).AwaiterResult();
@@ -192,7 +190,7 @@ namespace SciTech.Rpc.Resources
                 var serviceRef = this.LifetimeServiceRef;
                 if (serviceRef == null)
                 {
-                    //DbgLogger.Warn("LifetimeServiceRef not properly initialized, serialization error?");
+                    ResourcesLog.LifetimeServiceRefMissing(RpcLogger.CreateLogger<AcquiredRemoteResource>(), null);
                     return false;
                 }
                 
@@ -252,7 +250,7 @@ namespace SciTech.Rpc.Resources
                 var serviceRef = this.LifetimeServiceRef;
                 if (serviceRef == null)
                 {
-                    //DbgLogger.Warn("LifetimeServiceRef not properly initialized, serialization error?");
+                    ResourcesLog.LifetimeServiceRefMissing(RpcLogger.CreateLogger<AcquiredRemoteResource>(), null);
                     return false;
                 }
 

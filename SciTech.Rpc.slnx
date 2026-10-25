@@ -31,6 +31,7 @@
     <Project Path="src/SciTech.Rpc.NetGrpc/SciTech.Rpc.NetGrpc.csproj" />
     <Project Path="src/SciTech.Rpc.NetGrpc.Client/SciTech.Rpc.NetGrpc.Client.csproj" />
     <Project Path="src/SciTech.Rpc.Protobuf/SciTech.Rpc.Protobuf.csproj" />
+    <Project Path="src/SciTech.Rpc.Resources/SciTech.Rpc.Resources.csproj" />
   </Folder>
   <Folder Name="/src/analyzer/">
     <Project Path="src/analyzer/SciTech.Rpc.Analyzer/SciTech.Rpc.Analyzer.csproj" />

@@ -28,21 +28,20 @@ namespace SciTech.Rpc.Serialization
         [SuppressMessage("Performance", "CA1802:Use literals where appropriate", Justification = "Logging temporarily removed.")]
         private static readonly bool TraceEnabled = false; // TODO: Logger.IsTraceEnabled();
 
-        private readonly DataContractSerializerSettings? settings;
+        private readonly DataContractSerializerSettings settings;
         private readonly ISerializationSurrogateProvider? surrogateProvider;
 
-        public DataContractRpcSerializer()
+        public DataContractRpcSerializer() : this(null, null)
         {
         }
 
-        public DataContractRpcSerializer(DataContractSerializerSettings? settings)
+        public DataContractRpcSerializer(DataContractSerializerSettings? settings) : this(settings, null)
         {
-            this.settings = settings;
         }
         
         public DataContractRpcSerializer(DataContractSerializerSettings? settings, ISerializationSurrogateProvider? surrogateProvider)
         {
-            this.settings = settings;
+            this.settings = CreateSettings(settings);
             this.surrogateProvider = surrogateProvider;
         }
 
@@ -55,15 +54,49 @@ namespace SciTech.Rpc.Serialization
 
         public override object? Deserialize(ReadOnlySequence<byte> input, Type type)
         {
-            var serializer = this.settings != null ? new DataContractSerializer(type, this.settings) : new DataContractSerializer(type);
-            return Deserialize(input, serializer);
+            return Deserialize(input, this.CreateSerializer(type));
         }
 
         public override void Serialize(BufferWriterStream bufferWriter, object? input, Type type)
         {
-            var serializer = this.settings != null ? new DataContractSerializer(type, this.settings) : new DataContractSerializer(type);
+            Serialize(bufferWriter, input, this.CreateSerializer(type));
+        }
 
-            Serialize(bufferWriter, input, serializer);
+        private DataContractSerializer CreateSerializer(Type type)
+        {
+            var serializer = new DataContractSerializer(type, this.settings);
+            if (this.surrogateProvider != null)
+            {
+                serializer.SetSerializationSurrogateProvider(this.surrogateProvider);
+            }
+
+            return serializer;
+        }
+
+        /// <summary>
+        /// Creates a copy of <paramref name="settings"/>, with a resolver for the known types declared by <see cref="RpcKnownTypeAttribute"/>.
+        /// </summary>
+        private static DataContractSerializerSettings CreateSettings(DataContractSerializerSettings? settings)
+        {
+            if (settings == null)
+            {
+                return new DataContractSerializerSettings { DataContractResolver = new RpcKnownTypeContractResolver(null) };
+            }
+
+            return new DataContractSerializerSettings
+            {
+                DataContractResolver = new RpcKnownTypeContractResolver(settings.DataContractResolver),
+#if NETFRAMEWORK
+                DataContractSurrogate = settings.DataContractSurrogate,
+#endif
+                IgnoreExtensionDataObject = settings.IgnoreExtensionDataObject,
+                KnownTypes = settings.KnownTypes,
+                MaxItemsInObjectGraph = settings.MaxItemsInObjectGraph,
+                PreserveObjectReferences = settings.PreserveObjectReferences,
+                RootName = settings.RootName,
+                RootNamespace = settings.RootNamespace,
+                SerializeReadOnlyTypes = settings.SerializeReadOnlyTypes,
+            };
         }
 
         internal static object? Deserialize(ReadOnlySequence<byte> input, DataContractSerializer serializer)
@@ -106,9 +139,9 @@ namespace SciTech.Rpc.Serialization
     {
         private readonly DataContractSerializer dataContractSerializer;
 
-        public DataContractRpcSerializer(DataContractSerializerSettings? settings, ISerializationSurrogateProvider? surrogateProvider)
+        public DataContractRpcSerializer(DataContractSerializerSettings settings, ISerializationSurrogateProvider? surrogateProvider)
         {
-            this.dataContractSerializer = settings != null ? new DataContractSerializer(typeof(T), settings) : new DataContractSerializer(typeof(T));
+            this.dataContractSerializer = new DataContractSerializer(typeof(T), settings);
             if( surrogateProvider != null )
             {
                 this.dataContractSerializer.SetSerializationSurrogateProvider(surrogateProvider);

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -16,7 +17,7 @@ namespace SciTech.Rpc.Resources
     /// <summary>
     /// Represents an acquired remote service. The lifetime of an acquired service is controlled by the client that requests it.
     /// <para>
-    /// Once the client receives the <see cref="AcquiredService{TService}"/> it should call <see cref="TakeOwnershipAsync"/> to verify to host 
+    /// Once the client receives the <see cref="AcquiredService{TService}"/> it should call <see cref="TakeOwnershipAsync(IRpcChannel, bool)"/> to verify to the host 
     /// that the client has received the service and to retrieve the service proxy. After <see cref="TakeOwnershipAsync(IRpcChannel, bool)"/>
     /// has been called, the service proxy can be retrieved using the <see cref="Value"/> property.
     /// </para>
@@ -32,9 +33,11 @@ namespace SciTech.Rpc.Resources
     public class AcquiredService<TService> where TService : class 
     {
         [DataMember(Order =1)]
+        [JsonInclude]
         private AcquiredRemoteResource? serviceResource;
 
         [DataMember(Order = 2)]
+        [JsonInclude]
         private RpcObjectRef<TService>? serviceRef;
 
         [NonSerialized]
@@ -50,6 +53,7 @@ namespace SciTech.Rpc.Resources
             this.serviceRef = serviceRef;
         }
 
+        [JsonIgnore]
         public TService? Value => this.service;
 
         public async Task<TService?> TakeOwnershipAsync(IRpcChannel channel, SynchronizationContext? synchronizationContext)

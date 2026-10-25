@@ -327,7 +327,6 @@ namespace SciTech.Rpc.Resources
         /// Called when the IsAcquired state has changed. If derived classes
         /// override this method, they must call base.OnAcquiredChanged.
         /// </summary>
-        /// <param name="isAcquired"></param>
         protected virtual void OnAcquiredChanged()
         {
         }

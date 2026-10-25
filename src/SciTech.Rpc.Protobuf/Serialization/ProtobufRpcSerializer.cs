@@ -14,6 +14,7 @@ using SciTech.Rpc.Serialization.Internal;
 using System;
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace SciTech.Rpc.Serialization
 {
@@ -31,6 +32,9 @@ namespace SciTech.Rpc.Serialization
         public ProtobufRpcSerializer(RuntimeTypeModel? typeModel)
         {
             this.typeModel = typeModel ?? DefaultTypeModel;
+
+            // Known types are normally handled by AddRpcTypes, but the type model may have been created without it.
+            ProtobufSerializerExtensions.AddKnownTypesHandler(this.typeModel);
         }
 
         public override IRpcSerializer<T> CreateTyped<T>()
@@ -63,9 +67,17 @@ namespace SciTech.Rpc.Serialization
     public static class ProtobufSerializerExtensions
     {
 
+        /// <summary>
+        /// Adds the types used by SciTech.Rpc to <paramref name="typeModel"/>, and makes the type model add the known types declared
+        /// by <see cref="RpcKnownTypeAttribute"/> as sub-types.
+        /// </summary>
+        /// <remarks>Known types are only added to types that are added with default behaviour applied, i.e.
+        /// added implicitly or using <c>Add(type, applyDefaultBehaviour: true)</c>.</remarks>
         public static RuntimeTypeModel AddRpcTypes(this RuntimeTypeModel typeModel)
         {
             if (typeModel is null) throw new ArgumentNullException(nameof(typeModel));
+
+            AddKnownTypesHandler(typeModel);
 
             var mt = typeModel.Add(typeof(RpcConnectionInfo), true);
             mt.UseConstructor = false;
@@ -73,6 +85,38 @@ namespace SciTech.Rpc.Serialization
             typeModel.Add(typeof(EventArgs), true);
 
             return typeModel;
+        }
+
+        internal static void AddKnownTypesHandler(RuntimeTypeModel typeModel)
+        {
+            // Only applies to types added after this, so it should be called before any type is added.
+            typeModel.AfterApplyDefaultBehaviour -= AddKnownSubTypes;
+            typeModel.AfterApplyDefaultBehaviour += AddKnownSubTypes;
+        }
+
+        private static void AddKnownSubTypes(object? sender, TypeAddedEventArgs e)
+        {
+            var metaType = e.MetaType;
+            if (metaType == null)
+            {
+                return;
+            }
+
+            var knownTypes = RpcKnownTypes.GetDeclaredKnownTypes(e.Type);
+            if (knownTypes.Count == 0)
+            {
+                return;
+            }
+
+            var subTypes = metaType.GetSubtypes();
+            foreach (var knownType in knownTypes)
+            {
+                // The sub-type may also have been declared using ProtoIncludeAttribute.
+                if (!subTypes.Any(s => s.DerivedType.Type == knownType.KnownType))
+                {
+                    metaType.AddSubType(knownType.Order, knownType.KnownType);
+                }
+            }
         }
 
     }

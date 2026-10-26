@@ -285,7 +285,8 @@ namespace SciTech.Rpc.Tests.Lightweight
             where TRequest : class
             where TResponse : class
         {
-            byte[] requestData = GetRequestData(operationName, 1, request, serializer);
+            // Datagram requests must be padded to the minimum size, or the server ignores them.
+            byte[] requestData = ServiceDiscoveryOperations.PadRequest(GetRequestData(operationName, 1, request, serializer));
 
             var responseData = await connectionHandler.HandleDatagramAsync(endPoint, requestData, cancellationToken);
             Assert.NotNull(responseData);

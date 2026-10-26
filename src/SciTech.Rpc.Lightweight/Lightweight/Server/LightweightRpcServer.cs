@@ -12,6 +12,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SciTech.Diagnostics;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
@@ -59,11 +60,10 @@ namespace SciTech.Rpc.Lightweight.Server
         private readonly List<LightweightMethodStub> numberedMethodDefinitions = new List<LightweightMethodStub>();
 
         /// <summary>
-        /// The method stubs that can be invoked through datagrams, i.e. the discovery operations. Datagrams are
-        /// unauthenticated, so they must never reach the ordinary service operations in <see cref="methodDefinitions"/>.
+        /// Handles the discovery datagrams, or <c>null</c> if discovery is not allowed. Datagrams are unauthenticated, so
+        /// they're only handled by the discovery, never by the method stubs of the ordinary service operations.
         /// </summary>
-        private readonly Dictionary<string, LightweightMethodStub> datagramMethodDefinitions
-            = new Dictionary<string, LightweightMethodStub>();
+        private ServiceDiscovery? serviceDiscovery;
 
         private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
 
@@ -224,8 +224,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
             if (this.AllowDiscovery)
             {
-                var discovery = new ServiceDiscovery(this, this.CreateDefaultSerializer());
-                discovery.AddDiscoveryMethods(new DatagramMethodBinder(this));
+                this.serviceDiscovery = new ServiceDiscovery(this);
             }
 
             base.BuildServiceStubs();
@@ -295,72 +294,58 @@ namespace SciTech.Rpc.Lightweight.Server
         }
 
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Returns null on failure")]
-        private async ValueTask<byte[]?> HandleDatagramAsync(LightweightRpcEndPoint endPoint, byte[] data, CancellationToken cancellationToken)
+        private ValueTask<byte[]?> HandleDatagramAsync(LightweightRpcEndPoint endPoint, byte[] data, CancellationToken cancellationToken)
         {
-            if (LightweightRpcFrame.TryRead(data, this.MaxRequestSize, out var frame) == RpcFrameState.Full)
+            if (this.serviceDiscovery is not ServiceDiscovery serviceDiscovery)
             {
+                return default;
+            }
+
+            // Requests are padded to a minimum size, so that a spoofed request can't make the server send much more
+            // data than it received.
+            if (data.Length < ServiceDiscoveryOperations.MinRequestSize || data.Length > ServiceDiscoveryOperations.MaxDatagramSize)
+            {
+                this.Logger.LogDebug("Ignoring datagram of size {Size}.", data.Length);
+                return default;
+            }
+
+            // Anyone on the network can send datagrams, so invalid and unknown datagrams are only logged at debug level,
+            // and they must not end the discovery listener.
+            try
+            {
+                if (LightweightRpcFrame.TryRead(data, ServiceDiscoveryOperations.MaxDatagramSize, out var frame) != RpcFrameState.Full)
+                {
+                    this.Logger.LogDebug("Received incomplete datagram frame.");
+                    return default;
+                }
+
                 if (frame.FrameType != RpcFrameType.UnaryRequest)
                 {
-                    this.Logger.LogWarning("Datagram only handles unary requests.");
-                    return null;
+                    this.Logger.LogDebug("Ignoring datagram frame of type {FrameType}.", frame.FrameType);
+                    return default;
                 }
 
-                // Only datagram operations are looked up, by name. Their stubs have no operation number, so the
-                // response always echoes the name, which the discovery client needs.
-                this.datagramMethodDefinitions.TryGetValue(frame.RpcOperation, out var methodStub);
-                if (methodStub == null)
+                using IServiceScope? scope = this.ServiceProvider?.CreateScope();
+                var responseData = serviceDiscovery.HandleDatagram(frame, endPoint, scope?.ServiceProvider);
+                if (responseData == null)
                 {
-                    // Anyone on the network can send datagrams, so this is not logged as a warning.
-                    this.Logger.LogDebug("Unknown operation '{Operation}' in datagram frame.", frame.RpcOperation);
-                    return null;
+                    this.Logger.LogDebug("Ignoring datagram for operation '{Operation}'.", frame.RpcOperation);
+                }
+                else if (responseData.Length > ServiceDiscoveryOperations.MaxDatagramSize)
+                {
+                    // The limits of the discovery data should prevent this. The response is still sent, but it may be
+                    // fragmented and then lost.
+                    this.Logger.LogWarning("Datagram response for '{Operation}' is {Size} bytes, more than the {MaxSize} bytes allowed.",
+                        frame.RpcOperation, responseData.Length, ServiceDiscoveryOperations.MaxDatagramSize);
                 }
 
-                CancellationToken actualCancellationToken;
-                CancellationTokenSource? timeoutCts = null;
-                CancellationTokenSource? linkedCts = null;
-                if (frame.Timeout > 0)
-                {
-                    timeoutCts = new CancellationTokenSource();
-                    timeoutCts.CancelAfter((int)frame.Timeout);
-                    if( cancellationToken.CanBeCanceled)
-                    {
-                        linkedCts = CancellationTokenSource.CreateLinkedTokenSource(timeoutCts.Token, cancellationToken);
-                        actualCancellationToken = linkedCts.Token;
-                    } else
-                    {
-                        actualCancellationToken = timeoutCts.Token;
-                    }
-                } else
-                {
-                    actualCancellationToken = cancellationToken;
-                }
-
-                try
-                {
-                    var context = new LightweightCallContext(endPoint, null, frame.Headers, actualCancellationToken );
-
-                    using IServiceScope? scope = this.ServiceProvider?.CreateScope();
-                    using var frameWriter = new LightweightRpcFrameWriter(65536);
-                    await methodStub.HandleMessage(frameWriter, frame, scope?.ServiceProvider, context).ContextFree();
-
-                    return frameWriter.GetFrameData();
-                }
-                catch( Exception x )
-                {
-                    this.Logger.LogWarning(x, "Error occurred in HandleDatagramAsync.");
-                }
-                finally
-                {
-                    linkedCts?.Dispose();
-                    timeoutCts?.Dispose();
-                }
+                return new ValueTask<byte[]?>(responseData);
             }
-            else
+            catch (Exception x) when (!x.IsFatal())
             {
-                this.Logger.LogInformation("Received incomplete datagram frame.");
+                this.Logger.LogDebug(x, "Ignoring invalid datagram.");
+                return default;
             }
-
-            return null;
         }
 
         protected override async Task ShutdownCoreAsync()
@@ -430,13 +415,6 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
-        private void AddDatagramMethodDef(LightweightMethodStub methodStub)
-        {
-            this.Logger.LogDebug("Add datagram operation {Operation}.", methodStub.OperationName);
-
-            this.datagramMethodDefinitions.Add(methodStub.OperationName, methodStub);
-        }
-
         private void AddServiceDef(/*HashSet<string> registeredServices, */LightweightServerServiceDefinition serviceDef)
         {
             this.Logger.LogDebug("Build service stub for {Service}.", serviceDef.ServiceName);
@@ -491,35 +469,5 @@ namespace SciTech.Rpc.Lightweight.Server
                 => this.server.RunClientAsync(clientPipe, endPoint, establishedConnection);
         }
 
-
-        private class MethodBinder : ILightweightMethodBinder
-        {
-            private LightweightRpcServer server;
-
-            internal MethodBinder(LightweightRpcServer server)
-            {
-                this.server = server;
-            }
-
-            public void AddMethod(LightweightMethodStub methodStub)
-            {
-                this.server.AddMethodDef(methodStub);
-            }
-        }
-
-        private class DatagramMethodBinder : ILightweightMethodBinder
-        {
-            private LightweightRpcServer server;
-
-            internal DatagramMethodBinder(LightweightRpcServer server)
-            {
-                this.server = server;
-            }
-
-            public void AddMethod(LightweightMethodStub methodStub)
-            {
-                this.server.AddDatagramMethodDef(methodStub);
-            }
-        }
     }
 }

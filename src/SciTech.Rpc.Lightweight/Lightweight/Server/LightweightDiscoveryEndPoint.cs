@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using SciTech.Diagnostics;
+using SciTech.Rpc.Lightweight.Internal;
 using SciTech.Rpc.Lightweight.Server.Internal;
 using SciTech.Threading;
 using System;
@@ -25,8 +27,26 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private readonly ILogger? logger;
 
+        /// <summary>
+        /// Initializes a new discovery end point, which provides <paramref name="connectionInfo"/> as the suggested connection
+        /// to discovery clients.
+        /// </summary>
+        /// <exception cref="ArgumentException">Thrown if the display name is longer than 128 UTF-8 bytes, or the host URL longer than 256 bytes.
+        /// The connection info is included in discovery responses, which must fit in a single unfragmented datagram.</exception>
         public LightweightDiscoveryEndPoint(RpcConnectionInfo connectionInfo, ILogger? logger = null)
         {
+            if (connectionInfo is null) throw new ArgumentNullException(nameof(connectionInfo));
+
+            if (ServiceDiscoveryOperations.GetUtf8Size(connectionInfo.DisplayName) > ServiceDiscoveryOperations.MaxDisplayNameSize)
+            {
+                throw new ArgumentException($"The display name of a discovery end point must not exceed {ServiceDiscoveryOperations.MaxDisplayNameSize} UTF-8 bytes.", nameof(connectionInfo));
+            }
+
+            if (ServiceDiscoveryOperations.GetUtf8Size(connectionInfo.HostUrl?.ToString()) > ServiceDiscoveryOperations.MaxHostUrlSize)
+            {
+                throw new ArgumentException($"The host URL of a discovery end point must not exceed {ServiceDiscoveryOperations.MaxHostUrlSize} UTF-8 bytes.", nameof(connectionInfo));
+            }
+
             this.connectionInfo = connectionInfo;
             this.logger = logger;
         }
@@ -333,6 +353,12 @@ namespace SciTech.Rpc.Lightweight.Server
                                     this.logger?.LogInformation(x, "Failed to send or receive from discovery UDP client. Retrying.");
                                 }
                             }
+                            catch (Exception x) when (!x.IsFatal() && !(x is ObjectDisposedException) && !cancellationToken.IsCancellationRequested)
+                            {
+                                // Anyone on the network can send datagrams, so a datagram that can't be handled must not end
+                                // the listener.
+                                this.logger?.LogInformation(x, "Failed to handle discovery datagram.");
+                            }
                         }
                     }
                     catch (Exception x)
@@ -449,49 +475,6 @@ namespace SciTech.Rpc.Lightweight.Server
                     }
                 }
             }
-
-            //private async Task HandleDiscoveryRequest(LightweightRpcFrame request, IPEndPoint remoteEndPoint, UdpClient udpClient)
-            //{
-            //    switch (request.FrameType)
-            //    {
-            //        case RpcFrameType.ServiceDiscoveryRequest:
-            //            switch (request.RpcOperation)
-            //            {
-            //                case "SciTech.Rpc.LightweightServiceDiscovery.GetPublishedSingletons":
-            //                    var publishedSingletons = this.discoveryProvider.GetPublishedSingletons();
-            //                    var response = new RpcPublishedSingletonsResponse
-            //                    {
-            //                        ConnectionInfo = this.connectionInfo,
-            //                        Services = publishedSingletons.Select(ps => new RpcPublishedSingleton { ServiceName = ps }).ToArray()
-            //                    };
-
-            //                    var responseFrame = new LightweightRpcFrame(RpcFrameType.ServiceDiscoveryResponse, request.MessageNumber, request.RpcOperation, null);
-
-            //                    using (var writer = new BufferWriterStreamImpl())
-            //                    {
-            //                        var writeState = responseFrame.BeginWrite(writer);
-
-            //                        using (var jsonWriter = new Utf8JsonWriter((IBufferWriter<byte>)writer))
-            //                        {
-            //                            JsonSerializer.Serialize(jsonWriter, response, typeof(RpcPublishedSingletonsResponse));
-            //                        }
-
-            //                        LightweightRpcFrame.EndWrite((int)writer.Length, writeState);
-
-            //                        var responseData = writer.ToArray();
-
-            //                        await udpClient.SendAsync(responseData, responseData.Length, remoteEndPoint).ContextFree();
-            //                    }
-
-            //                    break;
-            //            }
-            //            break;
-            //        default:
-            //            // We only handle discovery requests, and since we're using UDP noone caller is expecting
-            //            // that responses may be lost. So let's just ignore unknown frames.
-            //            break;
-            //    }
-            //}
         }
     }
 }

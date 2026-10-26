@@ -16,7 +16,7 @@ named pipes, or an in-process pipe) carrying a sequence of frames in each direct
 sending request frames; the server answers with response frames carrying the same message number. Several calls
 can be outstanding on one connection at the same time, and their frames can be interleaved.
 
-Service discovery uses the same frames over UDP multicast (section 7).
+Service discovery uses the same frames over UDP (section 7).
 
 ## 2. Encoding primitives
 
@@ -238,23 +238,149 @@ The first response, which assigns the number, is 21 bytes.
 
 ## 7. Service discovery
 
-Discovery sends one frame per UDP multicast datagram. The client multicasts a `UnaryRequest` for the operation
-`SciTech.Rpc.ServiceDiscovery.GetPublishedSingletons`, and each server answers with a `UnaryResponse` to the
-sender. Datagrams are unauthenticated, so the server MUST only dispatch the discovery operations through them,
-never the ordinary service operations. The discovery operations are in turn only available through datagrams.
-Unknown operations are silently ignored. The client tells the
-responses apart by the echoed `Operation` name (`GetPublishedSingletons`, or the reserved
-`SciTech.Rpc.ServiceDiscovery.GetConnectionInfo`). Payloads use the discovery serializer.
+### 7.1 Overview
 
-Discovery is connectionless and needs the echoed name, so it never uses operation numbers: discovery requests
-MUST NOT set `AcceptsOperationNumber` or `HasOperationNumber`.
+Discovery lets a client find the servers on the local network, see which of the singleton services it needs
+each server publishes, and read a few properties of each server, for example its product version. The client
+decides what to do with a server that doesn't match, for example show it as incompatible. Servers therefore
+always answer, and requests only narrow down what the answer contains.
 
-Discovery is expected to change before the 1.0 release (section 8).
+Discovery is a pre-filter. It is unauthenticated, and clients often connect by host name or address without
+it, so the authoritative compatibility check is made on the connection.
+
+Each datagram carries a single frame, and each request gets at most one response:
+
+| Operation | Sent | Purpose |
+|---|---|---|
+| `SciTech.Rpc.Discovery.FindServers` | Multicast | Find servers, their properties and the requested services. |
+| `SciTech.Rpc.Discovery.GetServices` | Multicast, answered by one server | List all discoverable services of a server, one page at a time. |
+
+The request is a `UnaryRequest` frame, and the response a `UnaryResponse` frame with the same message number,
+sent to the address and port the request came from.
+
+`GetServices` is multicast, although only one server answers it. All discovery servers on a host listen on the
+same port, and a unicast datagram is only delivered to one of them.
+
+### 7.2 Transport
+
+- Multicast groups: `239.255.250.129` (IPv4) and `ff18::732` (IPv6). Port: `39159`.
+- A server listens on each multicast-capable, non-loopback interface, separately for IPv4 and IPv6, and joins
+  the group of the address family on that interface. A client sends on each such interface and address family
+  to the matching group, and receives the responses on the same socket. A client doesn't need to join the
+  group.
+- Multicast is sent with the default hop limit (TTL) of 1, so discovery only reaches the local network.
+
+### 7.3 Security
+
+Datagrams are unauthenticated, and anyone who can reach the port can send them.
+
+- The server MUST only dispatch the discovery operations through datagrams, never the ordinary service
+  operations. The discovery operations are in turn only available through datagrams. Unknown operations, other
+  frame types and invalid datagrams are ignored, without a response, and MUST NOT stop the server from handling
+  later datagrams.
+- The server MUST ignore a datagram shorter than **512 bytes** or longer than **1200 bytes**. Clients pad
+  their requests with zero bytes after the frame to reach 512 bytes. Since a response is at most 1200 bytes, a
+  spoofed request can't make the server send much more data than it received.
+- Discovery frames MUST NOT set `AcceptsOperationNumber` or `HasOperationNumber`. A server MUST echo the
+  operation name in responses, since it identifies the response (section 7.5).
+
+### 7.4 Payloads
+
+Payloads are UTF-8 JSON objects. Names are case sensitive. Receivers MUST ignore unknown properties, so new
+ones can be added later. A missing property has its default value (`null`, `0` or empty). Writers SHOULD NOT
+escape non-ASCII characters, to keep the size limits meaningful. GUIDs are written in the
+`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` format.
+
+**`FindServers` request**
+
+| Property | Type | Description |
+|---|---|---|
+| `ClientId` | GUID | Chosen by the client for each discovery run. Echoed in the response. |
+| `Services` | string[] | Optional. Names of the singleton services the client is interested in. The server considers at most the first 32. |
+
+**`FindServers` response**
+
+| Property | Type | Description |
+|---|---|---|
+| `ClientId` | GUID | From the request. |
+| `ConnectionInfo` | object | `DisplayName`, `HostUrl` and `ServerId` of the server's suggested connection, as in `RpcConnectionInfo`. |
+| `Properties` | object | Server properties: string keys and string values, defined by the application. |
+| `Matches` | int[] | Zero-based indices into the request's `Services` of the services the server publishes as discoverable singletons, in ascending order. |
+| `ServiceCount` | int | Number of discoverable singleton services. |
+| `ServicesHash` | string | Hash of the discoverable singleton services (section 7.6). |
+
+**`GetServices` request**
+
+| Property | Type | Description |
+|---|---|---|
+| `ClientId` | GUID | From the client's discovery run. |
+| `ServerId` | GUID | The server to answer. Other servers MUST NOT answer. |
+| `Offset` | int | Index of the first service to return. |
+
+**`GetServices` response**
+
+| Property | Type | Description |
+|---|---|---|
+| `ClientId` | GUID | From the request. |
+| `ServerId` | GUID | The server's id. |
+| `ServiceCount` | int | Number of discoverable singleton services. |
+| `ServicesHash` | string | Hash of the discoverable singleton services. |
+| `Offset` | int | From the request. |
+| `Services` | string[] | The services from `Offset` on, in the order of section 7.6, as many as fit in the response. Empty if `Offset` is at or beyond the end. |
+
+### 7.5 Client behaviour
+
+- The client sends `FindServers` periodically (the C# client: every 2 seconds) for as long as discovery runs.
+  It matches responses by `ClientId` and identifies servers by `ConnectionInfo.ServerId`. Responses from the
+  same server on several interfaces or address families are combined.
+- A server is lost when it hasn't responded for a timeout that spans several requests (the C# client: 10
+  seconds), so a single lost datagram doesn't make servers come and go.
+- For a TCP connection URL, the client replaces the host of `HostUrl` with the address the response came from,
+  since the server may suggest a host name the client can't resolve. An IPv6 link-local address needs a zone
+  index, which doesn't work well in a URL, so then the suggested host is kept. A connection URL derived from an
+  address is preferred over a suggested one.
+- To list all services of a server, the client sends `GetServices` requests for that server on the interface and
+  address family that the server answered on, starting at offset 0 and continuing at `Offset` plus the number of
+  services received, until it has `ServiceCount` services. A request that isn't answered is resent. If
+  `ServicesHash` changes between pages, the client starts over. It only needs to fetch the list again when the
+  `ServicesHash` of a `FindServers` response changes. A client that only needs specific services uses
+  `Services` and `Matches` instead.
+
+### 7.6 Server behaviour and limits
+
+- The discoverable singleton services are the published singletons whose service allows discovery, and whose
+  name is at most 256 bytes. They are sorted by the bytes of their UTF-8 names.
+- `ServicesHash` is the 64-bit FNV-1a hash of the sorted UTF-8 names, each followed by a `0x0A` byte, written
+  as 16 lowercase hexadecimal digits. The client compares it for equality only.
+- Responses SHOULD NOT exceed 1200 bytes, the largest UDP payload that won't be fragmented on IPv6 networks. This
+  follows from these limits, which a server SHOULD enforce when it is configured:
+  - `DisplayName`: at most 128 bytes. `HostUrl`: at most 256 bytes.
+  - Server properties: at most 8 entries, with at most 256 bytes for all keys and values together.
+  - A `GetServices` response contains as many names as fit within 1200 bytes, but at least one.
+
+### 7.7 Example
+
+A `FindServers` request from a client that needs the device manager service, and the response of a server
+that publishes it (payloads only):
+
+```json
+{"ClientId":"6f1c1f60-30c2-4a6b-9d63-3c0b4c4f2a51","Services":["Thermostat.DeviceManagerService"]}
+```
+
+```json
+{"ClientId":"6f1c1f60-30c2-4a6b-9d63-3c0b4c4f2a51",
+ "ConnectionInfo":{"DisplayName":"lab-pc-07","HostUrl":"lightweight.tcp://lab-pc-07:50051/","ServerId":"0b8e8a3e-5d0c-4f43-9a51-7f6b2f0f9c11"},
+ "Properties":{"product":"Thermostat","version":"4.2.1-alpha.3","channel":"alpha"},
+ "Matches":[0],"ServiceCount":5,"ServicesHash":"9f2b6c0d1e4a7735"}
+```
 
 ## 8. Open questions
 
-- **Service discovery.** Discovery needs improvements before 1.0, and they may change the discovery frames and
-  operations described in section 7.
+- **Discovery on networks that drop multicast.** Switches that snoop IGMP without a querier on the network stop
+  forwarding the group after a few minutes. Servers could rejoin the group periodically, or IPv4 discovery could
+  fall back to subnet broadcast.
+- **DNS-SD.** Discovery through mDNS/DNS-SD could be added after 1.0 as an alternative. Server properties map
+  directly to TXT records.
 - **Automatic retry after an unknown number.** Nothing was executed, so the client could resend the call by
   name. Since numbers are stable for the connection, this can only happen through a bug, so for now the error is
   just reported.

@@ -199,7 +199,7 @@ set `HasOperationNumber`.
   `HasOperationNumber` and the number in the **first response frame** of the call, whatever its type. It MAY
   include the number in later response frames of the call too. Response frames of other calls, and calls
   requested by number, don't carry a number.
-- In responses to a call whose request had `AcceptsOperationNumber` or `HasOperationNumber` set, the server
+- In responses to a call that was requested by number, or for which the server returns a number, the server
   SHOULD leave `Operation` empty. For other calls it MUST echo the operation name as before, because older
   clients and the discovery client depend on it.
 - The server MUST NOT set `HasOperationNumber` in a response unless the request had `AcceptsOperationNumber`
@@ -218,6 +218,11 @@ matching call. Clients that implement the extension MUST NOT depend on the `Oper
 
 Pre-1.0 clients and servers (SciTech.Rpc 1.0 betas) ignore unknown flags: the C# server only tests `CanCancel`,
 and the C++ server doesn't test flags.
+
+Implementations SHOULD let the extension be disabled, since operation names make frames much easier to identify
+when analysing network traffic. A client with the extension disabled behaves as a client without it, and a server
+with it disabled behaves as a server without it, so either side can turn it off for the connection. In the C#
+implementation this is `LightweightOptions.UseOperationNumbers`.
 
 ### 6.6 Example
 

@@ -53,6 +53,11 @@ namespace SciTech.Rpc.Lightweight.Server
         private readonly Dictionary<string, LightweightMethodStub> methodDefinitions
             = new Dictionary<string, LightweightMethodStub>();
 
+        /// <summary>
+        /// The registered method stubs, indexed by operation number - 1.
+        /// </summary>
+        private readonly List<LightweightMethodStub> numberedMethodDefinitions = new List<LightweightMethodStub>();
+
         private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
 
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
@@ -114,11 +119,18 @@ namespace SciTech.Rpc.Lightweight.Server
             this.MaxResponseSize = options?.SendMaxMessageSize ?? DefaultMaxResponseMessageSize;
 
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
+            this.UseOperationNumbers = lightweightOptions?.UseOperationNumbers ?? true;
         }
 
         public int ClientCount => this.clients.Count;
-         
+
         public bool KeepSizeLimitedConnectionAlive { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether operation numbers are returned to clients that support them.
+        /// See <see cref="LightweightOptions.UseOperationNumbers"/>.
+        /// </summary>
+        public bool UseOperationNumbers { get; }
 
         public int MaxRequestSize { get; }
 
@@ -155,6 +167,35 @@ namespace SciTech.Rpc.Lightweight.Server
         {
             this.methodDefinitions.TryGetValue(rpcOperation, out var methodStub);
             return methodStub;
+        }
+
+        internal LightweightMethodStub? GetMethodDefinition(uint operationNumber)
+        {
+            if (operationNumber > 0 && operationNumber <= this.numberedMethodDefinitions.Count)
+            {
+                return this.numberedMethodDefinitions[(int)operationNumber - 1];
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets the method stub of the operation requested by <paramref name="requestFrame"/>, by operation number or by name.
+        /// </summary>
+        /// <exception cref="RpcFailureException">Thrown if the request specifies both an operation number and an operation name.</exception>
+        internal LightweightMethodStub? GetMethodDefinition(in LightweightRpcFrame requestFrame)
+        {
+            if ((requestFrame.OperationFlags & RpcOperationFlags.HasOperationNumber) != 0)
+            {
+                if (requestFrame.RpcOperation.Length > 0)
+                {
+                    throw new RpcFailureException(RpcFailure.InvalidData, "An RPC request must not specify both an operation number and an operation name.");
+                }
+
+                return this.GetMethodDefinition(requestFrame.OperationNumber);
+            }
+
+            return this.GetMethodDefinition(requestFrame.RpcOperation);
         }
 
         protected override void BuildServiceStub(Type serviceType)
@@ -366,6 +407,17 @@ namespace SciTech.Rpc.Lightweight.Server
             this.Logger.LogDebug("Add service operation {Operation}.", methodStub.OperationName);
 
             this.methodDefinitions.Add(methodStub.OperationName, methodStub);
+
+            if (this.UseOperationNumbers)
+            {
+                // Operation numbers are assigned in registration order and must refer to the same operation for the
+                // lifetime of the server. Currently all stubs are registered before the server is started (the
+                // definitions are frozen in StartCore). If registration after start is implemented, numbering stays
+                // append-only (a number must never be reused), but the lookups must then be made thread safe.
+                // If operation numbers are not used, the stubs keep the number 0, and the names are always echoed.
+                this.numberedMethodDefinitions.Add(methodStub);
+                methodStub.OperationNumber = (uint)this.numberedMethodDefinitions.Count;
+            }
         }
 
         private void AddServiceDef(/*HashSet<string> registeredServices, */LightweightServerServiceDefinition serviceDef)

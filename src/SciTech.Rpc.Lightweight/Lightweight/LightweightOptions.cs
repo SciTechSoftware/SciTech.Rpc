@@ -38,5 +38,17 @@ namespace SciTech.Rpc.Lightweight
         /// this setting is <c>false</c>.
         /// </summary>
         public bool? AllowReconnect { get; set; }
+
+        /// <summary>
+        /// If <c>true</c>, indicates that operation numbers may be used instead of operation names in request and
+        /// response frames, if supported by the other side of the connection. This reduces the size of frames. By default
+        /// this setting is <c>true</c>.
+        /// </summary>
+        /// <remarks>
+        /// Set this to <c>false</c> on the client or the server to always include the operation name in the frames, e.g.
+        /// to make it easier to identify frames when analysing network traffic. Disabling operation numbers on one side
+        /// disables them for the connection.
+        /// </remarks>
+        public bool? UseOperationNumbers { get; set; }
     }
 }

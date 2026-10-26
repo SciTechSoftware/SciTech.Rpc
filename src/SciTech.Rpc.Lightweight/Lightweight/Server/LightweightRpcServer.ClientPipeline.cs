@@ -176,7 +176,7 @@ namespace SciTech.Rpc.Lightweight.Server
 
                 string msg = $"Size of received request frame exceeds size limit (frame size={frame.FrameLength}, max size={this.MaxReceiveFrameLength}).";
 
-                return this.WriteFailureResponseAsync(frame.MessageNumber, "", msg, RpcFailure.SizeLimitExceeded, null);
+                return this.WriteFailureResponseAsync(frame.MessageNumber, ResponseOperation.Empty, msg, RpcFailure.SizeLimitExceeded, null);
             }
 
             protected override async Task OnReceiveLoopFaultedAsync(ExceptionEventArgs e)
@@ -223,12 +223,14 @@ namespace SciTech.Rpc.Lightweight.Server
             /// just the default ValueTask, unless active operations have been throttled.</returns>
             [SuppressMessage("Design", "CA1031:Do not catch general exception types")]
             private ValueTask HandleAsyncOperation(
-                in LightweightRpcFrame frame, ActiveOperation activeOperation, IServiceScope? scope, IRpcSerializer? serializer, Task messageTask)
+                in LightweightRpcFrame frame, ActiveOperation activeOperation, IServiceScope? scope, LightweightMethodStub? methodStub, Task messageTask)
             {
                 // TODO: Throttle the number of active operations.
 
                 int messageId = frame.MessageNumber;
-                string operationName = frame.RpcOperation;
+                string operationName = methodStub?.OperationName ?? frame.RpcOperation;
+                var responseOperation = ResponseOperation.Create(frame, methodStub?.OperationNumber ?? 0);
+                var serializer = methodStub?.Serializer;
 
                 async void HandleCompletedAsyncOperation(Task t)
                 {
@@ -239,14 +241,14 @@ namespace SciTech.Rpc.Lightweight.Server
                             if (activeOperation.IsCancellationRequested)
                             {
                                 LogRequestCancelled(this.server.Logger, operationName, null);
-                                await this.WriteCancelResponseAsync(messageId, operationName).ContextFree();
+                                await this.WriteCancelResponseAsync(messageId, responseOperation).ContextFree();
                             }
                             else
                             {
                                 // If the operation is cancelled, but cancellation has not been requested, then
                                 // it's actually a timeout.
                                 LogRequestTimedOut(this.server.Logger, operationName, null);
-                                await this.WriteTimeoutResponseAsync(messageId, operationName).ContextFree();
+                                await this.WriteTimeoutResponseAsync(messageId, responseOperation).ContextFree();
                             }
                         }
                         else if (t.IsFaulted)
@@ -256,7 +258,7 @@ namespace SciTech.Rpc.Lightweight.Server
                             // pipe will be closed). Maybe the handler should close the pipe instead
                             // and not propagate the error?
                             LogRequestError(this.server.Logger, operationName, t.Exception?.InnerException ?? t.Exception);
-                            await this.WriteExceptionResponseAsync(messageId, operationName, t.Exception!.InnerException ?? t.Exception, serializer).ContextFree();
+                            await this.WriteExceptionResponseAsync(messageId, responseOperation, operationName, t.Exception!.InnerException ?? t.Exception, serializer).ContextFree();
                         }
                     }
                     catch (Exception e)
@@ -342,7 +344,7 @@ namespace SciTech.Rpc.Lightweight.Server
                 LightweightMethodStub? methodStub = null;
                 try
                 {
-                    methodStub = this.server.GetMethodDefinition(frame.RpcOperation);
+                    methodStub = this.server.GetMethodDefinition(frame);
                     if (methodStub != null)
                     {
                         bool canCancel = (frame.OperationFlags & RpcOperationFlags.CanCancel) != 0;
@@ -369,30 +371,30 @@ namespace SciTech.Rpc.Lightweight.Server
                         switch (frame.FrameType)
                         {
                             case RpcFrameType.UnaryRequest:
-                                LogBeginHandleUnaryRequest(this.server.Logger, frame.RpcOperation, null);
+                                LogBeginHandleUnaryRequest(this.server.Logger, methodStub.OperationName, null);
 
                                 messageTask = methodStub.HandleMessage(this, frame, scope?.ServiceProvider, context);
                                 break;
 
                             case RpcFrameType.ServerStreamingRequest:
-                                LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
+                                LogBeginHandleStreamingRequest(this.server.Logger, methodStub.OperationName, null);
 
                                 if (methodStub.IsClientStreaming)
                                 {
                                     throw new RpcFailureException(RpcFailure.RemoteDefinitionError,
-                                        $"Received a server-streaming request for client-streaming operation '{frame.RpcOperation}'.");
+                                        $"Received a server-streaming request for client-streaming operation '{methodStub.OperationName}'.");
                                 }
 
                                 messageTask = methodStub.HandleStreamingMessage(this, frame, scope?.ServiceProvider, context);
                                 break;
 
                             case RpcFrameType.ClientStreamingRequest:
-                                LogBeginHandleStreamingRequest(this.server.Logger, frame.RpcOperation, null);
+                                LogBeginHandleStreamingRequest(this.server.Logger, methodStub.OperationName, null);
 
                                 if (!methodStub.IsClientStreaming)
                                 {
                                     throw new RpcFailureException(RpcFailure.RemoteDefinitionError,
-                                        $"Received a client-streaming request for non-client-streaming operation '{frame.RpcOperation}'.");
+                                        $"Received a client-streaming request for non-client-streaming operation '{methodStub.OperationName}'.");
                                 }
 
                                 // Client-streaming requests are kept active so that subsequent StreamingData/StreamingEnd
@@ -418,16 +420,19 @@ namespace SciTech.Rpc.Lightweight.Server
                             scope = null;
                             logScope = null;
                             cancellationSource = null;
-                            return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub.Serializer, messageTask);
+                            return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub, messageTask);
                         }
                         else
                         {
-                            LogRequestHandledSynchronously(this.server.Logger, frame.RpcOperation, null);
+                            LogRequestHandledSynchronously(this.server.Logger, methodStub.OperationName, null);
                         }
                     }
                     else
                     {
-                        throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Unknown RPC operation '{frame.RpcOperation}'.");
+                        throw new RpcFailureException(RpcFailure.RemoteDefinitionError,
+                            (frame.OperationFlags & RpcOperationFlags.HasOperationNumber) != 0
+                            ? $"Unknown RPC operation number {frame.OperationNumber}."
+                            : $"Unknown RPC operation '{frame.RpcOperation}'.");
                     }
                 }
                 catch (Exception e)
@@ -443,7 +448,7 @@ namespace SciTech.Rpc.Lightweight.Server
                     logScope = null;
                     cancellationSource = null;
 
-                    return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub?.Serializer, Task.FromException(e));
+                    return this.HandleAsyncOperation(frame, activeOperation, activeScope, methodStub, Task.FromException(e));
                 }
                 finally
                 {
@@ -464,17 +469,17 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
             }
 
-            private async Task WriteCancelResponseAsync(int messageId, string operationName)
+            private async Task WriteCancelResponseAsync(int messageId, ResponseOperation operation)
             {
                 // TODO: Should any headers be returned?
                 ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>> headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
-                var cancelFrame = new LightweightRpcFrame(RpcFrameType.CancelResponse, messageId, operationName, headers);
+                var cancelFrame = new LightweightRpcFrame(RpcFrameType.CancelResponse, messageId, operation, headers);
 
                 var writeState = this.BeginWrite(cancelFrame);
                 await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
-            private async Task WriteErrorResponseAsync(int messageId, string operationName, RpcError rpcError, IRpcSerializer? serializer)
+            private async Task WriteErrorResponseAsync(int messageId, ResponseOperation operation, RpcError rpcError, IRpcSerializer? serializer)
             {
                 //// TODO: Should any additional headers be returned?
                 List<KeyValuePair<string, ImmutableArray<byte>>> headers;
@@ -500,34 +505,34 @@ namespace SciTech.Rpc.Lightweight.Server
                     }
                 }
 
-                var errorFrame = new LightweightRpcFrame(RpcFrameType.ErrorResponse, messageId, operationName, headers);
+                var errorFrame = new LightweightRpcFrame(RpcFrameType.ErrorResponse, messageId, operation, headers);
 
                 var writeState = this.BeginWrite(errorFrame);
                 await this.EndWriteAsync(writeState, false).ContextFree();
             }
 
-            private Task WriteExceptionResponseAsync(int messageId, string operationName, Exception e, IRpcSerializer? serializer)
+            private Task WriteExceptionResponseAsync(int messageId, ResponseOperation operation, string operationName, Exception e, IRpcSerializer? serializer)
             {
                 RpcError? rpcError = RpcError.TryCreate(e, serializer);
                 if (rpcError != null)
                 {
-                    return this.WriteErrorResponseAsync(messageId, operationName, rpcError, serializer);
+                    return this.WriteErrorResponseAsync(messageId, operation, rpcError, serializer);
                 }
 
                 if (e is OperationCanceledException)
                 {
-                    return this.WriteCancelResponseAsync(messageId, operationName);
+                    return this.WriteCancelResponseAsync(messageId, operation);
                 }
                 else
                 {
                     // TODO: Implement IncludeExceptionDetailInFaults
                     string message = $"The server was unable to process the request for operation '{operationName}' due to an internal error. "
                         + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
-                    return this.WriteFailureResponseAsync(messageId, operationName, message, RpcFailure.Unknown, serializer);
+                    return this.WriteFailureResponseAsync(messageId, operation, message, RpcFailure.Unknown, serializer);
                 }
             }
 
-            private Task WriteFailureResponseAsync(int messageId, string operationName, string message, RpcFailure failure, IRpcSerializer? serializer)
+            private Task WriteFailureResponseAsync(int messageId, ResponseOperation operation, string message, RpcFailure failure, IRpcSerializer? serializer)
             {
                 RpcError rpcError = new RpcError
                 {
@@ -536,14 +541,14 @@ namespace SciTech.Rpc.Lightweight.Server
                     Message = message
                 };
 
-                return WriteErrorResponseAsync(messageId, operationName, rpcError, serializer);
+                return WriteErrorResponseAsync(messageId, operation, rpcError, serializer);
             }
 
-            private async Task WriteTimeoutResponseAsync(int messageId, string operationName)
+            private async Task WriteTimeoutResponseAsync(int messageId, ResponseOperation operation)
             {
                 // TODO: Should any headers be returned?
                 ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>> headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
-                var cancelFrame = new LightweightRpcFrame(RpcFrameType.TimeoutResponse, messageId, operationName, headers);
+                var cancelFrame = new LightweightRpcFrame(RpcFrameType.TimeoutResponse, messageId, operation, headers);
 
                 var writeState = this.BeginWrite(cancelFrame);
                 await this.EndWriteAsync(writeState, false).ContextFree();

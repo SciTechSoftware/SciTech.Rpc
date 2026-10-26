@@ -67,6 +67,7 @@ namespace SciTech.Rpc.Lightweight.Client
         {
             this.KeepSizeLimitedConnectionAlive = lightweightOptions?.KeepSizeLimitedConnectionAlive ?? true;
             this.AllowReconnect = lightweightOptions?.AllowReconnect ?? false;
+            this.UseOperationNumbers = lightweightOptions?.UseOperationNumbers ?? true;
             this.listener = new WeakListener(this);
         }
 
@@ -113,6 +114,12 @@ namespace SciTech.Rpc.Lightweight.Client
         /// exceeds the limits specified by <see cref="RpcClientOptions"/> and <see cref="RpcServerOptions"/>.
         /// </summary>
         public bool KeepSizeLimitedConnectionAlive { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether operation numbers are used instead of operation names, if the server supports
+        /// them. See <see cref="LightweightOptions.UseOperationNumbers"/>.
+        /// </summary>
+        public bool UseOperationNumbers { get; }
 
         /// <inheritdoc/>
         public override Task ConnectAsync(CancellationToken cancellationToken)
@@ -185,7 +192,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
                     var connection = await this.ConnectPipelineAsync(sendMaxMessageSize, receiveMaxMessageSize, cancellationToken).ContextFree();
 
-                    var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive);
+                    var connectedClient = new RpcPipelineClient(connection, sendMaxMessageSize, receiveMaxMessageSize, this.KeepSizeLimitedConnectionAlive, this.UseOperationNumbers);
 
                     connectedClient.Faulted += this.listener.PipelineFaulted;
 

@@ -53,19 +53,24 @@ namespace SciTech.Rpc.Lightweight.Internal
     /// int32 FrameLength: Total length of frame, including header
     /// int32 MessageNumber: Message identifier
     /// int32 PayloadLength: Total length of serialized payload
-    /// String Operation: Defines the RPC operation associated with the frame. May be empty if not needed.
+    /// String Operation: Defines the RPC operation associated with the frame. May be empty if not needed, and must be
+    ///     empty if an operation number is specified.
     /// varint OperationFlags: Operation flags (from the <see cref="RpcOperationFlags"/> enum.
+    /// varint OperationNumber: Operation number. Only present if <see cref="RpcOperationFlags.HasOperationNumber"/> is set.
     /// varint Timeout: Operation timeout, in milliseconds (0 means no timeout)
     /// varint HeaderPairsCount: Number of header pairs (following this field)
-    /// StringPair[] HeaderPairs: Array of header pairs. Length specified by HeaderPairsCount
+    /// HeaderPair[] HeaderPairs: Array of header pairs. Length specified by HeaderPairsCount
     ///     String Key: UTF8 encoded header key
-    ///     String Value: UTF8 encoded header value
+    ///     Bytes Value: Header value (UTF8 encoded for text values)
     ///  byte[] Payload: Frame payload, e.g. request or response data. Size specified by PayloadLength.
-    ///  
-    /// 
+    ///
+    ///
     /// short and int32: encoded as little-endian integers
     /// varint: Protobuf style encoded integer
     /// String: Protobuf style encoded UTF8 string
+    /// Bytes: Protobuf style encoded byte array
+    ///
+    /// See docs/lightweight-protocol.md for the full specification.
     /// </summary>
     internal readonly struct LightweightRpcFrame 
     {
@@ -88,6 +93,7 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.Headers = null;
 
             this.OperationFlags = 0;
+            this.OperationNumber = 0;
             this.Timeout = 0;
         }
 
@@ -95,27 +101,41 @@ namespace SciTech.Rpc.Lightweight.Internal
             RpcFrameType frameType,
             int messageNumber, string rpcOperation,
             IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
+            : this(frameType, messageNumber, rpcOperation, 0, RpcOperationFlags.None, 0, headers)
         {
-            this.FrameType = frameType;
-            this.FrameLength = null;
-            this.RpcOperation = rpcOperation;
-            this.MessageNumber = messageNumber;
-            this.Payload = ReadOnlySequence<byte>.Empty;
-            this.Headers = headers;
+        }
 
-            this.OperationFlags = 0;
-            this.Timeout = 0;
+        public LightweightRpcFrame(
+            RpcFrameType frameType,
+            int messageNumber, in ResponseOperation responseOperation,
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
+            : this(frameType, messageNumber, responseOperation.Name, responseOperation.Number, RpcOperationFlags.None, 0, headers)
+        {
         }
 
         public LightweightRpcFrame(
             RpcFrameType frameType, int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
+            : this(frameType, messageNumber, rpcOperation, 0, flags, timeout, headers)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a frame for writing. If <paramref name="operationNumber"/> is non-zero, then
+        /// <see cref="RpcOperationFlags.HasOperationNumber"/> is set in <see cref="OperationFlags"/>, otherwise it's cleared.
+        /// </summary>
+        public LightweightRpcFrame(
+            RpcFrameType frameType, int messageNumber, string rpcOperation, uint operationNumber, RpcOperationFlags flags, uint timeout,
             IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers)
         {
             this.FrameType = frameType;
             this.FrameLength = null;
             this.RpcOperation = rpcOperation;
             this.MessageNumber = messageNumber;
-            this.OperationFlags = flags;
+            this.OperationNumber = operationNumber;
+            this.OperationFlags = operationNumber != 0
+                ? flags | RpcOperationFlags.HasOperationNumber
+                : flags & ~RpcOperationFlags.HasOperationNumber;
             this.Timeout = timeout;
             this.Payload = ReadOnlySequence<byte>.Empty;
             this.Headers = headers;
@@ -125,7 +145,17 @@ namespace SciTech.Rpc.Lightweight.Internal
             RpcFrameType frameType,
             int? frameLength,
             int messageNumber, string rpcOperation, RpcOperationFlags flags, uint timeout,
-            in ReadOnlySequence<byte> payload, 
+            in ReadOnlySequence<byte> payload,
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>> headers)
+            : this(frameType, frameLength, messageNumber, rpcOperation, 0, flags, timeout, payload, headers)
+        {
+        }
+
+        public LightweightRpcFrame(
+            RpcFrameType frameType,
+            int? frameLength,
+            int messageNumber, string rpcOperation, uint operationNumber, RpcOperationFlags flags, uint timeout,
+            in ReadOnlySequence<byte> payload,
             IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>> headers)
         {
             this.FrameType = frameType;
@@ -135,7 +165,10 @@ namespace SciTech.Rpc.Lightweight.Internal
             this.Payload = payload;
             this.Headers = headers;
 
-            this.OperationFlags = flags;
+            this.OperationNumber = operationNumber;
+            this.OperationFlags = operationNumber != 0
+                ? flags | RpcOperationFlags.HasOperationNumber
+                : flags & ~RpcOperationFlags.HasOperationNumber;
             this.Timeout = timeout;
         }
 
@@ -180,6 +213,12 @@ namespace SciTech.Rpc.Lightweight.Internal
         public int MessageNumber { get; }
 
         public RpcOperationFlags OperationFlags { get; }
+
+        /// <summary>
+        /// The operation number, or 0 if the frame has no operation number (i.e. <see cref="RpcOperationFlags.HasOperationNumber"/>
+        /// is not set).
+        /// </summary>
+        public uint OperationNumber { get; }
 
         /// <summary>
         /// The payload data following the header. May be empty when building a request or response.
@@ -236,6 +275,16 @@ namespace SciTech.Rpc.Lightweight.Internal
             var operation = ReadString(ref currInput, frameLength);
 
             var operationFlags = (RpcOperationFlags)ReadUInt32Varint(ref currInput);
+            uint operationNumber = 0;
+            if ((operationFlags & RpcOperationFlags.HasOperationNumber) != 0)
+            {
+                operationNumber = ReadUInt32Varint(ref currInput);
+                if (operationNumber == 0)
+                {
+                    throw new InvalidDataException("Invalid RPC operation number 0.");
+                }
+            }
+
             var timeout = ReadUInt32Varint(ref currInput);
 
             uint headerPairsCount = ReadUInt32Varint(ref currInput);
@@ -268,7 +317,7 @@ namespace SciTech.Rpc.Lightweight.Internal
 
             var payload = currInput.Slice(0, payloadLength);
             input = currInput.Slice(payloadLength);
-            message = new LightweightRpcFrame(frameType, frameLength, messageNumber, operation, operationFlags, timeout, payload, headers);
+            message = new LightweightRpcFrame(frameType, frameLength, messageNumber, operation, operationNumber, operationFlags, timeout, payload, headers);
             return RpcFrameState.Full;
         }
 
@@ -336,6 +385,11 @@ namespace SciTech.Rpc.Lightweight.Internal
             headerLength += WriteString(writer, this.RpcOperation);
 
             headerLength += WriteUInt32Varint(writer, (uint)this.OperationFlags);
+            if ((this.OperationFlags & RpcOperationFlags.HasOperationNumber) != 0)
+            {
+                headerLength += WriteUInt32Varint(writer, this.OperationNumber);
+            }
+
             headerLength += WriteUInt32Varint(writer, this.Timeout);
 
             var headers = this.Headers;
@@ -721,7 +775,22 @@ namespace SciTech.Rpc.Lightweight.Internal
     internal enum RpcOperationFlags
     {
         None = 0,
-        CanCancel = 0x0001
+
+        /// <summary>
+        /// The client may cancel the call using a <see cref="RpcFrameType.CancelRequest"/>.
+        /// </summary>
+        CanCancel = 0x0001,
+
+        /// <summary>
+        /// Set in a request sent by operation name, to indicate that the client supports operation numbers. The server
+        /// may then return the operation number in the response. Doesn't add a field to the frame.
+        /// </summary>
+        AcceptsOperationNumber = 0x0002,
+
+        /// <summary>
+        /// The frame includes the OperationNumber field. Must only be sent to a peer that is known to support operation numbers.
+        /// </summary>
+        HasOperationNumber = 0x0004,
     }
 #pragma warning restore CA1028 // Enum Storage should be Int32
 

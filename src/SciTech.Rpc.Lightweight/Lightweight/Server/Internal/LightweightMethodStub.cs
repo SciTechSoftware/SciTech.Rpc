@@ -102,6 +102,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public string OperationName { get; }
 
+        /// <summary>
+        /// The operation number assigned by the server when the stub is registered. Never 0 for a registered stub.
+        /// </summary>
+        public uint OperationNumber { get; internal set; }
+
         public abstract Type RequestType { get; }
 
         public abstract Type ResponseType { get; }
@@ -224,7 +229,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                 // In case the PipeScheduler is set to Inline, this is a bit (more) dangerous, i.e. even
                 // higher risk of dead-lock. AllowInlineExecution and PipeScheduler.Inline should
                 // be used with caution.
-                return ExecuteOperation(this, frameWriter, request, frame.MessageNumber, frame.RpcOperation, serviceProvider, context);
+                return ExecuteOperation(this, frameWriter, request, frame.MessageNumber, ResponseOperation.Create(frame, this.OperationNumber), serviceProvider, context);
             }
             else
             {
@@ -233,7 +238,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             static Task ExecuteOperation(
                 LightweightMethodStub<TRequest, TResponse> stub,
-                ILightweightRpcFrameWriter frameWriter, TRequest request, int messageNumber, string operation,
+                ILightweightRpcFrameWriter frameWriter, TRequest request, int messageNumber, ResponseOperation operation,
                 IServiceProvider? serviceProvider, LightweightCallContext context)
             {
                 var responseTask = stub.Handler(request, serviceProvider, context);
@@ -244,7 +249,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             Task StartHandleMessage(ILightweightRpcFrameWriter frameWriter, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context, TRequest request)
             {
                 var messageNumber = frame.MessageNumber;
-                var operation = frame.RpcOperation;
+                var operation = ResponseOperation.Create(frame, this.OperationNumber);
                 // TODO: Scheduler should be a stub property
                 var scheduler = TaskScheduler.Default;
                 //ThreadPool.UnsafeQueueUserWorkItem(
@@ -261,10 +266,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         public override Task HandleStreamingMessage(ILightweightRpcFrameWriter pipeline, in LightweightRpcFrame frame, IServiceProvider? serviceProvider, LightweightCallContext context)
         {
-            throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Server streaming request handler is not initialized for '{frame.RpcOperation}'.");
+            throw new RpcFailureException(RpcFailure.RemoteDefinitionError, $"Server streaming request handler is not initialized for '{this.OperationName}'.");
         }
 
-        private Task HandleResponse(int messageNumber, string operation, ILightweightRpcFrameWriter frameWriter, ValueTask<TResponse> responseTask)
+        private Task HandleResponse(int messageNumber, ResponseOperation operation, ILightweightRpcFrameWriter frameWriter, ValueTask<TResponse> responseTask)
         {
             // Try to return response from synchronous methods directly.
             if (responseTask.IsCompletedSuccessfully)
@@ -298,7 +303,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             else
             {
                 // Handler is asynchronous (or an error occurred)
-                async Task AwaitAndWriteResponse(int messageNumber, string operation)
+                async Task AwaitAndWriteResponse(int messageNumber, ResponseOperation operation)
                 {
                     var response = await responseTask.ContextFree();
                     var headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;  // TODO:
@@ -375,7 +380,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             if (request == null) throw new RpcFailureException(RpcFailure.InvalidData, "Payload deserialization failed");
 
-            var responseWriter = new StreamingResponseWriter<TStreamResponse>(pipeline, this.responseSerializer, frame.MessageNumber, frame.RpcOperation);
+            var responseWriter = new StreamingResponseWriter<TStreamResponse>(pipeline, this.responseSerializer, frame.MessageNumber, ResponseOperation.Create(frame, this.OperationNumber));
             var responseTask = this.StreamHandler(request, serviceProvider, responseWriter, context);
 
             return HandleStreamResponse(responseTask, responseWriter);
@@ -461,10 +466,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             if (request == null) throw new RpcFailureException(RpcFailure.InvalidData, "Payload deserialization failed");
 
-            return new ClientStreamFeed(this, pipeline, frame.MessageNumber, frame.RpcOperation, request, serviceProvider, context);
+            return new ClientStreamFeed(this, pipeline, frame.MessageNumber, ResponseOperation.Create(frame, this.OperationNumber), request, serviceProvider, context);
         }
 
-        private Task WriteResponse(int messageNumber, string operation, ILightweightRpcFrameWriter frameWriter, TResponse response)
+        private Task WriteResponse(int messageNumber, ResponseOperation operation, ILightweightRpcFrameWriter frameWriter, TResponse response)
         {
             var headers = ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty;
             var responseHeader = new LightweightRpcFrame(RpcFrameType.UnaryResponse, messageNumber, operation, headers);
@@ -495,7 +500,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
             private readonly int messageNumber;
 
-            private readonly string operation;
+            private readonly ResponseOperation operation;
 
             private readonly TRequest request;
 
@@ -513,7 +518,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             internal ClientStreamFeed(
                 LightweightClientStreamingMethodStub<TRequest, TStreamItem, TResponse> stub,
                 ILightweightRpcFrameWriter frameWriter,
-                int messageNumber, string operation, TRequest request,
+                int messageNumber, ResponseOperation operation, TRequest request,
                 IServiceProvider? serviceProvider, LightweightCallContext context)
             {
                 this.stub = stub;

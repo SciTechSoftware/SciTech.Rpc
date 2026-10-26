@@ -26,16 +26,16 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private ILightweightRpcFrameWriter pipelineClient;
 
-        private string rpcOperation;
+        private ResponseOperation rpcOperation;
 
         private IRpcSerializer<TResponse> serializer;
 
-        public StreamingResponseWriter(ILightweightRpcFrameWriter pipelineClient, IRpcSerializer<TResponse> serializer, int messageNumber, string rpcOperation)
+        public StreamingResponseWriter(ILightweightRpcFrameWriter pipelineClient, IRpcSerializer<TResponse> serializer, int messageNumber, ResponseOperation rpcOperation)
         {
             this.pipelineClient = pipelineClient ?? throw new ArgumentNullException(nameof(pipelineClient));
             this.serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             this.messageNumber = messageNumber;
-            this.rpcOperation = rpcOperation ?? throw new ArgumentNullException(nameof(rpcOperation));
+            this.rpcOperation = rpcOperation;
         }
 
         public async Task WriteAsync(TResponse response)
@@ -43,6 +43,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             var responseHeader = new LightweightRpcFrame(
                 RpcFrameType.StreamingResponse, this.messageNumber, this.rpcOperation,
                 ImmutableArray<KeyValuePair<string, ImmutableArray<byte>>>.Empty);
+
+            // Only the first response frame needs to return the operation number. The name is kept: it's only
+            // non-empty when the client doesn't use operation numbers, and then it's echoed in every frame, as before.
+            // Writes are not concurrent (IRpcAsyncStreamWriter), so no synchronization is needed.
+            this.rpcOperation = this.rpcOperation.WithoutNumber();
 
             var writeState = this.pipelineClient.BeginWrite(responseHeader);
             try

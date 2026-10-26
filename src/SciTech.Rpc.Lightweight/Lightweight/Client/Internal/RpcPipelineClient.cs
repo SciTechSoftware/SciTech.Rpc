@@ -21,6 +21,7 @@ using SciTech.Rpc.Logging;
 using SciTech.Rpc.Serialization;
 using SciTech.Threading;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
@@ -40,15 +41,56 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
         private readonly Dictionary<int, IResponseHandler> awaitingResponses
             = new Dictionary<int, IResponseHandler>();
 
+        /// <summary>
+        /// Operation numbers returned by the server, by operation name. A pipeline is only used for a single connection,
+        /// so the numbers are discarded when the connection is closed or reset, as required by the protocol.
+        /// </summary>
+        private readonly ConcurrentDictionary<string, uint> operationNumbers
+            = new ConcurrentDictionary<string, uint>(StringComparer.Ordinal);
+
+        private readonly bool useOperationNumbers;
+
         private int nextMessageId;
 
-        public RpcPipelineClient(IDuplexPipe pipe, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames)
+        public RpcPipelineClient(IDuplexPipe pipe, int? maxRequestSize, int? maxResponseSize, bool skipLargeFrames, bool useOperationNumbers = true)
             : base(pipe, maxRequestSize, maxResponseSize, skipLargeFrames)
         {
+            this.useOperationNumbers = useOperationNumbers;
+        }
+
+        private enum OperationNumberState
+        {
+            /// <summary>
+            /// The request was sent by name, without accepting an operation number.
+            /// </summary>
+            NotUsed,
+
+            /// <summary>
+            /// The request was sent by name, and the server may return the operation number.
+            /// </summary>
+            AwaitingNumber,
+
+            /// <summary>
+            /// The request was sent by name, and the server has returned the operation number.
+            /// </summary>
+            NumberReceived,
+
+            /// <summary>
+            /// The request was sent by operation number.
+            /// </summary>
+            SentByNumber
         }
 
         private interface IResponseHandler
         {
+            /// <summary>
+            /// The name of the requested operation. The operation name is normally not included in response frames, so
+            /// this name is used in error messages.
+            /// </summary>
+            string Operation { get; set; }
+
+            OperationNumberState OperationNumberState { get; set; }
+
             void HandleCancellation();
 
             void HandleError(Exception ex);
@@ -79,7 +121,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var cancellationToken = context != null ? context.CancellationToken : default;
                 if (cancellationToken.CanBeCanceled)
                 {
-                    cancellationToken.Register(() => this.CancelCall(messageId, operation));
+                    cancellationToken.Register(() => this.CancelCall(messageId));
                     flags |= RpcOperationFlags.CanCancel;
                 }
 
@@ -91,7 +133,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         .Forget();
                 }
 
-                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)callTimeout, context?.Headers);
+                var frame = this.CreateRequestFrame(frameType, messageId, operation, flags, (uint)callTimeout, context?.Headers, streamingCall);
 
                 var writeState = this.BeginWrite(frame);
                 this.WriteRequest(request, serializers.RequestSerializer, writeState);
@@ -146,11 +188,11 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 var cancellationToken = context != null ? context.CancellationToken : default;
                 if (cancellationToken.CanBeCanceled)
                 {
-                    cancellationToken.Register(() => this.CancelCall(messageId, operation));
+                    cancellationToken.Register(() => this.CancelCall(messageId));
                     flags |= RpcOperationFlags.CanCancel;
                 }
 
-                var frame = new LightweightRpcFrame(frameType, messageId, operation, flags, (uint)timeout, context?.Headers);
+                var frame = this.CreateRequestFrame(frameType, messageId, operation, flags, (uint)timeout, context?.Headers, tcs);
 
                 var writeState = this.BeginWrite(frame);
 
@@ -240,26 +282,27 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 RpcOperationFlags flags = 0;
                 if (cancellationToken.CanBeCanceled)
                 {
-                    cancellationToken.Register(() => this.CancelCall(messageId, operation));
+                    cancellationToken.Register(() => this.CancelCall(messageId));
                     flags |= RpcOperationFlags.CanCancel;
                 }
 
                 // Send the initial streaming request frame with the request object.
-                var requestFrame = new LightweightRpcFrame(RpcFrameType.ClientStreamingRequest, messageId, operation, flags, (uint)timeout, context?.Headers);
+                var requestFrame = this.CreateRequestFrame(RpcFrameType.ClientStreamingRequest, messageId, operation, flags, (uint)timeout, context?.Headers, tcs);
                 var requestWriteState = this.BeginWrite(requestFrame);
                 await this.WriteRequestAsync(request, serializers.RequestSerializer, requestWriteState).ContextFree();
                 requestSent = true;
 
-                // Send each uploaded stream item as a separate StreamingData frame.
+                // Send each uploaded stream item as a separate StreamingData frame. Frames following the request
+                // are identified by the message number, so the operation is not included.
                 await foreach (var item in requestStream.WithCancellation(cancellationToken).ConfigureAwait(false))
                 {
-                    var dataFrame = new LightweightRpcFrame(RpcFrameType.StreamingData, messageId, operation, RpcOperationFlags.None, 0, null);
+                    var dataFrame = new LightweightRpcFrame(RpcFrameType.StreamingData, messageId, "", RpcOperationFlags.None, 0, null);
                     var dataWriteState = this.BeginWrite(dataFrame);
                     await this.WriteStreamItemAsync(item, streamItemSerializer, dataWriteState).ContextFree();
                 }
 
                 // Signal the end of the uploaded stream.
-                var endFrame = new LightweightRpcFrame(RpcFrameType.StreamingEnd, messageId, operation, RpcOperationFlags.None, 0, null);
+                var endFrame = new LightweightRpcFrame(RpcFrameType.StreamingEnd, messageId, "", RpcOperationFlags.None, 0, null);
                 var endWriteState = this.BeginWrite(endFrame);
                 await this.EndWriteAsync(endWriteState, false).ContextFree();
             }
@@ -270,7 +313,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     // The server handler is still waiting for the uploaded stream, so it must be told that the
                     // stream will not be completed. A cancellation callback may already have sent the cancel request,
                     // but not if the upload failed for another reason, or if the error was handled before the callback.
-                    this.SendCancelRequest(messageId, operation);
+                    this.SendCancelRequest(messageId);
                 }
 
                 this.HandleCallError(messageId, ex);
@@ -348,6 +391,8 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
                 if (responseHandler != null)
                 {
+                    this.UpdateOperationNumber(responseHandler, frame);
+
                     if (responseHandler.HandleResponse(frame))
                     {
                         lock (this.awaitingResponses)
@@ -397,6 +442,57 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             await base.OnReceiveLoopFaultedAsync(e).ContextFree();
         }
 
+        /// <summary>
+        /// Creates the frame for a request (unary, server-streaming or client-streaming). The operation is identified by
+        /// number if the server has returned one, otherwise by name, with <see cref="RpcOperationFlags.AcceptsOperationNumber"/>
+        /// set so that the server can return the number.
+        /// </summary>
+        private LightweightRpcFrame CreateRequestFrame(
+            RpcFrameType frameType, int messageId, string operation, RpcOperationFlags flags, uint timeout,
+            IReadOnlyCollection<KeyValuePair<string, ImmutableArray<byte>>>? headers,
+            IResponseHandler responseHandler)
+        {
+            responseHandler.Operation = operation;
+            if (!this.useOperationNumbers)
+            {
+                responseHandler.OperationNumberState = OperationNumberState.NotUsed;
+                return new LightweightRpcFrame(frameType, messageId, operation, flags, timeout, headers);
+            }
+
+            if (this.operationNumbers.TryGetValue(operation, out uint operationNumber))
+            {
+                responseHandler.OperationNumberState = OperationNumberState.SentByNumber;
+                return new LightweightRpcFrame(frameType, messageId, "", operationNumber, flags, timeout, headers);
+            }
+
+            responseHandler.OperationNumberState = OperationNumberState.AwaitingNumber;
+            return new LightweightRpcFrame(frameType, messageId, operation, flags | RpcOperationFlags.AcceptsOperationNumber, timeout, headers);
+        }
+
+        /// <summary>
+        /// Records the operation number returned in a response frame. If the server didn't recognize an operation number,
+        /// all numbers are discarded, so that subsequent requests are sent by name.
+        /// </summary>
+        private void UpdateOperationNumber(IResponseHandler responseHandler, in LightweightRpcFrame frame)
+        {
+            if (frame.OperationNumber != 0)
+            {
+                if (responseHandler.OperationNumberState == OperationNumberState.AwaitingNumber)
+                {
+                    this.operationNumbers[responseHandler.Operation] = frame.OperationNumber;
+                    responseHandler.OperationNumberState = OperationNumberState.NumberReceived;
+                }
+            }
+            else if (frame.FrameType == RpcFrameType.ErrorResponse
+                && responseHandler.OperationNumberState == OperationNumberState.SentByNumber
+                && frame.GetHeaderString(WellKnownHeaderKeys.ErrorCode) == nameof(RpcFailure.RemoteDefinitionError))
+            {
+                // Should not happen, since operation numbers are stable for the lifetime of the connection.
+                // An unknown operation is reported without a serializer, so the error code is available as a plain header.
+                this.operationNumbers.Clear();
+            }
+        }
+
         private int AddAwaitingResponse(IResponseHandler responseHandler)
         {
             int messageId;
@@ -413,7 +509,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
             return messageId;
         }
 
-        private void CancelCall(int messageId, string operation)
+        private void CancelCall(int messageId)
         {
             IResponseHandler? responseHandler;
             lock (this.awaitingResponses)
@@ -434,13 +530,14 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     responseHandler.HandleCancellation();
                 }
 
-                this.SendCancelRequest(messageId, operation);
+                this.SendCancelRequest(messageId);
             }
         }
 
-        private void SendCancelRequest(int messageId, string operation)
+        private void SendCancelRequest(int messageId)
         {
-            var frame = new LightweightRpcFrame(RpcFrameType.CancelRequest, messageId, operation, RpcOperationFlags.None, 0, null);
+            // The cancel request is identified by the message number, so the operation is not included.
+            var frame = new LightweightRpcFrame(RpcFrameType.CancelRequest, messageId, "", RpcOperationFlags.None, 0, null);
             var writeState = this.BeginWrite(frame);
             this.EndWriteAsync(writeState, false).Forget();
         }
@@ -569,6 +666,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
 
             public IAsyncEnumerator<TResponse> ResponseStream => this.responseStream;
 
+            public string Operation { get; set; } = "";
+
+            public OperationNumberState OperationNumberState { get; set; }
+
             public ValueTask DisposeAsync()
             {
                 return this.responseStream.DisposeAsync();
@@ -601,7 +702,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                             } else
                             {
                                 responseStream.Complete(
-                                    new RpcFailureException(RpcFailure.Unknown, $"Error information not provided for '{frame.RpcOperation}'."));
+                                    new RpcFailureException(RpcFailure.Unknown, $"Error information not provided for '{this.Operation}'."));
                             }
 
                             return true;
@@ -614,7 +715,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                         this.responseStream.Cancel();
                         return true;
                     case RpcFrameType.TimeoutResponse:
-                        this.responseStream.Complete(new TimeoutException($"Server side operation '{frame.RpcOperation}' didn't complete within the timeout."));
+                        this.responseStream.Complete(new TimeoutException($"Server side operation '{this.Operation}' didn't complete within the timeout."));
                         return true;
                     default:
                         // This is a pretty serious error. If it occurs, I assume there will soon
@@ -644,6 +745,10 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                 this.responseSerializer = responseSerializer;
             }
 
+            public string Operation { get; set; } = "";
+
+            public OperationNumberState OperationNumberState { get; set; }
+
             public void HandleCancellation()
             {
                 this.TrySetCanceled();
@@ -665,7 +770,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                     case RpcFrameType.TimeoutResponse:
                         // This is not very likely, since the operation should have 
                         // already timed out on the client side.
-                        this.TrySetException(new TimeoutException($"Server side operation '{frame.RpcOperation}' didn't complete within the timeout."));
+                        this.TrySetException(new TimeoutException($"Server side operation '{this.Operation}' didn't complete within the timeout."));
                         break;
                     case RpcFrameType.CancelResponse:
                         this.TrySetCanceled();
@@ -678,7 +783,7 @@ namespace SciTech.Rpc.Lightweight.Client.Internal
                                 this.TrySetException(new RpcErrorException(error));
                             } else
                             {
-                                this.TrySetException(new RpcFailureException(RpcFailure.Unknown, $"Error information not provided for '{frame.RpcOperation}'."));
+                                this.TrySetException(new RpcFailureException(RpcFailure.Unknown, $"Error information not provided for '{this.Operation}'."));
                             }
                             return true;
                         }

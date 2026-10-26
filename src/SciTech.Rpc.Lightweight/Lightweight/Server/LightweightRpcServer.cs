@@ -58,6 +58,13 @@ namespace SciTech.Rpc.Lightweight.Server
         /// </summary>
         private readonly List<LightweightMethodStub> numberedMethodDefinitions = new List<LightweightMethodStub>();
 
+        /// <summary>
+        /// The method stubs that can be invoked through datagrams, i.e. the discovery operations. Datagrams are
+        /// unauthenticated, so they must never reach the ordinary service operations in <see cref="methodDefinitions"/>.
+        /// </summary>
+        private readonly Dictionary<string, LightweightMethodStub> datagramMethodDefinitions
+            = new Dictionary<string, LightweightMethodStub>();
+
         private List<LightweightRpcEndPoint> endPoints = new List<LightweightRpcEndPoint>();
 
         private List<ILightweightRpcListener> startedEndpoints = new List<ILightweightRpcListener>();
@@ -218,7 +225,7 @@ namespace SciTech.Rpc.Lightweight.Server
             if (this.AllowDiscovery)
             {
                 var discovery = new ServiceDiscovery(this, this.CreateDefaultSerializer());
-                discovery.AddDiscoveryMethods(new MethodBinder(this));
+                discovery.AddDiscoveryMethods(new DatagramMethodBinder(this));
             }
 
             base.BuildServiceStubs();
@@ -298,10 +305,13 @@ namespace SciTech.Rpc.Lightweight.Server
                     return null;
                 }
 
-                var methodStub = this.GetMethodDefinition(frame.RpcOperation);
+                // Only datagram operations are looked up, by name. Their stubs have no operation number, so the
+                // response always echoes the name, which the discovery client needs.
+                this.datagramMethodDefinitions.TryGetValue(frame.RpcOperation, out var methodStub);
                 if (methodStub == null)
                 {
-                    this.Logger.LogWarning("Unknown operation '{Operation}' in datagram frame.", frame.RpcOperation);
+                    // Anyone on the network can send datagrams, so this is not logged as a warning.
+                    this.Logger.LogDebug("Unknown operation '{Operation}' in datagram frame.", frame.RpcOperation);
                     return null;
                 }
 
@@ -420,6 +430,13 @@ namespace SciTech.Rpc.Lightweight.Server
             }
         }
 
+        private void AddDatagramMethodDef(LightweightMethodStub methodStub)
+        {
+            this.Logger.LogDebug("Add datagram operation {Operation}.", methodStub.OperationName);
+
+            this.datagramMethodDefinitions.Add(methodStub.OperationName, methodStub);
+        }
+
         private void AddServiceDef(/*HashSet<string> registeredServices, */LightweightServerServiceDefinition serviceDef)
         {
             this.Logger.LogDebug("Build service stub for {Service}.", serviceDef.ServiceName);
@@ -487,6 +504,21 @@ namespace SciTech.Rpc.Lightweight.Server
             public void AddMethod(LightweightMethodStub methodStub)
             {
                 this.server.AddMethodDef(methodStub);
+            }
+        }
+
+        private class DatagramMethodBinder : ILightweightMethodBinder
+        {
+            private LightweightRpcServer server;
+
+            internal DatagramMethodBinder(LightweightRpcServer server)
+            {
+                this.server = server;
+            }
+
+            public void AddMethod(LightweightMethodStub methodStub)
+            {
+                this.server.AddDatagramMethodDef(methodStub);
             }
         }
     }

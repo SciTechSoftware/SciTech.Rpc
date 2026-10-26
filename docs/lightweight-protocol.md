@@ -240,7 +240,9 @@ The first response, which assigns the number, is 21 bytes.
 
 Discovery sends one frame per UDP multicast datagram. The client multicasts a `UnaryRequest` for the operation
 `SciTech.Rpc.ServiceDiscovery.GetPublishedSingletons`, and each server answers with a `UnaryResponse` to the
-sender. The server handles the request in its normal pipeline, as an ordinary operation. The client tells the
+sender. Datagrams are unauthenticated, so the server MUST only dispatch the discovery operations through them,
+never the ordinary service operations. The discovery operations are in turn only available through datagrams.
+Unknown operations are silently ignored. The client tells the
 responses apart by the echoed `Operation` name (`GetPublishedSingletons`, or the reserved
 `SciTech.Rpc.ServiceDiscovery.GetConnectionInfo`). Payloads use the discovery serializer.
 

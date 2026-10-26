@@ -135,6 +135,66 @@ namespace SciTech.Rpc.Tests.Lightweight
 
 
         [Test]
+        public async Task Datagram_ServiceOperation_ShouldBe_Ignored()
+        {
+            var server = new LightweightRpcServer();
+            var endPoint = new TestDiscoveryEndPoint(new RpcConnectionInfo(new Uri("test://test")));
+            server.AddEndPoint(endPoint);
+
+            var serviceImpl = new CountingSimpleService();
+            using var publishedService = server.PublishSingleton<ISimpleService>(serviceImpl);
+
+            server.Start();
+            try
+            {
+                // Datagrams are unauthenticated, so only discovery operations may be invoked through them.
+                var requestData = LightweightStubHelper.GetRequestData(
+                    "SciTech.Rpc.Tests.SimpleService.Add", 1, new RpcObjectRequest<int, int>(RpcObjectId.Empty, 5, 6), this.serializer);
+                var responseData = await endPoint.Listeners.First().HandleDatagramAsync(requestData);
+
+                Assert.IsNull(responseData);
+                Assert.AreEqual(0, serviceImpl.CallCount);
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+        [Test]
+        public async Task Datagram_AcceptsOperationNumber_Should_EchoOperation()
+        {
+            var server = new LightweightRpcServer();
+            var endPoint = new TestDiscoveryEndPoint(new RpcConnectionInfo(new Uri("test://test")));
+            server.AddEndPoint(endPoint);
+
+            server.Start();
+            try
+            {
+                // The discovery client identifies responses by the operation name, so a datagram response must
+                // always echo it, even if the request (incorrectly) accepts an operation number.
+                byte[] requestData;
+                using (var writer = new LightweightRpcFrameWriter(65536))
+                {
+                    var frame = new LightweightRpcFrame(RpcFrameType.UnaryRequest, 1,
+                        ServiceDiscoveryOperations.GetPublishedSingletons, RpcOperationFlags.AcceptsOperationNumber, 0, null);
+                    requestData = writer.WriteFrame(frame, new RpcDiscoveryRequest(Guid.NewGuid()), this.serializer);
+                }
+
+                var responseData = await endPoint.Listeners.First().HandleDatagramAsync(requestData);
+
+                Assert.NotNull(responseData);
+                Assert.AreEqual(RpcFrameState.Full, LightweightRpcFrame.TryRead(responseData, 65536, out var responseFrame));
+                Assert.AreEqual(ServiceDiscoveryOperations.GetPublishedSingletons, responseFrame.RpcOperation);
+                Assert.AreEqual(RpcOperationFlags.None, responseFrame.OperationFlags & RpcOperationFlags.HasOperationNumber);
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
+        [Test]
         public async Task ServerEndPoint_Should_CreateStartAndStop_Listener()
         {
             var server = new LightweightRpcServer();
@@ -364,6 +424,25 @@ namespace SciTech.Rpc.Tests.Lightweight
         }
     }
 
+    internal class CountingSimpleService : ISimpleService
+    {
+        private int callCount;
+
+        internal int CallCount => this.callCount;
+
+        public Task<int> AddAsync(int a, int b) { this.Called(); return Task.FromResult(a + b); }
+
+        public Task<int[]> GetArrayAsync(int count) { this.Called(); return Task.FromResult(new int[count]); }
+
+        public Task<double> GetValueAsync() { this.Called(); return Task.FromResult(0.0); }
+
+        public Task SetValueAsync(double value) { this.Called(); return Task.CompletedTask; }
+
+        public Task<int> SumAsync(int[] data) { this.Called(); return Task.FromResult(data.Sum()); }
+
+        private void Called() => Interlocked.Increment(ref this.callCount);
+    }
+
     internal class TestDiscoveryEndPoint : LightweightRpcEndPoint
     {
         RpcConnectionInfo connectionInfo;
@@ -449,6 +528,13 @@ namespace SciTech.Rpc.Tests.Lightweight
             Assert.IsTrue(this.IsListening);
 
             return LightweightStubHelper.SendReceiveDatagramAsync<TRequest, TResponse>(this.endPoint, this.connectionHandler, operationName, request, serializer, cancellationToken);
+        }
+
+        internal ValueTask<byte[]> HandleDatagramAsync(byte[] requestData)
+        {
+            Assert.IsTrue(this.IsListening);
+
+            return this.connectionHandler.HandleDatagramAsync(this.endPoint, requestData, CancellationToken.None);
         }
 
     }

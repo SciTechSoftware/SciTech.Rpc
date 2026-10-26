@@ -204,6 +204,10 @@ namespace SciTech.Rpc.Server
                         {
                             throw new InvalidOperationException("Cannot change server id after it has been assigned.");
                         }
+                        else
+                        {
+                            this.connectionInfo = connectionInfo;
+                        }
                     }
                     else
                     {

@@ -20,6 +20,7 @@ using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
+using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -73,6 +74,9 @@ namespace SciTech.Rpc.Server
                 this.ExceptionConverters = options.ExceptionConverters.ToImmutableArrayList();
 
                 this.Options = options.AsImmutable();
+
+                RpcServerProperties.Validate(this.Options.ServerProperties);
+                this.ServerProperties = this.Options.ServerProperties;
             }
 
             if (this.ExceptionConverters.Count > 0)
@@ -94,6 +98,11 @@ namespace SciTech.Rpc.Server
         public RpcServerFaultHandler? CustomFaultHandler { get; private set; } = RpcServerFaultHandler.Default;
 
         public ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; } = ImmutableArrayList<IRpcServerExceptionConverter>.Empty;
+
+        /// <summary>
+        /// Gets the server properties, from <see cref="IRpcServerOptions.ServerProperties"/>.
+        /// </summary>
+        public ImmutableDictionary<string, string> ServerProperties { get; } = ImmutableDictionary<string, string>.Empty;
 
         public bool IsDisposed { get; private set; }
 

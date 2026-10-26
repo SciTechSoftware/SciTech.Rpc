@@ -83,6 +83,13 @@ namespace SciTech.Rpc.Server
         /// </summary>
         int? SendMaxMessageSize { get; }
 
+        /// <summary>
+        /// Gets the server properties, application defined key/value pairs that describe the server, for example its
+        /// product version. They're provided by discovery, so they're limited in size (see <see cref="RpcServerProperties"/>).
+        /// Only used in the options of the server, not in the options of a service.
+        /// </summary>
+        IReadOnlyDictionary<string, string> ServerProperties { get; }
+
         bool? SilentStreamingCancellation { get; }
 
         IRpcSerializer? Serializer { get; }
@@ -100,6 +107,8 @@ namespace SciTech.Rpc.Server
 
         private List<RpcServerCallInterceptor>? interceptors;
 
+        private Dictionary<string, string>? serverProperties;
+
         public RpcServerOptions(IOptions<RpcServerOptions> options)
         {
             if (options is null) throw new ArgumentNullException(nameof(options));
@@ -116,6 +125,14 @@ namespace SciTech.Rpc.Server
             if (o.interceptors?.Count > 0)
             {
                 this.Interceptors.AddRange(o.interceptors);
+            }
+
+            if (o.serverProperties?.Count > 0)
+            {
+                foreach (var pair in o.serverProperties)
+                {
+                    this.ServerProperties.Add(pair.Key, pair.Value);
+                }
             }
 
             this.ReceiveMaxMessageSize = o.ReceiveMaxMessageSize;
@@ -167,11 +184,27 @@ namespace SciTech.Rpc.Server
             }
         }
 
+        /// <inheritdoc cref="IRpcServerOptions.ServerProperties"/>
+        public Dictionary<string, string> ServerProperties
+        {
+            get
+            {
+                if (this.serverProperties == null)
+                {
+                    this.serverProperties = new Dictionary<string, string>();
+                }
+
+                return this.serverProperties;
+            }
+        }
+
         public bool IsEmpty
         {
             get => (this.exceptionConverters == null || this.exceptionConverters.Count == 0)
                 && (this.interceptors == null || this.interceptors.Count == 0)
+                && (this.serverProperties == null || this.serverProperties.Count == 0)
                 && this.AllowAutoPublish == null
+                && this.AllowDiscovery == null
                 && this.Serializer == null
                 && this.ReceiveMaxMessageSize == null
                 && this.SendMaxMessageSize == null
@@ -194,6 +227,8 @@ namespace SciTech.Rpc.Server
         IReadOnlyList<IRpcServerExceptionConverter> IRpcServerOptions.ExceptionConverters => this.ExceptionConverters;
 
         IReadOnlyList<RpcServerCallInterceptor> IRpcServerOptions.Interceptors => this.Interceptors;
+
+        IReadOnlyDictionary<string, string> IRpcServerOptions.ServerProperties => this.ServerProperties;
 
         public ImmutableRpcServerOptions AsImmutable()
         {

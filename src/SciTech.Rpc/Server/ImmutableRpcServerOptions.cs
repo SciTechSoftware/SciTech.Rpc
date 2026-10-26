@@ -42,10 +42,14 @@ namespace SciTech.Rpc.Server
 
         public ImmutableArrayList<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
 
+        /// <inheritdoc cref="IRpcServerOptions.ServerProperties"/>
+        public ImmutableDictionary<string, string> ServerProperties { get; private set; } = ImmutableDictionary<string, string>.Empty;
+
         public bool IsEmpty
         {
             get => this.ExceptionConverters.Count == 0
                 && this.Interceptors.Count == 0
+                && this.ServerProperties.Count == 0
                 && this.AllowAutoPublish == null
                 && this.AllowDiscovery == null
                 && this.Serializer == null
@@ -67,6 +71,8 @@ namespace SciTech.Rpc.Server
         IReadOnlyList<IRpcServerExceptionConverter> IRpcServerOptions.ExceptionConverters => this.ExceptionConverters;
 
         IReadOnlyList<RpcServerCallInterceptor> IRpcServerOptions.Interceptors => this.Interceptors;
+
+        IReadOnlyDictionary<string, string> IRpcServerOptions.ServerProperties => this.ServerProperties;
 
         public static ImmutableRpcServerOptions Combine(params IRpcServerOptions?[] options)
         {
@@ -98,6 +104,7 @@ namespace SciTech.Rpc.Server
                 this.AllowDiscovery = options.AllowDiscovery ?? this.AllowDiscovery;
                 this.ExceptionConverters = options.ExceptionConverters.Concat(this.ExceptionConverters).ToImmutableArrayList();
                 this.Interceptors = options.Interceptors.Concat(this.Interceptors).ToImmutableArrayList();
+                this.ServerProperties = this.ServerProperties.SetItems(options.ServerProperties);
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;

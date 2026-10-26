@@ -10,7 +10,7 @@ using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace SciTech.Rpc.Tests.Lightweight
+namespace SciTech.Rpc.Tests
 {
     [RpcService]
     public interface IClientStreamingService
@@ -26,6 +26,8 @@ namespace SciTech.Rpc.Tests.Lightweight
         Task<int> SumFirstValues(int count, IAsyncEnumerable<SequenceData> values);
 
         Task<int> SumValuesWithDelay(int delayMs, IAsyncEnumerable<SequenceData> values);
+
+        Task<int[]> CollectInts(IAsyncEnumerable<int> values);
     }
 
     public class ClientStreamingServiceImpl : IClientStreamingService
@@ -33,6 +35,20 @@ namespace SciTech.Rpc.Tests.Lightweight
         private readonly List<int> collectedValues = new List<int>();
 
         private readonly TaskCompletionSource<bool> cancelledTcs = new TaskCompletionSource<bool>();
+
+        private readonly TaskCompletionSource<bool> firstItemTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private volatile bool isCancellableCallStarted;
+
+        /// <summary>
+        /// Gets a value indicating whether <see cref="SumCancellableValues"/> has been invoked.
+        /// </summary>
+        internal bool IsCancellableCallStarted => this.isCancellableCallStarted;
+
+        /// <summary>
+        /// Gets a task that completes when <see cref="SumCancellableValues"/> has received its first item.
+        /// </summary>
+        internal Task GetCancellableCallFirstItemAsync() => this.firstItemTcs.Task;
 
         internal IReadOnlyList<int> CollectedValues
         {
@@ -82,11 +98,14 @@ namespace SciTech.Rpc.Tests.Lightweight
 
         public async Task<int> SumCancellableValues(IAsyncEnumerable<SequenceData> values, CancellationToken cancellationToken)
         {
+            this.isCancellableCallStarted = true;
+
             int sum = 0;
             try
             {
                 await foreach (var value in values.WithCancellation(cancellationToken))
                 {
+                    this.firstItemTcs.TrySetResult(true);
                     cancellationToken.ThrowIfCancellationRequested();
                     sum += value.SequenceNo;
                 }
@@ -130,13 +149,27 @@ namespace SciTech.Rpc.Tests.Lightweight
 
             return sum;
         }
+
+        public async Task<int[]> CollectInts(IAsyncEnumerable<int> values)
+        {
+            var collected = new List<int>();
+            await foreach (var value in values)
+            {
+                collected.Add(value);
+            }
+
+            return collected.ToArray();
+        }
     }
 
     [TestFixture(RpcConnectionType.LightweightTcp)]
     [TestFixture(RpcConnectionType.LightweightInproc)]
-    public class LightweightClientStreamingTests : ClientServerTestsBase
+#if NET
+    [TestFixture(RpcConnectionType.NetGrpc)]
+#endif
+    public class ClientStreamingTests : ClientServerTestsBase
     {
-        public LightweightClientStreamingTests(RpcConnectionType connectionType)
+        public ClientStreamingTests(RpcConnectionType connectionType)
             : base(new ProtobufRpcSerializer(), connectionType)
         {
         }
@@ -261,6 +294,43 @@ namespace SciTech.Rpc.Tests.Lightweight
         }
 
         [Test]
+        public async Task ClientStreaming_ValueTypeItems_IncludingDefaults_AreReceived()
+        {
+            var builder = new RpcServiceDefinitionsBuilder();
+            builder.RegisterService<IClientStreamingService>();
+
+            var (server, connection) = this.CreateServerAndConnection(builder);
+            var serviceImpl = new ClientStreamingServiceImpl();
+            using var publishedService = server.ServicePublisher.PublishSingleton<IClientStreamingService>(serviceImpl);
+            try
+            {
+                server.Start();
+
+                var clientStreamingService = connection.GetServiceSingleton<IClientStreamingService>();
+
+                // Protobuf doesn't write default values, so an item 0 is an empty message. The position of a message, not its
+                // content, tells whether it's the request or an item.
+                var values = new[] { 0, 1, 0, -2, 0 };
+                var result = await clientStreamingService.CollectInts(ToAsyncEnumerable(values)).DefaultTimeout();
+
+                CollectionAssert.AreEqual(values, result);
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+
+            static async IAsyncEnumerable<int> ToAsyncEnumerable(int[] values)
+            {
+                foreach (var value in values)
+                {
+                    await Task.Yield();
+                    yield return value;
+                }
+            }
+        }
+
+        [Test]
         public async Task ClientStreaming_EmptyStream_ReturnsSeed()
         {
             var builder = new RpcServiceDefinitionsBuilder();
@@ -302,15 +372,16 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 using var cts = new CancellationTokenSource();
 
-                // Cancel the call while the (slow) upload stream is still in progress.
-                cts.CancelAfter(200);
+                // The slow sequence honors the cancellation token, so both the upload
+                // loop and the server-side handler observe the cancellation.
+                var callTask = clientStreamingService.SumCancellableValues(GenerateSlowSequence(1000, 20, cts.Token), cts.Token);
 
-                Assert.CatchAsync<OperationCanceledException>(async () =>
-                {
-                    // The slow sequence honors the cancellation token, so both the upload
-                    // loop and the server-side handler observe the cancellation.
-                    await clientStreamingService.SumCancellableValues(GenerateSlowSequence(1000, 20, cts.Token), cts.Token).DefaultTimeout();
-                });
+                // Cancel the call while the (slow) upload stream is still in progress, once the server has received the
+                // call. A fixed delay is not enough, since e.g. establishing a gRPC connection may take longer.
+                await serviceImpl.GetCancellableCallFirstItemAsync().DefaultTimeout();
+                cts.Cancel();
+
+                Assert.CatchAsync<OperationCanceledException>(async () => await callTask.DefaultTimeout());
 
                 // The server-side handler should observe the cancellation.
                 Assert.IsTrue(await serviceImpl.GetIsCancelledAsync().DefaultTimeout());
@@ -344,7 +415,19 @@ namespace SciTech.Rpc.Tests.Lightweight
 
                 // The call is not cancellable, but the server-side handler must not be left waiting
                 // for the rest of the stream.
-                Assert.IsTrue(await serviceImpl.GetIsCancelledAsync().DefaultTimeout());
+                var cancelledTask = serviceImpl.GetIsCancelledAsync();
+                if (this.ConnectionType == RpcConnectionType.NetGrpc
+                    && await Task.WhenAny(cancelledTask, Task.Delay(TimeSpan.FromSeconds(1))) != cancelledTask)
+                {
+                    // The client resets the gRPC call when the upload fails, which discards the request messages that the
+                    // server hasn't read yet. If the upload fails quickly, the handler may not have been invoked at all,
+                    // and then there's nothing to cancel. (The Lightweight request frame is always delivered.)
+                    Assert.IsFalse(serviceImpl.IsCancellableCallStarted, "The handler was invoked, but not cancelled.");
+                }
+                else
+                {
+                    Assert.IsTrue(await cancelledTask.DefaultTimeout());
+                }
             }
             finally
             {

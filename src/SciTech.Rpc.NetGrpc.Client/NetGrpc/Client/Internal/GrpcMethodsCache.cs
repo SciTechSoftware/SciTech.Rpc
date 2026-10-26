@@ -10,6 +10,8 @@
 #endregion
 
 using SciTech.Rpc.Client.Internal;
+using SciTech.Rpc.Internal;
+using SciTech.Rpc.NetGrpc.Internal;
 using SciTech.Rpc.Serialization;
 using System;
 using System.Collections.Generic;
@@ -42,6 +44,32 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
                 }
 
                 var newGrpcMethod = ((GrpcProxyMethod<TRequest, TResponse>)proxyMethod).CreateMethod(this.serializer);
+                this.proxyToGrpcMethod.Add(proxyMethod, newGrpcMethod);
+
+                return newGrpcMethod;
+            }
+        }
+
+        /// <summary>
+        /// Gets the gRPC method of a client-streaming <paramref name="proxyMethod"/>, whose request stream consists of
+        /// <see cref="RpcClientStreamingMessage{TRequest, TStreamItem}"/>s.
+        /// </summary>
+        internal GrpcCore.Method<RpcClientStreamingMessage<TRequest, TStreamItem>, TResponse> GetClientStreamingGrpcMethod<TRequest, TStreamItem, TResponse>(GrpcProxyMethod proxyMethod)
+            where TRequest : class
+            where TResponse : class
+        {
+            lock (this.syncRoot)
+            {
+                if (this.proxyToGrpcMethod.TryGetValue(proxyMethod, out var grpcMethod))
+                {
+                    return (GrpcCore.Method<RpcClientStreamingMessage<TRequest, TStreamItem>, TResponse>)grpcMethod;
+                }
+
+                var newGrpcMethod = GrpcMethodDefinition.Create<RpcClientStreamingMessage<TRequest, TStreamItem>, TResponse>(
+                    GrpcCore.MethodType.ClientStreaming,
+                    proxyMethod.ServiceName,
+                    proxyMethod.MethodName,
+                    proxyMethod.SerializerOverride ?? this.serializer);
                 this.proxyToGrpcMethod.Add(proxyMethod, newGrpcMethod);
 
                 return newGrpcMethod;

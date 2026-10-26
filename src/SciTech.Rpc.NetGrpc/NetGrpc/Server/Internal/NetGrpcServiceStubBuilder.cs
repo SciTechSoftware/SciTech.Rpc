@@ -22,6 +22,7 @@ using SciTech.Rpc.Server.Internal;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,13 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
 {
     internal interface INetGrpcBinder<TService> where TService : class
     {
+        void AddClientStreamingMethod<TRequest, TResponse>(
+            Method<TRequest, TResponse> method,
+            ImmutableArray<object> metadata,
+            ClientStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+            where TRequest : class
+            where TResponse : class;
+
         void AddServerStreamingMethod<TRequest, TResponse>(
             Method<TRequest, TResponse> method,
             ImmutableArray<object> metadata,
@@ -189,7 +197,22 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             RpcOperationInfo operationInfo,
             INetGrpcBinder<TService> binder)
         {
-            throw new NotImplementedException("Client-streaming is not yet implemented for the NetGrpc backend.");
+            var serializer = serviceStub.Serializer;
+
+            async Task<RpcResponse<TResponseReturn>> Handler(NetGrpcServiceActivator<TService> activator, IAsyncStreamReader<RpcClientStreamingMessage<TRequest, TStreamItem>> requestStream, ServerCallContext context)
+            {
+                var request = await ReadRequestAsync(requestStream, context).ConfigureAwait(false);
+                return await serviceStub.CallClientStreamingMethod(
+                    request, activator.ServiceProvider, new GrpcCallContext(context), ReadStreamItems(requestStream, context),
+                    serviceCaller, responseConverter, faultHandler, serializer).ConfigureAwait(false);
+            }
+
+            var methodStub = GrpcMethodDefinition.Create<RpcClientStreamingMessage<TRequest, TStreamItem>, RpcResponse<TResponseReturn>>(
+                MethodType.ClientStreaming,
+                operationInfo.FullServiceName, operationInfo.Name,
+                serializer);
+
+            binder.AddClientStreamingMethod(methodStub, operationInfo.Metadata, Handler);
         }
 
         protected override void AddVoidClientStreamingMethodCore<TRequest, TStreamItem>(
@@ -199,7 +222,74 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             RpcOperationInfo operationInfo,
             INetGrpcBinder<TService> binder)
         {
-            throw new NotImplementedException("Client-streaming is not yet implemented for the NetGrpc backend.");
+            var serializer = serviceStub.Serializer;
+
+            async Task<RpcResponse> Handler(NetGrpcServiceActivator<TService> activator, IAsyncStreamReader<RpcClientStreamingMessage<TRequest, TStreamItem>> requestStream, ServerCallContext context)
+            {
+                var request = await ReadRequestAsync(requestStream, context).ConfigureAwait(false);
+                return await serviceStub.CallVoidClientStreamingMethod(
+                    request, activator.ServiceProvider, new GrpcCallContext(context), ReadStreamItems(requestStream, context),
+                    serviceCaller, faultHandler, serializer).ConfigureAwait(false);
+            }
+
+            var methodStub = GrpcMethodDefinition.Create<RpcClientStreamingMessage<TRequest, TStreamItem>, RpcResponse>(
+                MethodType.ClientStreaming,
+                operationInfo.FullServiceName, operationInfo.Name,
+                serializer);
+
+            binder.AddClientStreamingMethod(methodStub, operationInfo.Metadata, Handler);
+        }
+
+        /// <summary>
+        /// Reads the request of a client-streaming call, from the first message of the request stream.
+        /// </summary>
+        private static async Task<TRequest> ReadRequestAsync<TRequest, TStreamItem>(
+            IAsyncStreamReader<RpcClientStreamingMessage<TRequest, TStreamItem>> requestStream, ServerCallContext context)
+            where TRequest : class
+        {
+            if (!await MoveNextAsync(requestStream, context).ConfigureAwait(false) || requestStream.Current.Request is not TRequest request)
+            {
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "The request stream of a client-streaming call must start with the request."));
+            }
+
+            return request;
+        }
+
+        /// <summary>
+        /// Reads the stream items of a client-streaming call, from the messages following the request.
+        /// </summary>
+        private static async IAsyncEnumerable<TStreamItem> ReadStreamItems<TRequest, TStreamItem>(
+            IAsyncStreamReader<RpcClientStreamingMessage<TRequest, TStreamItem>> requestStream, ServerCallContext context,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+            where TRequest : class
+        {
+            using var linkedCts = cancellationToken.CanBeCanceled
+                ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, context.CancellationToken)
+                : null;
+            var actualToken = linkedCts?.Token ?? context.CancellationToken;
+
+            while (await MoveNextAsync(requestStream, context, actualToken).ConfigureAwait(false))
+            {
+                yield return requestStream.Current.Item;
+            }
+        }
+
+        private static async Task<bool> MoveNextAsync<TRequest, TStreamItem>(
+            IAsyncStreamReader<RpcClientStreamingMessage<TRequest, TStreamItem>> requestStream, ServerCallContext context,
+            CancellationToken cancellationToken = default)
+            where TRequest : class
+        {
+            try
+            {
+                return await requestStream.MoveNext(cancellationToken.CanBeCanceled ? cancellationToken : context.CancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception e) when (!(e is OperationCanceledException) && (e is IOException || context.CancellationToken.IsCancellationRequested))
+            {
+                // The client cancelled the call, or it failed. The service implementation observes this as a cancellation,
+                // as with the Lightweight implementation. An IOException means that the client reset the request stream,
+                // which may be reported before the call is cancelled.
+                throw new OperationCanceledException("The client-streaming call was cancelled.", e, context.CancellationToken);
+            }
         }
 
         protected override void AddServerStreamingMethodCore<TRequest, TReturn, TResponseReturn>(
@@ -284,6 +374,16 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             public Binder(ServiceMethodProviderContext<NetGrpcServiceActivator<TService>> context)
             {
                 this.context = context ?? throw new ArgumentNullException(nameof(context));
+            }
+
+            public void AddClientStreamingMethod<TRequest, TResponse>(
+                Method<TRequest, TResponse> create,
+                ImmutableArray<object> metadata,
+                ClientStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+                where TRequest : class
+                where TResponse : class
+            {
+                this.context.AddClientStreamingMethod(create, TranslateMetadata(metadata), handler);
             }
 
             public void AddServerStreamingMethod<TRequest, TResponse>(

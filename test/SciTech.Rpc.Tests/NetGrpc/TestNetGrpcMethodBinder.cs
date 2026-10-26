@@ -13,6 +13,15 @@ namespace SciTech.Rpc.Tests.NetGrpc
     {
         internal List<TestGrpcMethodStub> stubs = new List<TestGrpcMethodStub>();
 
+        public void AddClientStreamingMethod<TRequest, TResponse>(
+            GrpcCore.Method<TRequest, TResponse> method,
+            ImmutableArray<object> metadata,
+            ClientStreamingServerMethod<NetGrpcServiceActivator<TService>, TRequest, TResponse> handler)
+            where TRequest : class
+            where TResponse : class
+        {
+            this.stubs.Add(new TestGrpcMethodStub(method, typeof(TRequest), typeof(TResponse), metadata));
+        }
 
         public void AddServerStreamingMethod<TRequest, TResponse>(
             GrpcCore.Method<TRequest, TResponse> method,

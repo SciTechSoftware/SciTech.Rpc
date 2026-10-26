@@ -70,7 +70,9 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
                     grpcMethodType = GrpcCore.MethodType.ServerStreaming;
                     break;
                 case RpcMethodType.ClientStreaming:
-                    throw new NotImplementedException("Client-streaming is not yet implemented for the gRPC backend.");
+                    // The request stream consists of RpcClientStreamingMessages, see GrpcMethodsCache.GetClientStreamingGrpcMethod.
+                    grpcMethodType = GrpcCore.MethodType.ClientStreaming;
+                    break;
                 case RpcMethodType.EventAdd:
                     grpcMethodType = GrpcCore.MethodType.ServerStreaming;
                     break;
@@ -106,9 +108,103 @@ namespace SciTech.Rpc.NetGrpc.Client.Internal
 #pragma warning restore CA2000 // Dispose objects before losing scope
         }
 
-        protected override Task<TResponse> CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, TResponse>(GrpcProxyMethod method, TRequest request, IAsyncEnumerable<TStreamItem> requestStream, CancellationToken cancellationToken)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types",
+            Justification = "A failed write means that the call has completed, and the response or its status is the result of the call.")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2016:Forward the 'CancellationToken' parameter to methods",
+            Justification = "The call is cancelled by the token in its call options. WriteAsync with a token is not available for all targets.")]
+        protected override async Task<TResponse> CallClientStreamingMethodCoreAsync<TRequest, TStreamItem, TResponse>(GrpcProxyMethod method, TRequest request, IAsyncEnumerable<TStreamItem> requestStream, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException("Client-streaming is not yet implemented for the gRPC backend.");
+            if (method is null) throw new ArgumentNullException(nameof(method));
+            if (requestStream is null) throw new ArgumentNullException(nameof(requestStream));
+
+            DateTime? deadline = this.GetStreamingCallDeadline();
+            var callOptions = new GrpcCore.CallOptions(deadline: deadline, cancellationToken: cancellationToken);
+
+            var typedMethod = this.grpcMethodsCache.GetClientStreamingGrpcMethod<TRequest, TStreamItem, TResponse>(method);
+
+            // Disposing the call cancels it if it hasn't completed, so the server handler is not left waiting for the
+            // rest of the request stream, e.g. if the request stream fails.
+            using var call = this.grpcInvoker.AsyncClientStreamingCall(typedMethod, null, callOptions);
+            try
+            {
+                await WriteRequestStreamAsync().ContextFree();
+
+                return await call.ResponseAsync.ContextFree();
+            }
+            catch (GrpcCore.RpcException e) when (IsDeadlineFailure(e, deadline, cancellationToken))
+            {
+                throw CreateDeadlineExceededException(e);
+            }
+
+            async Task WriteRequestStreamAsync()
+            {
+                var writer = call.RequestStream;
+
+                // A write fails if the call has already completed, e.g. because the server handler returned without reading
+                // the whole stream, or failed. Then the response, or its status, is the result of the call.
+                if (!await TryWriteAsync(new RpcClientStreamingMessage<TRequest, TStreamItem> { Request = request }).ContextFree())
+                {
+                    return;
+                }
+
+                var enumerator = requestStream.GetAsyncEnumerator(cancellationToken);
+                try
+                {
+                    while (!call.ResponseAsync.IsCompleted)
+                    {
+                        bool hasNext;
+                        try
+                        {
+                            hasNext = await enumerator.MoveNextAsync().ConfigureAwait(false);
+                        }
+                        catch (Exception e) when (!(e is OperationCanceledException && cancellationToken.IsCancellationRequested))
+                        {
+                            // The request stream of the caller failed. Like the Lightweight implementation, the failure is
+                            // reported as an RpcFailureException, with the original exception as the inner exception.
+                            throw new RpcFailureException(RpcFailure.Unknown, $"The request stream failed. {e.Message}", e);
+                        }
+
+                        if (!hasNext)
+                        {
+                            break;
+                        }
+
+                        if (!await TryWriteAsync(new RpcClientStreamingMessage<TRequest, TStreamItem> { Item = enumerator.Current }).ContextFree())
+                        {
+                            return;
+                        }
+                    }
+                }
+                finally
+                {
+                    await enumerator.DisposeAsync().ConfigureAwait(false);
+                }
+
+                if (!call.ResponseAsync.IsCompleted)
+                {
+                    try
+                    {
+                        await writer.CompleteAsync().ContextFree();
+                    }
+                    catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        // As for a failed write.
+                    }
+                }
+
+                async Task<bool> TryWriteAsync(RpcClientStreamingMessage<TRequest, TStreamItem> message)
+                {
+                    try
+                    {
+                        await writer.WriteAsync(message).ContextFree();
+                        return true;
+                    }
+                    catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        return false;
+                    }
+                }
+            }
         }
 
         protected override TResponse CallUnaryMethodCore<TRequest, TResponse>(GrpcProxyMethod methodDef, TRequest request, CancellationToken cancellationToken)

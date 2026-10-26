@@ -111,6 +111,11 @@ namespace SciTech.Rpc.Analyzer
 
                 foreach (var member in serverTypeMembers)
                 {
+                    if (!IsRpcMemberCandidate(member))
+                    {
+                        continue;
+                    }
+
                     if (member is IPropertySymbol propertySymbol)
                     {
                         if (propertySymbol.GetMethod != null && propertySymbol.GetMethod.DeclaredAccessibility == Accessibility.Public)
@@ -148,7 +153,8 @@ namespace SciTech.Rpc.Analyzer
 
                 foreach (var member in serverTypeMembers)
                 {
-                    if (!(member is IPropertySymbol) && !(member is IEventSymbol)
+                    if (member is IMethodSymbol methodSymbol && methodSymbol.MethodKind == MethodKind.Ordinary
+                        && IsRpcMemberCandidate(member)
                         && !handledMembers.Contains(member))
                     {
                         string operationName = GetOperationNameFromMemberSymbol(member);
@@ -157,6 +163,13 @@ namespace SciTech.Rpc.Analyzer
                 }
             }
         }
+
+        /// <summary>
+        /// Only public instance members can be RPC operations (the same members as used by RpcBuilderUtil).
+        /// Static members, such as constants, static fields and static methods in an interface, are ignored.
+        /// </summary>
+        private static bool IsRpcMemberCandidate(ISymbol member)
+            => !member.IsStatic && member.DeclaredAccessibility == Accessibility.Public;
 
         public override void Initialize(AnalysisContext context)
         {
@@ -259,7 +272,7 @@ namespace SciTech.Rpc.Analyzer
         {
             try
             {
-                if (context.Symbol is IPropertySymbol propertySymbol)
+                if (context.Symbol is IPropertySymbol propertySymbol && IsRpcMemberCandidate(propertySymbol))
                 {
                     if (propertySymbol.ContainingType != null)
                     {
@@ -293,7 +306,7 @@ namespace SciTech.Rpc.Analyzer
             {
                 var methodSymbol = (IMethodSymbol)context.Symbol;
 
-                if (methodSymbol.ContainingType != null)
+                if (methodSymbol.ContainingType != null && IsRpcMemberCandidate(methodSymbol))
                 {
                     var rpcServiceAttribute = GetRpcServiceAttribute(methodSymbol.ContainingType);
 

@@ -1,295 +1,241 @@
 # SciTech.Rpc
 
-**UPDATE 2021-12-22:** There has not been much activity in this repository for a long time, but the project is still very much alive. The current beta release can be considered 
-relatively stable, but documentation is still lacking.
+SciTech.Rpc is a high-performance, code-first remote procedure call framework for .NET. Like WCF, services are
+defined by attributed interfaces in code, not by external definition files. It handles remote calls on all levels,
+from services on the internet over HTTP/2 (using [gRPC](https://grpc.io/)) to calls between processes on the same
+machine and within a process.
 
-SciTech.Rpc is a high-performance, code-first, remote procedure call framework, designed to handle remote procedure calls on all levels. From  internet deployed services over HTTP/2 (based on [gRPC](https://grpc.io/)), to in-process proxy communication. Similar to WCF, you define service interfaces with the help of attributes in code, and not using external definition files.
+SciTech.Rpc has been used in production for several years. Version 1.0 is currently in the release candidate
+stage.
 
-**NOTE!** _This is an early preview of SciTech.Rpc. The documentation is very sparse, automated tests are not finished, and there will still be incompatible changes on source level, binary level, and the communication level._
+There are two communication layers:
 
-Currently there are three communication layer implementations for the RPC framework:
-* **gRPC**, based on the [native/.NET implementation of gRPC](https://github.com/grpc/grpc)
-* **.NET gRPC**, based on the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet)
+* **Lightweight**, a very efficient implementation based on
+  [System.IO.Pipelines](https://learn.microsoft.com/dotnet/standard/io/pipelines). It communicates over TCP (with
+  TLS or Negotiate authentication), named pipes, or directly within a process, and includes service discovery on the
+  local network. The wire format is specified in [docs/lightweight-protocol.md](docs/lightweight-protocol.md).
+* **NetGrpc**, based on the fully managed [gRPC for .NET](https://github.com/grpc/grpc-dotnet). Services are
+  hosted in ASP.NET Core and can be accessed over HTTP/2.
 
-  The gRPC layers can be used to publish services that can be accessed over HTTP/2, by SciTech.RPC clients or by other gRPC clients (e.g. Java, Go, or C++ clients). The RpcCodeGen tool can be used to generate '.proto' files which can be consumed by other gRPC implementations.
-* **Lightweight**, a very efficient RPC implementation based on [System.IO.Pipelines](https://devblogs.microsoft.com/dotnet/system-io-pipelines-high-performance-io-in-net/).
+The libraries target .NET Framework 4.7.2, .NET 8 and .NET 10. The NetGrpc server requires ASP.NET Core (.NET 8 or
+later).
 
-  The lightweight implementation provides RPC communication over a range of different protocols: TCP (with SSL), named pipes, and even direct in-process communication.
+## Packages
 
-## Runtime installation
+| Package | Contents |
+|---|---|
+| [SciTech.Rpc](https://www.nuget.org/packages/SciTech.Rpc/) | The core framework, used by the other packages. Includes a Roslyn analyzer for RPC service interfaces. |
+| [SciTech.Rpc.Lightweight](https://www.nuget.org/packages/SciTech.Rpc.Lightweight/) | The Lightweight client and server. |
+| [SciTech.Rpc.NetGrpc](https://www.nuget.org/packages/SciTech.Rpc.NetGrpc/) | The gRPC server, for ASP.NET Core. |
+| [SciTech.Rpc.NetGrpc.Client](https://www.nuget.org/packages/SciTech.Rpc.NetGrpc.Client/) | The gRPC client. |
+| [SciTech.Rpc.Protobuf](https://www.nuget.org/packages/SciTech.Rpc.Protobuf/) | A Protobuf serializer, based on [protobuf-net](https://github.com/protobuf-net/protobuf-net). |
+| [SciTech.Rpc.DataContract](https://www.nuget.org/packages/SciTech.Rpc.DataContract/) | A DataContract serializer. |
+| [SciTech.Rpc.Resources](https://www.nuget.org/packages/SciTech.Rpc.Resources/) | Remote resources and locks. |
+| [SciTech.Core](https://www.nuget.org/packages/SciTech.Core/) | Utility types used by SciTech.Rpc. |
 
-SciTech.Rpc is available as the following NuGet packages:
+## Defining RPC services
 
-* [SciTech.Rpc](https://www.nuget.org/packages/SciTech.Rpc/): This is the core SciTech.Rpc package, used by the other packages. Should normally not be added separately.
-* [SciTech.Rpc.Grpc](https://www.nuget.org/packages/SciTech.Rpc.Grpc/): Includes the gRPC implementation for the  [native/.NET implementation of gRPC](https://github.com/grpc/grpc) implementation of gRPC.
-* [SciTech.Rpc.Lightweight](https://www.nuget.org/packages/SciTech.Rpc.Lightweight/): Includes the Lightweight implementation of SciTech.Rpc.
-* [SciTech.Rpc.NetGrpc](https://www.nuget.org/packages/SciTech.Rpc.NetGrpc/): Includes the server side gRPC implementation for the fully managed [ASP.NET Core implementation of gRPC](https://github.com/grpc/grpc-dotnet) implementation of gRPC.
-  
-  **NOTE!** _The client side SciTech.Rpc.NetGrpc implementation has not yet been written yet. To use a gRPC client, the SciTech.Rpc.Grpc package should currently be used._
-
-A copy of the examples provided in this repository is available at [SciTech.Rpc.Examples](https://github.com/SciTechSoftware/SciTech.Rpc.Examples). The examples repository uses the NuGet packages instead of project references.
-
-## Defining RPC interfaces
-
-An interface is marked as an RPC interface by applying the `[RpcService]` attribute, e.g.:
-
-```csharp
-[RpcService]
-public interface ISimpleService
-{
-    Task<int> AddAsync(int a, int b);
- 
-    Task<double> GetValueAsync();
- 
-    Task SetValueAsync(double value);
-}
- 
-[RpcService]
-public interface IBlockingService
-{
-    int Add(int a, int b);
- 
-    double Value { get; set; }
-}
-```
-
-Unlike WCF, there’s no need to mark each member with an attribute and the service must be defined using an interface. All members of an RPCService will be available for remote calls.
-
-Each member of an RPC interface defines an RPC operation. The operation is only identified by name, so it’s not possible to have overloaded members, e.g. it’s not allowed to have one “int Add(int,int)” member and one “double Add(double,double)” member. A simple method operation can be defined by three different interface methods, a blocking member, an asynchronous member, or an asynchronous member with cancellation support (not yet implemented). Consider a method operation like `GetMailbox(string name)`, which returns a mailbox reference for a specific name. This operation can be defined as:
+An interface is marked as an RPC service by applying the `[RpcService]` attribute:
 
 ```csharp
 [RpcService]
-public interface IMailboxManagerService
+public interface IThermostatService
 {
-    RpcObjectRef<IMailboxService> GetMailbox(string name);
-}
- 
-[RpcService(ServerDefinitionType = typeof(IMailboxManagerService))]
-public interface IMailboxManagerServiceClient : IRpcService
-{
-    Task<RpcObjectRef<IMailboxServiceClient>> GetMailboxAsync(string name);
-}
-```
+    Task<double> GetTemperatureAsync();
 
-By default the name of a service is the same as the interface defining it, with the initial ‘I’ removed. In this case the client interface will not match the correct service name, so the server side interface has to be specified or the name explicitly assigned (e.g. Name = "MailboxManagerService"). The IRpcService interface seen in the example, provides some useful client side utility methods and properties and is automatically implemented by the proxy. 
- 
-It is allowed to define multiple variants of the same operation on the client side, e.g. both a blocking and an asynchronous method for the same operation (`GetMailbox` and` GetMailboxAsync`). This is not allowed on the server side, since then the actual method to call would be ambiguous.
+    Task SetTargetTemperatureAsync(double temperature, CancellationToken cancellationToken);
 
-## Publishing RPC Services
+    double TargetTemperature { get; set; }
 
-Remote services can be published as singleton services, similar to WCF and gRPC. A singleton service can be directly accessible using an URL like: grpc://services.company.com/SomeService. SciTech.RPC also offers a more object oriented approach, where specific service instances can be published, and a reference to the published instance can be returned to a connected client.
-
-A service is published on a server with the help of an `RpcServicePublisher`, an `IRpcServiceDefinitionsBuilder` and one or more RPC server implementations (implementing `IRpcServer`). 
-
-The services interfaces of all services that should be hosted by the server must be registered before starting the server. The  interfaces are registered by using the `Register` methods on `IRpcServiceDefinitionsBuilder`.
-
-The RegisterService method will generate a service stub function for each member in the service interface (with the help of compiled LINQ expressions). This stub will be called by the communication layer and it converts the incoming data to a call to the service implementation.
- 
-After (or before) the host is started, service instances can be published by calling PublishInstance or PublishSingleton. As indicated by the name, a singleton service only allows a single instance to be published and it can be accessed by the client by just the name of the service. A published service instance is identified by an` RpcObjectRef<>`, which includes an identifier of the instance and information about the server that hosts the instance. This is similar to the `ObjRef` class in .NET remoting.
-
-```csharp
-var serviceImpl = new SimpleServiceImpl();
-var publishScope = host.PublishInstance<ISimpleService>(serviceImpl);
-RpcObjectRef<ISimpleService> objectRef = publishScope.Value;
- 
-// The objectRef can be returned to a connected client, which can 
-// use it to retrieve a client side stub of ISimpleService.
- 
-// ...
- 
-// Dispose the scope when service instance should no longer
-// be published.
-publishScope.Dispose();
-```
-
-### Return value conversion and auto-publishing
-
-In addition to returning `RpcObjectRefs` from methods, it is also possible to directy return 
-RPC service instances. The service instances will be converted by the stub to an `RpcObjectRef` when serialized
-and then the client-side proxy will automatically look up the proxy for the `RpcObjectRef` using the 
-current connection. Auto-publishing is disabled by default and must be enabled by setting the `IRpcServer.AllowAutoPublishing` property to `true`.
-
-Using return value conversion, the `IMailboxManagerService` defined above, can be changed to:
-
-```csharp
-[RpcService]
-public interface IMailboxManagerService
-{
-    IMailboxService GetMailbox(string name);
-}
- 
-[RpcService(ServerDefinitionType = typeof(IMailboxManagerService))]
-public interface IMailboxManagerServiceClient : IRpcService
-{
-    Task<IMailboxServiceClient> GetMailboxAsync(string name);
+    event EventHandler<TemperatureChangedEventArgs> TemperatureChanged;
 }
 ```
 
-Currently return value conversion is hard-coded to handle `RpcObjectRef`, `TService` (i.e. a service interface), `RpcObjectRef[]`, and `TService[]`. In the future `IEnumerable` interfaces and classes of `RpcObjectRef` and `TService` will also be supported. We also plan to support user-defined return value conversions.
+All public members of an RPC service are RPC operations, so there's no need to mark each member with an
+attribute. By default, the name of a service is the name of the interface without the initial "I", in the
+namespace of the interface. It can be changed with the `Name` and `Namespace` properties of `[RpcService]`.
 
-For an example of an auto-published service instance, see the [MailboxManager sample](examples/Server/Common/Services/MailBoxManager.cs).
-
-**NOTE!** _Auto-publishing will not work well on a load-balanced service, since all calls on the returned service must be made to the same process. Better support for load-balanced services is being investigated._
-
-### Publish using ASP.NET Core gRPC
-
-To publish a SciTech.Rpc service in ASP.NET Core the NetGrpc server has to be added to the ASP.NET Core startup. The following extensions methods can be used in the startup class:
-
-* `IServiceCollection.AddNetGrpc()`
-
-  Adds the required NetGrpc services to the service collection, and also adds the required ASP.NET Core gRPC services by calling `IServiceCollection.AddGrpc()`.
-  
-* `IServiceCollection.RegisterRpcService<TService>`
-
-  Registers an RPC service interface to allow RPC singletons and instances to be published at a later stage.
-  
-* `IApplicationBuilder.PublishSingleton`
-
-  Publishes singleton service to the registered IRpcServicePublisher. Singeltons can be published using a specific instance, a factory method, or by relying on the `IServiceProvider` provided when processing a gRPC call.
-  
-* `IEndpointRouteBuilder.MapNetGrpcServices`
-  
-  To make registered and published services available as gRPC HTTP/2 operations, the service operations have to be mapped as HTTP/2 endpoints using the `MapNetGrpcServices` extension method. `MapNetGrpcServices`can be called from the configuration action provided to `IApplicationBuilder.UseEndpoints`method.
-
-For an example on how to publish using ASP.NET Core gRPC, see the [`Startup`](examples/Server/NetGrpcServer/Startup.cs) class of the [NetGrpcServer](examples/Server/NetGrpcServer) example.
-
-### Publish using gRPC
-The `GrpcServer` class is used to publish services using the native/.NET implementation of gRPC. 
+An operation is identified by its name only, so overloaded members are not allowed. An operation can be
+implemented as a blocking method, an asynchronous method, or an asynchronous method with a `CancellationToken`.
+The client and server definitions may differ: a client side interface can, for example, define both a blocking
+and an asynchronous variant of the same operation, as long as it refers to the server side definition:
 
 ```csharp
-var definitionsBuilder = new RpcServiceDefinitionBuilder();
-definitionsBuilder
-    .RegisterService<IBlockingService>()
-    .RegisterService<ISimpleService>();
-IRpcServerHost server = new GrpcServer( definitionsBuilder );
-server.AddEndPoint(new GrpcEndPoint("localhost", GrpcTestPort, false));
- 
+[RpcService(ServerDefinitionType = typeof(IThermostatService))]
+public interface IThermostatServiceClient : IThermostatService, IRpcProxy
+{
+    Task<double> GetTargetTemperatureAsync();
+}
+```
+
+The supported kinds of operations are:
+
+| Operation | Declaration |
+|---|---|
+| Unary call | `int Add(int a, int b);` or `Task<int> AddAsync(int a, int b);` |
+| Property | `double Value { get; set; }` |
+| Event | `event EventHandler<TEventArgs> Changed;` |
+| Server streaming | `IAsyncEnumerable<Reading> GetReadings(int count, CancellationToken cancellationToken);` |
+| Client streaming | `Task<int> Upload(string name, IAsyncEnumerable<Sample> samples);` |
+| Callback | `Task MeasureAsync(int count, Action<Reading> callback);` |
+
+Event handlers are invoked in the synchronization context provided when the proxy was retrieved, e.g. the user
+interface thread.
+
+## Publishing services
+
+A service implementation is published by an `IRpcServer`, either as a singleton, which clients access by the
+service name, or as an instance. A published instance is identified by an `RpcObjectRef<TService>`, which can be
+returned to clients, similar to an `ObjRef` in .NET Remoting:
+
+```csharp
+var server = new LightweightRpcServer();
+server.AddEndPoint(new TcpRpcEndPoint("localhost", 50052, false));
+
+// Singletons are accessed by service name.
+server.PublishSingleton<IThermostatService>(new ThermostatService());
+
 server.Start();
+
+// Instances are identified by an RpcObjectRef, which can be returned to a client.
+using var publishedSensor = server.ServicePublisher.PublishInstance<ISensorService>(new SensorService());
+RpcObjectRef<ISensorService> sensorRef = publishedSensor.Value;
+
+// ...
+
+await server.ShutdownAsync();
 ```
 
-For more information, see the [GrpcAndLightweightServer](examples/Server/GrpcAndLightweightServer) example.
+The service interfaces are registered with an `RpcServiceDefinitionsBuilder`. Publishing a service registers its
+interfaces automatically, but registration is only possible before the server is started. A service returned by an
+operation, e.g. `ISensorService GetSensor(string name)`, is converted to an `RpcObjectRef` and published
+automatically if the `AllowAutoPublish` option is enabled.
 
-### Publish using Lightweight RPC
-The `LightweightRpcServer` class is used to publish services using the Lightweight RPC implementation. 
+See the [LightweightServer](examples/Server/LightweightServer/Program.cs) example for a complete server.
+
+### Publishing with ASP.NET Core gRPC
+
+The NetGrpc server is configured in the ASP.NET Core startup:
+
+* `IServiceCollection.AddNetGrpc()` adds the NetGrpc services, and the ASP.NET Core gRPC services.
+* `IServiceCollection.RegisterRpcService<TService>()` registers a service interface.
+* `IApplicationBuilder.PublishRpcSingleton<TService, TServiceImpl>()` publishes a singleton, e.g. one that is
+  created by the service provider for each call.
+* `IEndpointRouteBuilder.MapNetGrpcServices()` maps the registered services to gRPC endpoints. Services must be
+  registered before this is called.
+
+See the [NetGrpcServer](examples/Server/NetGrpcServer/Startup.cs) example.
+
+## Connecting to services
+
+A client uses a proxy, which implements the service interface, retrieved from a connection:
 
 ```csharp
-var definitionsBuilder = new RpcServiceDefinitionBuilder();
-definitionsBuilder
-    .RegisterService<IBlockingService>()
-    .RegisterService<ISimpleService>();
+await using var connection = new TcpRpcConnection(new RpcConnectionInfo(new Uri("lightweight.tcp://localhost:50052")));
 
-var options = new RpcServiceOptions
+var thermostat = connection.GetServiceSingleton<IThermostatServiceClient>();
+double temperature = await thermostat.GetTemperatureAsync();
+
+var sensor = connection.GetServiceInstance(sensorRef);
+```
+
+`NetGrpcConnection` connects to a NetGrpc server, e.g. at `grpc://localhost:50051`, and `NamedPipeRpcConnection`
+and `InprocRpcConnection` provide the other Lightweight transports. An `RpcConnectionManager` creates and reuses
+connections to any reachable server, based on the connection info of an `RpcObjectRef`. See the
+[GreeterClient](examples/Clients/GreeterClient/Program.cs) example.
+
+`IRpcProxy.TryCastAsync<TService>()` checks whether the object behind a proxy implements another service, for
+example a newer version of a service.
+
+## Service discovery
+
+A Lightweight server with a `LightweightDiscoveryEndPoint` can be discovered by clients on the local network,
+over UDP multicast. A client can ask for the singleton services it needs, and then only servers that publish at
+least one of them answer:
+
+```csharp
+var discoveryClient = new LightweightDiscoveryClient();
+discoveryClient.ServerDiscovered += (s, e) =>
 {
-    Serializer = new ProtobufSerializer(),
+    var server = e.DiscoveredServer;
+
+    // Services lists which of the requested services the server publishes.
+    bool isCompatible = server.Services.Contains("Thermostat.ThermostatService2");
+    server.Properties.TryGetValue("version", out var version);
+    Console.WriteLine($"{server.ConnectionInfo.DisplayName}, version {version}, compatible: {isCompatible}");
 };
-            
-IRpcServerHost server = new LightweightRpcServer( definitionsBuilder, null, options );
-server.AddEndPoint(new LightweightRpcEndPoint("127.0.0.1", 50052, false));
- 
-server.Start();
+
+await discoveryClient.FindServicesAsync(
+    new[] { "Thermostat.ThermostatService", "Thermostat.ThermostatService2" },
+    cancellationToken);
 ```
 
-For more information, see the [GrpcAndLightweightServer](examples/Server/GrpcAndLightweightServer) example.
+A server describes itself with server properties, application-defined key/value pairs set in
+`RpcServerOptions.ServerProperties`, e.g. a product name and version. Discovery is unauthenticated, so it should
+only be used as a pre-filter. After connecting, `IRpcChannel.GetServerInfoAsync()` returns the same information
+over the authenticated connection, together with the singleton services the server publishes.
 
-## Connecting to RPC Services
+## Versioning services
 
-To access remote services from the client side, proxy implementations of the service interface are used. 
- 
-The `IRpcServerConnection` and `IRpcServerConnectionManager` interfaces can be used retrieve a client proxy implementation of the service interface. The `IRpcServerConnection` interface represents a specific connection to one server and can be used to retrieve proxies for that specific server. The `IRpcServerConnectionManager` interface allows proxies to be retrieved for any reachable server, based on the server information in `RpcObjectRef<>`. 
+A published service interface should not be changed: operations must not be removed, and their parameters and
+return types must not change. A client can't detect such a change, and a changed signature may be deserialized
+incorrectly. New operations are added in a new interface, e.g. `IThermostatService2 : IThermostatService` with its
+own service name, and clients check whether it's available: by discovery or `GetServerInfoAsync` for a
+singleton, and by `TryCastAsync` for an object.
 
-The code below shows how the `GrpcServerConnection` implementation of `IRpcServerConnection` can be used to connect to a gRPC service (using the default `GrpcProxyGenerator` and a `ProtobufSerializer`). 
+## Errors and faults
 
-```csharp
-IRpcServerConnection connection = new GrpcServerConnection(new RpcServerConnectionInfo("grpc://127.0.0.1:50051" ));
- 
-var managerService = connection.GetServiceSingleton<IMailboxManagerService>(); 
-RpcObjectRef<IMailboxService> mailboxRef = managerServer.GetMailbox("MailboxName");
-var mailboxService = connection.GetServiceInstance(mailboxRef);
-// ...
-```
+An exception thrown by a service implementation reaches the client as an `RpcFailureException`, with only the
+exception message. To provide more detailed error information, an operation, or a whole service, can declare
+faults with the `[RpcFault]` attribute, similar to `[FaultContract]` in WCF. The implementation then throws an
+`RpcFaultException<TFault>`, which reaches the client with its fault details.
 
-The [GreeterClient example](examples/Clients/GreeterClient/Program.cs) shows how an `RpcServerConnectionManager` can be initialized to provide connections to a gRPC server and a Lightweight server.
+Exception converters, implemented by deriving from `RpcExceptionConverter<TException, TFault>`, convert ordinary
+exceptions to faults on the server side, and back to exceptions on the client side. They're registered in
+`RpcServerOptions.ExceptionConverters` and `RpcClientOptions.ExceptionConverters`, or with the
+`[RpcFaultConverter]` attribute. Faults are handled the same way for unary and streaming operations.
 
-## EventHandlers and Delegates
+The framework throws these exceptions:
 
-It is also allowed to include events in the service definition. The events must currently be declared using EventHandler, or EventHandler<TEventArgs>, but support for any delegate (returning void) type will be implemented. The event handler implementation is completely transparent, you can use the events as you would with a local interface. However, the RPC proxy is associated with a SynchronizationContext, which allows event callbacks to be properly marshalled to the correct synchronization context, e.g. the main user interface thread. 
-  
-The SynchronizationContext can be specified when retrieving the service proxy using GetRpcServiceInstance,for example:
-
-```csharp
-var clientService = connection.GetServiceInstance(objectRef, this.synchronizationContext);
-```
-The [MailerClient example](examples/Clients/MailerClient/Program.cs) shows how an event handler can be added to a service interface.
-
-## Exception and Error Handling
-
-By default, any exception thrown by the service operation will be propagated to the communication layer (e.g. gRPC or Lightweight). The communication layer will normally generate some kind of error return which will cause another exception on the client side (e.g. a `Grpc.Core.RpcException`). The client side proxy will investigate exceptions thrown by the communication layer and convert them to a suitable SciTech.Rpc exception. This will normally be an `RpcFailureException` in case of an exception in the operation server side implementation. The RpcFailureException will just include the message provided with underlying exception, which is usually not very informative (since the communication layer by default doesn't include exception details).
-
-To allow an operation to provide more detailed error information, it is possible to tag the operation with an `[RpcFault]` attribute. This is similar to the `[OperationFault]` attribute in WCF. Unlike WCF, it is also possible to apply the fault attribute at the service definition level, in which case the attribute will apply to all operations in the service.
-
-The `RpcFault` attribute can be applied with just a fault code, or it can accept a serializable fault details type that can be used to provide additional details about the fault. If an operation is tagged with the RpcFault attribute, the service implementation can throw an `RpcFaultException`to propagate error information back to the client.
-
-_**NOTE!** The exception handling design is not fully finished yet. More details and examples about exception handling will be added soon._
-
-The following exceptions may be thrown by the SciTech.Rpc framework:
-
-* `RpcFailureException`: Thrown when an undeclared exception occurs within an  operation handler.
-* `RpcServiceUnavailableException`: Thrown when a service singleton or instance cannot be reached because it is not available on the server.
-* `RpcCommunicationException`: Thrown when there is a communication error with the RPC server, e.g. server unreachable, server disconnected.
-* `RpcDefinitionException`: Thrown when there is an error in an RPC definition interface. May occur when service interfaces are registered.
-* `RpcFaultException`, `RpcFaultException<TFault>`: Thrown when a declared fault exception occurs within an operation handler. Also used by the service implementation to provide error information to the client.
-
-### Exception converters
-
-To make RPC exception handling more streamlined and easier to use, it is also possible to register exception converters. An exception converter can be used to convert an ordinary exception to an RPC fault on the server side, and to convert an RPC fault to an ordinary exception on the client side. 
-
-Exceptions converts are implemented using the `IRpcServerExceptionConverter` and `IRpcClientExceptionConverter` interfaces. A default implementation is provided by the `RpcExceptionConverter<TException>` class. 
-
-Exception converters are applied to RPC operations by using the `[RpcExceptionConverter]`attribute (not implemented yet), or by registering it using the `IRpcServiceDefinitionBuilder` on the server side, or using the `IRpcProxyDefinitionsBuilder` on the client side.
-
-_**NOTE!** The exception handling design is not fully finished yet. More details and examples about exception handling will be added soon._
+* `RpcFailureException`: an undeclared exception in an operation, or another failure of the call.
+* `RpcFaultException`, `RpcFaultException<TFault>`: a declared fault.
+* `RpcServiceUnavailableException`: the service singleton or instance is not published on the server.
+* `RpcCommunicationException`: a communication error, e.g. the server is unreachable or disconnected.
+* `RpcDefinitionException`: an error in an RPC service definition.
+* `TimeoutException` and `OperationCanceledException`: the call timed out or was cancelled.
 
 ## Authentication
 
-It is possible to provide client credentials to the service at connection level (channel), or at call level. Connection level credentials are provided as an SSL certificate when creating a connection. For the gRPC implementation, this is based on the [`Grpc.Core.SslCredentials`](https://grpc.github.io/grpc/csharp/api/Grpc.Core.SslCredentials.html) class. 
+A Lightweight TCP end point can require TLS (`SslServerOptions`) or Negotiate (`NegotiateServerOptions`)
+authentication, and the client provides the matching `SslClientOptions` or `NegotiateClientOptions`. NetGrpc uses
+the authentication of ASP.NET Core, and operations or services can require authorization with `[RpcAuthorize]`
+and `[RpcAllowAnonymous]`.
 
-Per call credentials can be provided by attaching security tokens to the call metadata. Attaching and reading call metadata is performed with the help of the `RpcClientCallInterceptor`and the `RpcServerCallInterceptor` delegates. These delegates are registered using `IRpcServer.AddCallInterceptor` and `IRpcServerConnectionManager.AddCallInterceptor`. 
-
-_**NOTE!** The authentication design is not fully finished yet. More details and examples about authentication will be added._
+Metadata, e.g. security tokens, can be attached to calls with `RpcClientCallInterceptor` and read with
+`RpcServerCallInterceptor`, registered in the client and server options.
 
 ## Serialization
 
-By default gRPC serialization is based on the [Protobuf (Protocol buffer)](https://developers.google.com/protocol-buffers/) serializer. A very efficient binary serialization protocol which is also highly version tolerant. SciTech.Rpc includes a Protobuf serializer based on the [protobuf-net](https://github.com/mgravell/protobuf-net) implementation of Protobuf. It also includes a DataContract serializer (binary by default), and other serializers will be implemented, e.g. Json.NET. 
+Lightweight uses JSON (`JsonRpcSerializer`) by default, and NetGrpc uses Protobuf (`ProtobufRpcSerializer`).
+The serializer is configured in the client and server options, and both sides must use the same one. Types that
+are serialized polymorphically are declared with `[RpcKnownType]`, which is supported by all serializers.
 
 ## Building SciTech.Rpc
 
-To build the SciTech.Rpc solution, you need to use Visual Studio 2019 v16.3 or later and have [.NET Core 3.0](https://dotnet.microsoft.com/download/dotnet-core/3.0) installed. 
+Building requires the .NET SDK specified in [global.json](global.json). Running the .NET Framework tests requires
+Windows.
 
-To build the solution using the command line, use the following command:
+```
+dotnet build --configuration Release
+dotnet test --configuration Release --framework net8.0
+```
 
-`dotnet build --configuration Release`
-
-To run the unit tests, use the following command:
-
-`dotnet test --configuration Release`
-
-
-## Performance
-
-SciTech.Rpc is designed with performance as a primary goal. The gRPC implementation should not add any noticable overhead to the underlying gRPC framework, except for an initial delay when generating dynamic code. It will also be possible to avoid the dynamic code generation in future releases by using the `RpcCodeGen` tool, which will pre-generate the necessary assemblies. This is particularly useful in AOT compilation scenarios.
-
-The Lightweight implementation is designed to be as fast as possible, with as little data transfer and memory allocations as possible. 
-
-Benchmark tests and [memory usage tests](https://memprofiler.com/api-examples) will be added, so that performance and memory usage can be better evaluated.
+The tests use fixed TCP ports, so run one target framework at a time.
 
 ## Feedback and contributions
 
-Feedback and contributions are welcome!
+Feedback, issues and pull requests are welcome. Use the GitHub issues and pull requests, or
+[e-mail the maintainer](mailto:andreas@scitech.se), Andreas Suurkuusk. Security issues should be reported as
+described in [SECURITY.md](SECURITY.md). Contributors are listed in [CONTRIBUTORS.md](CONTRIBUTORS.md).
 
-SciTech.Rpc was initially designed as a replacement for .NET Remoting in a large legacy project that is being upgraded to from .NET Framework 2.0 to .NET Core 3.0. It will also be used as the communication foundation of the cloud profiling support in the coming version 6.0 of [.NET Memory Profiler](https://memprofiler.com).
-
-So SciTech.Rpc will be used in two rather large projects and we are committed to creating a stable 1.0 release within a few months, hopefully before the official release of .NET Core 3.0. 
-
-We would very much appreciate any feedback, issues, or pull requests you have. You can use the Github project page for issues and pull requests, or you can [e-mail the product owner](mailto:andreas@scitech.se), Andreas Suurkuusk,  with any feedback or comments you have. 
-
- 
+SciTech.Rpc is licensed under the [BSD 3-Clause License](LICENSE).

@@ -121,7 +121,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             {
                 ClientId = request.ClientId,
                 ConnectionInfo = endPoint.GetConnectionInfo(this.server.ServicePublisher.ServerId),
-                Properties = properties.Count > 0 ? new Dictionary<string, string>(properties) : null,
+                Properties = properties.Count > 0 ? properties.ToDictionary(p => p.Key, p => p.Value) : null,
                 Matches = matches?.ToArray(),
                 ServiceCount = services.Names.Length,
                 ServicesHash = services.Hash

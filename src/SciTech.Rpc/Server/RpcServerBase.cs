@@ -20,6 +20,7 @@ using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel;
 using System.Linq;
@@ -102,7 +103,7 @@ namespace SciTech.Rpc.Server
         /// <summary>
         /// Gets the server properties, from <see cref="IRpcServerOptions.ServerProperties"/>.
         /// </summary>
-        public ImmutableDictionary<string, string> ServerProperties { get; } = ImmutableDictionary<string, string>.Empty;
+        public IReadOnlyDictionary<string, string> ServerProperties { get; } = ImmutableDictionary<string, string>.Empty;
 
         public bool IsDisposed { get; private set; }
 

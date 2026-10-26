@@ -222,6 +222,14 @@ namespace SciTech.Rpc.Lightweight.Server
                 this.Serializer, null, false);
             this.AddMethodDef(queryServicesStub);
 
+            // Implements IRpcServerInfoService, so the request and response types must match the proxy.
+            var serverInfoStub = new LightweightMethodStub<RpcObjectRequest, RpcResponse<RpcServerInfoResponse>>(
+                $"{RpcServerInfoResponse.ServiceName}.{RpcServerInfoResponse.OperationName}",
+                (request, _, context) => new ValueTask<RpcResponse<RpcServerInfoResponse>>(
+                    new RpcResponse<RpcServerInfoResponse>(this.GetServerInfo(context.EndPoint.GetConnectionInfo(this.ServerId)))),
+                this.Serializer, null, false);
+            this.AddMethodDef(serverInfoStub);
+
             if (this.AllowDiscovery)
             {
                 this.serviceDiscovery = new ServiceDiscovery(this);

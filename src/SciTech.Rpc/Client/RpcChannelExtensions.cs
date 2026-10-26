@@ -9,9 +9,11 @@
 //
 #endregion
 
+using SciTech.Rpc.Internal;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SciTech.Rpc.Client
 {
@@ -161,6 +163,24 @@ namespace SciTech.Rpc.Client
             }
 
             throw new RpcFailureException(RpcFailure.ServerMismatch, "Invalid serviceRef connection.");
+        }
+
+        /// <summary>
+        /// Retrieves information about the server of <paramref name="connection"/>: its id, display name and properties,
+        /// and the singleton services it publishes. Use it to check whether a server is compatible after connecting,
+        /// e.g. by host name or address, without discovery.
+        /// </summary>
+        /// <remarks>Servers older than SciTech.Rpc 1.0 don't implement the operation, and then the call fails like a call to
+        /// any unknown operation.</remarks>
+        public static async Task<RpcServerInfo> GetServerInfoAsync(this IRpcChannel connection, CancellationToken cancellationToken = default)
+        {
+            if (connection is null) throw new ArgumentNullException(nameof(connection));
+
+            // The proxy must not capture the synchronization context of the caller.
+            var service = connection.GetServiceSingleton<IRpcServerInfoService>((SynchronizationContext?)null);
+            var response = await service.GetServerInfoAsync(cancellationToken).ConfigureAwait(false);
+
+            return RpcServerInfo.FromResponse(response, connection.ConnectionInfo);
         }
     }
 }

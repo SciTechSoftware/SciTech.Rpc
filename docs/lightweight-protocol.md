@@ -148,6 +148,26 @@ client has finished the request stream, for example with an error.
   `scitech_rpc.error_details-bin`. Protocol-level failures use the error type `SciTech.Rpc.RpcFailureError`, with
   an `RpcFailure` name as the error code, for example `RemoteDefinitionError` for an unknown operation.
 
+### 5.6 Built-in operations
+
+Servers implement these operations in addition to the services they publish. They are ordinary unary calls, and
+their payloads use the server's default serializer. They're not published services, so discovery doesn't list
+them.
+
+| Operation | Request | Response |
+|---|---|---|
+| `SciTech.Rpc.RpcService.QueryServices` | `RpcObjectRequest`: the object id. | `RpcServicesQueryResponse`: the names of the services the object implements. |
+| `SciTech.Rpc.RpcService.GetServerInfo` | `RpcObjectRequest`: an empty object id. | `RpcResponse` with an `RpcServerInfoResponse`. New in 1.0. |
+
+`RpcServerInfoResponse` describes the server, as discovery does (section 7), but over the authenticated
+connection, so a client can check whether a server it connected to by host name or address is compatible:
+
+| Property | Description |
+|---|---|
+| `ConnectionInfo` | `DisplayName`, `HostUrl` and `ServerId` of the server. |
+| `Properties` | The server properties (section 7.4). |
+| `Services` | The names of the singleton services the server publishes, including those that don't allow discovery. The services of an object are provided by `QueryServices`. |
+
 ## 6. Operation numbers
 
 ### 6.1 Purpose

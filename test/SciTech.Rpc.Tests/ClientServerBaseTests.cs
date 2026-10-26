@@ -2,10 +2,14 @@ using Moq;
 using NUnit.Framework;
 using SciTech.NetMemProfiler;
 using SciTech.Rpc.Client;
+using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
+using SciTech.Rpc.Server.Internal;
 using SciTech.Threading;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
@@ -364,6 +368,55 @@ namespace SciTech.Rpc.Tests
             finally
             {
                 await host.ShutdownAsync().DefaultTimeout();
+            }
+        }
+
+        [Test]
+        public async Task GetServerInfo_Should_ReturnServerInfo()
+        {
+            var serverBuilder = new RpcServiceDefinitionsBuilder();
+            serverBuilder.RegisterService<ISimpleService>();
+            serverBuilder.RegisterService<IBlockingService>(new RpcServerOptions { AllowDiscovery = false });
+            serverBuilder.RegisterService<ISimpleService2>();
+
+            var (host, connection) = this.CreateServerAndConnection(serverBuilder, o =>
+            {
+                o.ServerProperties["product"] = "Thermostat";
+                o.ServerProperties["version"] = "1.2.3";
+            });
+
+            // The application defined connection info of the server, as in discovery.
+            host.ServicePublisher.InitConnectionInfo(new RpcConnectionInfo("Thermostat server", new Uri("lightweight.tcp://thermostat:1234"), host.ServerId));
+
+            host.Start();
+            try
+            {
+                // The published singletons are listed, also those that don't allow discovery. ISimpleService2 is only
+                // registered, so it's not available and not listed.
+                using var simpleService = host.ServicePublisher.PublishSingleton<ISimpleService>(new TestSimpleServiceImpl());
+                using var blockingService = host.ServicePublisher.PublishSingleton<IBlockingService>(new TestBlockingServiceImpl());
+
+                var serverInfo = await connection.GetServerInfoAsync().DefaultTimeout();
+
+                Assert.AreEqual(host.ServerId, serverInfo.ServerId);
+                Assert.AreEqual("Thermostat server", serverInfo.DisplayName);
+                CollectionAssert.AreEquivalent(
+                    new Dictionary<string, string> { ["product"] = "Thermostat", ["version"] = "1.2.3" },
+                    serverInfo.Properties);
+
+                var expectedServices = new[] { typeof(ISimpleService), typeof(IBlockingService) }
+                    .Select(t => RpcBuilderUtil.TryGetServiceInfoFromType(t).FullName)
+                    .OrderBy(n => n, StringComparer.Ordinal)
+                    .ToArray();
+                CollectionAssert.AreEqual(expectedServices, serverInfo.Services);
+
+                // The built-in operation is not a published service.
+                var discoverableServices = host.ServicePublisher is IRpcServiceActivator activator ? activator.GetPublishedSingletons() : null;
+                Assert.IsFalse(discoverableServices?.Contains(typeof(IRpcServerInfoService)) ?? false);
+            }
+            finally
+            {
+                await host.ShutdownAsync();
             }
         }
 

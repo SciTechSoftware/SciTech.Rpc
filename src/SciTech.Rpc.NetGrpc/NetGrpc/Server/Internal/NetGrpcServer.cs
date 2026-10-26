@@ -59,6 +59,12 @@ namespace SciTech.Rpc.NetGrpc.Server.Internal
             return Task.FromResult(server.QueryServices(request.Id));
         }
 
+        internal static Task<RpcResponse<RpcServerInfoResponse>> GetServerInfo(NetGrpcServer server, RpcObjectRequest request, GrpcCore.ServerCallContext _)
+        {
+            // The end point is not known here, so the connection info of the service publisher is used.
+            return Task.FromResult(new RpcResponse<RpcServerInfoResponse>(server.GetServerInfo(null)));
+        }
+
         protected override IRpcSerializer CreateDefaultSerializer()
         {
             return new ProtobufRpcSerializer();

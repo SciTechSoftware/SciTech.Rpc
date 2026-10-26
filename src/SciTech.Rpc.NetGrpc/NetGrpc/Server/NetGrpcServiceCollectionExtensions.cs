@@ -180,6 +180,14 @@ namespace SciTech.Rpc.NetGrpc.Server
                 this.server.Serializer),
                 new List<object>(),
                 NetGrpcServer.QueryServices);// (s, request, context) => Task.FromResult(s.QueryServices(request)));
+
+            // Implements IRpcServerInfoService, so the request and response types must match the proxy.
+            context.AddUnaryMethod(GrpcMethodDefinition.Create<RpcObjectRequest, RpcResponse<RpcServerInfoResponse>>(
+                GrpcCore.MethodType.Unary,
+                RpcServerInfoResponse.ServiceName, RpcServerInfoResponse.OperationName,
+                this.server.Serializer),
+                new List<object>(),
+                NetGrpcServer.GetServerInfo);
         }
     }
 }

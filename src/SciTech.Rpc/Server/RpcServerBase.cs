@@ -224,5 +224,31 @@ namespace SciTech.Rpc.Server
 
             throw new RpcServiceUnavailableException($"Service object '{objectId}' not published.");
         }
+
+        /// <summary>
+        /// Implements the built-in server info operation (see <see cref="IRpcServerInfoService"/>).
+        /// </summary>
+        /// <param name="endPointConnectionInfo">The connection info of the end point that the call was received on, used
+        /// if the connection info of the service publisher has not been initialized.</param>
+        protected RpcServerInfoResponse GetServerInfo(RpcConnectionInfo? endPointConnectionInfo)
+        {
+            // All published singletons, also those that don't allow discovery. Discovery is unauthenticated, but this
+            // operation is called over the connection, where the client could get the singletons anyway.
+            var services = new List<string>();
+            foreach (var serviceType in this.ServiceActivator.GetPublishedSingletons())
+            {
+                if (RpcBuilderUtil.TryGetServiceInfoFromType(serviceType) is RpcServiceInfo serviceInfo)
+                {
+                    services.Add(serviceInfo.FullName);
+                }
+            }
+
+            return new RpcServerInfoResponse
+            {
+                ConnectionInfo = this.ServicePublisher.ConnectionInfo ?? endPointConnectionInfo ?? new RpcConnectionInfo(this.ServerId),
+                Properties = this.ServerProperties.Count > 0 ? this.ServerProperties.ToDictionary(p => p.Key, p => p.Value) : null,
+                Services = services.ToArray()
+            };
+        }
     }
 }

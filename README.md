@@ -13,7 +13,7 @@ There are two communication layers:
 * **Lightweight**, a very efficient implementation based on
   [System.IO.Pipelines](https://learn.microsoft.com/dotnet/standard/io/pipelines). It communicates over TCP (with
   TLS or Negotiate authentication), named pipes, or directly within a process, and includes service discovery on the
-  local network. The wire format is specified in [docs/lightweight-protocol.md](docs/lightweight-protocol.md).
+  local network. The wire format is specified in [docs/lightweight-protocol.md](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/docs/lightweight-protocol.md).
 * **NetGrpc**, based on the fully managed [gRPC for .NET](https://github.com/grpc/grpc-dotnet). Services are
   hosted in ASP.NET Core and can be accessed over HTTP/2.
 
@@ -111,7 +111,7 @@ interfaces automatically, but registration is only possible before the server is
 operation, e.g. `ISensorService GetSensor(string name)`, is converted to an `RpcObjectRef` and published
 automatically if the `AllowAutoPublish` option is enabled.
 
-See the [LightweightServer](examples/Server/LightweightServer/Program.cs) example for a complete server.
+See the [LightweightServer](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/examples/Server/LightweightServer/Program.cs) example for a complete server.
 
 ### Publishing with ASP.NET Core gRPC
 
@@ -124,7 +124,7 @@ The NetGrpc server is configured in the ASP.NET Core startup:
 * `IEndpointRouteBuilder.MapNetGrpcServices()` maps the registered services to gRPC endpoints. Services must be
   registered before this is called.
 
-See the [NetGrpcServer](examples/Server/NetGrpcServer/Startup.cs) example.
+See the [NetGrpcServer](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/examples/Server/NetGrpcServer/Startup.cs) example.
 
 ## Connecting to services
 
@@ -142,7 +142,7 @@ var sensor = connection.GetServiceInstance(sensorRef);
 `NetGrpcConnection` connects to a NetGrpc server, e.g. at `grpc://localhost:50051`, and `NamedPipeRpcConnection`
 and `InprocRpcConnection` provide the other Lightweight transports. An `RpcConnectionManager` creates and reuses
 connections to any reachable server, based on the connection info of an `RpcObjectRef`. See the
-[GreeterClient](examples/Clients/GreeterClient/Program.cs) example.
+[GreeterClient](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/examples/Clients/GreeterClient/Program.cs) example.
 
 `IRpcProxy.TryCastAsync<TService>()` checks whether the object behind a proxy implements another service, for
 example a newer version of a service.
@@ -222,7 +222,7 @@ are serialized polymorphically are declared with `[RpcKnownType]`, which is supp
 
 ## Building SciTech.Rpc
 
-Building requires the .NET SDK specified in [global.json](global.json). Running the .NET Framework tests requires
+Building requires the .NET SDK specified in [global.json](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/global.json). Running the .NET Framework tests requires
 Windows.
 
 ```
@@ -236,6 +236,6 @@ The tests use fixed TCP ports, so run one target framework at a time.
 
 Feedback, issues and pull requests are welcome. Use the GitHub issues and pull requests, or
 [e-mail the maintainer](mailto:andreas@scitech.se), Andreas Suurkuusk. Security issues should be reported as
-described in [SECURITY.md](SECURITY.md). Contributors are listed in [CONTRIBUTORS.md](CONTRIBUTORS.md).
+described in [SECURITY.md](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/SECURITY.md). Contributors are listed in [CONTRIBUTORS.md](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/CONTRIBUTORS.md).
 
-SciTech.Rpc is licensed under the [BSD 3-Clause License](LICENSE).
+SciTech.Rpc is licensed under the [BSD 3-Clause License](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE).

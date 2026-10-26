@@ -23,9 +23,17 @@ namespace SciTech.Rpc.Server.Internal
 {
     public interface IRpcServiceActivator
     {
-        ImmutableArrayList<string> GetPublishedServices(RpcObjectId objectId);
+        /// <summary>
+        /// Gets the names of the services published for <paramref name="objectId"/>.
+        /// </summary>
+        /// <returns>An immutable snapshot of the published services.</returns>
+        IReadOnlyList<string> GetPublishedServices(RpcObjectId objectId);
 
-        ImmutableArrayList<Type> GetPublishedSingletons();
+        /// <summary>
+        /// Gets the types of the published singleton services.
+        /// </summary>
+        /// <returns>An immutable snapshot of the published singletons.</returns>
+        IReadOnlyList<Type> GetPublishedSingletons();
 
         ActivatedService<TService> GetActivatedService<TService>(IServiceProvider? serviceProvider, RpcObjectId id) where TService : class;
 

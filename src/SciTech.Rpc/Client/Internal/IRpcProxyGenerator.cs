@@ -25,6 +25,6 @@ namespace SciTech.Rpc.Client.Internal
     {
         RpcObjectProxyFactory GenerateObjectProxyFactory<TService>(
             IReadOnlyCollection<string>? implementedServices,
-            IReadOnlyDictionary<string, ImmutableArrayList<Type>> knownServiceTypes) where TService : class;
+            IReadOnlyDictionary<string, IReadOnlyList<Type>> knownServiceTypes) where TService : class;
     }
 }

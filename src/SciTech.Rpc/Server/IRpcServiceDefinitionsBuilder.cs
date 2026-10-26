@@ -49,7 +49,11 @@ namespace SciTech.Rpc.Server
         /// </summary>
         void Freeze();
 
-        ImmutableArrayList<Type> GetRegisteredServiceTypes();
+        /// <summary>
+        /// Gets the registered service types.
+        /// </summary>
+        /// <returns>An immutable snapshot of the registered service types.</returns>
+        IReadOnlyList<Type> GetRegisteredServiceTypes();
 
         IRpcServerOptions? GetServiceOptions(Type serviceType);
 

@@ -26,13 +26,18 @@ namespace SciTech.Rpc.Resources
 
     public class LocksReleasedEventArgs : EventArgs
     {
-        public LocksReleasedEventArgs(ImmutableArrayList<object> lockDatas, ReaderWriterLockState lockState)
+        public LocksReleasedEventArgs(IEnumerable<object> lockDatas, ReaderWriterLockState lockState)
         {
+            if (lockDatas is null) throw new ArgumentNullException(nameof(lockDatas));
+
             this.LockState = lockState;
-            this.LockDatas = lockDatas;
+            this.LockDatas = lockDatas.ToImmutableArrayList();
         }
 
-        public ImmutableArrayList<object> LockDatas { get; }
+        /// <summary>
+        /// Gets the data of the released locks. The list is immutable.
+        /// </summary>
+        public IReadOnlyList<object> LockDatas { get; }
 
         public ReaderWriterLockState LockState { get; }
     }

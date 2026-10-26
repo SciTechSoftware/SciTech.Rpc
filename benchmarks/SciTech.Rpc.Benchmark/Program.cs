@@ -15,6 +15,7 @@ using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Serialization;
 using SciTech.Rpc.Server;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Security.Cryptography;
@@ -467,7 +468,7 @@ namespace SciTech.Rpc.Benchmark
             }
             public bool AllowAutoPublish => this.server.AllowAutoPublish;
 
-            public ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
+            public IReadOnlyList<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
 
             public IRpcServicePublisher ServicePublisher => this.server.ServicePublisher;
 

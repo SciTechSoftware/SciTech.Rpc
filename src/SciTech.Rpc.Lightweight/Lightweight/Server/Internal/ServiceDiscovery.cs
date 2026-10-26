@@ -28,7 +28,7 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
 
         private readonly object syncRoot = new object();
 
-        private ImmutableArrayList<Type>? cachedSingletonTypes;
+        private IReadOnlyList<Type>? cachedSingletonTypes;
 
         private DiscoverableServices? cachedServices;
 

@@ -69,7 +69,8 @@ namespace SciTech.Rpc.Server
             return null;
         }
 
-        public ImmutableArrayList<Type> GetRegisteredServiceTypes()
+        /// <inheritdoc/>
+        public IReadOnlyList<Type> GetRegisteredServiceTypes()
         {
             lock (this.syncRoot)
             {

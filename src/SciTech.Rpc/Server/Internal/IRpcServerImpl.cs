@@ -10,11 +10,10 @@
 #endregion
 
 using Microsoft.Extensions.Logging;
-using SciTech.Collections.Immutable;
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
 using System;
-using System.Collections.Immutable;
+using System.Collections.Generic;
 
 namespace SciTech.Rpc.Server.Internal
 {
@@ -24,7 +23,10 @@ namespace SciTech.Rpc.Server.Internal
     /// </summary>
     public interface IRpcServerCore : IRpcServer
     {
-        ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors { get; }
+        /// <summary>
+        /// Gets the call interceptors of the server. The list is immutable.
+        /// </summary>
+        IReadOnlyList<RpcServerCallInterceptor> CallInterceptors { get; }
 
         /// <summary>
         /// Gets the custom <see cref="RpcServerFaultHandler"/> that has been initialized 
@@ -36,11 +38,11 @@ namespace SciTech.Rpc.Server.Internal
         RpcServerFaultHandler? CustomFaultHandler { get; }
 
         /// <summary>
-        /// Gets the exceptions converters associated with this server. If the array is 
+        /// Gets the exceptions converters associated with this server. If the list is
         /// not empty, the <see cref="CustomFaultHandler"/> will represent the fault handler
-        /// for the combined exception converters.
+        /// for the combined exception converters. The list is immutable.
         /// </summary>
-        ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; }
+        IReadOnlyList<IRpcServerExceptionConverter> ExceptionConverters { get; }
 
         bool HasContextAccessor { get; }
         

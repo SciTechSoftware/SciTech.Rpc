@@ -6,6 +6,7 @@ using SciTech.Rpc.Lightweight.Server;
 using SciTech.Rpc.Server;
 using SciTech.Rpc.Server.Internal;
 using System;
+using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
@@ -317,7 +318,7 @@ namespace SciTech.Rpc.Tests
         }
         public bool AllowAutoPublish => this.server.AllowAutoPublish;
 
-        public ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
+        public IReadOnlyList<RpcServerCallInterceptor> CallInterceptors => this.server.CallInterceptors;
 
         public IRpcServicePublisher ServicePublisher => this.server.ServicePublisher;
 

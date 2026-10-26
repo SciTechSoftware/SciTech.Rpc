@@ -37,7 +37,7 @@ namespace SciTech.Rpc.Lightweight.Client
         internal DiscoveredServer(
             RpcConnectionInfo connectionInfo,
             IReadOnlyDictionary<string, string> properties,
-            ImmutableArrayList<string> services,
+            IReadOnlyList<string> services,
             int serviceCount)
         {
             this.ConnectionInfo = connectionInfo;
@@ -53,6 +53,7 @@ namespace SciTech.Rpc.Lightweight.Client
 
         /// <summary>
         /// Gets the server properties, as defined by the server application (see <c>RpcServerOptions.ServerProperties</c>).
+        /// The dictionary is immutable.
         /// </summary>
         public IReadOnlyDictionary<string, string> Properties { get; }
 
@@ -66,9 +67,9 @@ namespace SciTech.Rpc.Lightweight.Client
         /// <summary>
         /// Gets the discovered singleton services of the server. If services were requested, these are the requested
         /// services that the server publishes. Otherwise they're all discoverable services of the server, once they've
-        /// been retrieved.
+        /// been retrieved. The list is immutable.
         /// </summary>
-        public ImmutableArrayList<string> Services { get; }
+        public IReadOnlyList<string> Services { get; }
 
         public override string ToString() => this.ConnectionInfo.ToString();
     }
@@ -166,8 +167,9 @@ namespace SciTech.Rpc.Lightweight.Client
 
         /// <summary>
         /// Gets the RPC servers discovered during the current or last call to <see cref="FindServicesAsync(CancellationToken)"/>.
+        /// The list is an immutable snapshot.
         /// </summary>
-        public ImmutableArrayList<DiscoveredServer> DiscoveredServers
+        public IReadOnlyList<DiscoveredServer> DiscoveredServers
         {
             get
             {
@@ -180,8 +182,9 @@ namespace SciTech.Rpc.Lightweight.Client
 
         /// <summary>
         /// Gets the RPC services discovered during the current or last call to <see cref="FindServicesAsync(CancellationToken)"/>.
+        /// The list is an immutable snapshot.
         /// </summary>
-        public ImmutableArrayList<DiscoveredService> DiscoveredServices
+        public IReadOnlyList<DiscoveredService> DiscoveredServices
         {
             get
             {
@@ -215,8 +218,8 @@ namespace SciTech.Rpc.Lightweight.Client
         /// <summary>
         /// Finds servers and all their discoverable services, until <paramref name="cancellationToken"/> is cancelled.
         /// </summary>
-        /// <returns>The services discovered when the discovery was cancelled.</returns>
-        public Task<ImmutableArrayList<DiscoveredService>> FindServicesAsync(CancellationToken cancellationToken)
+        /// <returns>An immutable snapshot of the services discovered when the discovery was cancelled.</returns>
+        public Task<IReadOnlyList<DiscoveredService>> FindServicesAsync(CancellationToken cancellationToken)
             => this.FindServicesAsync(null, cancellationToken);
 
         /// <summary>
@@ -226,8 +229,8 @@ namespace SciTech.Rpc.Lightweight.Client
         /// </summary>
         /// <param name="services">The names of the singleton services to discover, or <c>null</c> to discover all
         /// discoverable services. At most 32 names, and they must fit in a single discovery datagram.</param>
-        /// <returns>The services discovered when the discovery was cancelled.</returns>
-        public async Task<ImmutableArrayList<DiscoveredService>> FindServicesAsync(IEnumerable<string>? services, CancellationToken cancellationToken)
+        /// <returns>An immutable snapshot of the services discovered when the discovery was cancelled.</returns>
+        public async Task<IReadOnlyList<DiscoveredService>> FindServicesAsync(IEnumerable<string>? services, CancellationToken cancellationToken)
         {
             var requestedServices = services?.ToArray();
             ValidateRequestedServices(requestedServices);

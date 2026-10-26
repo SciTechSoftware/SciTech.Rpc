@@ -40,14 +40,18 @@ namespace SciTech.Rpc.Client
         public TimeSpan? CallTimeout { get; private set; }
 
         /// <inheritdoc cref="IRpcClientOptions.ExceptionConverters"/>
-        public ImmutableArrayList<IRpcClientExceptionConverter> ExceptionConverters { get; private set; }
+        /// <remarks>The list is immutable.</remarks>
+        public IReadOnlyList<IRpcClientExceptionConverter> ExceptionConverters { get; private set; }
             = ImmutableArrayList<IRpcClientExceptionConverter>.Empty;
 
         /// <inheritdoc cref="IRpcClientOptions.Interceptors"/>
-        public ImmutableArrayList<RpcClientCallInterceptor> Interceptors { get; private set; }
+        /// <remarks>The list is immutable.</remarks>
+        public IReadOnlyList<RpcClientCallInterceptor> Interceptors { get; private set; }
             = ImmutableArrayList<RpcClientCallInterceptor>.Empty;
 
-        public ImmutableArrayList<Type> KnownServiceTypes { get; private set; }
+        /// <inheritdoc cref="IRpcClientOptions.KnownServiceTypes"/>
+        /// <remarks>The list is immutable.</remarks>
+        public IReadOnlyList<Type> KnownServiceTypes { get; private set; }
             = ImmutableArrayList<Type>.Empty;
 
         /// <inheritdoc/>
@@ -81,19 +85,12 @@ namespace SciTech.Rpc.Client
 
         public bool? SilentStreamingCancellation { get; private set; }
 
-        /// <inheritdoc/>
-        IReadOnlyList<IRpcClientExceptionConverter> IRpcClientOptions.ExceptionConverters => this.ExceptionConverters;
-
-        /// <inheritdoc/>
-        IReadOnlyList<RpcClientCallInterceptor> IRpcClientOptions.Interceptors => this.Interceptors;
-
-        IReadOnlyList<Type> IRpcClientOptions.KnownServiceTypes => this.KnownServiceTypes;
-
         /// <summary>
         /// Gets the <see cref="KnownServiceTypes"/> as a dictionary, with the service name as the key.
         /// </summary>
-        public IReadOnlyDictionary<string, ImmutableArrayList<Type>> KnownServiceTypesDictionary { get; private set; } 
-            = ImmutableDictionary<string, ImmutableArrayList<Type>>.Empty;
+        /// <remarks>The dictionary and its lists are immutable.</remarks>
+        public IReadOnlyDictionary<string, IReadOnlyList<Type>> KnownServiceTypesDictionary { get; private set; }
+            = ImmutableDictionary<string, IReadOnlyList<Type>>.Empty;
 
         /// <inheritdoc/>
         ImmutableRpcClientOptions IRpcClientOptions.AsImmutable() => this;
@@ -119,15 +116,18 @@ namespace SciTech.Rpc.Client
             return Empty;
         }
 
+        private static IReadOnlyList<T> Append<T>(IReadOnlyList<T> list, IReadOnlyList<T> items)
+            => items.Count > 0 ? list.Concat(items).ToImmutableArrayList() : list;
+
         private void Assign(IRpcClientOptions? options)
         {
             if (options != null)
             {
                 this.CallTimeout = options.CallTimeout ?? this.CallTimeout;
                 this.StreamingCallTimeout = options.StreamingCallTimeout ?? this.StreamingCallTimeout;
-                this.ExceptionConverters = this.ExceptionConverters.AddRange(options.ExceptionConverters);
-                this.Interceptors = this.Interceptors.AddRange(options.Interceptors);
-                this.KnownServiceTypes = this.KnownServiceTypes.AddRange(options.KnownServiceTypes);
+                this.ExceptionConverters = Append(this.ExceptionConverters, options.ExceptionConverters);
+                this.Interceptors = Append(this.Interceptors, options.Interceptors);
+                this.KnownServiceTypes = Append(this.KnownServiceTypes, options.KnownServiceTypes);
                 this.ReceiveMaxMessageSize = options.ReceiveMaxMessageSize ?? this.ReceiveMaxMessageSize;
                 this.SendMaxMessageSize = options.SendMaxMessageSize ?? this.SendMaxMessageSize;
                 this.Serializer = options.Serializer ?? this.Serializer;
@@ -163,7 +163,7 @@ namespace SciTech.Rpc.Client
             }
 
             this.KnownServiceTypesDictionary = ImmutableDictionary.CreateRange(knownServices
-                .Select(p => new KeyValuePair<string, ImmutableArrayList<Type>>(p.Key, p.Value.ToImmutableArrayList())));
+                .Select(p => new KeyValuePair<string, IReadOnlyList<Type>>(p.Key, p.Value.ToImmutableArrayList())));
         }
     }
 }

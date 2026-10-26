@@ -94,11 +94,17 @@ namespace SciTech.Rpc.Server
 
         public bool AllowDiscovery { get; } = true;
 
-        public ImmutableArrayList<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
+        /// <summary>
+        /// Gets the call interceptors of the server. The list is immutable.
+        /// </summary>
+        public IReadOnlyList<RpcServerCallInterceptor> CallInterceptors { get; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
 
         public RpcServerFaultHandler? CustomFaultHandler { get; private set; } = RpcServerFaultHandler.Default;
 
-        public ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; } = ImmutableArrayList<IRpcServerExceptionConverter>.Empty;
+        /// <summary>
+        /// Gets the exception converters of the server. The list is immutable.
+        /// </summary>
+        public IReadOnlyList<IRpcServerExceptionConverter> ExceptionConverters { get; } = ImmutableArrayList<IRpcServerExceptionConverter>.Empty;
 
         /// <summary>
         /// Gets the server properties, from <see cref="IRpcServerOptions.ServerProperties"/>.

@@ -163,7 +163,8 @@ namespace SciTech.Rpc.Server
             return null;
         }
 
-        public ImmutableArrayList<string> GetPublishedServices(RpcObjectId objectId)
+        /// <inheritdoc/>
+        public IReadOnlyList<string> GetPublishedServices(RpcObjectId objectId)
         {
             lock (this.syncRoot)
             {
@@ -744,7 +745,7 @@ namespace SciTech.Rpc.Server
             return new PublishedServices(serviceTypes, implementedServices.ToImmutableArrayList());
         }
 
-        ImmutableArrayList<Type> IRpcServiceActivator.GetPublishedSingletons()
+        IReadOnlyList<Type> IRpcServiceActivator.GetPublishedSingletons()
         {
             lock( this.syncRoot)
             {

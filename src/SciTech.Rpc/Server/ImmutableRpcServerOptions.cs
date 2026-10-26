@@ -38,9 +38,13 @@ namespace SciTech.Rpc.Server
 
         public bool? SilentStreamingCancellation { get; private set; }
 
-        public ImmutableArrayList<IRpcServerExceptionConverter> ExceptionConverters { get; private set; } = ImmutableArrayList<IRpcServerExceptionConverter>.Empty;
+        /// <inheritdoc cref="IRpcServerOptions.ExceptionConverters"/>
+        /// <remarks>The list is immutable.</remarks>
+        public IReadOnlyList<IRpcServerExceptionConverter> ExceptionConverters { get; private set; } = ImmutableArrayList<IRpcServerExceptionConverter>.Empty;
 
-        public ImmutableArrayList<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
+        /// <inheritdoc cref="IRpcServerOptions.Interceptors"/>
+        /// <remarks>The list is immutable.</remarks>
+        public IReadOnlyList<RpcServerCallInterceptor> Interceptors { get; private set; } = ImmutableArrayList<RpcServerCallInterceptor>.Empty;
 
         /// <inheritdoc cref="IRpcServerOptions.ServerProperties"/>
         public ImmutableDictionary<string, string> ServerProperties { get; private set; } = ImmutableDictionary<string, string>.Empty;
@@ -67,10 +71,6 @@ namespace SciTech.Rpc.Server
         public IRpcSerializer? Serializer { get; private set; }
 
         public TimeSpan? StreamingCallTimeout { get; private set; }
-
-        IReadOnlyList<IRpcServerExceptionConverter> IRpcServerOptions.ExceptionConverters => this.ExceptionConverters;
-
-        IReadOnlyList<RpcServerCallInterceptor> IRpcServerOptions.Interceptors => this.Interceptors;
 
         IReadOnlyDictionary<string, string> IRpcServerOptions.ServerProperties => this.ServerProperties;
 

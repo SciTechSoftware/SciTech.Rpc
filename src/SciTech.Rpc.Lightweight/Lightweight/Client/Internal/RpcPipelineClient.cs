@@ -11,6 +11,8 @@
 //
 // Based on SimplPipeline in SimplPipelines/SimplSockets by Marc Gravell (https://github.com/mgravell/simplsockets)
 //
+// Copyright (c) 2016 Imperative Bytes, LLC
+// Licensed under the MIT license. See THIRD-PARTY-NOTICES.md for the full license information.
 #endregion
 
 using SciTech.Rpc.Client;

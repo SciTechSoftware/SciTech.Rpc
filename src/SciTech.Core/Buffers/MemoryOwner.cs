@@ -1,6 +1,18 @@
+#region Copyright notice and license
+// Copyright (c) SciTech Software AB and contributors.
+// All rights reserved.
 //
-// From MemoryOwner in SimplPipelines/SimplSockets by Marc Gravell (https://github.com/mgravell/simplsockets)
+// Licensed under the BSD 3-Clause License.
+// You may obtain a copy of the License at:
 //
+//     https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/LICENSE
+//
+
+// Based on MemoryOwner in SimplPipelines/SimplSockets by Marc Gravell (https://github.com/mgravell/simplsockets)
+//
+// Copyright (c) 2016 Imperative Bytes, LLC
+// Licensed under the MIT license. See THIRD-PARTY-NOTICES.md for the full license information.
+#endregion
 
 using System;
 using System.Buffers;

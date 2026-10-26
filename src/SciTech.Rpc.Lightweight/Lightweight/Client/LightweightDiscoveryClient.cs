@@ -224,8 +224,10 @@ namespace SciTech.Rpc.Lightweight.Client
 
         /// <summary>
         /// Finds servers, until <paramref name="cancellationToken"/> is cancelled. If <paramref name="services"/> is
-        /// provided, only those services are discovered. Servers that publish none of them are still discovered, e.g. so
-        /// that they can be shown as incompatible.
+        /// provided, only servers that publish at least one of them are discovered, and <see cref="DiscoveredServer.Services"/>
+        /// lists which. E.g. a client can request both the original and a newer version of a service, and show the servers
+        /// that only publish the original service as incompatible. Servers that publish none of the services, i.e. other
+        /// kinds of servers, don't respond.
         /// </summary>
         /// <param name="services">The names of the singleton services to discover, or <c>null</c> to discover all
         /// discoverable services. At most 32 names, and they must fit in a single discovery datagram.</param>

@@ -48,9 +48,10 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             switch (requestFrame.RpcOperation)
             {
                 case ServiceDiscoveryOperations.FindServers:
-                    if (serializer.Deserialize<RpcFindServersRequest>(requestFrame.Payload) is RpcFindServersRequest findRequest)
+                    if (serializer.Deserialize<RpcFindServersRequest>(requestFrame.Payload) is RpcFindServersRequest findRequest
+                        && this.FindServers(findRequest, serviceProvider, endPoint) is RpcFindServersResponse findResponse)
                     {
-                        return WriteResponse(requestFrame, this.FindServers(findRequest, serviceProvider, endPoint));
+                        return WriteResponse(requestFrame, findResponse);
                     }
 
                     break;
@@ -99,12 +100,17 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
             return size;
         }
 
-        private RpcFindServersResponse FindServers(RpcFindServersRequest request, IServiceProvider? serviceProvider, LightweightRpcEndPoint endPoint)
+        /// <summary>
+        /// Handles a <see cref="ServiceDiscoveryOperations.FindServers"/> request.
+        /// </summary>
+        /// <returns>The response, or <c>null</c> if the request names services and the server publishes none of them.
+        /// Such a server is a different kind of server, which the client is not interested in.</returns>
+        private RpcFindServersResponse? FindServers(RpcFindServersRequest request, IServiceProvider? serviceProvider, LightweightRpcEndPoint endPoint)
         {
             var services = this.GetDiscoverableServices(serviceProvider);
 
             List<int>? matches = null;
-            if (request.Services is string[] requestedServices)
+            if (request.Services is string[] requestedServices && requestedServices.Length > 0)
             {
                 int count = Math.Min(requestedServices.Length, ServiceDiscoveryOperations.MaxRequestedServices);
                 for (int index = 0; index < count; index++)
@@ -113,6 +119,11 @@ namespace SciTech.Rpc.Lightweight.Server.Internal
                     {
                         (matches ??= new List<int>()).Add(index);
                     }
+                }
+
+                if (matches == null)
+                {
+                    return null;
                 }
             }
 

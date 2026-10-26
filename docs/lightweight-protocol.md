@@ -241,9 +241,13 @@ The first response, which assigns the number, is 21 bytes.
 ### 7.1 Overview
 
 Discovery lets a client find the servers on the local network, see which of the singleton services it needs
-each server publishes, and read a few properties of each server, for example its product version. The client
-decides what to do with a server that doesn't match, for example show it as incompatible. Servers therefore
-always answer, and requests only narrow down what the answer contains.
+each server publishes, and read a few properties of each server, for example its product version.
+
+A client can name the services it's interested in. Only servers that publish at least one of them answer, and
+the answer says which. The client decides what to do with a server that only publishes some of them. For
+example, a client that requests both `Thermostat.DeviceManagerService` and `Thermostat.DeviceManagerService2`
+can show a server that only publishes the first one as incompatible, while other kinds of servers don't answer
+at all. A client that names no services finds all servers.
 
 Discovery is a pre-filter. It is unauthenticated, and clients often connect by host name or address without
 it, so the authoritative compatibility check is made on the connection.
@@ -296,7 +300,7 @@ escape non-ASCII characters, to keep the size limits meaningful. GUIDs are writt
 | Property | Type | Description |
 |---|---|---|
 | `ClientId` | GUID | Chosen by the client for each discovery run. Echoed in the response. |
-| `Services` | string[] | Optional. Names of the singleton services the client is interested in. The server considers at most the first 32. |
+| `Services` | string[] | Optional. Names of the singleton services the client is interested in. The server considers at most the first 32. If any are given, a server that publishes none of them as discoverable singletons MUST NOT answer. If `Services` is missing or empty, every server answers. |
 
 **`FindServers` response**
 
@@ -305,7 +309,7 @@ escape non-ASCII characters, to keep the size limits meaningful. GUIDs are writt
 | `ClientId` | GUID | From the request. |
 | `ConnectionInfo` | object | `DisplayName`, `HostUrl` and `ServerId` of the server's suggested connection, as in `RpcConnectionInfo`. |
 | `Properties` | object | Server properties: string keys and string values, defined by the application. |
-| `Matches` | int[] | Zero-based indices into the request's `Services` of the services the server publishes as discoverable singletons, in ascending order. |
+| `Matches` | int[] | Zero-based indices into the request's `Services` of the services the server publishes as discoverable singletons, in ascending order. Not empty if the request had `Services`. |
 | `ServiceCount` | int | Number of discoverable singleton services. |
 | `ServicesHash` | string | Hash of the discoverable singleton services (section 7.6). |
 

@@ -104,6 +104,17 @@ namespace SciTech.Rpc.Tests.Lightweight
                 Assert.AreEqual(2, response.ServiceCount);
                 Assert.AreEqual(ComputeExpectedHash(SimpleServiceName, SimpleService2Name), response.ServicesHash);
                 CollectionAssert.AreEquivalent(options.ServerProperties, response.Properties);
+
+                // A server that publishes none of the requested services is another kind of server, so it doesn't answer.
+                var noMatchData = ServiceDiscoveryOperations.PadRequest(LightweightStubHelper.GetRequestData(
+                    ServiceDiscoveryOperations.FindServers, 1, new RpcFindServersRequest(Guid.NewGuid(), new[] { "Unknown.Service" }), this.serializer));
+                Assert.IsNull(await endPoint.Listeners.First().HandleDatagramAsync(noMatchData));
+
+                // An empty list is no filter.
+                var emptyResponse = await endPoint.Listeners.First().SendReceiveDatagramAsync<RpcFindServersRequest, RpcFindServersResponse>(
+                    ServiceDiscoveryOperations.FindServers, new RpcFindServersRequest(Guid.NewGuid(), Array.Empty<string>()), this.serializer);
+                Assert.IsNull(emptyResponse.Matches);
+                Assert.AreEqual(2, emptyResponse.ServiceCount);
             }
             finally
             {
@@ -351,7 +362,7 @@ namespace SciTech.Rpc.Tests.Lightweight
         }
 
         [Test]
-        public async Task DualServer_Multicast_FindServers_ShouldBothRespond()
+        public async Task DualServer_Multicast_FindServers_ShouldReturn_MatchesOfEach()
         {
             var server = new LightweightRpcServer();
             var server2 = new LightweightRpcServer();
@@ -366,11 +377,10 @@ namespace SciTech.Rpc.Tests.Lightweight
             server2.Start();
             try
             {
-                // Both servers respond, also the one that doesn't publish the requested service.
-                var responses = await this.MulticastFindServersAsync(new[] { SimpleServiceName }, server.ServerId, server2.ServerId);
+                var responses = await this.MulticastFindServersAsync(new[] { SimpleServiceName, SimpleService2Name }, server.ServerId, server2.ServerId);
 
                 CollectionAssert.AreEqual(new[] { 0 }, responses[server.ServerId].Matches);
-                Assert.IsNull(responses[server2.ServerId].Matches);
+                CollectionAssert.AreEqual(new[] { 1 }, responses[server2.ServerId].Matches);
                 Assert.AreEqual(1, responses[server2.ServerId].ServiceCount);
             }
             finally
@@ -480,43 +490,54 @@ namespace SciTech.Rpc.Tests.Lightweight
         [Test]
         public async Task DiscoveryClient_WithRequestedServices_Should_DiscoverIncompatibleServer()
         {
-            var server = new LightweightRpcServer(options: new RpcServerOptions { ServerProperties = { ["version"] = "1" } });
+            // A current server, with both versions of the service.
+            var server = new LightweightRpcServer(options: new RpcServerOptions { ServerProperties = { ["version"] = "2" } });
             var endPoint = new TcpRpcEndPoint("localhost", "127.0.0.1", ClientServerTestsBase.TcpTestPort, false);
             server.AddEndPoint(endPoint);
             server.AddEndPoint(new LightweightDiscoveryEndPoint(endPoint.GetConnectionInfo(server.ServerId)));
             server.PublishSingleton<ISimpleService>();
+            server.PublishSingleton<ISimpleService2>();
 
-            var server2 = new LightweightRpcServer(options: new RpcServerOptions { ServerProperties = { ["version"] = "2" } });
-            var endPoint2 = new TcpRpcEndPoint("localhost", "127.0.0.1", TestEndPoints.TcpPort2, false);
-            server2.AddEndPoint(endPoint2);
-            server2.AddEndPoint(new LightweightDiscoveryEndPoint(endPoint2.GetConnectionInfo(server2.ServerId)));
-            server2.PublishSingleton<ISimpleService2>();
+            // An old server, with only the original service. It's discovered, so that it can be shown as incompatible.
+            var oldServer = new LightweightRpcServer(options: new RpcServerOptions { ServerProperties = { ["version"] = "1" } });
+            var oldEndPoint = new TcpRpcEndPoint("localhost", "127.0.0.1", TestEndPoints.TcpPort2, false);
+            oldServer.AddEndPoint(oldEndPoint);
+            oldServer.AddEndPoint(new LightweightDiscoveryEndPoint(oldEndPoint.GetConnectionInfo(oldServer.ServerId)));
+            oldServer.PublishSingleton<ISimpleService>();
+
+            // Another kind of server, which is not discovered.
+            var otherServer = new LightweightRpcServer();
+            otherServer.AddEndPoint(new LightweightDiscoveryEndPoint(new RpcConnectionInfo(new Uri("test://other"))));
+            otherServer.PublishSingleton<ILongNameService1>();
 
             server.Start();
-            server2.Start();
+            oldServer.Start();
+            otherServer.Start();
             try
             {
                 var discoveryClient = this.CreateDiscoveryClient();
+                discoveryClient.RequestInterval = TimeSpan.FromMilliseconds(200);
+
                 using var discoveryCts = new CancellationTokenSource();
-                var discoveryTask = discoveryClient.FindServicesAsync(new[] { SimpleServiceName }, discoveryCts.Token);
+                var discoveryTask = discoveryClient.FindServicesAsync(new[] { SimpleServiceName, SimpleService2Name }, discoveryCts.Token);
                 try
                 {
                     DiscoveredServer GetServer(RpcServerId serverId) => discoveryClient.DiscoveredServers.FirstOrDefault(s => s.ServerId == serverId);
 
-                    await WaitUntilAsync(() => GetServer(server.ServerId) != null && GetServer(server2.ServerId) != null);
+                    await WaitUntilAsync(() => GetServer(server.ServerId) != null && GetServer(oldServer.ServerId) != null);
 
                     var discoveredServer = GetServer(server.ServerId);
-                    CollectionAssert.AreEqual(new[] { SimpleServiceName }, discoveredServer.Services);
-                    Assert.AreEqual("1", discoveredServer.Properties["version"]);
-                    Assert.AreEqual(1, discoveredServer.ServiceCount);
+                    CollectionAssert.AreEqual(new[] { SimpleServiceName, SimpleService2Name }, discoveredServer.Services);
+                    Assert.AreEqual("2", discoveredServer.Properties["version"]);
+                    Assert.AreEqual(2, discoveredServer.ServiceCount);
 
-                    // The server without the requested service is discovered, so that it can be shown as incompatible.
-                    var discoveredServer2 = GetServer(server2.ServerId);
-                    Assert.IsEmpty(discoveredServer2.Services);
-                    Assert.AreEqual("2", discoveredServer2.Properties["version"]);
-                    Assert.AreEqual(1, discoveredServer2.ServiceCount);
+                    var discoveredOldServer = GetServer(oldServer.ServerId);
+                    CollectionAssert.AreEqual(new[] { SimpleServiceName }, discoveredOldServer.Services);
+                    Assert.AreEqual("1", discoveredOldServer.Properties["version"]);
 
-                    Assert.IsFalse(discoveryClient.DiscoveredServices.Any(s => s.ConnectionInfo.ServerId == server2.ServerId));
+                    // Several more requests, which the other server doesn't answer either.
+                    await Task.Delay(1000);
+                    Assert.IsNull(GetServer(otherServer.ServerId));
                 }
                 finally
                 {
@@ -527,7 +548,8 @@ namespace SciTech.Rpc.Tests.Lightweight
             finally
             {
                 await server.ShutdownAsync();
-                await server2.ShutdownAsync();
+                await oldServer.ShutdownAsync();
+                await otherServer.ShutdownAsync();
             }
         }
 

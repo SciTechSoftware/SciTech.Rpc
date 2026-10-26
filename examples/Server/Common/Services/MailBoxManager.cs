@@ -53,9 +53,9 @@ namespace Mailer
             return Task.CompletedTask;
         }
 
-        public event EventHandler<MailboxMessage> MailReceieved;
+        public event EventHandler<MailboxMessage>? MailReceieved;
 
-        public event EventHandler<MailboxMessage> MailForwarded;
+        public event EventHandler<MailboxMessage>? MailForwarded;
 
         public void ForwardMail()
         {

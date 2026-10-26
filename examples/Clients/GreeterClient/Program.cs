@@ -15,7 +15,11 @@ namespace GrpcGreeter
         {
             var connectionManager = Client.RpcExamplesHelper.CreateConnectionManager();
 
-            RpcConnectionInfo connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
+            RpcConnectionInfo? connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
+            if (connectionInfo == null)
+            {
+                return;
+            }
 
             var greeter = connectionManager.GetServiceSingleton<IGreeterServiceClient>(connectionInfo);
 

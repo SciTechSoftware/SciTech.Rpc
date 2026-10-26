@@ -32,6 +32,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace SciTech.Rpc.Benchmark
@@ -88,9 +89,9 @@ namespace SciTech.Rpc.Benchmark
     [SimpleJob]
     public class RawGrpcBenchmark
     {
-        private GrpcChannel channel;
-        private SimpleService.SimpleServiceClient clientService;
-        private IWebHost host;
+        private GrpcChannel channel = null!;
+        private SimpleService.SimpleServiceClient clientService = null!;
+        private IHost host = null!;
 
         /// <summary>
         /// Plain gRPC (grpc-dotnet) calls, without SciTech.Rpc, as a baseline for the NetGrpc connection type.
@@ -117,9 +118,9 @@ namespace SciTech.Rpc.Benchmark
             this.clientService = new SimpleService.SimpleServiceClient(this.channel);
         }
 
-        private static IWebHost CreateNetGrpcHost()
+        private static IHost CreateNetGrpcHost()
         {
-            var hostBuilder = new WebHostBuilder()
+            var hostBuilder = new HostBuilder().ConfigureWebHost(webBuilder => webBuilder
                 .UseKestrel()
                 .ConfigureKestrel(options =>
                 {
@@ -132,7 +133,7 @@ namespace SciTech.Rpc.Benchmark
                 .ConfigureServices(s =>
                 {
                 })
-                .UseStartup<NetStartup>();
+                .UseStartup<NetStartup>());
 
             var host = hostBuilder.Build();
 
@@ -189,9 +190,9 @@ namespace SciTech.Rpc.Benchmark
     [SimpleJob()]
     public class ConnectionBenchMark
     {
-        LightweightRpcServer server;
-        ImmutableRpcClientOptions clientOptions;
-        RpcConnectionInfo connectionInfo;
+        LightweightRpcServer server = null!;
+        ImmutableRpcClientOptions clientOptions = null!;
+        RpcConnectionInfo connectionInfo = null!;
 
         [Params(RpcConnectionType.LightweightTcp, RpcConnectionType.LightweightNamedPipe)]
         public RpcConnectionType ConnectionType;
@@ -285,12 +286,12 @@ namespace SciTech.Rpc.Benchmark
     {
         public static readonly RuntimeTypeModel DefaultTypeModel = RuntimeTypeModel.Create().AddRpcTypes();
 
-        IRpcServerHost server;
+        IRpcServerHost server = null!;
 
-        IRpcChannel clientConnection;
-        IRpcChannel[] clientConnections;
-        ISimpleServiceClient clientService;
-        ISimpleServiceClient[] clientServices;
+        IRpcChannel clientConnection = null!;
+        IRpcChannel[] clientConnections = null!;
+        ISimpleServiceClient clientService = null!;
+        ISimpleServiceClient[] clientServices = null!;
 
         public SimpleServiceCallBenchmark()
         {
@@ -409,7 +410,7 @@ namespace SciTech.Rpc.Benchmark
 
         private static IRpcServerHost CreateNetGrpcServer(IRpcServiceDefinitionsProvider serviceDefinitionsProvider, RpcServerId serverId, RpcServerOptions options)
         {
-            var hostBuilder = new WebHostBuilder()
+            var hostBuilder = new HostBuilder().ConfigureWebHost(webBuilder => webBuilder
                 .UseKestrel()
                 .ConfigureKestrel(options =>
                 {
@@ -429,11 +430,11 @@ namespace SciTech.Rpc.Benchmark
                     s.Configure<RpcServicePublisherOptions>(o => o.ServerId = serverId);
                     s.AddSingleton<IOptions<RpcServerOptions>>(new OptionsWrapper<RpcServerOptions>(options));
                 })
-                .UseStartup<NetStartup>();
+                .UseStartup<NetStartup>());
 
             var host = hostBuilder.Build();
 
-            var rpcServer = (NetGrpcServer)host.Services.GetService(typeof(NetGrpcServer));
+            var rpcServer = host.Services.GetRequiredService<NetGrpcServer>();
 
             return new NetGrpcTestServer(host, rpcServer);
         }
@@ -457,10 +458,10 @@ namespace SciTech.Rpc.Benchmark
 
         internal class NetGrpcTestServer : IRpcServerHost
         {
-            private IWebHost webHost;
+            private IHost webHost;
             NetGrpcServer server;
 
-            internal NetGrpcTestServer(IWebHost webHost, NetGrpcServer server)
+            internal NetGrpcTestServer(IHost webHost, NetGrpcServer server)
             {
                 this.webHost = webHost;
                 this.server = server;
@@ -511,13 +512,13 @@ namespace SciTech.Rpc.Benchmark
 
         byte[] requestWriteBuffer = new byte[4096];
         byte[] requestReadBuffer = new byte[4096];
-        MemoryStream requestWriteStream;
-        MemoryStream requestReadStream;
+        MemoryStream requestWriteStream = null!;
+        MemoryStream requestReadStream = null!;
 
         byte[] responseWriteBuffer = new byte[4096];
         byte[] responseReadBuffer = new byte[4096];
-        MemoryStream responseWriteStream;
-        MemoryStream responseReadStream;
+        MemoryStream responseWriteStream = null!;
+        MemoryStream responseReadStream = null!;
 
         ProtobufRpcSerializer serializer = new ProtobufRpcSerializer();
 

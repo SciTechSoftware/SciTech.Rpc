@@ -24,7 +24,7 @@ namespace NetGrpcServer
         /// <summary>
         /// Authorize attribute already applied on service definition.
         /// </summary>
-        public event EventHandler<TicketPurchaseEventArgs> TicketsPurchased;
+        public event EventHandler<TicketPurchaseEventArgs>? TicketsPurchased;
 
         [Authorize]
         public bool BuyTickets(int count)

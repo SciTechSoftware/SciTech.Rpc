@@ -17,6 +17,7 @@
 #endregion
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -26,7 +27,7 @@ namespace Mailer
     public class Mail
     {
         public int Id { get; set; }
-        public string Content { get; set; }
+        public string Content { get; set; } = "";
     }
 
     public class MailQueue
@@ -36,7 +37,7 @@ namespace Mailer
         private int _forwardedMailCount;
 
         public string Name { get; }
-        public event Func<(int totalCount, int forwardedCount, Reason reason), Task> Changed;
+        public event Func<(int totalCount, int forwardedCount, Reason reason), Task>? Changed;
 
         public MailQueue(string name)
         {
@@ -64,7 +65,7 @@ namespace Mailer
             });
         }
 
-        public bool TryForwardMail(out Mail message)
+        public bool TryForwardMail([MaybeNullWhen(false)] out Mail message)
         {
             if (_incomingMail.Reader.TryRead(out message))
             {

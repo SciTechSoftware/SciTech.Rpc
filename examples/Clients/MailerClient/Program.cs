@@ -26,6 +26,10 @@ namespace MailerClient
             var connectionManager = Client.RpcExamplesHelper.CreateConnectionManager();
 
             var connectionInfo = Client.RpcExamplesHelper.RetrieveConnectionInfo();
+            if (connectionInfo == null)
+            {
+                return;
+            }
 
             Console.WriteLine($"Connecting to mailbox '{mailboxName}'");
             Console.WriteLine();

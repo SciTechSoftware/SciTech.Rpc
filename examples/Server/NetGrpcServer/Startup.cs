@@ -15,6 +15,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using Ticketer;
+using Microsoft.AspNetCore.Authentication.Certificate;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
 using SciTech.Rpc.Client;
@@ -64,8 +65,11 @@ namespace NetGrpcServer
                 {
                     // Not recommended in production environments. The example is using a test certificate
                     options.RevocationMode = X509RevocationMode.NoCheck;
-                    options.Events.OnAuthenticationFailed = CertificateAuthenticationFailedContext => Task.CompletedTask;
-                    options.Events.OnCertificateValidated = CertificateAuthenticationFailedContext => Task.CompletedTask;
+                    options.Events = new CertificateAuthenticationEvents
+                    {
+                        OnAuthenticationFailed = context => Task.CompletedTask,
+                        OnCertificateValidated = context => Task.CompletedTask
+                    };
                 });
 
             //
@@ -130,7 +134,7 @@ namespace NetGrpcServer
 
                 endpoints.MapGet("/generateJwtToken", context =>
                 {
-                    return context.Response.WriteAsync(GenerateJwtToken(context.Request.Query["name"]));
+                    return context.Response.WriteAsync(GenerateJwtToken(context.Request.Query["name"].ToString()));
                 });
             });
         }

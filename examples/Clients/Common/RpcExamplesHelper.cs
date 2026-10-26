@@ -31,7 +31,11 @@ namespace Client
                 });
         }
 
-        public static RpcConnectionInfo RetrieveConnectionInfo()
+        /// <summary>
+        /// Asks how to connect to the RPC server.
+        /// </summary>
+        /// <returns>The connection info of the selected server, or <c>null</c> if nothing was selected.</returns>
+        public static RpcConnectionInfo? RetrieveConnectionInfo()
         {
             while (true)
             {
@@ -40,7 +44,7 @@ namespace Client
                 Console.WriteLine("2. Use lightweight RPC (start the LightweightServer example)");
                 Console.Write("Make your choice (1 or 2): ");
 
-                string choiceText = Console.ReadLine();
+                string? choiceText = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(choiceText))
                 {
                     return null;

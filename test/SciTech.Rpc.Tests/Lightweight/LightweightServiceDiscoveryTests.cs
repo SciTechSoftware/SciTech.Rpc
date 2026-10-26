@@ -321,6 +321,64 @@ namespace SciTech.Rpc.Tests.Lightweight
             }
         }
 
+        [TestCase(AddressFamily.InterNetwork)]
+        [TestCase(AddressFamily.InterNetworkV6)]
+        public async Task DiscoveryClient_Should_DiscoverOnAddressFamily(AddressFamily addressFamily)
+        {
+            var addressFamilies = new[] { addressFamily };
+            if (!LightweightDiscoveryEndPoint.GetDiscoveryInterfaces(addressFamilies).Any())
+            {
+                Assert.Ignore($"No multicast capable network interface with an {addressFamily} address.");
+            }
+
+            var server = new LightweightRpcServer();
+            var endPoint = new TcpRpcEndPoint("localhost", "127.0.0.1", ClientServerTestsBase.TcpTestPort, false);
+            var discoveryEndPoint = new LightweightDiscoveryEndPoint(endPoint.GetConnectionInfo(server.ServerId))
+            {
+                AddressFamilies = addressFamilies
+            };
+            server.AddEndPoint(endPoint);
+            server.AddEndPoint(discoveryEndPoint);
+
+            server.PublishSingleton<ISimpleService>();
+
+            var discoveryClient = new LightweightDiscoveryClient(loggerFactory.CreateLogger<LightweightDiscoveryClient>())
+            {
+                AddressFamilies = addressFamilies
+            };
+
+            server.Start();
+            try
+            {
+                using var discoveryCts = new CancellationTokenSource();
+                var discoveryTask = discoveryClient.FindServicesAsync(discoveryCts.Token);
+                try
+                {
+                    // Requests are sent once a second.
+                    var timeout = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+                    while (!discoveryClient.DiscoveredServices.Any(s => s.ConnectionInfo.ServerId == server.ServerId)
+                        && DateTime.UtcNow < timeout)
+                    {
+                        await Task.Delay(50);
+                    }
+
+                    Assert.IsFalse(discoveryTask.IsCompleted, "Discovery should run until cancelled.");
+                    var discoveredService = discoveryClient.DiscoveredServices.SingleOrDefault(s => s.ConnectionInfo.ServerId == server.ServerId);
+                    Assert.NotNull(discoveredService, $"Server not discovered on {addressFamily}.");
+                    Assert.AreEqual(WellKnownRpcSchemes.LightweightTcp, discoveredService.ConnectionInfo.HostUrl.Scheme);
+                }
+                finally
+                {
+                    discoveryCts.Cancel();
+                    await discoveryTask.DefaultTimeout();
+                }
+            }
+            finally
+            {
+                await server.ShutdownAsync();
+            }
+        }
+
         [Test]
         public async Task DualServer_DiscoveryClient_BeforeServerStart_Should_Discover()
         {

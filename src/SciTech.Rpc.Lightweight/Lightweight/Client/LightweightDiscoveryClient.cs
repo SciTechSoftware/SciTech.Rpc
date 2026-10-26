@@ -130,6 +130,12 @@ namespace SciTech.Rpc.Lightweight.Client
 
         public TimeSpan ServiceDiscoveryTimeout { get; set; } = TimeSpan.FromSeconds( 5 );
 
+        /// <summary>
+        /// Gets or sets the address families that discovery requests are sent on. <c>null</c> (the default) means
+        /// both IPv4 and IPv6. Internal to allow testing a single address family.
+        /// </summary>
+        internal IReadOnlyCollection<AddressFamily>? AddressFamilies { get; set; }
+
         public async Task<ImmutableArrayList<DiscoveredService>> FindServicesAsync(CancellationToken cancellationToken)
         {
             if( this.findingServices)
@@ -147,19 +153,23 @@ namespace SciTech.Rpc.Lightweight.Client
                 Task receiverTask;
 
                 List<UdpClient> udpClients = new List<UdpClient>();
-                foreach (var (networkInterface, ipAddress) in LightweightDiscoveryEndPoint.GetDiscoveryInterfaces())
+                List<IPEndPoint> discoveryEndPoints = new List<IPEndPoint>();
+                foreach (var (networkInterface, ipAddress) in LightweightDiscoveryEndPoint.GetDiscoveryInterfaces(this.AddressFamilies))
                 {
-                    var udpClient = new UdpClient(ipAddress.AddressFamily);
+                    var udpClient = LightweightDiscoveryEndPoint.CreateDiscoveryClient(ipAddress);
                     try
                     {
+                        // Responses are sent to the bound address. The client doesn't need to join the discovery group,
+                        // it only sends to it.
                         udpClient.Client.Bind(new IPEndPoint(ipAddress, 0));
-                        LightweightDiscoveryEndPoint.JoinDiscoveryGroup(udpClient, networkInterface, ipAddress);
+                        LightweightDiscoveryEndPoint.SetMulticastInterface(udpClient, networkInterface, ipAddress);
 
                         udpClients.Add(udpClient);
+                        discoveryEndPoints.Add(new IPEndPoint(LightweightDiscoveryEndPoint.GetDiscoveryGroup(ipAddress), LightweightDiscoveryEndPoint.DefaultDiscoveryPort));
                     }
                     catch (SocketException x)
                     {
-                        this.logger?.LogInformation(x, "Failed to send discovery requests on network interface {NetworkInterface}.", networkInterface.Name);
+                        this.logger?.LogInformation(x, "Failed to send discovery requests on network interface {NetworkInterface} ({Address}).", networkInterface.Name, ipAddress);
                         udpClient.Dispose();
                     }
                 }
@@ -177,8 +187,6 @@ namespace SciTech.Rpc.Lightweight.Client
 
                     using var frameWriter = new LightweightRpcFrameWriter(MaxDiscoveryFrameSize);
 
-                    IPEndPoint discoveryEp = new IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddress, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
-                    IPEndPoint discoveryEpV6 = new IPEndPoint(LightweightDiscoveryEndPoint.DefaultMulticastAddressV6, LightweightDiscoveryEndPoint.DefaultDiscoveryPort);
                     int nextRequestNo = 1;
                     while (!cancellationToken.IsCancellationRequested)
                     {
@@ -189,9 +197,9 @@ namespace SciTech.Rpc.Lightweight.Client
 
                         var requestData = frameWriter.WriteFrame(requestHeader, new RpcDiscoveryRequest(clientId), ServiceDiscoveryOperations.DiscoverySerializer);
 
-                        foreach( var udpClient in udpClients)
+                        for (int index = 0; index < udpClients.Count; index++)
                         {
-                            await SendRequestAsync(udpClient, discoveryEp, requestData).ContextFree();
+                            await SendRequestAsync(udpClients[index], discoveryEndPoints[index], requestData).ContextFree();
                             if (cancellationToken.IsCancellationRequested) break;
                         }
 
@@ -263,11 +271,19 @@ namespace SciTech.Rpc.Lightweight.Client
 
             async Task SendRequestAsync(UdpClient udpClient, IPEndPoint discoveryEp, byte[] requestData)
             {
-                int nBytesSent = await udpClient.SendAsync(requestData, requestData.Length, discoveryEp).ContextFree();
-                if (nBytesSent < requestData.Length)
+                try
                 {
-                    // 
-                    this.logger?.LogWarning("Failed to send full discovery request (request size: {RequestSize}, bytes sent: {BytesSent}", requestData.Length, nBytesSent);
+                    int nBytesSent = await udpClient.SendAsync(requestData, requestData.Length, discoveryEp).ContextFree();
+                    if (nBytesSent < requestData.Length)
+                    {
+                        this.logger?.LogWarning("Failed to send full discovery request (request size: {RequestSize}, bytes sent: {BytesSent}", requestData.Length, nBytesSent);
+                    }
+                }
+                catch (SocketException x)
+                {
+                    // E.g. the interface went down. The other interfaces can still be used, and the interface may be
+                    // usable again by the next request.
+                    this.logger?.LogInformation(x, "Failed to send discovery request to {DiscoveryEndPoint} from {LocalEndPoint}.", discoveryEp, udpClient.Client.LocalEndPoint);
                 }
             }
 
@@ -293,9 +309,12 @@ namespace SciTech.Rpc.Lightweight.Client
                         // contains the actual IP used to reach the server.
 
                         // Only a TCP end point can be reached at the remote address. Other end points, e.g. named pipes
-                        // of a local server, are discovered as suggested by the server.
+                        // of a local server, are discovered as suggested by the server. An IPv6 link-local address is
+                        // only valid together with a zone index, which doesn't work well in a URL, so then the
+                        // suggested host is used as well.
                         RpcConnectionInfo connectionInfo = response.ConnectionInfo;
-                        if (response.ConnectionInfo.HostUrl is Uri uri && uri.Scheme == WellKnownRpcSchemes.LightweightTcp && uri.Port >= 0)
+                        if (response.ConnectionInfo.HostUrl is Uri uri && uri.Scheme == WellKnownRpcSchemes.LightweightTcp && uri.Port >= 0
+                            && !remoteEndPoint.Address.IsIPv6LinkLocal)
                         {
                             connectionInfo = TcpRpcConnection.CreateConnectionInfo(connectionInfo.DisplayName, new IPEndPoint(remoteEndPoint.Address, uri.Port), connectionInfo.ServerId);
                         }

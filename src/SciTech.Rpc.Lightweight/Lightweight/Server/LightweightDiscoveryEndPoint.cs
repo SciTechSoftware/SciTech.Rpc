@@ -46,15 +46,26 @@ namespace SciTech.Rpc.Lightweight.Server
         }
 
         /// <summary>
-        /// Gets the network interfaces that discovery requests are sent and received on, together with the address
-        /// used for each interface (IPv4 if available, otherwise IPv6).
+        /// Gets or sets the address families that discovery requests are received on. <c>null</c> (the default) means
+        /// both IPv4 and IPv6. Internal to allow testing a single address family.
+        /// </summary>
+        internal IReadOnlyCollection<AddressFamily>? AddressFamilies { get; set; }
+
+        /// <summary>
+        /// Gets the network interfaces that discovery requests are sent and received on, together with one address
+        /// for each address family of the interface (in <paramref name="addressFamilies"/>, or IPv4 and IPv6 if
+        /// <c>null</c>). An interface with both IPv4 and IPv6 addresses is returned once for each family.
         /// </summary>
         /// <remarks>
         /// <see cref="IPInterfaceProperties.MulticastAddresses"/> must not be used to select the interfaces, since it
         /// is always empty on Linux.
         /// </remarks>
-        internal static IEnumerable<(NetworkInterface NetworkInterface, IPAddress Address)> GetDiscoveryInterfaces()
+        internal static IEnumerable<(NetworkInterface NetworkInterface, IPAddress Address)> GetDiscoveryInterfaces(
+            IReadOnlyCollection<AddressFamily>? addressFamilies = null)
         {
+            bool includeIPv4 = addressFamilies?.Contains(AddressFamily.InterNetwork) ?? true;
+            bool includeIPv6 = (addressFamilies?.Contains(AddressFamily.InterNetworkV6) ?? true) && Socket.OSSupportsIPv6;
+
             foreach (var networkInterface in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (networkInterface.OperationalStatus == OperationalStatus.Up
@@ -62,17 +73,56 @@ namespace SciTech.Rpc.Lightweight.Server
                     && networkInterface.SupportsMulticast)
                 {
                     var unicastAddresses = networkInterface.GetIPProperties()?.UnicastAddresses;
-                    var ipAddress = unicastAddresses != null
-                        ? (unicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)
-                            ?? unicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetworkV6))?.Address
-                        : null;
-
-                    if (ipAddress != null)
+                    if (unicastAddresses == null)
                     {
-                        yield return (networkInterface, ipAddress);
+                        continue;
+                    }
+
+                    if (includeIPv4
+                        && unicastAddresses.FirstOrDefault(a => a.Address.AddressFamily == AddressFamily.InterNetwork)?.Address is IPAddress ipv4Address)
+                    {
+                        yield return (networkInterface, ipv4Address);
+                    }
+
+                    if (includeIPv6)
+                    {
+                        // A non link-local address is preferred, since it can be used in the connection URL of a
+                        // discovered server without a zone index (see LightweightDiscoveryClient).
+                        var ipv6Addresses = unicastAddresses
+                            .Select(a => a.Address)
+                            .Where(a => a.AddressFamily == AddressFamily.InterNetworkV6 && !a.IsIPv6Teredo)
+                            .ToList();
+                        var ipv6Address = ipv6Addresses.FirstOrDefault(a => !a.IsIPv6LinkLocal) ?? ipv6Addresses.FirstOrDefault();
+                        if (ipv6Address != null)
+                        {
+                            yield return (networkInterface, ipv6Address);
+                        }
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the discovery multicast group for the address family of <paramref name="ipAddress"/>.
+        /// </summary>
+        internal static IPAddress GetDiscoveryGroup(IPAddress ipAddress)
+            => ipAddress.AddressFamily == AddressFamily.InterNetwork ? DefaultMulticastAddress : DefaultMulticastAddressV6;
+
+        /// <summary>
+        /// Creates a UDP client for discovery on the address family of <paramref name="ipAddress"/>.
+        /// </summary>
+        internal static UdpClient CreateDiscoveryClient(IPAddress ipAddress)
+        {
+            var udpClient = new UdpClient(ipAddress.AddressFamily);
+            if (ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                // The IPv6 socket must not receive IPv4 traffic, or it would conflict with the IPv4 discovery sockets.
+                // .NET already disables dual mode for sockets created for an address family (also on Linux, where
+                // the OS default is dual mode), but this makes the requirement explicit.
+                udpClient.Client.DualMode = false;
+            }
+
+            return udpClient;
         }
 
         internal static void JoinDiscoveryGroup(UdpClient udpClient, NetworkInterface networkInterface, IPAddress ipAddress)
@@ -84,10 +134,28 @@ namespace SciTech.Rpc.Lightweight.Server
             else
             {
                 // An IPv6 group is joined on the interface index; the local address overload only supports IPv4.
-                int interfaceIndex = networkInterface.GetIPProperties().GetIPv6Properties().Index;
-                udpClient.JoinMulticastGroup(interfaceIndex, DefaultMulticastAddressV6);
+                udpClient.JoinMulticastGroup(GetIPv6InterfaceIndex(networkInterface), DefaultMulticastAddressV6);
             }
         }
+
+        /// <summary>
+        /// Makes multicasts from <paramref name="udpClient"/> go out on <paramref name="networkInterface"/>. Otherwise
+        /// they're sent on the default multicast interface, which may be, e.g., a VPN adapter.
+        /// </summary>
+        internal static void SetMulticastInterface(UdpClient udpClient, NetworkInterface networkInterface, IPAddress ipAddress)
+        {
+            if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
+            {
+                udpClient.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface, ipAddress.GetAddressBytes());
+            }
+            else
+            {
+                udpClient.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastInterface, GetIPv6InterfaceIndex(networkInterface));
+            }
+        }
+
+        private static int GetIPv6InterfaceIndex(NetworkInterface networkInterface)
+            => networkInterface.GetIPProperties().GetIPv6Properties().Index;
 
         private protected class DiscoveryRpcListener : ILightweightRpcListener
         {
@@ -176,9 +244,9 @@ namespace SciTech.Rpc.Lightweight.Server
             private List<UdpClient> RetrieveUdpClients()
             {
                 List<UdpClient> udpClients = new();
-                foreach (var (networkInterface, ipAddress) in GetDiscoveryInterfaces())
+                foreach (var (networkInterface, ipAddress) in GetDiscoveryInterfaces(this.endPoint.AddressFamilies))
                 {
-                    var udpClient = new UdpClient(ipAddress.AddressFamily);
+                    var udpClient = CreateDiscoveryClient(ipAddress);
                     try
                     {
                         var socket = udpClient.Client;

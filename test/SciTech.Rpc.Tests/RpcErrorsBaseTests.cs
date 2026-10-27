@@ -90,6 +90,97 @@ namespace SciTech.Rpc.Tests
             }
         }
 
+        [Test]
+        public async Task ConverterAttributeWithDetails_Should_DeclareFault()
+        {
+            // The converter attribute declares its fault, including the details, so no RpcFault attribute is needed.
+            await this.RunConverterFaultsTestAsync(false, false, faultService =>
+            {
+                var exception = Assert.Throws<DeclaredFaultException>(() => faultService.GenerateConverterAttributeFault());
+                Assert.AreEqual("Converted fault.", exception.Message);
+                Assert.AreEqual("Converted details", exception.DetailedMessage);
+            });
+        }
+
+        [Test]
+        public async Task RegisteredConverterWithDetails_Should_DeclareFault()
+        {
+            // A converter registered on both sides declares its fault for all operations.
+            await this.RunConverterFaultsTestAsync(true, true, faultService =>
+            {
+                var exception = Assert.Throws<DeclaredFaultException>(() => faultService.GenerateDetailsException());
+                Assert.AreEqual("Converted fault.", exception.Message);
+                Assert.AreEqual("Converted details", exception.DetailedMessage);
+            });
+        }
+
+        [Test]
+        public async Task RegisteredConverterOnlyOnServer_Should_ThrowFaultWithoutDetails()
+        {
+            // The client doesn't know the fault, so it can't deserialize the details or convert the fault.
+            await this.RunConverterFaultsTestAsync(true, false, faultService =>
+            {
+                var exception = Assert.Throws<RpcFaultException>(() => faultService.GenerateDetailsException());
+                Assert.AreEqual(new DeclaredFaultExceptionConverter().FaultCode, exception.FaultCode);
+                Assert.AreEqual("Converted fault.", exception.Message);
+            });
+        }
+
+        [Test]
+        public async Task RegisteredMessageConverter_Should_ConvertException()
+        {
+            // A converter without fault details only needs to be registered, the fault is identified by the fault code.
+            await this.RunConverterFaultsTestAsync(true, true, faultService =>
+            {
+                var exception = Assert.Throws<MathException>(() => faultService.GenerateMathException());
+                Assert.AreEqual("Math fault.", exception.Message);
+            });
+        }
+
+        [Test]
+        public async Task UnconvertedException_Should_ThrowFailure()
+        {
+            await this.RunConverterFaultsTestAsync(false, false, faultService =>
+            {
+                Assert.Throws<RpcFailureException>(() => faultService.GenerateDetailsException());
+                Assert.Throws<RpcFailureException>(() => faultService.GenerateMathException());
+            });
+        }
+
+        private async Task RunConverterFaultsTestAsync(bool registerOnServer, bool registerOnClient, Action<IConverterFaultsService> test)
+        {
+            var serviceRegistrator = new RpcServiceDefinitionsBuilder();
+            serviceRegistrator.RegisterService<IConverterFaultsService>();
+
+            var (host, connection) = this.CreateServerAndConnection(serviceRegistrator,
+                so =>
+                {
+                    if (registerOnServer)
+                    {
+                        so.ExceptionConverters.Add(new DeclaredFaultExceptionConverter());
+                        so.ExceptionConverters.Add(new RpcExceptionConverter<MathException>("MathFault"));
+                    }
+                },
+                co =>
+                {
+                    if (registerOnClient)
+                    {
+                        co.ExceptionConverters.Add(new DeclaredFaultExceptionConverter());
+                        co.ExceptionConverters.Add(new RpcExceptionConverter<MathException>("MathFault"));
+                    }
+                });
+            using var publishedService = host.ServicePublisher.PublishSingleton<IConverterFaultsService>(new ConverterFaultsServiceImpl());
+            host.Start();
+            try
+            {
+                test(connection.GetServiceSingleton<IConverterFaultsService>());
+            }
+            finally
+            {
+                await host.ShutdownAsync();
+            }
+        }
+
         [TestCaseSource(nameof(OperationTypes))]
         public async Task DeclaredFault_ShouldThrowRpcFaultException(TestOperationType operationType)
         {

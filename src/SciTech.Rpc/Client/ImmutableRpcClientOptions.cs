@@ -85,6 +85,15 @@ namespace SciTech.Rpc.Client
 
         public bool? SilentStreamingCancellation { get; private set; }
 
+        private Internal.RpcClientFaultHandler? registeredFaultHandler;
+
+        /// <summary>
+        /// Gets the fault handler of the registered <see cref="ExceptionConverters"/>, which declare the faults that they
+        /// convert.
+        /// </summary>
+        internal Internal.RpcClientFaultHandler RegisteredFaultHandler
+            => this.registeredFaultHandler ??= Internal.RpcClientFaultHandler.CreateRegisteredFaultHandler(this.ExceptionConverters);
+
         /// <summary>
         /// Gets the <see cref="KnownServiceTypes"/> as a dictionary, with the service name as the key.
         /// </summary>

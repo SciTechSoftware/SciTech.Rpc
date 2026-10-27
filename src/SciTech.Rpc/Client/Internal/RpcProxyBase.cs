@@ -778,22 +778,15 @@ namespace SciTech.Rpc.Client.Internal
                     throw new RpcFailureException(RpcFailure.Unknown, $"Operation returned an unknown error of type '{error.ErrorType}'. {message}");
             }
 
+            // The fault is declared by the operation or service, or by a converter registered in the client options.
+            // TODO: Currently there's no support for service level exception converters (as exists on the server side).
             var actualSerializer = methodDef.SerializerOverride ?? this.serializer;
-            var faultException = methodDef.FaultHandler.CreateFaultException(error, actualSerializer);
-            var convertedException = methodDef.FaultHandler.TryConvertException(faultException);
-            if( convertedException == null )
-            {
-                // Could not be converted by a declared converter, but maybe a registered converter can.
-                // TODO: Currently there's no support for service level exception converters (as exists on the server side).
-                foreach( var converter in this.Channel.Options.ExceptionConverters)
-                {
-                    convertedException = converter.TryCreateException(faultException);
-                    if( convertedException != null )
-                    {
-                        break;
-                    }
-                }
-            }
+            var registeredFaultHandler = this.Channel.Options.RegisteredFaultHandler;
+            var faultException = methodDef.FaultHandler.TryCreateFaultException(error, actualSerializer)
+                ?? registeredFaultHandler.CreateFaultException(error, actualSerializer);
+
+            var convertedException = methodDef.FaultHandler.TryConvertException(faultException)
+                ?? registeredFaultHandler.TryConvertException(faultException);
 
             throw convertedException ?? faultException;
         }

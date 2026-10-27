@@ -124,6 +124,39 @@ namespace SciTech.Rpc.Tests
     }
 
 
+    /// <summary>
+    /// Operations that throw exceptions which are converted by exception converters, applied by a converter attribute or
+    /// registered in the options.
+    /// </summary>
+    [RpcService]
+    public interface IConverterFaultsService
+    {
+        /// <summary>
+        /// Throws a <see cref="DeclaredFaultException"/>. The fault is only declared by the converter attribute.
+        /// </summary>
+        [RpcFaultConverter(typeof(DeclaredFaultExceptionConverter))]
+        void GenerateConverterAttributeFault();
+
+        /// <summary>
+        /// Throws a <see cref="DeclaredFaultException"/>, without any fault attributes.
+        /// </summary>
+        void GenerateDetailsException();
+
+        /// <summary>
+        /// Throws a <see cref="MathException"/>, without any fault attributes.
+        /// </summary>
+        void GenerateMathException();
+    }
+
+    public class ConverterFaultsServiceImpl : IConverterFaultsService
+    {
+        public void GenerateConverterAttributeFault() => throw new DeclaredFaultException("Converted fault.", "Converted details");
+
+        public void GenerateDetailsException() => throw new DeclaredFaultException("Converted fault.", "Converted details");
+
+        public void GenerateMathException() => throw new MathException("Math fault.");
+    }
+
     [RpcService]
     [RpcFaultConverter("MathFault", typeof(MathException))]
     public interface IMathFaultsService

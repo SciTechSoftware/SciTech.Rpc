@@ -72,20 +72,28 @@ namespace SciTech.Rpc.Server.Internal
         {
         }
 
+        /// <summary>
+        /// Gets a value indicating whether a fault with <paramref name="faultCode"/> and <paramref name="detailsType"/> is
+        /// declared, i.e. whether its details can be sent to the client. A fault is declared by a fault attribute, or by an
+        /// exception converter that creates it (from a converter attribute, or registered in the options).
+        /// </summary>
         public bool IsFaultDeclared(string faultCode, Type? detailsType)
         {
             foreach (var pair in this.faultCodeToDetails)
             {
                 if (pair.FaultCode == faultCode)
                 {
-                    // It's declared
-                    if (!Equals(pair.DetailsType, detailsType))
-                    {
-                        // But with another details type.
-                        return false;
-                    }
+                    // It's declared, but maybe with another details type.
+                    return Equals(pair.DetailsType, detailsType);
+                }
+            }
 
-                    return true;
+            foreach (var converter in this.converters)
+            {
+                if (converter.FaultCode == faultCode)
+                {
+                    // The client can only deserialize the details if it has the same converter, or declares the fault.
+                    return Equals(converter.FaultDetailsType, detailsType);
                 }
             }
 

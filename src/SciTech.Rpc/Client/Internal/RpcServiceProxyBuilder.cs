@@ -192,24 +192,7 @@ namespace SciTech.Rpc.Client.Internal
         }
 
         private static IRpcFaultExceptionFactory CreateFaultExceptionFactory(string faultCode, Type? faultType)
-        {
-            ConstructorInfo converterCtor;
-            if (faultType != null)
-            {
-                var faultConverterType = typeof(RpcFaultExceptionFactory<>).MakeGenericType(faultType);
-                converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) })
-                    ?? throw new NotImplementedException($"{faultConverterType.Name} constructor not found.");
-            }
-            else
-            {
-                var faultConverterType = typeof(RpcFaultExceptionFactory);
-                converterCtor = faultConverterType.GetConstructor(new Type[] { typeof(string) })
-                    ?? throw new NotImplementedException($"{nameof(RpcFaultExceptionFactory)} constructor not found.");
-            }
-
-            var converter = (IRpcFaultExceptionFactory)converterCtor.Invoke(new object[] { faultCode });
-            return converter;
-        }
+            => RpcClientFaultHandler.CreateFaultExceptionFactory(faultCode, faultType);
 
         private static RpcClientFaultHandler CreateFaultHandlerFromAttributes(RpcClientFaultHandler? baseHandler, IEnumerable<Attribute> attributes)
         {
@@ -224,9 +207,18 @@ namespace SciTech.Rpc.Client.Internal
                 }
                 else if (attribute is RpcFaultConverterAttribute converterAttribute)
                 {
-                    converters.Add(CreateClientExceptionConverter(converterAttribute));
+                    var converter = CreateClientExceptionConverter(converterAttribute);
+                    converters.Add(converter);
 
-                    factories.Add(CreateFaultExceptionFactory(converterAttribute.FaultCode!, null)); // converterAttribute.FaultType)); ;
+                    // The converter attribute also declares the fault, with the fault details of a custom converter.
+                    if (RpcClientFaultHandler.TryCreateFaultExceptionFactory(converter) is IRpcFaultExceptionFactory converterFactory)
+                    {
+                        factories.Add(converterFactory);
+                    }
+                    else if (!string.IsNullOrEmpty(converterAttribute.FaultCode))
+                    {
+                        factories.Add(CreateFaultExceptionFactory(converterAttribute.FaultCode!, null));
+                    }
                 }
             }
 

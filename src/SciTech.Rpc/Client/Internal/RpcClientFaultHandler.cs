@@ -11,9 +11,11 @@
 
 using SciTech.Rpc.Internal;
 using SciTech.Rpc.Serialization;
+using SciTech.Rpc.Server;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Reflection;
 
 namespace SciTech.Rpc.Client.Internal
 {
@@ -99,39 +101,85 @@ namespace SciTech.Rpc.Client.Internal
             this.customExceptionConverters = faultExceptionConverters.ToImmutableArray();
         }
 
-        internal RpcFaultException CreateFaultException(RpcError error, IRpcSerializer serializer)
+        /// <summary>
+        /// Creates a fault handler for the exception converters registered in the client options. A converter that also
+        /// implements <see cref="IRpcServerExceptionConverter"/>, e.g. <see cref="RpcExceptionConverter{TException, TFault}"/>,
+        /// declares its fault, so that the fault details can be deserialized.
+        /// </summary>
+        internal static RpcClientFaultHandler CreateRegisteredFaultHandler(IEnumerable<IRpcClientExceptionConverter> exceptionConverters)
         {
-            RpcFaultException? faultException = null;
-            bool matched = false;
-            foreach( var factory in this.faultExceptionFactories )
+            var factories = new List<IRpcFaultExceptionFactory>();
+            var converters = new List<IRpcClientExceptionConverter>();
+            foreach (var converter in exceptionConverters)
             {
-                if( factory.FaultCode == error.ErrorCode)
+                converters.Add(converter);
+                if (TryCreateFaultExceptionFactory(converter) is IRpcFaultExceptionFactory factory)
                 {
-                    matched = true;
+                    factories.Add(factory);
+                }
+            }
+
+            return converters.Count > 0 ? new RpcClientFaultHandler(null, factories, converters) : Empty;
+        }
+
+        internal static IRpcFaultExceptionFactory CreateFaultExceptionFactory(string faultCode, Type? faultType)
+        {
+            ConstructorInfo factoryCtor;
+            if (faultType != null)
+            {
+                var factoryType = typeof(RpcFaultExceptionFactory<>).MakeGenericType(faultType);
+                factoryCtor = factoryType.GetConstructor(new Type[] { typeof(string) })
+                    ?? throw new NotImplementedException($"{factoryType.Name} constructor not found.");
+            }
+            else
+            {
+                factoryCtor = typeof(RpcFaultExceptionFactory).GetConstructor(new Type[] { typeof(string) })
+                    ?? throw new NotImplementedException($"{nameof(RpcFaultExceptionFactory)} constructor not found.");
+            }
+
+            return (IRpcFaultExceptionFactory)factoryCtor.Invoke(new object[] { faultCode });
+        }
+
+        /// <summary>
+        /// Creates the factory of the fault that <paramref name="converter"/> converts, if the converter declares its fault
+        /// code (by also implementing <see cref="IRpcServerExceptionConverter"/>).
+        /// </summary>
+        internal static IRpcFaultExceptionFactory? TryCreateFaultExceptionFactory(IRpcClientExceptionConverter converter)
+            => converter is IRpcServerExceptionConverter declaringConverter && !string.IsNullOrEmpty(declaringConverter.FaultCode)
+                ? CreateFaultExceptionFactory(declaringConverter.FaultCode, declaringConverter.FaultDetailsType)
+                : null;
+
+        internal RpcFaultException CreateFaultException(RpcError error, IRpcSerializer serializer)
+            => this.TryCreateFaultException(error, serializer) ?? new RpcFaultException(error.ErrorCode ?? "", error.Message ?? "");
+
+        /// <summary>
+        /// Creates the fault exception of <paramref name="error"/>, if its fault is declared by this handler.
+        /// </summary>
+        /// <returns>The fault exception, or <c>null</c> if the fault is not declared.</returns>
+        internal RpcFaultException? TryCreateFaultException(RpcError error, IRpcSerializer serializer)
+        {
+            foreach (var factory in this.faultExceptionFactories)
+            {
+                if (factory.FaultCode == error.ErrorCode)
+                {
                     if (factory.FaultDetailsType != null)
                     {
                         if (error.ErrorDetails != null)
                         {
                             object? details = serializer.Deserialize(error.ErrorDetails, factory.FaultDetailsType);
 
-                            faultException = factory.CreateFaultException(error.Message ?? "", details);
+                            return factory.CreateFaultException(error.Message ?? "", details);
                         }
-                    }
-                    else
-                    {
-                        faultException = factory.CreateFaultException(error.Message ?? "", null);
+
+                        // A declared fault without details.
+                        return new RpcFaultException(error.ErrorCode ?? "", error.Message ?? "");
                     }
 
-                    break;
+                    return factory.CreateFaultException(error.Message ?? "", null);
                 }
             }
 
-            if( !matched && baseHandler != null )
-            {
-                faultException = baseHandler.CreateFaultException(error, serializer);
-            }
-            
-            return faultException ?? new RpcFaultException(error.ErrorCode ?? "", error.Message ?? "");
+            return this.baseHandler?.TryCreateFaultException(error, serializer);
         }
 
         internal Exception? TryConvertException(RpcFaultException faultException)

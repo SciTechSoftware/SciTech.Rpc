@@ -926,7 +926,11 @@ namespace SciTech.Rpc.Server.Internal
 
             if (faultException != null && faultException.DetailsType is Type detailsType)
             {
-                if (declaredFaultHandler == null || !declaredFaultHandler.IsFaultDeclared(faultException.FaultCode, detailsType))
+                // The fault is declared by the operation or service (by a fault attribute or a converter attribute), or by
+                // a registered exception converter, which must then also be registered on the client.
+                bool isDeclared = (declaredFaultHandler?.IsFaultDeclared(faultException.FaultCode, detailsType) ?? false)
+                    || (this.CustomFaultHandler?.IsFaultDeclared(faultException.FaultCode, detailsType) ?? false);
+                if (!isDeclared)
                 {
                     // Cannot use this one since the fault type is not declared or does not match.
                     // Let's strip away the fault details and throw a plain RpcFaultException.

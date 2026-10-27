@@ -525,9 +525,10 @@ namespace SciTech.Rpc.Lightweight.Server
                 }
                 else
                 {
-                    // TODO: Implement IncludeExceptionDetailInFaults
+                    // TODO: Implement IncludeExceptionDetailInFaults (as in WCF), to optionally send the exception
+                    // information back to the client, and mention it in the message.
                     string message = $"The server was unable to process the request for operation '{operationName}' due to an internal error. "
-                        + "For more information about the error, turn on IncludeExceptionDetailInFaults to send the exception information back to the client.";
+                        + "To return error information to the client, declare a fault with RpcFaultAttribute, or use an exception converter.";
                     return this.WriteFailureResponseAsync(messageId, operation, message, RpcFailure.Unknown, serializer);
                 }
             }

@@ -45,6 +45,10 @@ packages and parts of the public API, and the Lightweight discovery protocol.
   a server, e.g. its version. They're provided by discovery and by `GetServerInfoAsync`.
 * **`IRpcChannel.GetServerInfoAsync()`** returns the id, display name, properties and published singleton services
   of the server, over the authenticated connection.
+* **Exception converters declare their faults.** A converter with fault details, e.g. derived from
+  `RpcExceptionConverter<TException, TFault>`, works when applied with `[RpcFaultConverter]`, or when registered in
+  the options on both sides, without also declaring the fault with `[RpcFault]`. Before, the details were dropped and
+  the client got a plain `RpcFaultException`. See [Exception handling](docs/exception-handling.md).
 * **`[RpcKnownType]`** declares the known types of polymorphic serialization, for all serializers.
 * **Lightweight protocol specification**, in [docs/lightweight-protocol.md](docs/lightweight-protocol.md).
 * `SilentStreamingCancellation` option, connection priorities in `RpcConnectionManager`, the connection state

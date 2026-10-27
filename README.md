@@ -185,15 +185,19 @@ singleton, and by `TryCastAsync` for an object.
 
 ## Errors and faults
 
-An exception thrown by a service implementation reaches the client as an `RpcFailureException`, with only the
-exception message. To provide more detailed error information, an operation, or a whole service, can declare
-faults with the `[RpcFault]` attribute, similar to `[FaultContract]` in WCF. The implementation then throws an
-`RpcFaultException<TFault>`, which reaches the client with its fault details.
+An exception thrown by a service implementation is not sent to the client: the client gets an
+`RpcFailureException` with a generic message. To return error information, the exception is turned into an RPC
+fault, with a fault code, a message and optional details:
 
-Exception converters, implemented by deriving from `RpcExceptionConverter<TException, TFault>`, convert ordinary
-exceptions to faults on the server side, and back to exceptions on the client side. They're registered in
-`RpcServerOptions.ExceptionConverters` and `RpcClientOptions.ExceptionConverters`, or with the
-`[RpcFaultConverter]` attribute. Faults are handled the same way for unary and streaming operations.
+* **Exception converters** convert an ordinary exception to a fault on the server side, and back to the exception
+  on the client side, e.g. `[RpcFaultConverter("DeviceAction", typeof(DeviceActionException))]` on a service or an
+  operation. Converters that apply to all services are registered in `RpcServerOptions.ExceptionConverters` and
+  `RpcClientOptions.ExceptionConverters`.
+* **Declared faults** are declared with `[RpcFault(typeof(TFault))]`, similar to `[FaultContract]` in WCF. The
+  implementation throws an `RpcFaultException<TFault>`, which reaches the client with its details.
+
+Faults are handled the same way for all kinds of operations, including streaming operations. See
+[Exception handling](https://github.com/SciTechSoftware/SciTech.Rpc/blob/master/docs/exception-handling.md) for the details.
 
 The framework throws these exceptions:
 

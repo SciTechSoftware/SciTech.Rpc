@@ -90,7 +90,9 @@ returned to clients, similar to an `ObjRef` in .NET Remoting:
 
 ```csharp
 var server = new LightweightRpcServer();
-server.AddEndPoint(new TcpRpcEndPoint("localhost", 50052, false));
+
+// Clients connect to "localhost", and the server only listens on the loopback address.
+server.AddEndPoint(new TcpRpcEndPoint("localhost", "127.0.0.1", 50052, false));
 
 // Singletons are accessed by service name.
 server.PublishSingleton<IThermostatService>(new ThermostatService());
@@ -105,6 +107,12 @@ RpcObjectRef<ISensorService> sensorRef = publishedSensor.Value;
 
 await server.ShutdownAsync();
 ```
+
+The first argument of `TcpRpcEndPoint` is the host name that clients use to connect, and the second the IP address
+to listen on. To allow connections from other machines, listen on all network interfaces instead, with
+`bindToAllInterfaces: true`, and require authentication (see [Authentication](#authentication)). Listening on a host
+name, without an IP address and with `bindToAllInterfaces: false`, is not recommended, since a host name may resolve
+to several addresses, but only one of them is used.
 
 The service interfaces are registered with an `RpcServiceDefinitionsBuilder`. Publishing a service registers its
 interfaces automatically, but registration is only possible before the server is started. A service returned by an

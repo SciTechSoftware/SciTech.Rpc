@@ -45,42 +45,100 @@ namespace SciTech.Rpc.Lightweight.Server
 
         private readonly ImmutableArrayList<AuthenticationServerOptions> authenticationOptions;
 
+        /// <summary>
+        /// Initializes an end point that listens on <paramref name="port"/>, either on all network interfaces, or on the
+        /// address of <paramref name="hostName"/>.
+        /// </summary>
+        /// <param name="hostName">The host name that clients use to connect to the server. It's provided in the connection
+        /// info of the end point, e.g. by discovery. If <paramref name="bindToAllInterfaces"/> is <c>false</c>, it's also
+        /// the address to listen on, which is not recommended for a host name (see the remarks).</param>
+        /// <param name="port">The TCP port to listen on.</param>
+        /// <param name="bindToAllInterfaces"><c>true</c> to listen on all network interfaces, for both IPv4 and IPv6, e.g.
+        /// to allow connections from other machines. <c>false</c> to only listen on the address of <paramref name="hostName"/>.</param>
+        /// <param name="authenticationOptions">Supported authentication options. If <c>null</c>, then anonymous authentication will be used.</param>
+        /// <remarks>
+        /// <para>
+        /// Using a host name as the address to listen on, i.e. with <paramref name="bindToAllInterfaces"/> <c>false</c>, is
+        /// not recommended. A host name may resolve to several addresses, but the end point only listens on one of them:
+        /// an IPv4 address if there is one, otherwise an IPv6 address. E.g. "localhost" only listens on 127.0.0.1, not on
+        /// ::1. Instead, provide the IP address to listen on with
+        /// <see cref="TcpRpcEndPoint(string, string, int, bool, AuthenticationServerOptions?)"/>, e.g. "127.0.0.1" to only
+        /// allow connections from the local machine, or listen on all network interfaces.
+        /// </para>
+        /// <para>
+        /// An end point that allows connections from other machines should require authentication, e.g. with
+        /// <see cref="SslServerOptions"/> or <see cref="NegotiateServerOptions"/>.
+        /// </para>
+        /// </remarks>
         public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, AuthenticationServerOptions? authenticationOptions = null)
             : this(hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces), CreateAuthenticationOptions(authenticationOptions))
         {
         }
 
+        /// <summary>
+        /// Initializes an end point that listens on <paramref name="port"/>, either on all network interfaces, or on
+        /// <paramref name="endPointAddress"/>.
+        /// </summary>
+        /// <param name="hostName">The host name that clients use to connect to the server. It's provided in the connection
+        /// info of the end point, e.g. by discovery.</param>
+        /// <param name="endPointAddress">The IP address to listen on, e.g. "127.0.0.1", if <paramref name="bindToAllInterfaces"/>
+        /// is <c>false</c>. A host name is also accepted, but not recommended (see the remarks of
+        /// <see cref="TcpRpcEndPoint(string, int, bool, AuthenticationServerOptions?)"/>).</param>
+        /// <param name="port">The TCP port to listen on.</param>
+        /// <param name="bindToAllInterfaces"><c>true</c> to listen on all network interfaces, for both IPv4 and IPv6, e.g.
+        /// to allow connections from other machines. <c>false</c> to only listen on <paramref name="endPointAddress"/>.</param>
+        /// <param name="authenticationOptions">Supported authentication options. If <c>null</c>, then anonymous authentication will be used.</param>
         public TcpRpcEndPoint(string hostName, string endPointAddress, int port, bool bindToAllInterfaces, AuthenticationServerOptions? authenticationOptions = null)
             : this(hostName, CreateNetEndPoint(endPointAddress, port, bindToAllInterfaces), CreateAuthenticationOptions(authenticationOptions))
         {
         }
 
         /// <summary>
-        ///
+        /// Initializes an end point that listens on <paramref name="endPoint"/>.
         /// </summary>
-        /// <param name="hostName"></param>
-        /// <param name="endPoint"></param>
+        /// <param name="hostName">The host name that clients use to connect to the server. It's provided in the connection
+        /// info of the end point, e.g. by discovery.</param>
+        /// <param name="endPoint">The IP address and port to listen on.</param>
         /// <param name="authenticationOptions">Supported authentication options. If <c>null</c>, then anonymous authentication will be used.</param>
         public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, AuthenticationServerOptions? authenticationOptions = null)
             : this(hostName, endPoint, CreateAuthenticationOptions(authenticationOptions))
         {
         }
 
+        /// <inheritdoc cref="TcpRpcEndPoint(string, int, bool, AuthenticationServerOptions?)"/>
+        /// <param name="hostName">The host name that clients use to connect to the server. It's provided in the connection
+        /// info of the end point, e.g. by discovery. If <paramref name="bindToAllInterfaces"/> is <c>false</c>, it's also
+        /// the address to listen on, which is not recommended for a host name (see the remarks).</param>
+        /// <param name="port">The TCP port to listen on.</param>
+        /// <param name="bindToAllInterfaces"><c>true</c> to listen on all network interfaces, for both IPv4 and IPv6, e.g.
+        /// to allow connections from other machines. <c>false</c> to only listen on the address of <paramref name="hostName"/>.</param>
+        /// <param name="authenticationOptions">Supported authentication options. If <c>null</c> or empty, then anonymous authentication will be used.</param>
         public TcpRpcEndPoint(string hostName, int port, bool bindToAllInterfaces, IReadOnlyCollection<AuthenticationServerOptions>? authenticationOptions)
             : this(hostName, CreateNetEndPoint(hostName, port, bindToAllInterfaces), authenticationOptions)
         {
         }
 
+        /// <inheritdoc cref="TcpRpcEndPoint(string, string, int, bool, AuthenticationServerOptions?)"/>
+        /// <param name="hostName">The host name that clients use to connect to the server. It's provided in the connection
+        /// info of the end point, e.g. by discovery.</param>
+        /// <param name="endPointAddress">The IP address to listen on, e.g. "127.0.0.1", if <paramref name="bindToAllInterfaces"/>
+        /// is <c>false</c>. A host name is also accepted, but not recommended (see the remarks of
+        /// <see cref="TcpRpcEndPoint(string, int, bool, AuthenticationServerOptions?)"/>).</param>
+        /// <param name="port">The TCP port to listen on.</param>
+        /// <param name="bindToAllInterfaces"><c>true</c> to listen on all network interfaces, for both IPv4 and IPv6, e.g.
+        /// to allow connections from other machines. <c>false</c> to only listen on <paramref name="endPointAddress"/>.</param>
+        /// <param name="authenticationOptions">Supported authentication options. If <c>null</c> or empty, then anonymous authentication will be used.</param>
         public TcpRpcEndPoint(string hostName, string endPointAddress, int port, bool bindToAllInterfaces, IReadOnlyCollection<AuthenticationServerOptions>? authenticationOptions)
             : this(hostName, CreateNetEndPoint(endPointAddress, port, bindToAllInterfaces), authenticationOptions)
         {
         }
 
         /// <summary>
-        ///
+        /// Initializes an end point that listens on <paramref name="endPoint"/>.
         /// </summary>
-        /// <param name="hostName"></param>
-        /// <param name="endPoint"></param>
+        /// <param name="hostName">The host name that clients use to connect to the server. It's provided in the connection
+        /// info of the end point, e.g. by discovery.</param>
+        /// <param name="endPoint">The IP address and port to listen on.</param>
         /// <param name="authenticationOptions">Supported authentication options. If <c>null</c> or empty, then anonymous authentication will be used.</param>
         public TcpRpcEndPoint(string hostName, IPEndPoint endPoint, IReadOnlyCollection<AuthenticationServerOptions>? authenticationOptions = null)
         {
@@ -134,21 +192,26 @@ namespace SciTech.Rpc.Lightweight.Server
             }
             else
             {
-                // TODO: Should this really be allowed? If there's more than one matching address
-                // it's not possible to know which one is selected.
+                // A host name may resolve to several addresses, but only one is listened on. This is not recommended
+                // (see the constructor documentation), but it's deterministic: an IPv4 address is preferred, since
+                // TcpRpcConnection connects to the IPv4 address of a host name. E.g. "localhost" resolves to ::1 first
+                // on Windows, and listening on ::1 would make the server unreachable for a client using "localhost".
                 var addresses = Dns.GetHostAddresses(serverAddress);
 
                 if (addresses?.Length > 0)
                 {
                     var networkInterfaces = NetworkInterface.GetAllNetworkInterfaces();
-                    foreach (var address in addresses)
+                    var usableAddresses = addresses
+                        .Where(address => networkInterfaces
+                            .FirstOrDefault(i => i.GetIPProperties().UnicastAddresses.Any(a => Equals(a.Address, address)))
+                            ?.OperationalStatus == OperationalStatus.Up)
+                        .ToList();
+
+                    var selectedAddress = usableAddresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)
+                        ?? usableAddresses.FirstOrDefault();
+                    if (selectedAddress != null)
                     {
-                        var ni = networkInterfaces.FirstOrDefault(i => i.GetIPProperties().UnicastAddresses.Any(a => Equals(a.Address, address)));
-                        if (ni?.OperationalStatus == OperationalStatus.Up)
-                        {
-                            // This interface looks usable. (But maybe we should see if there's more than one usable interface?)
-                            return new IPEndPoint(address, port);
-                        }
+                        return new IPEndPoint(selectedAddress, port);
                     }
                 }
 

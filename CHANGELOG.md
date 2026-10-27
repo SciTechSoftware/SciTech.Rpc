@@ -62,6 +62,9 @@ packages and parts of the public API, and the Lightweight discovery protocol.
 * Lightweight discovery works on Linux and with IPv6, and responses no longer get fragmented.
 * NetGrpc calls that fail after their deadline are reported as timeouts, and NetGrpc streaming cancellation, event
   errors, message size limits and option propagation are fixed.
+* A `TcpRpcEndPoint` that listens on a host name, e.g. "localhost", prefers an IPv4 address. It listened on the first
+  resolved address, e.g. ::1, which made it unreachable for clients connecting to the same host name. Listening on a
+  host name is not recommended: use an IP address, or listen on all interfaces.
 * A Lightweight connection is reset when a write fails, and the client receive loop no longer waits for itself
   when closing.
 * Proxies are generated in a non-collectible assembly, which fixes crashes on .NET Framework x64.

@@ -1,0 +1,5 @@
+apiRules:
+  # The .Internal namespaces are public for technical reasons, but are not part of the supported API.
+  - exclude:
+      uidRegex: ^SciTech\.Rpc(\..+)?\.Internal(\..+)?$
+      type: Namespace

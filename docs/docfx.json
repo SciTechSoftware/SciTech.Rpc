@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "../src",
+          "files": [
+            "SciTech.Rpc/SciTech.Rpc.csproj",
+            "SciTech.Rpc.Lightweight/SciTech.Rpc.Lightweight.csproj",
+            "SciTech.Rpc.NetGrpc/SciTech.Rpc.NetGrpc.csproj",
+            "SciTech.Rpc.NetGrpc.Client/SciTech.Rpc.NetGrpc.Client.csproj",
+            "SciTech.Rpc.Protobuf/SciTech.Rpc.Protobuf.csproj",
+            "SciTech.Rpc.DataContract/SciTech.Rpc.DataContract.csproj",
+            "SciTech.Rpc.Resources/SciTech.Rpc.Resources.csproj"
+          ]
+        }
+      ],
+      "dest": "api",
+      "filter": "filterConfig.yml",
+      "properties": {
+        "TargetFramework": "net10.0"
+      }
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [ "api/**.yml", "api/index.md" ]
+      },
+      {
+        "files": [ "*.md", "toc.yml" ]
+      }
+    ],
+    "output": "_site",
+    "template": [ "default", "modern" ],
+    "globalMetadata": {
+      "_appName": "SciTech.Rpc",
+      "_appTitle": "SciTech.Rpc",
+      "_enableSearch": true
+    }
+  }
+}

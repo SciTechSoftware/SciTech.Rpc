@@ -236,6 +236,13 @@ dotnet test --configuration Release --framework net8.0
 
 The tests use fixed TCP ports, so run one target framework at a time.
 
+The documentation site, with the articles in `docs` and the API reference, is built with
+[docfx](https://dotnet.github.io/docfx/) into `docs/_site`:
+
+```
+dotnet dnx docfx docs/docfx.json
+```
+
 ## Feedback and contributions
 
 Feedback, issues and pull requests are welcome. Use the GitHub issues and pull requests, or

@@ -51,6 +51,8 @@ packages and parts of the public API, and the Lightweight discovery protocol.
   the client got a plain `RpcFaultException`. See [Exception handling](docs/exception-handling.md).
 * **`[RpcKnownType]`** declares the known types of polymorphic serialization, for all serializers.
 * **Lightweight protocol specification**, in [docs/lightweight-protocol.md](docs/lightweight-protocol.md).
+* **`EventForwarder`** in SciTech.Core forwards the subscriptions to an event of another object, with its own sender
+  and optionally converted event args, e.g. for a service implementation that exposes an event of the object it wraps.
 * `SilentStreamingCancellation` option, connection priorities in `RpcConnectionManager`, the connection state
   `Connecting`, and the end point and established connection in `IRpcServerContext`.
 
